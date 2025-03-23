@@ -27,7 +27,7 @@ export default function NoteBlock() {
 
   return (
     <>
-      <div className={`col-span-9 min-w-full`}>
+      <div className={`col-span-12 sm:col-span-9 min-w-full`}>
         <TextBlock
           value={noteContent}
           onChange={handleChange}
@@ -36,7 +36,7 @@ export default function NoteBlock() {
       </div>
 
       <div
-        className={`col-span-3 flex flex-col justify-center gap-2 text-xl text-neutral-400/70 font-light capitalize`}
+        className={`col-span-12 sm:col-span-3 flex flex-col justify-center gap-2 text-xl text-neutral-400/70 font-light capitalize`}
       >
         <p className={`flex items-center gap-1`}>
           <span className={`text-mercedes-primary font-normal text-2xl`}>
