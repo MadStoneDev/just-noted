@@ -113,13 +113,13 @@ export default function JustNotes() {
   }
 
   return (
-    <main className={`grid grid-cols-12 gap-4`}>
+    <main className={`grid grid-cols-12 gap-3`}>
       <section className={`col-span-12 flex items-center justify-end`}>
         <button
           type={`button`}
           onClick={handleAddNote}
           disabled={animating}
-          className={`p-1 inline-flex items-center gap-2 rounded-xl border border-neutral-400 hover:border-mercedes-primary hover:bg-mercedes-primary transition-all duration-300 ease-in-out ${
+          className={`px-2 py-1 cursor-pointer inline-flex items-center gap-2 rounded-xl border border-neutral-400 hover:border-mercedes-primary hover:bg-mercedes-primary transition-all duration-300 ease-in-out ${
             animating ? "opacity-50 cursor-not-allowed" : ""
           }`}
         >

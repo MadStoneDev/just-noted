@@ -226,7 +226,7 @@ export default function NoteBlock({
     >
       <article className={`flex gap-2 items-center`}>
         <div
-          className={`group flex gap-2 items-center h-10 font-semibold uppercase`}
+          className={`group flex gap-2 items-center h-4 font-semibold uppercase`}
         >
           {editingTitle ? (
             <div className="flex items-center gap-2">
@@ -285,7 +285,7 @@ export default function NoteBlock({
       {/* Note Content */}
       <article className={`grid grid-cols-12 gap-4`}>
         <div
-          className={`col-span-12 sm:col-span-8 md:col-span-9 xl:col-span-10`}
+          className={`col-span-12 sm:col-span-8 md:col-span-9 3xl:col-span-10`}
         >
           <TextBlock
             value={noteContent}
@@ -295,10 +295,10 @@ export default function NoteBlock({
         </div>
 
         <div
-          className={`p-4 col-span-12 sm:col-span-4 md:col-span-3 xl:col-span-2 grid grid-cols-3 sm:flex sm:flex-col justify-center gap-2 bg-neutral-300 rounded-xl text-sm xs:text-lg sm:text-xl text-neutral-500/70 font-light capitalize`}
+          className={`p-4 col-span-12 sm:col-span-4 md:col-span-3 3xl:col-span-2 grid grid-cols-3 sm:flex sm:flex-col justify-start gap-2 bg-neutral-300 rounded-xl text-sm xs:text-lg sm:text-xl text-neutral-500/70 font-light capitalize`}
         >
           <p
-            className={`p-1 xs:p-2 col-span-3 xs:col-span-1 flex xs:flex-col lg:flex-row items-center justify-center gap-1 xs:gap-0 lg:gap-1 rounded-xl border border-neutral-400`}
+            className={`p-1 xs:p-2 col-span-3 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-1 xs:gap-0 lg:gap-1 rounded-xl border border-neutral-400`}
           >
             <span
               className={`text-mercedes-primary text-lg xs:text-xl sm:text-2xl font-medium`}
@@ -309,7 +309,7 @@ export default function NoteBlock({
           </p>
 
           <p
-            className={`p-1 xs:p-2 col-span-3 xs:col-span-1 flex xs:flex-col lg:flex-row items-center justify-center gap-1 xs:gap-0 lg:gap-1 rounded-xl border border-neutral-400`}
+            className={`p-1 xs:p-2 col-span-3 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-1 xs:gap-0 lg:gap-1 rounded-xl border border-neutral-400`}
           >
             <span
               className={`text-mercedes-primary text-lg xs:text-xl sm:text-2xl font-medium`}

@@ -50,7 +50,7 @@ export default function TextBlock({
   return (
     <div
       ref={contentRef}
-      className={`py-3 px-4 min-h-[200px] max-h-[600px] bg-white rounded-xl shadow-lg shadow-transparent hover:shadow-neutral-300 focus:shadow-neutral-300 outline-2 outline-transparent focus:outline-mercedes-primary font-light overflow-y-auto ${className} transition-all duration-300 ease-in-out`}
+      className={`py-3 px-4 min-h-[250px] max-h-[600px] bg-white rounded-xl shadow-lg shadow-transparent hover:shadow-neutral-300 focus:shadow-neutral-300 outline-2 outline-transparent focus:outline-mercedes-primary font-light overflow-y-auto ${className} transition-all duration-300 ease-in-out`}
       contentEditable={true}
       onInput={handleInput}
       suppressContentEditableWarning={true}
