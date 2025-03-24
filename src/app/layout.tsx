@@ -27,9 +27,9 @@ export default function RootLayout({
         <header
           className={`mb-4 px-4 sm:px-8 py-4 w-full bg-mercedes-primary font-secondary z-50`}
         >
-          <p className={`text-xl`}>
+          <p className={`text-xl font-semibold`}>
             Just
-            <span className={`text-neutral-50 font-medium`}>Noted</span>
+            <span className={`text-neutral-50`}>Noted</span>
           </p>
         </header>
         {children}
