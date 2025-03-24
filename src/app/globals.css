@@ -37,11 +37,11 @@ body {
 }
 
 .animate-slide-in {
-    animation: slideInFromTop 0.5s ease-out forwards;
+    animation: slideInFromTop 0.3s ease-out forwards;
 }
 
 .animate-shift-down {
-    animation: shiftDown 0.5s ease-in-out forwards;
+    animation: shiftDown 0.3s ease-in-out forwards;
 }
 
 /* This ensures note containers have a proper stacking context */
