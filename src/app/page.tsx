@@ -1,16 +1,15 @@
-import NoteBlock from "@/components/note-block";
+import JustNotes from "@/components/just-notes";
 
 export const metadata = {
-  title: "Just Noted - ",
-  description: "Home page of the application",
+  title: "Just Noted - Distraction-Free Note Taking",
+  description:
+    "Just Noted: Where ideas flow freely. No formatting distractions, just pure writing with offline/online saving and word tools.",
 };
 
 export default function Home() {
   return (
-    <div className={`p-4 sm:p-8 w-full min-h-screen`}>
-      <main className={`grid grid-cols-12 gap-4`}>
-        <NoteBlock />
-      </main>
+    <div className={`px-4 sm:px-8 w-full min-h-screen`}>
+      <JustNotes />
       <footer
         className={`row-start-3 flex gap-[24px] flex-wrap items-center justify-center`}
       ></footer>

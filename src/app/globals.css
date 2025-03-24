@@ -1,7 +1,9 @@
 @import "tailwindcss";
 
 @theme {
+    --breakpoint-xs: 30rem;
     --font-primary: "Outfit", sans-serif;
+    --font-secondary: "Playfair Display", serif;
     --color-mercedes-primary: #03BFB5;
     --color-mercedes-secondary: #004146;
     --color-mercedes-tertiary: #949398;
