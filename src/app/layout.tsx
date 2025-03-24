@@ -1,5 +1,7 @@
 import "./globals.css";
 import { Outfit, Playfair_Display } from "next/font/google";
+
+import React from "react";
 import Link from "next/link";
 
 const outfit = Outfit({
@@ -22,17 +24,21 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`bg-neutral-200 ${outfit.variable} ${playfair.variable} antialiased`}
+        className={`bg-neutral-200  min-h-screen flex flex-col ${outfit.variable} ${playfair.variable} antialiased`}
       >
         <header
           className={`mb-4 px-4 sm:px-8 py-4 w-full bg-mercedes-primary font-secondary z-50`}
         >
-          <p className={`text-xl font-semibold`}>
+          <Link href={`/`} className={`text-xl font-semibold`}>
             Just
-            <span className={`text-neutral-50`}>Noted</span>
-          </p>
+            <span className={`text-white`}>Noted</span>
+          </Link>
         </header>
-        {children}
+
+        <main className={`flex-grow px-4 sm:px-8 w-full overflow-hidden`}>
+          {children}
+        </main>
+
         <footer className={`p-4 sm:px-8 text-xs text-neutral-400`}>
           Copyright © 2025{" "}
           <Link

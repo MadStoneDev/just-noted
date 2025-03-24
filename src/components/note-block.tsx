@@ -11,6 +11,10 @@ import {
   IconTrash,
   IconCheck,
   IconX,
+  IconDeviceFloppy,
+  IconCircleCheck,
+  IconCircleX,
+  IconLoader,
 } from "@tabler/icons-react";
 
 import {
@@ -19,6 +23,7 @@ import {
   updateNoteTitleAction,
 } from "@/app/actions/noteActions";
 
+// Keeping your original debounce logic
 const useDebounce = <T extends (...args: any[]) => any>(
   callback: T,
   delay: number,
@@ -59,66 +64,138 @@ export default function NoteBlock({
   const [themeColour, setThemeColour] = useState("bg-neutral-300");
 
   const [saveStatus, setSaveStatus] = useState("");
+  const [saveIcon, setSaveIcon] = useState<React.ReactNode | null>(null);
   const [isPending, setIsPending] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const titleInputRef = useRef<HTMLInputElement>(null);
-  const lastSavedContent = useRef(details.content);
+  const statusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // This ref stores the last content that was saved to prevent duplicate saves
+  const lastSavedContentRef = useRef(details.content);
 
   // Functions
   const updateStats = useCallback((text: string) => {
     const words: string[] = text.split(/\s+/).filter((word) => word !== "");
-
     const chars = text.replace(/<[^>]*>/g, "").trim();
-
     setWordCount(words.length);
     setCharCount(chars.length);
   }, []);
 
-  const saveNote = useCallback(
-    async (content: string) => {
-      if (content === lastSavedContent.current) return;
+  // Clear status timeout helper function
+  const clearStatusTimeout = () => {
+    if (statusTimeoutRef.current) {
+      clearTimeout(statusTimeoutRef.current);
+      statusTimeoutRef.current = null;
+    }
+  };
 
-      setSaveStatus("Saving...");
-      setIsPending(true);
+  // Set status with auto-clear after delay
+  const setStatusWithTimeout = (
+    message: string,
+    icon: React.ReactNode,
+    isError = false,
+    delay = 2000,
+  ) => {
+    clearStatusTimeout();
+    setSaveStatus(message);
+    setSaveIcon(icon);
+
+    statusTimeoutRef.current = setTimeout(() => {
+      setSaveStatus("");
+      setSaveIcon(null);
+    }, delay);
+  };
+
+  // The key fix: Only save content that has actually changed
+  const saveContent = useCallback(
+    async (content: string, isManualSave = false) => {
+      // Don't save if content hasn't changed
+      if (content === lastSavedContentRef.current && !isManualSave) {
+        return;
+      }
+
+      // Show status for both manual and background saves
+      setStatusWithTimeout(
+        "Saving...",
+        <IconLoader className="animate-spin" />,
+        false,
+        10000,
+      );
+
+      // Only update loading opacity for manual saves
+      if (isManualSave) {
+        setIsPending(true);
+      }
 
       try {
         const result = await updateNoteAction(userId, details.id, content);
+
         if (result.success) {
-          setSaveStatus("Saved");
-          lastSavedContent.current = content;
+          // Only update the lastSavedContent after successful save
+          lastSavedContentRef.current = content;
+
+          // Show success for both manual and background saves
+          setStatusWithTimeout(
+            "Saved",
+            <IconCircleCheck className="text-mercedes-primary" />,
+            false,
+            2000,
+          );
         } else {
-          setSaveStatus("Failed to save");
+          // Show failure for both manual and background saves
+          setStatusWithTimeout(
+            "Failed to save",
+            <IconCircleX className="text-red-700" />,
+            true,
+            3000,
+          );
           console.error("Failed to save note:", result.error);
         }
       } catch (error) {
-        setSaveStatus("Error saving");
+        // Show error for both manual and background saves
+        setStatusWithTimeout(
+          "Error saving",
+          <IconCircleX className="text-red-700" />,
+          true,
+          3000,
+        );
         console.error("Error saving note:", error);
       } finally {
-        setIsPending(false);
-
-        setTimeout(() => {
-          setSaveStatus("");
-        }, 2000);
+        if (isManualSave) {
+          setIsPending(false);
+        }
       }
     },
     [userId, details.id],
   );
 
-  const debouncedSaveNote = useDebounce(saveNote, 1000);
+  // Manual save function
+  const handleManualSave = () => {
+    saveContent(noteContent, true);
+  };
+
+  // Debounced auto-save - this will NOT update any UI state
+  const debouncedAutoSave = useDebounce((content: string) => {
+    saveContent(content, false);
+  }, 2000);
 
   const handleChange = useCallback(
     (value: string) => {
+      // Update local state first for responsive UI
       setNoteContent(value);
+
+      // Update stats
       const plainText = value.replace(/<[^>]*>/g, "").trim();
       updateStats(plainText);
 
-      debouncedSaveNote(value);
-      setSaveStatus("Editing...");
+      // Queue auto-save without affecting the UI
+      debouncedAutoSave(value);
     },
-    [updateStats, debouncedSaveNote],
+    [updateStats, debouncedAutoSave],
   );
 
+  // The rest of your code remains largely unchanged
   const handleDelete = async () => {
     if (window.confirm("Are you sure you want to delete this note?")) {
       setIsDeleting(true);
@@ -143,14 +220,30 @@ export default function NoteBlock({
       return;
     }
 
-    setIsPending(true);
+    setEditingTitle(false);
+    setStatusWithTimeout(
+      "Saving title...",
+      <IconLoader className="animate-spin" />,
+      false,
+      10000,
+    );
+
     try {
       await updateNoteTitleAction(userId, details.id, noteTitle);
-      setEditingTitle(false);
+      setStatusWithTimeout(
+        "Title saved",
+        <IconCircleCheck className="text-mercedes-primary" />,
+        false,
+        2000,
+      );
     } catch (error) {
       console.error("Error updating note title:", error);
-    } finally {
-      setIsPending(false);
+      setStatusWithTimeout(
+        "Title save failed",
+        <IconCircleX className="text-red-700" />,
+        true,
+        3000,
+      );
     }
   };
 
@@ -189,14 +282,20 @@ export default function NoteBlock({
   };
 
   // Effects
+  // IMPORTANT: Only run this effect once on mount, not on every render or updateStats change
   useEffect(() => {
     setNoteContent(details.content);
     setNoteTitle(details.title);
-    lastSavedContent.current = details.content;
+    lastSavedContentRef.current = details.content;
 
     const plainText = details.content.replace(/<[^>]*>/g, "").trim();
     updateStats(plainText);
-  }, [details, updateStats]);
+
+    return () => {
+      clearStatusTimeout();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array to run only on mount
 
   useEffect(() => {
     if (editingTitle && titleInputRef.current) {
@@ -226,7 +325,7 @@ export default function NoteBlock({
     >
       <article className={`flex gap-2 items-center`}>
         <div
-          className={`group flex gap-2 items-center h-4 font-semibold uppercase`}
+          className={`group flex gap-2 items-center h-6 font-semibold uppercase`}
         >
           {editingTitle ? (
             <div className="flex items-center gap-2">
@@ -276,8 +375,19 @@ export default function NoteBlock({
         ></div>
 
         {saveStatus && (
-          <div className="text-sm text-neutral-500 italic animate-pulse">
-            {saveStatus}
+          <div className="flex items-center gap-1 text-sm text-neutral-500 italic">
+            {saveIcon}
+            <span
+              className={
+                saveStatus === "Saved"
+                  ? "text-mercedes-primary"
+                  : saveStatus.includes("fail") || saveStatus.includes("Error")
+                    ? "text-red-700"
+                    : ""
+              }
+            >
+              {saveStatus}
+            </span>
           </div>
         )}
       </article>
@@ -325,7 +435,22 @@ export default function NoteBlock({
       <article className={`flex gap-2 items-center`}>
         <button
           type={`button`}
+          disabled={isPending}
+          onClick={handleManualSave}
+          title={`Save note manually`}
+          className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg border-2 border-mercedes-primary hover:bg-mercedes-primary text-neutral-800 transition-all duration-300 ease-in-out ${
+            isPending ? "opacity-50 cursor-not-allowed" : ""
+          }`}
+          onPointerEnter={() => setThemeColour("bg-mercedes-primary")}
+          onPointerLeave={() => setThemeColour("bg-neutral-300")}
+        >
+          <IconDeviceFloppy size={20} strokeWidth={2} />
+        </button>
+
+        <button
+          type={`button`}
           onClick={handleExportTxt}
+          title={`Export as text file`}
           className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg border-2 border-mercedes-primary hover:bg-mercedes-primary text-neutral-800 transition-all duration-300 ease-in-out`}
           onPointerEnter={() => setThemeColour("bg-mercedes-primary")}
           onPointerLeave={() => setThemeColour("bg-neutral-300")}
@@ -341,6 +466,7 @@ export default function NoteBlock({
           <button
             type={`button`}
             onClick={handleDelete}
+            title={`Delete this note`}
             className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg hover:bg-red-700 text-neutral-800 hover:text-neutral-100 transition-all duration-300 ease-in-out`}
             onPointerEnter={() => setThemeColour("bg-red-700")}
             onPointerLeave={() => setThemeColour("bg-neutral-300")}

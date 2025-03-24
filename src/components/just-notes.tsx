@@ -22,6 +22,7 @@ export default function JustNotes() {
   const [animating, setAnimating] = useState(false);
   const [newNoteId, setNewNoteId] = useState<string | null>(null);
   const animationTimeout = useRef<NodeJS.Timeout | null>(null);
+  const isMounted = useRef(true);
 
   // Load notes from Redis
   useEffect(() => {
@@ -30,30 +31,46 @@ export default function JustNotes() {
         const id = getUserId();
         setUserId(id);
 
+        // First, show a default note immediately (optimistic UI)
+        const optimisticNote = JSON.parse(JSON.stringify(defaultNote));
+        optimisticNote.id = generateNoteId([]);
+
+        // Show the note immediately
+        setNotes([optimisticNote]);
+        setIsLoading(false);
+
+        // Then check Redis in the background
         const result = await getNotesByUserIdAction(id);
 
-        console.log("Fetch result:", result);
-
-        if (result.success && result.notes && result.notes.length > 0) {
-          setNotes(result.notes);
-        } else {
-          const newNote = JSON.parse(JSON.stringify(defaultNote));
-          newNote.id = generateNoteId([]);
-          setNotes([newNote]);
-
-          await addNoteAction(id, newNote);
+        if (isMounted.current) {
+          if (result.success && result.notes && result.notes.length > 0) {
+            // If we have notes in Redis, use those instead
+            setNotes(result.notes);
+          } else {
+            // If no notes in Redis, save our optimistic note to Redis
+            // but don't wait for this to complete
+            addNoteAction(id, optimisticNote).catch((error) => {
+              console.error("Failed to add default note to Redis:", error);
+              // Continue showing the optimistic note even if save fails
+            });
+          }
         }
       } catch (error) {
         console.error("Failed to load notes:", error);
-        const newNote = JSON.parse(JSON.stringify(defaultNote));
-        newNote.id = generateNoteId([]);
-        setNotes([newNote]);
-      } finally {
-        setIsLoading(false);
+        // We already have the optimistic note displayed, just log the error
+
+        // Make sure we're not stuck in loading state
+        if (isMounted.current && isLoading) {
+          setIsLoading(false);
+        }
       }
     };
 
     loadNotes();
+
+    return () => {
+      isMounted.current = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -62,7 +79,7 @@ export default function JustNotes() {
     const refreshNotes = async () => {
       try {
         const result = await getNotesByUserIdAction(userId);
-        if (result.success && result.notes) {
+        if (result.success && result.notes && isMounted.current) {
           setNotes(result.notes);
         }
       } catch (error) {
@@ -70,19 +87,22 @@ export default function JustNotes() {
       }
     };
 
+    // Initial refresh
     refreshNotes();
 
+    // Set up interval for periodic refreshes
     const intervalId = setInterval(refreshNotes, 10000);
 
     return () => clearInterval(intervalId);
   }, [userId]);
 
   // Add note function
-  const handleAddNote = async () => {
+  const handleAddNote = () => {
     if (animating || !userId) return;
 
     setAnimating(true);
 
+    // Create new note and show it immediately (optimistic UI)
     const newNote = JSON.parse(JSON.stringify(defaultNote));
     newNote.id = generateNoteId(notes.map((note) => note.id));
     setNewNoteId(newNote.id);
@@ -90,19 +110,22 @@ export default function JustNotes() {
     const updatedNotes = [newNote, ...notes];
     setNotes(updatedNotes);
 
-    try {
-      await addNoteAction(userId, newNote);
-    } catch (error) {
-      console.error("Failed to add note:", error);
-    }
+    // Save note to Redis in background, don't block UI
+    addNoteAction(userId, newNote).catch((error) => {
+      console.error("Failed to add note to Redis:", error);
+      // Note remains in UI even if save fails
+    });
 
+    // Handle animation timing
     if (animationTimeout.current) {
       clearTimeout(animationTimeout.current);
     }
 
     animationTimeout.current = setTimeout(() => {
-      setAnimating(false);
-      setNewNoteId(null);
+      if (isMounted.current) {
+        setAnimating(false);
+        setNewNoteId(null);
+      }
     }, 600);
   };
 
