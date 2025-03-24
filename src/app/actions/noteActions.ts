@@ -8,7 +8,7 @@ import { Note } from "@/types/notes";
 export async function saveNotesAction(userId: string, notes: Note[]) {
   try {
     await redis.set(`notes:${userId}`, notes);
-    revalidatePath("/notes"); // Adjust path as needed
+    revalidatePath("/");
     return { success: true };
   } catch (error) {
     console.error("Failed to save notes:", error);
@@ -62,7 +62,7 @@ export async function updateNoteAction(
     await redis.set(`notes:${userId}`, updatedNotes);
 
     // Force revalidation
-    revalidatePath("/notes"); // Adjust path as needed
+    revalidatePath("/");
 
     return { success: true };
   } catch (error) {

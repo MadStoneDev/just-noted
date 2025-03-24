@@ -11,8 +11,6 @@ import {
   IconTrash,
   IconCheck,
   IconX,
-  IconClock,
-  IconBookmark,
 } from "@tabler/icons-react";
 
 import {
@@ -57,11 +55,6 @@ export default function NoteBlock({
 
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
-  const [readingTime, setReadingTime] = useState("");
-  const [readabilityScore, setReadabilityScore] = useState({
-    score: 0,
-    level: "",
-  });
 
   const [themeColour, setThemeColour] = useState("bg-neutral-300");
 
