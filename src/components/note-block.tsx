@@ -8,15 +8,21 @@ import {
   IconFileTypePdf,
   IconFileTypeTxt,
   IconPencil,
+  IconTrash,
 } from "@tabler/icons-react";
 
-export default function NoteBlock({ details }: { details: Note }) {
+export default function NoteBlock({
+  details,
+  onDelete,
+}: {
+  details: Note;
+  onDelete: (noteId: string) => void;
+}) {
   // States
   const [noteContent, setNoteContent] = useState(details.content);
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
-
-  console.log(details.id);
+  const [themeColour, setThemeColour] = useState("bg-neutral-300");
 
   // Functions
   const handleChange = (value: string) => {
@@ -32,6 +38,12 @@ export default function NoteBlock({ details }: { details: Note }) {
 
     setWordCount(words.length);
     setCharCount(chars.length);
+  };
+
+  const handleDelete = () => {
+    if (window.confirm("Are you sure you want to delete this note?")) {
+      onDelete(details.id);
+    }
   };
 
   return (
@@ -52,7 +64,9 @@ export default function NoteBlock({ details }: { details: Note }) {
           </div>
         </div>
 
-        <div className={`flex-grow h-0.5 bg-mercedes-primary`}></div>
+        <div
+          className={`flex-grow h-0.5 ${themeColour} transition-all duration-300 ease-in-out`}
+        ></div>
       </article>
 
       {/* Note Content */}
@@ -96,26 +110,45 @@ export default function NoteBlock({ details }: { details: Note }) {
 
       {/* Actions */}
       <article className={`flex gap-2 items-center`}>
-        <div className={`flex-grow h-0.5 bg-mercedes-primary`}></div>
         <button
           type={`button`}
-          className={`p-2 flex items-center justify-center gap-1 rounded-lg border-2 border-mercedes-primary hover:bg-mercedes-primary text-neutral-800 transition-all duration-300 ease-in-out`}
+          className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg border-2 border-mercedes-primary hover:bg-mercedes-primary text-neutral-800 transition-all duration-300 ease-in-out`}
+          onPointerEnter={() => setThemeColour("bg-mercedes-primary")}
+          onPointerLeave={() => setThemeColour("bg-neutral-300")}
         >
           <IconFileTypeTxt size={20} strokeWidth={2} />
         </button>
 
         <button
           type={`button`}
-          className={`p-2 flex items-center justify-center gap-1 rounded-lg border-2 border-mercedes-primary hover:bg-mercedes-primary text-neutral-800 transition-all duration-300 ease-in-out`}
+          className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg border-2 border-mercedes-primary hover:bg-mercedes-primary text-neutral-800 transition-all duration-300 ease-in-out`}
+          onPointerEnter={() => setThemeColour("bg-mercedes-primary")}
+          onPointerLeave={() => setThemeColour("bg-neutral-300")}
         >
           <IconFileTypePdf size={20} strokeWidth={2} />
         </button>
 
         <button
           type={`button`}
-          className={`p-2 flex items-center justify-center gap-1 rounded-lg border-2 border-mercedes-primary hover:bg-mercedes-primary text-neutral-800 transition-all duration-300 ease-in-out`}
+          className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg border-2 border-mercedes-primary hover:bg-mercedes-primary text-neutral-800 transition-all duration-300 ease-in-out`}
+          onPointerEnter={() => setThemeColour("bg-mercedes-primary")}
+          onPointerLeave={() => setThemeColour("bg-neutral-300")}
         >
           <IconBrandApple size={20} strokeWidth={2} />
+        </button>
+
+        <div
+          className={`flex-grow h-0.5 ${themeColour} transition-all duration-300 ease-in-out`}
+        ></div>
+
+        <button
+          type={`button`}
+          onClick={handleDelete}
+          className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg hover:bg-red-700 text-neutral-800 hover:text-neutral-100 transition-all duration-300 ease-in-out`}
+          onPointerEnter={() => setThemeColour("bg-red-700")}
+          onPointerLeave={() => setThemeColour("bg-neutral-300")}
+        >
+          <IconTrash size={20} strokeWidth={2} />
         </button>
       </article>
     </section>

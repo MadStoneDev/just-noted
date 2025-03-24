@@ -12,3 +12,40 @@
 body {
     font-family: var(--font-primary), sans-serif;
 }
+
+@keyframes slideInFromTop {
+    0% {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    100% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes shiftDown {
+    0% {
+        transform: translateY(0);
+    }
+    25% {
+        transform: translateY(40px);
+    }
+    100% {
+        transform: translateY(0);
+    }
+}
+
+.animate-slide-in {
+    animation: slideInFromTop 0.5s ease-out forwards;
+}
+
+.animate-shift-down {
+    animation: shiftDown 0.5s ease-in-out forwards;
+}
+
+/* This ensures note containers have a proper stacking context */
+.note-container {
+    position: relative;
+    z-index: 10;
+}

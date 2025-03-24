@@ -8,11 +8,11 @@ export const metadata = {
 
 export default function Home() {
   return (
-    <div className={`px-4 sm:px-8 w-full min-h-screen`}>
+    <main className={`px-4 sm:px-8 w-full min-h-screen overflow-hidden`}>
       <JustNotes />
       <footer
         className={`row-start-3 flex gap-[24px] flex-wrap items-center justify-center`}
       ></footer>
-    </div>
+    </main>
   );
 }

@@ -1,5 +1,6 @@
 import "./globals.css";
 import { Outfit, Playfair_Display } from "next/font/google";
+import Link from "next/link";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -24,7 +25,7 @@ export default function RootLayout({
         className={`bg-neutral-200 ${outfit.variable} ${playfair.variable} antialiased`}
       >
         <header
-          className={`mb-4 px-4 sm:px-8 py-4 w-full bg-mercedes-primary font-secondary`}
+          className={`mb-4 px-4 sm:px-8 py-4 w-full bg-mercedes-primary font-secondary z-50`}
         >
           <p className={`text-xl`}>
             Just
@@ -32,6 +33,15 @@ export default function RootLayout({
           </p>
         </header>
         {children}
+        <footer className={`p-4 sm:px-8 text-xs text-neutral-400`}>
+          Copyright © 2025{" "}
+          <Link
+            href={`/`}
+            className={`hover:text-mercedes-primary transition-all duration-300 ease-in-out`}
+          >
+            Just Noted
+          </Link>
+        </footer>
       </body>
     </html>
   );
