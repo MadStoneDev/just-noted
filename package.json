@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@next/third-parties": "^15.2.4",
     "@tabler/icons-react": "^3.31.0",
     "@upstash/qstash": "^2.7.22",
     "@upstash/redis": "^1.34.6",

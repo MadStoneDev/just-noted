@@ -1,4 +1,6 @@
 import "./globals.css";
+
+import { GoogleAnalytics } from "@next/third-parties/google";
 import { Outfit, Playfair_Display } from "next/font/google";
 
 import React from "react";
@@ -49,6 +51,8 @@ export default function RootLayout({
           </Link>
         </footer>
       </body>
+
+      <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID || ""} />
     </html>
   );
 }
