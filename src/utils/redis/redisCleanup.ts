@@ -6,7 +6,7 @@
 export async function cleanupOldNotes() {
   try {
     // Calculate cutoff time (6 months ago in milliseconds)
-    const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
+    const SIX_MONTHS_MS = 2 * 30 * 24 * 60 * 60 * 1000;
     const cutoffTime = Date.now() - SIX_MONTHS_MS;
 
     // The Lua script to run (same as in the cleanup-script.lua file)
