@@ -48,10 +48,12 @@ export default function NoteBlock({
   details,
   userId,
   showDelete = true,
+  onDelete,
 }: {
   details: Note;
   userId: string;
   showDelete?: boolean;
+  onDelete?: (noteId: string) => void;
 }) {
   // States
   const [noteTitle, setNoteTitle] = useState(details.title);
@@ -200,8 +202,18 @@ export default function NoteBlock({
     if (window.confirm("Are you sure you want to delete this note?")) {
       setIsDeleting(true);
       try {
-        await deleteNoteAction(userId, details.id);
-        // The revalidation in the server action will refresh the UI
+        const result = await deleteNoteAction(userId, details.id);
+
+        // If parent component has a callback for deletion, call it
+        if (onDelete && typeof onDelete === "function" && result.success) {
+          onDelete(details.id);
+          // No need to set isDeleting to false as component will unmount
+        } else {
+          // If no callback exists, wait for revalidation (fallback)
+          setTimeout(() => {
+            setIsDeleting(false);
+          }, 3000); // Timeout fallback in case revalidation takes too long
+        }
       } catch (error) {
         console.error("Error deleting note:", error);
         setIsDeleting(false);
@@ -295,7 +307,15 @@ export default function NoteBlock({
       clearStatusTimeout();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array to run only on mount
+  }, []);
+
+  useEffect(() => {
+    setNoteTitle(details.title);
+
+    return () => {
+      clearStatusTimeout();
+    };
+  }, [details.title]);
 
   useEffect(() => {
     if (editingTitle && titleInputRef.current) {

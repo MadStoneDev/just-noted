@@ -3,21 +3,21 @@
 import { revalidatePath } from "next/cache";
 
 import redis from "@/utils/redis";
-import { Note } from "@/types/notes";
 
-// Helper function to add or update timestamps
+import { Note } from "@/types/notes";
+import { incrementGlobalNoteCount } from "./counterActions";
+
 function addTimestamp(note: Note): Note {
   return {
     ...note,
-    updatedAt: Date.now(), // Current timestamp in milliseconds
+    updatedAt: Date.now(),
   };
 }
 
-// Function to check if a note is older than 6 months
 function isOlderThanSixMonths(note: Note): boolean {
   if (!note.updatedAt) return false;
 
-  const sixMonthsInMs = 6 * 30 * 24 * 60 * 60 * 1000; // Approximate 6 months in milliseconds
+  const sixMonthsInMs = 2 * 30 * 24 * 60 * 60 * 1000; // Approximate 2 months in milliseconds
   const currentTime = Date.now();
 
   return currentTime - note.updatedAt > sixMonthsInMs;
@@ -26,13 +26,20 @@ function isOlderThanSixMonths(note: Note): boolean {
 export async function deleteNoteAction(userId: string, noteId: string) {
   try {
     const currentNotes = ((await redis.get(`notes:${userId}`)) as Note[]) || [];
-
     const updatedNotes = currentNotes.filter((note) => note.id !== noteId);
 
-    await redis.set(`notes:${userId}`, updatedNotes);
+    const savePromise = redis.set(`notes:${userId}`, updatedNotes);
+    const result = { success: true, notes: updatedNotes };
 
-    revalidatePath("/");
-    return { success: true, notes: updatedNotes };
+    savePromise
+      .then(() => {
+        revalidatePath("/");
+      })
+      .catch((error) => {
+        console.error("Failed to delete note:", error);
+      });
+
+    return result;
   } catch (error) {
     console.error("Failed to delete note:", error);
     return { success: false, error: "Failed to delete note" };
@@ -82,6 +89,14 @@ export async function getNotesByUserIdAction(userId: string) {
 
 export async function addNoteAction(userId: string, newNote: Note) {
   try {
+    // Get the next note number by incrementing the global counter
+    const noteNumber = await incrementGlobalNoteCount();
+
+    // Update the note title to include the number if it's the default title
+    if (newNote.title === "Just Noted") {
+      newNote.title = `Just Noted #${noteNumber}`;
+    }
+
     const currentNotes = ((await redis.get(`notes:${userId}`)) as Note[]) || [];
 
     // Add timestamp to the new note

@@ -9,14 +9,12 @@ const generateUuid4 = () => {
 };
 
 export const generateNoteId = (existingIds: string[]) => {
-  console.log(existingIds);
   const existingUuidSet = new Set(existingIds);
 
   while (true) {
     const uuid = generateUuid4();
 
     if (!existingUuidSet.has(uuid)) {
-      console.log(uuid);
       return uuid;
     }
   }

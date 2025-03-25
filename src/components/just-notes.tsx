@@ -23,8 +23,11 @@ export default function JustNotes() {
   const [newNoteId, setNewNoteId] = useState<string | null>(null);
   const animationTimeout = useRef<NodeJS.Timeout | null>(null);
   const isMounted = useRef(true);
+  const isInitialLoad = useRef(true);
+  const optimisticNoteAdded = useRef(false);
+  const optimisticNoteId = useRef<string | null>(null);
 
-  // Load notes from Redis
+  // Load notes from Redis on initial mount
   useEffect(() => {
     const loadNotes = async () => {
       try {
@@ -34,6 +37,7 @@ export default function JustNotes() {
         // First, show a default note immediately (optimistic UI)
         const optimisticNote = JSON.parse(JSON.stringify(defaultNote));
         optimisticNote.id = generateNoteId([]);
+        optimisticNoteId.current = optimisticNote.id;
 
         // Show the note immediately
         setNotes([optimisticNote]);
@@ -48,11 +52,18 @@ export default function JustNotes() {
             setNotes(result.notes);
           } else {
             // If no notes in Redis, save our optimistic note to Redis
+            optimisticNoteAdded.current = true;
             // but don't wait for this to complete
-            addNoteAction(id, optimisticNote).catch((error) => {
-              console.error("Failed to add default note to Redis:", error);
-              // Continue showing the optimistic note even if save fails
-            });
+            addNoteAction(id, optimisticNote)
+              .then((result) => {
+                if (result.success && result.notes && isMounted.current) {
+                  setNotes(result.notes);
+                }
+              })
+              .catch((error) => {
+                console.error("Failed to add default note to Redis:", error);
+                // Continue showing the optimistic note even if save fails
+              });
           }
         }
       } catch (error) {
@@ -63,6 +74,8 @@ export default function JustNotes() {
         if (isMounted.current && isLoading) {
           setIsLoading(false);
         }
+      } finally {
+        isInitialLoad.current = false;
       }
     };
 
@@ -73,24 +86,38 @@ export default function JustNotes() {
     };
   }, []);
 
+  // Set up background refresh after initial load
   useEffect(() => {
     if (!userId) return;
 
     const refreshNotes = async () => {
       try {
         const result = await getNotesByUserIdAction(userId);
-        if (result.success && result.notes && isMounted.current) {
-          setNotes(result.notes);
+        if (result.success && isMounted.current) {
+          // Only update state if we have notes from Redis
+          // or if our optimistic note has been saved (to prevent the disappearing)
+          if (
+            (result.notes && result.notes.length > 0) ||
+            !optimisticNoteAdded.current
+          ) {
+            setNotes(result.notes || []);
+
+            // If we see our optimistic note has been saved to Redis, clear the flag
+            if (
+              optimisticNoteAdded.current &&
+              result.notes?.some((note) => note.id === optimisticNoteId.current)
+            ) {
+              optimisticNoteAdded.current = false;
+            }
+          }
         }
       } catch (error) {
         console.error("Failed to refresh notes:", error);
       }
     };
 
-    // Initial refresh
-    refreshNotes();
-
-    // Set up interval for periodic refreshes
+    // Don't refresh immediately after initial load to prevent flicker
+    // Only set up the interval for periodic refreshes
     const intervalId = setInterval(refreshNotes, 10000);
 
     return () => clearInterval(intervalId);
@@ -111,10 +138,16 @@ export default function JustNotes() {
     setNotes(updatedNotes);
 
     // Save note to Redis in background, don't block UI
-    addNoteAction(userId, newNote).catch((error) => {
-      console.error("Failed to add note to Redis:", error);
-      // Note remains in UI even if save fails
-    });
+    addNoteAction(userId, newNote)
+      .then((result) => {
+        if (result.success && result.notes && isMounted.current) {
+          setNotes(result.notes);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to add note to Redis:", error);
+        // Note remains in UI even if save fails
+      });
 
     // Handle animation timing
     if (animationTimeout.current) {
@@ -167,6 +200,11 @@ export default function JustNotes() {
               details={note}
               userId={userId || ""}
               showDelete={notes.length > 1}
+              onDelete={(noteId) => {
+                setNotes((prevNotes) =>
+                  prevNotes.filter((note) => note.id !== noteId),
+                );
+              }}
             />
           </div>
         ))}
