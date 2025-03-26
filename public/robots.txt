@@ -1,0 +1,6 @@
+﻿User-agent: *
+Disallow: /privacy-policy
+Disallow: /privacy-policy/
+
+# Allow all other pages
+Allow: /
