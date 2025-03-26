@@ -146,11 +146,13 @@ async function sendUserEmail(apiKey: string, userEmail: string) {
     });
 
     const sentFrom = new Sender("hello@justnoted.app", "Just Noted");
+    const replyTo = new Sender("no-reply@justnoted.app", "Just Noted");
     const recipients = [new Recipient(userEmail)];
 
     const emailParams = new EmailParams()
       .setFrom(sentFrom)
       .setTo(recipients)
+      .setReplyTo(replyTo)
       .setSubject("Just Noted - Thank you for your message!")
       .setTemplateId("3zxk54v195z4jy6v");
 
