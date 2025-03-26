@@ -147,14 +147,28 @@ async function sendUserEmail(apiKey: string, userEmail: string) {
 
     const sentFrom = new Sender("hello@justnoted.app", "Just Noted");
     const replyTo = new Sender("no-reply@justnoted.app", "Just Noted");
-    const recipients = [new Recipient(userEmail)];
+    // Add name parameter to recipient
+    const recipients = [new Recipient(userEmail, "User")];
+
+    // Add personalization data for the template
+    const personalization = [
+      {
+        email: userEmail,
+        data: {
+          // Add any variables your template needs here
+          // If you're not sure, add at least an empty object
+          user_email: userEmail,
+        },
+      },
+    ];
 
     const emailParams = new EmailParams()
       .setFrom(sentFrom)
       .setTo(recipients)
       .setReplyTo(replyTo)
       .setSubject("Just Noted - Thank you for your message!")
-      .setTemplateId("3zxk54v195z4jy6v");
+      .setTemplateId("3zxk54v195z4jy6v")
+      .setPersonalization(personalization); // Add this line
 
     console.log("User email params prepared");
 
@@ -166,8 +180,10 @@ async function sendUserEmail(apiKey: string, userEmail: string) {
     } catch (error: any) {
       console.error("Error sending user email:", error);
 
+      // Improve error logging
       let errorDetails = "Unknown error";
       if (error.response && error.response.data) {
+        console.error("API error response:", error.response.data);
         errorDetails = JSON.stringify(error.response.data);
       } else if (error.message) {
         errorDetails = error.message;
