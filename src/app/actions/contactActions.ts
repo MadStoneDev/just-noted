@@ -89,7 +89,7 @@ async function sendEmailToAdmin({
   const emailData = {
     template_id: templateId,
     from: {
-      email: "contact@yourdomain.com",
+      email: "hello@justnoted.app",
       name: "Contact Form",
     },
     to: [
@@ -136,7 +136,7 @@ async function sendEmailToUser(userEmail: string) {
   const emailData = {
     template_id: templateId,
     from: {
-      email: "contact@yourdomain.com",
+      email: "hello@justnoted.app",
       name: "Just Noted",
     },
     to: [

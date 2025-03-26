@@ -105,7 +105,7 @@ export default function ContactForm() {
             sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ""}
           />
 
-          {error && <div className="text-red-500 text-sm">{error}</div>}
+          {error && <div className={`text-red-700 text-sm`}>{error}</div>}
 
           <button
             type="submit"
