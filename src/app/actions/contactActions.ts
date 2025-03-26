@@ -27,27 +27,40 @@ export async function submitContactForm(formData: FormData) {
     }
 
     // Initialize MailerSend with API key
-    const mailerSend = new MailerSend({
-      apiKey: process.env.MAILERSEND_API || "",
-    });
-
-    // Send email to admin
-    try {
-      await sendEmailToAdmin(mailerSend, validatedData);
-    } catch (error) {
-      console.error("Error sending admin notification:", error);
-      return { success: false, error: "Failed to send admin notification" };
+    const apiKey = process.env.MAILERSEND_API;
+    if (!apiKey) {
+      console.error("MailerSend API key is missing");
+      return { success: false, error: "Email configuration error" };
     }
 
-    // Send confirmation email to user
     try {
-      await sendEmailToUser(mailerSend, validatedData.email);
-    } catch (error) {
-      console.error("Error sending confirmation email:", error);
-      return { success: false, error: "Failed to send confirmation email" };
-    }
+      // Send admin notification
+      const adminResult = await sendAdminEmail(
+        apiKey,
+        validatedData.name || "Anonymous",
+        validatedData.email,
+        validatedData.message,
+      );
 
-    return { success: true };
+      if (!adminResult.success) {
+        return adminResult;
+      }
+
+      // Send user confirmation
+      const userResult = await sendUserEmail(apiKey, validatedData.email);
+
+      if (!userResult.success) {
+        return userResult;
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error in email process:", error);
+      return {
+        success: false,
+        error: `Email error: ${error.message || "Unknown error"}`,
+      };
+    }
   } catch (error) {
     if (error instanceof z.ZodError) {
       const errorMessage = error.errors[0]?.message || "Form validation failed";
@@ -56,6 +69,114 @@ export async function submitContactForm(formData: FormData) {
 
     console.error("Contact form error:", error);
     return { success: false, error: "Something went wrong. Please try again." };
+  }
+}
+
+async function sendAdminEmail(
+  apiKey: string,
+  name: string,
+  email: string,
+  message: string,
+) {
+  try {
+    console.log("Sending admin notification...");
+
+    const mailerSend = new MailerSend({
+      apiKey: apiKey,
+    });
+
+    const sentFrom = new Sender("hello@justnoted.app", "Contact Form");
+    const recipients = [new Recipient("hello@justnoted.app", "Just Noted")];
+
+    // Using personalization for template data
+    const personalization = [
+      {
+        email: "hello@justnoted.app",
+        data: {
+          name: name,
+          email: email,
+          message: message,
+        },
+      },
+    ];
+
+    const emailParams = new EmailParams()
+      .setFrom(sentFrom)
+      .setTo(recipients)
+      .setReplyTo(new Sender(email, name))
+      .setTemplateId("z3m5jgr130z4dpyo")
+      .setPersonalization(personalization);
+
+    console.log("Admin email params prepared");
+
+    try {
+      console.log("Sending admin email...");
+      const response = await mailerSend.email.send(emailParams);
+      console.log("Admin email sent successfully:", response);
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error sending admin email:", error);
+
+      // Try to extract detailed error information
+      let errorDetails = "Unknown error";
+      if (error.response && error.response.data) {
+        errorDetails = JSON.stringify(error.response.data);
+      } else if (error.message) {
+        errorDetails = error.message;
+      }
+
+      return {
+        success: false,
+        error: `Failed to send admin notification: ${errorDetails}`,
+      };
+    }
+  } catch (error: any) {
+    console.error("Exception in admin email function:", error);
+    return { success: false, error: `Admin email error: ${error.message}` };
+  }
+}
+
+async function sendUserEmail(apiKey: string, userEmail: string) {
+  try {
+    console.log("Sending user confirmation...");
+
+    const mailerSend = new MailerSend({
+      apiKey: apiKey,
+    });
+
+    const sentFrom = new Sender("hello@justnoted.app", "Just Noted");
+    const recipients = [new Recipient(userEmail)];
+
+    const emailParams = new EmailParams()
+      .setFrom(sentFrom)
+      .setTo(recipients)
+      .setTemplateId("3zxk54v195z4jy6v");
+
+    console.log("User email params prepared");
+
+    try {
+      console.log("Sending user email...");
+      const response = await mailerSend.email.send(emailParams);
+      console.log("User email sent successfully:", response);
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error sending user email:", error);
+
+      let errorDetails = "Unknown error";
+      if (error.response && error.response.data) {
+        errorDetails = JSON.stringify(error.response.data);
+      } else if (error.message) {
+        errorDetails = error.message;
+      }
+
+      return {
+        success: false,
+        error: `Failed to send confirmation email: ${errorDetails}`,
+      };
+    }
+  } catch (error: any) {
+    console.error("Exception in user email function:", error);
+    return { success: false, error: `User email error: ${error.message}` };
   }
 }
 
@@ -74,54 +195,4 @@ async function verifyRecaptcha(token: string) {
   );
 
   return await response.json();
-}
-
-async function sendEmailToAdmin(
-  mailerSend: MailerSend,
-  { name, email, message }: Omit<FormData, "recaptchaToken">,
-) {
-  // Using template
-  const templateId = "z3m5jgr130z4dpyo";
-
-  const sentFrom = new Sender("hello@justnoted.app", "Just Noted Contact Form");
-  const recipients = [new Recipient("hello@justnoted.app", "Just Noted")];
-
-  const personalization = [
-    {
-      email: "hello@justnoted.app",
-      data: {
-        name: name || "Anonymous",
-        email: email,
-        message: message,
-      },
-    },
-  ];
-
-  const emailParams = new EmailParams()
-    .setFrom(sentFrom)
-    .setTo(recipients)
-    .setReplyTo(new Sender(email, name || "Contact Form User"))
-    .setTemplateId(templateId)
-    .setPersonalization(personalization);
-
-  // More detailed error handling with the SDK
-  const response = await mailerSend.email.send(emailParams);
-  console.log("Admin email response:", response);
-  return response;
-}
-
-async function sendEmailToUser(mailerSend: MailerSend, userEmail: string) {
-  const templateId = "3zxk54v195z4jy6v";
-
-  const sentFrom = new Sender("hello@justnoted.app", "Just Noted");
-  const recipients = [new Recipient(userEmail)];
-
-  const emailParams = new EmailParams()
-    .setFrom(sentFrom)
-    .setTo(recipients)
-    .setTemplateId(templateId);
-
-  const response = await mailerSend.email.send(emailParams);
-  console.log("User confirmation email response:", response);
-  return response;
 }
