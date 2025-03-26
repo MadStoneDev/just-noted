@@ -26,6 +26,8 @@ export default function JustNotes() {
   const isInitialLoad = useRef(true);
   const optimisticNoteAdded = useRef(false);
   const optimisticNoteId = useRef<string | null>(null);
+  const retryCount = useRef(0);
+  const MAX_RETRIES = 3;
 
   // Load notes from Redis on initial mount
   useEffect(() => {
@@ -58,10 +60,24 @@ export default function JustNotes() {
               .then((result) => {
                 if (result.success && result.notes && isMounted.current) {
                   setNotes(result.notes);
+
+                  // Reset retry count on success
+                  retryCount.current = 0;
                 }
               })
               .catch((error) => {
                 console.error("Failed to add default note to Redis:", error);
+                // Retry logic for transient errors
+                if (retryCount.current < MAX_RETRIES) {
+                  retryCount.current++;
+                  setTimeout(() => {
+                    if (isMounted.current) {
+                      addNoteAction(id, optimisticNote).catch((e) =>
+                        console.error(`Retry ${retryCount.current} failed:`, e),
+                      );
+                    }
+                  }, 1000 * retryCount.current); // Exponential backoff
+                }
                 // Continue showing the optimistic note even if save fails
               });
           }
@@ -108,11 +124,33 @@ export default function JustNotes() {
               result.notes?.some((note) => note.id === optimisticNoteId.current)
             ) {
               optimisticNoteAdded.current = false;
+              retryCount.current = 0; // Reset retry count once note is confirmed saved
             }
           }
         }
       } catch (error) {
         console.error("Failed to refresh notes:", error);
+
+        // If we're having persistent issues and still have an optimistic note
+        // Try to save it again during refresh
+        if (
+          optimisticNoteAdded.current &&
+          retryCount.current < MAX_RETRIES &&
+          userId
+        ) {
+          const optimisticNote = notes.find(
+            (note) => note.id === optimisticNoteId.current,
+          );
+          if (optimisticNote) {
+            retryCount.current++;
+            console.log(
+              `Attempting to save optimistic note again, try ${retryCount.current}`,
+            );
+            addNoteAction(userId, optimisticNote).catch((e) =>
+              console.error(`Refresh retry ${retryCount.current} failed:`, e),
+            );
+          }
+        }
       }
     };
 
@@ -121,7 +159,7 @@ export default function JustNotes() {
     const intervalId = setInterval(refreshNotes, 10000);
 
     return () => clearInterval(intervalId);
-  }, [userId]);
+  }, [userId, notes]);
 
   // Add note function
   const handleAddNote = () => {
@@ -147,6 +185,18 @@ export default function JustNotes() {
       .catch((error) => {
         console.error("Failed to add note to Redis:", error);
         // Note remains in UI even if save fails
+
+        // Set up retry for transient errors
+        if (retryCount.current < MAX_RETRIES) {
+          retryCount.current++;
+          setTimeout(() => {
+            if (isMounted.current) {
+              addNoteAction(userId, newNote).catch((e) =>
+                console.error(`Retry ${retryCount.current} failed:`, e),
+              );
+            }
+          }, 1000 * retryCount.current); // Exponential backoff
+        }
       });
 
     // Handle animation timing
