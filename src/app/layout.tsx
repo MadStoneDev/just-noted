@@ -3,8 +3,9 @@ import "./globals.css";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { Outfit, Playfair_Display } from "next/font/google";
 
-import React from "react";
+import React, { ReactNode } from "react";
 import Link from "next/link";
+import GlobalHeader from "@/components/global-header";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -21,23 +22,16 @@ const playfair = Playfair_Display({
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: ReactNode;
 }>) {
   return (
     <html lang="en">
       <body
-        className={`bg-neutral-200  min-h-screen flex flex-col ${outfit.variable} ${playfair.variable} antialiased`}
+        className={`bg-neutral-200  min-h-dvh flex flex-col ${outfit.variable} ${playfair.variable} antialiased`}
       >
-        <header
-          className={`mb-4 px-4 sm:px-8 py-4 w-full bg-mercedes-primary font-secondary z-50`}
-        >
-          <Link href={`/`} className={`text-xl font-semibold`}>
-            Just
-            <span className={`text-white`}>Noted</span>
-          </Link>
-        </header>
+        <GlobalHeader />
 
-        <main className={`flex-grow px-4 sm:px-8 w-full overflow-hidden`}>
+        <main className={`mt-20 flex-grow px-4 sm:px-8 w-full overflow-hidden`}>
           {children}
         </main>
 
