@@ -9,7 +9,28 @@
 
 <url>
   <loc>https://justnoted.app/</loc>
-  <lastmod>2025-03-25T01:02:26+00:00</lastmod>
+  <lastmod>2025-03-26T03:56:46+00:00</lastmod>
+  <priority>1.00</priority>
+</url>
+<url>
+  <loc>https://justnoted.app/the-what</loc>
+  <lastmod>2025-03-26T03:56:46+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://justnoted.app/the-how</loc>
+  <lastmod>2025-03-26T03:56:46+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://justnoted.app/contact</loc>
+  <lastmod>2025-03-26T03:56:46+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://justnoted.app/privacy-policy</loc>
+  <lastmod>2025-03-26T03:56:46+00:00</lastmod>
+  <priority>0.80</priority>
 </url>
 
 
