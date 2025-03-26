@@ -20,7 +20,7 @@ export default function TheWhatPage() {
       </h1>
 
       <section
-        className={`sm:mx-auto mt-5 flex flex-col gap-6 sm:max-w-lg font-light`}
+        className={`sm:mx-auto mt-8 flex flex-col gap-6 sm:max-w-lg font-light`}
         style={{
           lineHeight: "1.75rem",
         }}

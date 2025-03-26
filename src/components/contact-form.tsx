@@ -62,7 +62,7 @@ export default function ContactForm() {
   };
 
   return (
-    <div>
+    <div className={`mt-8 mx-auto max-w-lg`}>
       {success ? (
         <div
           className={`my-6 p-4 bg-mercedes-primary/10 text-mercedes-primary rounded mb-4`}

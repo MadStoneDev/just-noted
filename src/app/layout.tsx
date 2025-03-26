@@ -6,6 +6,7 @@ import { Outfit, Playfair_Display } from "next/font/google";
 import React, { ReactNode } from "react";
 import Link from "next/link";
 import GlobalHeader from "@/components/global-header";
+import GlobalFooter from "@/components/global-footer";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -35,17 +36,8 @@ export default function RootLayout({
           {children}
         </main>
 
-        <footer className={`p-4 sm:px-8 text-xs text-neutral-400`}>
-          Copyright © 2025{" "}
-          <Link
-            href={`/`}
-            className={`hover:text-mercedes-primary transition-all duration-300 ease-in-out`}
-          >
-            Just Noted
-          </Link>
-        </footer>
+        <GlobalFooter />
       </body>
-
       <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID || ""} />
     </html>
   );

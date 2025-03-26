@@ -1,10 +1,18 @@
 ﻿import Link from "next/link";
 import {
+  IconCheck,
   IconCircleCheck,
   IconDeviceFloppy,
+  IconDownload,
+  IconEdit,
   IconFileTypeTxt,
   IconLoader,
+  IconNote,
+  IconPencil,
+  IconShieldLock,
+  IconSquareRoundedPlus,
   IconTrash,
+  IconX,
 } from "@tabler/icons-react";
 
 export const metadata = {
@@ -16,8 +24,8 @@ export const metadata = {
 
 export default function TheHowPage() {
   return (
-    <div className={`pt-3 sm:text-center`}>
-      <h1 className={`text-xl font-semibold`}>
+    <div className={`pt-3`}>
+      <h1 className={`text-xl font-semibold sm:text-center`}>
         How does{" "}
         <span className={`p-1 bg-mercedes-primary font-secondary`}>
           Just
@@ -33,24 +41,42 @@ export default function TheHowPage() {
         }}
       >
         <h2
-          className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg`}
+          className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
         >
-          Creating & Saving Notes
+          <IconNote size={24} strokeWidth={2} /> Creating & Saving Notes
         </h2>
         <p>
           Creating a note on <span className={`font-medium`}>JustNoted</span>{" "}
           couldn't be easier. When you first load the page, you'll see an empty
-          note waiting for your thoughts. Just start typing.
+          note waiting for your thoughts. Just start typing. If you need another
+          note, just click/tap the big{" "}
+          <span
+            className={`mx-2 px-2 py-1 inline-flex items-center gap-1 w-fit border rounded-xl font-medium`}
+          >
+            <IconSquareRoundedPlus stroke={2} /> Add a new note
+          </span>{" "}
+          button.
+        </p>
+        <p>
+          You will notice that every new note is automatically titled,{" "}
+          <span className={`font-semibold`}>Just Noted #1</span> or a different
+          number. This isn't random but is incremented by a global counter that
+          every user of <span className={`font-medium`}>JustNoted</span>{" "}
+          contributes to. The current count was last reset on{" "}
+          <span className={`px-2 py-1 border bg-neutral-800 text-neutral-100`}>
+            26 March, 2025
+          </span>
+          .
         </p>
         <p>
           Your work is automatically saved 2 seconds after you stop typing.
           You'll see a{" "}
-          <span className={`py-1 flex gap-1 text-neutral-500`}>
+          <span className={`mx-2 inline-flex gap-1 w-fit text-neutral-500`}>
             <IconLoader className="animate-spin" /> <strong>Saving...</strong>
           </span>{" "}
           indicator followed by a{" "}
           <span
-            className={`py-1 flex items-center gap-1 text-mercedes-primary`}
+            className={`mx-2 inline-flex items-center gap-1 w-fit text-mercedes-primary`}
           >
             <IconCircleCheck className="text-mercedes-primary" />{" "}
             <strong>Saved</strong>
@@ -69,12 +95,41 @@ export default function TheHowPage() {
         </p>
 
         <h2
-          className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg`}
+          className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
         >
-          Downloading Your Notes
+          <IconEdit size={24} strokeWidth={2} /> Changing the Title of Your Note
         </h2>
         <p>
-          Need to take your note elsewhere? Just click the{" "}
+          If you want to change the title of your note, hover over the title (on
+          mobile: tap on the title) and then click/tap the{" "}
+          <span
+            className={`inline-flex bg-neutral-100 rounded-md p-1 text-mercedes-primary`}
+          >
+            <IconPencil size={20} strokeWidth={2} />
+          </span>{" "}
+          button. This will let you type in a new title. When you're done, just
+          click/tap the{" "}
+          <span
+            className={`inline-flex rounded-md bg-neutral-100 p-1 text-mercedes-primary`}
+          >
+            <IconCheck size={20} strokeWidth={2} />
+          </span>{" "}
+          button to save your changes or click/tap the{" "}
+          <span
+            className={`inline-flex rounded-md bg-neutral-100 p-1 text-red-700`}
+          >
+            <IconX size={20} strokeWidth={2} />
+          </span>{" "}
+          button to cancel your changes.
+        </p>
+
+        <h2
+          className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+        >
+          <IconDownload size={24} strokeWidth={2} /> Downloading Your Notes
+        </h2>
+        <p>
+          Need to take your note elsewhere? Just click/tap the{" "}
           <span
             className={`inline-flex border border-mercedes-primary rounded-md bg-neutral-100 p-1`}
           >
@@ -85,12 +140,12 @@ export default function TheHowPage() {
         </p>
 
         <h2
-          className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg`}
+          className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
         >
-          Deleting Notes
+          <IconTrash size={24} strokeWidth={2} /> Deleting Notes
         </h2>
         <p>
-          Once you're done with a note and don't need it anymore, click the{" "}
+          Once you're done with a note and don't need it anymore, click/tap the{" "}
           <span
             className={`inline-flex border border-neutral-800 rounded-md bg-neutral-100 p-1`}
           >
@@ -102,9 +157,10 @@ export default function TheHowPage() {
         </p>
 
         <h2
-          className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg`}
+          className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
         >
-          How Your Privacy Is Protected
+          <IconShieldLock size={24} strokeWidth={2} /> How Your Privacy Is
+          Protected
         </h2>
         <p>
           I built <span className={`font-medium`}>JustNoted</span> with privacy
