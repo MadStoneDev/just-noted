@@ -1,6 +1,7 @@
 ﻿"use server";
 
 import { z } from "zod";
+import { MailerSend, EmailParams, Sender, Recipient } from "mailersend";
 
 // Define validation schema for the form data
 const FormSchema = z.object({
@@ -25,15 +26,24 @@ export async function submitContactForm(formData: FormData) {
       return { success: false, error: "reCAPTCHA verification failed" };
     }
 
+    // Initialize MailerSend with API key
+    const mailerSend = new MailerSend({
+      apiKey: process.env.MAILERSEND_API || "",
+    });
+
     // Send email to admin
-    const adminEmailResult = await sendEmailToAdmin(validatedData);
-    if (!adminEmailResult.success) {
+    try {
+      await sendEmailToAdmin(mailerSend, validatedData);
+    } catch (error) {
+      console.error("Error sending admin notification:", error);
       return { success: false, error: "Failed to send admin notification" };
     }
 
     // Send confirmation email to user
-    const userEmailResult = await sendEmailToUser(validatedData.email);
-    if (!userEmailResult.success) {
+    try {
+      await sendEmailToUser(mailerSend, validatedData.email);
+    } catch (error) {
+      console.error("Error sending confirmation email:", error);
       return { success: false, error: "Failed to send confirmation email" };
     }
 
@@ -66,15 +76,16 @@ async function verifyRecaptcha(token: string) {
   return await response.json();
 }
 
-async function sendEmailToAdmin({
-  name,
-  email,
-  message,
-}: Omit<FormData, "recaptchaToken">) {
-  const apiKey = process.env.MAILERSEND_API;
+async function sendEmailToAdmin(
+  mailerSend: MailerSend,
+  { name, email, message }: Omit<FormData, "recaptchaToken">,
+) {
+  // Using template
   const templateId = "z3m5jgr130z4dpyo";
 
-  // Prepare data for the template variables
+  const sentFrom = new Sender("hello@justnoted.app", "Just Noted Contact Form");
+  const recipients = [new Recipient("hello@justnoted.app", "Just Noted")];
+
   const personalization = [
     {
       email: "hello@justnoted.app",
@@ -86,86 +97,31 @@ async function sendEmailToAdmin({
     },
   ];
 
-  const emailData = {
-    template_id: templateId,
-    from: {
-      email: "hello@justnoted.app",
-      name: "Contact Form",
-    },
-    to: [
-      {
-        email: "hello@justnoted.app",
-        name: "Just Noted",
-      },
-    ],
-    personalization: personalization,
-    reply_to: {
-      email: email,
-      name: name || "Contact Form User",
-    },
-  };
+  const emailParams = new EmailParams()
+    .setFrom(sentFrom)
+    .setTo(recipients)
+    .setReplyTo(new Sender(email, name || "Contact Form User"))
+    .setTemplateId(templateId)
+    .setPersonalization(personalization);
 
-  try {
-    const response = await fetch("https://api.mailersend.com/v1/email", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(emailData),
-    });
-
-    const responseData = await response.json();
-
-    if (!response.ok) {
-      console.error("MailerSend API error:", responseData);
-      return { success: false };
-    }
-
-    return { success: true };
-  } catch (error) {
-    console.error("Error sending admin email:", error);
-    return { success: false };
-  }
+  // More detailed error handling with the SDK
+  const response = await mailerSend.email.send(emailParams);
+  console.log("Admin email response:", response);
+  return response;
 }
 
-async function sendEmailToUser(userEmail: string) {
-  const apiKey = process.env.MAILERSEND_API;
+async function sendEmailToUser(mailerSend: MailerSend, userEmail: string) {
   const templateId = "3zxk54v195z4jy6v";
 
-  const emailData = {
-    template_id: templateId,
-    from: {
-      email: "hello@justnoted.app",
-      name: "Just Noted",
-    },
-    to: [
-      {
-        email: userEmail,
-      },
-    ],
-  };
+  const sentFrom = new Sender("hello@justnoted.app", "Just Noted");
+  const recipients = [new Recipient(userEmail)];
 
-  try {
-    const response = await fetch("https://api.mailersend.com/v1/email", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(emailData),
-    });
+  const emailParams = new EmailParams()
+    .setFrom(sentFrom)
+    .setTo(recipients)
+    .setTemplateId(templateId);
 
-    const responseData = await response.json();
-
-    if (!response.ok) {
-      console.error("MailerSend API error:", responseData);
-      return { success: false };
-    }
-
-    return { success: true };
-  } catch (error) {
-    console.error("Error sending user confirmation email:", error);
-    return { success: false };
-  }
+  const response = await mailerSend.email.send(emailParams);
+  console.log("User confirmation email response:", response);
+  return response;
 }
