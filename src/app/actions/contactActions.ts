@@ -13,6 +13,26 @@ const FormSchema = z.object({
 
 type FormData = z.infer<typeof FormSchema>;
 
+// Fun error messages
+const funnyErrors = [
+  "Oops! Our carrier pigeons got lost in the digital storm. Please try again.",
+  "Well, this is awkward... Our email elves are on coffee break. Mind trying again?",
+  "Houston, we have a problem! Your message got sucked into a black hole. One more try?",
+  "Message transmission intercepted by space cats. They're not sharing. Try again?",
+  "Our email hamsters fell off their wheels. Give them another chance to run?",
+  "The internet gnomes misplaced your message. They're very sorry. Try again?",
+  "Email machine went 'boop-beep' instead of 'beep-boop'. Please re-submit!",
+  "Your message tried to swim across the internet but forgot its floaties. Another go?",
+  "That's odd... our system hiccupped while sending. Care to try again?",
+  "Email delivery status: it's complicated. Let's give it another shot, shall we?",
+];
+
+// Get a random funny error message
+function getRandomErrorMessage() {
+  const randomIndex = Math.floor(Math.random() * funnyErrors.length);
+  return funnyErrors[randomIndex];
+}
+
 export async function submitContactForm(formData: FormData) {
   try {
     // Validate form data
@@ -30,7 +50,7 @@ export async function submitContactForm(formData: FormData) {
     const apiKey = process.env.MAILERSEND_API;
     if (!apiKey) {
       console.error("MailerSend API key is missing");
-      return { success: false, error: "Email configuration error" };
+      return { success: false, error: getRandomErrorMessage() };
     }
 
     try {
@@ -43,23 +63,24 @@ export async function submitContactForm(formData: FormData) {
       );
 
       if (!adminResult.success) {
-        return adminResult;
+        console.error("Admin email failed:", adminResult.error);
+        return { success: false, error: getRandomErrorMessage() };
       }
 
-      // Send user confirmation
-      const userResult = await sendUserEmail(apiKey, validatedData.email);
-
-      if (!userResult.success) {
-        return userResult;
+      // Try to send user confirmation but don't fail the whole process if it fails
+      try {
+        await sendUserEmail(apiKey, validatedData.email);
+      } catch (userEmailError) {
+        // Just log the error but don't expose to user or fail the process
+        console.error("User email failed but continuing:", userEmailError);
+        // We'll still return success even if confirmation email fails
       }
 
+      // Return success even if user email might have failed
       return { success: true };
     } catch (error: any) {
       console.error("Error in email process:", error);
-      return {
-        success: false,
-        error: `Email error: ${error.message || "Unknown error"}`,
-      };
+      return { success: false, error: getRandomErrorMessage() };
     }
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -68,7 +89,7 @@ export async function submitContactForm(formData: FormData) {
     }
 
     console.error("Contact form error:", error);
-    return { success: false, error: "Something went wrong. Please try again." };
+    return { success: false, error: getRandomErrorMessage() };
   }
 }
 
@@ -117,23 +138,15 @@ async function sendAdminEmail(
       return { success: true };
     } catch (error: any) {
       console.error("Error sending admin email:", error);
-
-      // Try to extract detailed error information
-      let errorDetails = "Unknown error";
+      // Log details for debugging but don't expose them
       if (error.response && error.response.data) {
-        errorDetails = JSON.stringify(error.response.data);
-      } else if (error.message) {
-        errorDetails = error.message;
+        console.error("API error response:", error.response.data);
       }
-
-      return {
-        success: false,
-        error: `Failed to send admin notification: ${errorDetails}`,
-      };
+      return { success: false, error: "Failed to send admin notification" };
     }
   } catch (error: any) {
     console.error("Exception in admin email function:", error);
-    return { success: false, error: `Admin email error: ${error.message}` };
+    return { success: false, error: "Admin email error" };
   }
 }
 
@@ -147,16 +160,12 @@ async function sendUserEmail(apiKey: string, userEmail: string) {
 
     const sentFrom = new Sender("hello@justnoted.app", "Just Noted");
     const replyTo = new Sender("no-reply@justnoted.app", "Just Noted");
-    // Add name parameter to recipient
     const recipients = [new Recipient(userEmail, "User")];
 
-    // Add personalization data for the template
     const personalization = [
       {
         email: userEmail,
         data: {
-          // Add any variables your template needs here
-          // If you're not sure, add at least an empty object
           user_email: userEmail,
         },
       },
@@ -168,7 +177,7 @@ async function sendUserEmail(apiKey: string, userEmail: string) {
       .setReplyTo(replyTo)
       .setSubject("Just Noted - Thank you for your message!")
       .setTemplateId("3zxk54v195z4jy6v")
-      .setPersonalization(personalization); // Add this line
+      .setPersonalization(personalization);
 
     console.log("User email params prepared");
 
@@ -178,25 +187,16 @@ async function sendUserEmail(apiKey: string, userEmail: string) {
       console.log("User email sent successfully:", response);
       return { success: true };
     } catch (error: any) {
+      // Log the detailed error for debugging but don't return it
       console.error("Error sending user email:", error);
-
-      // Improve error logging
-      let errorDetails = "Unknown error";
       if (error.response && error.response.data) {
         console.error("API error response:", error.response.data);
-        errorDetails = JSON.stringify(error.response.data);
-      } else if (error.message) {
-        errorDetails = error.message;
       }
-
-      return {
-        success: false,
-        error: `Failed to send confirmation email: ${errorDetails}`,
-      };
+      throw error; // Re-throw to be caught by the outer try-catch
     }
   } catch (error: any) {
     console.error("Exception in user email function:", error);
-    return { success: false, error: `User email error: ${error.message}` };
+    throw error; // Re-throw to be caught by the outer try-catch
   }
 }
 
