@@ -64,7 +64,7 @@ export default function TheHowPage() {
           every user of <span className={`font-medium`}>JustNoted</span>{" "}
           contributes to. The current count was last reset on{" "}
           <span className={`px-2 py-1 border bg-neutral-800 text-neutral-100`}>
-            26 March, 2025
+            27 March, 2025
           </span>
           .
         </p>
