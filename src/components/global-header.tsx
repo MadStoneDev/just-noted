@@ -37,7 +37,7 @@ export default function GlobalHeader() {
           <Link
             href={`/`}
             onClick={() => setOpenMenu(false)}
-            className={`sm:hidden px-3 py-1.5 w-full sm:w-auto hover:bg-mercedes-primary sm:hover:bg-white hover:shadow-xl shadow-mercedes-secondary/10 text-base font-bold text-mercedes-primary sm:text-white hover:text-white sm:hover:text-mercedes-primary text-center transition-all duration-300 ease-in-out`}
+            className={`sm:hidden px-3 py-1.5 w-full sm:w-auto hover:bg-mercedes-primary sm:hover:bg-white hover:shadow-xl shadow-mercedes-secondary/10 text-base font-bold text-mercedes-primary sm:text-neutral-900 hover:text-white sm:hover:text-mercedes-primary text-center transition-all duration-300 ease-in-out`}
           >
             Home
           </Link>
@@ -45,27 +45,27 @@ export default function GlobalHeader() {
           <Link
             href={`/the-what`}
             onClick={() => setOpenMenu(false)}
-            className={`px-3 py-1.5 w-full sm:w-auto hover:bg-mercedes-primary sm:hover:bg-white hover:shadow-xl shadow-mercedes-secondary/10 text-base font-bold text-mercedes-primary sm:text-white hover:text-white sm:hover:text-mercedes-primary text-center transition-all duration-300 ease-in-out`}
+            className={`px-3 py-1.5 w-full sm:w-auto hover:bg-mercedes-primary sm:hover:bg-white hover:shadow-xl shadow-mercedes-secondary/10 text-base font-bold text-mercedes-primary sm:text-neutral-900 hover:text-white sm:hover:text-mercedes-primary text-center transition-all duration-300 ease-in-out`}
           >
             The What
           </Link>
 
-          <div className={`hidden sm:block w-[1px] h-3 bg-neutral-900`}></div>
+          <div className={`hidden sm:block w-[1px] h-3 bg-neutral-50`}></div>
 
           <Link
             href={`/the-how`}
             onClick={() => setOpenMenu(false)}
-            className={`px-3 py-1.5 w-full sm:w-auto hover:bg-mercedes-primary sm:hover:bg-white hover:shadow-xl shadow-mercedes-secondary/10 text-base font-bold text-mercedes-primary sm:text-white hover:text-white sm:hover:text-mercedes-primary text-center transition-all duration-300 ease-in-out`}
+            className={`px-3 py-1.5 w-full sm:w-auto hover:bg-mercedes-primary sm:hover:bg-white hover:shadow-xl shadow-mercedes-secondary/10 text-base font-bold text-mercedes-primary sm:text-neutral-900 hover:text-white sm:hover:text-mercedes-primary text-center transition-all duration-300 ease-in-out`}
           >
             The How
           </Link>
 
-          <div className={`hidden sm:block w-[1px] h-3 bg-neutral-900`}></div>
+          <div className={`hidden sm:block w-[1px] h-3 bg-neutral-50`}></div>
 
           <Link
             href={`/contact`}
             onClick={() => setOpenMenu(false)}
-            className={`px-3 py-1.5 w-full sm:w-auto hover:bg-mercedes-primary sm:hover:bg-white hover:shadow-xl shadow-mercedes-secondary/10 text-base font-bold text-mercedes-primary sm:text-white hover:text-white sm:hover:text-mercedes-primary text-center transition-all duration-300 ease-in-out`}
+            className={`px-3 py-1.5 w-full sm:w-auto hover:bg-mercedes-primary sm:hover:bg-white hover:shadow-xl shadow-mercedes-secondary/10 text-base font-bold text-mercedes-primary sm:text-neutral-900 hover:text-white sm:hover:text-mercedes-primary text-center transition-all duration-300 ease-in-out`}
           >
             Get in Touch
           </Link>

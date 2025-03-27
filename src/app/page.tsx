@@ -1,4 +1,5 @@
 import JustNotes from "@/components/just-notes";
+import FaqBlock from "@/components/faq-block";
 
 export const metadata = {
   title: "Just Noted - Distraction-Free Note Taking",
@@ -10,9 +11,8 @@ export default function Home() {
   return (
     <>
       <JustNotes />
-      <footer
-        className={`row-start-3 flex gap-[24px] flex-wrap items-center justify-center`}
-      ></footer>
+
+      <FaqBlock />
     </>
   );
 }
