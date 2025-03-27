@@ -15,17 +15,22 @@ function addTimestamp(note: Note): Note {
   };
 }
 
-function isTooOld(note: Note): boolean {
-  if (!note.updatedAt) return false;
-
-  const sixMonthsInMs = 2 * 30 * 24 * 60 * 60 * 1000; // Approximate 2 months in milliseconds
-  const currentTime = Date.now();
-
-  return currentTime - note.updatedAt > sixMonthsInMs;
-}
-
 export async function deleteNoteAction(userId: string, noteId: string) {
   try {
+    // Check if the request is from a bot using the header set in middleware
+    const { headers } = require("next/headers");
+    const isBotHeader = headers().get("x-is-bot");
+    const isBot = isBotHeader === "true";
+
+    // Don't save notes for bots
+    if (isBot) {
+      console.log("Bot detected, skipping note deletion");
+      return {
+        success: true,
+        notes: [],
+      };
+    }
+
     const currentNotes = ((await redis.get(`notes:${userId}`)) as Note[]) || [];
     const updatedNotes = currentNotes.filter((note) => note.id !== noteId);
 
@@ -48,8 +53,8 @@ export async function updateNoteAction(
   try {
     // Check if the request is from a bot using the header set in middleware
     const { headers } = require("next/headers");
-    const botInfo = headers().get("x-vercel-bot");
-    const isBot = botInfo ? JSON.parse(botInfo).isBot : false;
+    const isBotHeader = headers().get("x-is-bot");
+    const isBot = isBotHeader === "true";
 
     // Don't update notes for bots
     if (isBot) {
@@ -158,8 +163,8 @@ export async function addNoteAction(userId: string, newNote: Note) {
   try {
     // Check if the request is from a bot using the header set in middleware
     const { headers } = require("next/headers");
-    const botInfo = headers().get("x-vercel-bot");
-    const isBot = botInfo ? JSON.parse(botInfo).isBot : false;
+    const isBotHeader = headers().get("x-is-bot");
+    const isBot = isBotHeader === "true";
 
     // Don't save notes for bots
     if (isBot) {
@@ -223,6 +228,19 @@ export async function updateNoteTitleAction(
   title: string,
 ) {
   try {
+    // Check if the request is from a bot using the header set in middleware
+    const { headers } = require("next/headers");
+    const isBotHeader = headers().get("x-is-bot");
+    const isBot = isBotHeader === "true";
+
+    // Don't save notes for bots
+    if (isBot) {
+      console.log("Bot detected, skipping note creation");
+      return {
+        success: true,
+      };
+    }
+
     const currentNotes = ((await redis.get(`notes:${userId}`)) as Note[]) || [];
 
     const updatedNotes = currentNotes.map((note) =>
