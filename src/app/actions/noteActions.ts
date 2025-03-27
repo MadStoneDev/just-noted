@@ -29,18 +29,11 @@ export async function deleteNoteAction(userId: string, noteId: string) {
     const currentNotes = ((await redis.get(`notes:${userId}`)) as Note[]) || [];
     const updatedNotes = currentNotes.filter((note) => note.id !== noteId);
 
-    const savePromise = redis.set(`notes:${userId}`, updatedNotes);
-    const result = { success: true, notes: updatedNotes };
+    await redis.set(`notes:${userId}`, updatedNotes);
 
-    savePromise
-      .then(() => {
-        revalidatePath("/");
-      })
-      .catch((error) => {
-        console.error("Failed to delete note:", error);
-      });
+    revalidatePath("/");
 
-    return result;
+    return { success: true, notes: updatedNotes };
   } catch (error) {
     console.error("Failed to delete note:", error);
     return { success: false, error: "Failed to delete note" };
