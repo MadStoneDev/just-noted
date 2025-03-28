@@ -12,6 +12,11 @@ export default function Home() {
     <>
       <JustNotes />
 
+      <h1
+        className={`px-3 md:px-0 mt-6 mx-auto max-w-60 md:max-w-full font-secondary text-xl font-semibold text-center`}
+      >
+        The Distraction-Free Note Taking Platform
+      </h1>
       <FaqBlock />
     </>
   );
