@@ -9,7 +9,7 @@ const GLOBAL_NOTE_COUNTER_KEY = "global:note:counter";
 export async function getGlobalNoteCount() {
   try {
     const count = await redis.get(GLOBAL_NOTE_COUNTER_KEY);
-    // If no counter exists yet, initialize it to 0
+
     if (count === null) {
       await redis.set(GLOBAL_NOTE_COUNTER_KEY, 0);
       return 0;
@@ -27,12 +27,9 @@ export async function getGlobalNoteCount() {
   }
 }
 
-// Function to increment the counter and get the new value
 export async function incrementGlobalNoteCount() {
   try {
-    // Increment the counter and return the new value
-    const newCount = await redis.incr(GLOBAL_NOTE_COUNTER_KEY);
-    return newCount;
+    return await redis.incr(GLOBAL_NOTE_COUNTER_KEY);
   } catch (error) {
     console.error("Failed to increment global note count:", error);
 
@@ -40,11 +37,13 @@ export async function incrementGlobalNoteCount() {
     try {
       const currentCount = await getGlobalNoteCount();
       const newCount = currentCount + 1;
+
       await redis.set(GLOBAL_NOTE_COUNTER_KEY, newCount);
+
       return newCount;
     } catch (fallbackError) {
       console.error("Failed fallback for increment:", fallbackError);
-      return 0; // Default if all else fails
+      return 0;
     }
   }
 }

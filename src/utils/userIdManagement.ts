@@ -1,13 +1,7 @@
-﻿// utils/userIdManagement.ts
+﻿import redis from "@/utils/redis";
 
-import redis from "@/utils/redis";
-
-// Redis key for storing all active user IDs
 const ACTIVE_USER_IDS_KEY = "global:active:user:ids";
 
-/**
- * Register a user ID in the global active users list
- */
 export async function registerUserId(userId: string): Promise<boolean> {
   try {
     // Add the user ID to the set of active user IDs
@@ -20,9 +14,6 @@ export async function registerUserId(userId: string): Promise<boolean> {
   }
 }
 
-/**
- * Check if a user ID exists in the active users list
- */
 export async function isUserIdActive(userId: string): Promise<boolean> {
   try {
     // Check if the user ID exists in the set
@@ -35,9 +26,6 @@ export async function isUserIdActive(userId: string): Promise<boolean> {
   }
 }
 
-/**
- * Remove a user ID from the active users list
- */
 export async function removeUserId(userId: string): Promise<boolean> {
   try {
     // Remove the user ID from the set
@@ -63,9 +51,6 @@ export async function getAllActiveUserIds(): Promise<string[]> {
   }
 }
 
-/**
- * Enhanced getUserId function that checks with Redis
- */
 export const getUserId = () => {
   // This function runs on client-side, so we just return the localStorage value
   // We'll validate it on the server-side before any data operations
