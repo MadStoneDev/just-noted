@@ -15,12 +15,15 @@ import {
   IconCircleCheck,
   IconCircleX,
   IconLoader,
+  IconPin,
+  IconPinnedFilled,
 } from "@tabler/icons-react";
 
 import {
   deleteNoteAction,
   updateNoteAction,
   updateNoteTitleAction,
+  updateNotePinStatusAction, // We'll need to create this action
 } from "@/app/actions/noteActions";
 
 // Keeping your original debounce logic
@@ -49,16 +52,20 @@ export default function NoteBlock({
   userId,
   showDelete = true,
   onDelete,
+  onPinStatusChange, // Add callback for pin status changes
 }: {
   details: Note;
   userId: string;
   showDelete?: boolean;
   onDelete?: (noteId: string) => void;
+  onPinStatusChange?: (noteId: string, isPinned: boolean) => void; // New prop
 }) {
   // States
   const [noteTitle, setNoteTitle] = useState(details.title);
   const [noteContent, setNoteContent] = useState(details.content);
   const [editingTitle, setEditingTitle] = useState(false);
+  const [isPinned, setIsPinned] = useState(details.pinned || false); // Default to false if property doesn't exist
+  const [isPinUpdating, setIsPinUpdating] = useState(false);
 
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
@@ -103,7 +110,11 @@ export default function NoteBlock({
     setSaveStatus(message);
     setSaveIcon(icon);
 
+    // Debug the timeout behavior
+    console.log(`Setting status: ${message}, will clear in ${delay}ms`);
+
     statusTimeoutRef.current = setTimeout(() => {
+      console.log(`Clearing status: ${message}`);
       setSaveStatus("");
       setSaveIcon(null);
     }, delay);
@@ -196,6 +207,86 @@ export default function NoteBlock({
     },
     [updateStats, debouncedAutoSave],
   );
+
+  // Pin/Unpin functionality
+  const handleTogglePin = async () => {
+    const newPinStatus = !isPinned;
+
+    // Update local state immediately for responsive UI
+    setIsPinned(newPinStatus);
+    setIsPinUpdating(true);
+
+    setStatusWithTimeout(
+      newPinStatus ? "Pinning..." : "Unpinning...",
+      <IconLoader className="animate-spin" />,
+      false,
+      10000,
+    );
+
+    try {
+      const result = await updateNotePinStatusAction(
+        userId,
+        details.id,
+        newPinStatus,
+      );
+
+      if (result.success) {
+        // Clear previous status first to force UI update
+        clearStatusTimeout();
+        setSaveStatus("");
+        setSaveIcon(null);
+
+        // Then set the new status with a slight delay to ensure it's seen as a new message
+        setTimeout(() => {
+          setStatusWithTimeout(
+            newPinStatus ? "Pinned" : "Unpinned",
+            <IconCircleCheck className="text-mercedes-primary" />,
+            false,
+            2000,
+          );
+        }, 50);
+
+        // Notify parent component about the pin status change
+        if (onPinStatusChange && result.notes) {
+          // Find the updated note in the result
+          const updatedNote = result.notes.find(
+            (note) => note.id === details.id,
+          );
+          if (updatedNote) {
+            onPinStatusChange(details.id, updatedNote.pinned || false);
+          }
+        }
+      } else {
+        // Revert local state if API call fails
+        setIsPinned(!newPinStatus);
+        setStatusWithTimeout(
+          `Failed to ${newPinStatus ? "pin" : "unpin"}`,
+          <IconCircleX className="text-red-700" />,
+          true,
+          3000,
+        );
+        console.error(
+          `Failed to ${newPinStatus ? "pin" : "unpin"} note:`,
+          result.error,
+        );
+      }
+    } catch (error) {
+      // Revert local state if API call throws an error
+      setIsPinned(!newPinStatus);
+      setStatusWithTimeout(
+        `Error ${newPinStatus ? "pinning" : "unpinning"}`,
+        <IconCircleX className="text-red-700" />,
+        true,
+        3000,
+      );
+      console.error(
+        `Error ${newPinStatus ? "pinning" : "unpinning"} note:`,
+        error,
+      );
+    } finally {
+      setIsPinUpdating(false);
+    }
+  };
 
   // The rest of your code remains largely unchanged
   const handleDelete = async () => {
@@ -299,6 +390,8 @@ export default function NoteBlock({
     setNoteContent(details.content);
     setNoteTitle(details.title);
     lastSavedContentRef.current = details.content;
+    // Set initial pin status from the details
+    setIsPinned(details.pinned || false);
 
     const plainText = details.content.replace(/<[^>]*>/g, "").trim();
     updateStats(plainText);
@@ -316,6 +409,11 @@ export default function NoteBlock({
       clearStatusTimeout();
     };
   }, [details.title]);
+
+  // Update pin status if the details change
+  useEffect(() => {
+    setIsPinned(details.pinned || false);
+  }, [details.pinned]);
 
   useEffect(() => {
     if (editingTitle && titleInputRef.current) {
@@ -399,7 +497,10 @@ export default function NoteBlock({
             {saveIcon}
             <span
               className={
-                saveStatus === "Saved"
+                saveStatus === "Saved" ||
+                saveStatus === "Pinned" ||
+                saveStatus === "Unpinned" ||
+                saveStatus === "Title saved"
                   ? "text-mercedes-primary"
                   : saveStatus.includes("fail") || saveStatus.includes("Error")
                     ? "text-red-700"
@@ -427,6 +528,29 @@ export default function NoteBlock({
         <div
           className={`p-4 col-span-12 sm:col-span-4 md:col-span-3 3xl:col-span-2 grid grid-cols-3 sm:flex sm:flex-col justify-start gap-2 bg-neutral-300 rounded-xl text-sm xs:text-lg sm:text-xl text-neutral-500/70 font-light capitalize`}
         >
+          <article className={`flex justify-end w-full`}>
+            {/* Pin button - show either pinned or unpinned based on state */}
+            <button
+              onClick={handleTogglePin}
+              disabled={isPinUpdating}
+              className={`p-2 border ${
+                isPinned
+                  ? "border-mercedes-primary bg-mercedes-primary text-neutral-100"
+                  : "border-neutral-400 text-neutral-500 hover:border-mercedes-primary hover:text-mercedes-primary"
+              } rounded-lg transition-all duration-300 ease-in-out ${
+                isPinUpdating
+                  ? "opacity-50 cursor-not-allowed"
+                  : "cursor-pointer"
+              }`}
+              title={isPinned ? "Unpin this note" : "Pin this note"}
+            >
+              {isPinned ? (
+                <IconPinnedFilled size={24} strokeWidth={2} />
+              ) : (
+                <IconPin size={24} strokeWidth={2} />
+              )}
+            </button>
+          </article>
           <p
             className={`p-1 xs:p-2 col-span-3 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-1 xs:gap-0 lg:gap-1 rounded-xl border border-neutral-400`}
           >

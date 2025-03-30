@@ -6,12 +6,20 @@ import redis from "@/utils/redis";
 
 import { Note } from "@/types/notes";
 import { incrementGlobalNoteCount } from "./counterActions";
-import { headers } from "next/headers";
 
 function addTimestamp(note: Note): Note {
   return {
     ...note,
     updatedAt: Date.now(),
+  };
+}
+
+function ensureTimestamps(note: Note): Note {
+  const now = Date.now();
+  return {
+    ...note,
+    createdAt: note.createdAt || now, // Use existing or create new
+    updatedAt: now, // Always update the updatedAt timestamp
   };
 }
 
@@ -196,8 +204,13 @@ export async function addNoteAction(userId: string, newNote: Note) {
       newNote.title = `Just Noted #${noteNumber}`;
     }
 
-    // Add timestamp to the new note
-    const noteWithTimestamp = addTimestamp(newNote);
+    // Add timestamps to the new note
+    const now = Date.now();
+    const noteWithTimestamps = {
+      ...newNote,
+      createdAt: now, // Add creation timestamp
+      updatedAt: now,
+    };
 
     let currentNotes: Note[] = [];
 
@@ -210,7 +223,7 @@ export async function addNoteAction(userId: string, newNote: Note) {
       // currentNotes already initialized as empty array
     }
 
-    const updatedNotes = [noteWithTimestamp, ...currentNotes];
+    const updatedNotes = [noteWithTimestamps, ...currentNotes];
 
     await redis.set(`notes:${userId}`, updatedNotes);
 
@@ -254,5 +267,67 @@ export async function updateNoteTitleAction(
   } catch (error) {
     console.error("Failed to update note title:", error);
     return { success: false, error: "Failed to update note title" };
+  }
+}
+
+export async function updateNotePinStatusAction(
+  userId: string,
+  noteId: string,
+  pinned: boolean,
+) {
+  try {
+    // Check if the request is from a bot using the header set in middleware
+    const { headers } = require("next/headers");
+    const isBotHeader = headers().get("x-is-bot");
+    const isBot = isBotHeader === "true";
+
+    // Don't save notes for bots
+    if (isBot) {
+      console.log("Bot detected, skipping note pin status update");
+      return {
+        success: true,
+      };
+    }
+
+    const currentNotes = ((await redis.get(`notes:${userId}`)) as Note[]) || [];
+
+    // Find the note being updated
+    const noteIndex = currentNotes.findIndex((note) => note.id === noteId);
+
+    if (noteIndex === -1) {
+      console.error(`Note ${noteId} not found for user ${userId}`);
+      return { success: false, error: "Note not found" };
+    }
+
+    // Create a copy of the notes array
+    const updatedNotes = [...currentNotes];
+
+    // Use ensureTimestamps to maintain proper timestamps
+    // Only update the updatedAt timestamp, preserve the original createdAt
+    const now = Date.now();
+    updatedNotes[noteIndex] = {
+      ...updatedNotes[noteIndex],
+      pinned,
+      updatedAt: now,
+      // Preserve the original createdAt or use updatedAt as fallback
+      createdAt:
+        updatedNotes[noteIndex].createdAt ||
+        updatedNotes[noteIndex].updatedAt ||
+        now,
+    };
+
+    // Save the updated notes array
+    await redis.set(`notes:${userId}`, updatedNotes);
+
+    // Force revalidation to ensure all clients get the update
+    revalidatePath("/");
+
+    return {
+      success: true,
+      notes: updatedNotes,
+    };
+  } catch (error) {
+    console.error("Failed to update note pin status:", error);
+    return { success: false, error: "Failed to update note pin status" };
   }
 }

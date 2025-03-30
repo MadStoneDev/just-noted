@@ -29,6 +29,27 @@ export default function JustNotes() {
   const retryCount = useRef(0);
   const MAX_RETRIES = 3;
 
+  // Sort notes function - pinned notes first, then by createdAt (most recent first)
+  const sortNotes = (notesToSort: Note[]): Note[] => {
+    return [...notesToSort].sort((a, b) => {
+      // First sort by pin status (pinned notes first)
+      if ((a.pinned || false) && !(b.pinned || false)) return -1;
+      if (!(a.pinned || false) && (b.pinned || false)) return 1;
+
+      // For pinned notes, sort by updatedAt (most recent first)
+      if ((a.pinned || false) && (b.pinned || false)) {
+        const aTime = a.updatedAt || 0;
+        const bTime = b.updatedAt || 0;
+        return bTime - aTime;
+      }
+
+      // For unpinned notes, sort by createdAt (most recent first)
+      const aCreate = a.createdAt || 0;
+      const bCreate = b.createdAt || 0;
+      return bCreate - aCreate;
+    });
+  };
+
   // Load notes from Redis on initial mount
   useEffect(() => {
     const loadNotes = async () => {
@@ -50,8 +71,19 @@ export default function JustNotes() {
 
         if (isMounted.current) {
           if (result.success && result.notes && result.notes.length > 0) {
-            // If we have notes in Redis, use those instead
-            setNotes(result.notes);
+            // Add createdAt if missing (for existing notes in the database)
+            const notesWithCreatedAt = result.notes.map((note) => {
+              if (!note.createdAt) {
+                return {
+                  ...note,
+                  createdAt: note.updatedAt || Date.now(), // Fall back to updatedAt or current time
+                };
+              }
+              return note;
+            });
+
+            // If we have notes in Redis, use those instead (sorted)
+            setNotes(sortNotes(notesWithCreatedAt));
           } else {
             // If no notes in Redis, save our optimistic note to Redis
             optimisticNoteAdded.current = true;
@@ -59,7 +91,7 @@ export default function JustNotes() {
             addNoteAction(id, optimisticNote)
               .then((result) => {
                 if (result.success && result.notes && isMounted.current) {
-                  setNotes(result.notes);
+                  setNotes(sortNotes(result.notes));
 
                   // Reset retry count on success
                   retryCount.current = 0;
@@ -116,7 +148,8 @@ export default function JustNotes() {
             (result.notes && result.notes.length > 0) ||
             !optimisticNoteAdded.current
           ) {
-            setNotes(result.notes || []);
+            // Sort notes when refreshing
+            setNotes(sortNotes(result.notes || []));
 
             // If we see our optimistic note has been saved to Redis, clear the flag
             if (
@@ -170,16 +203,22 @@ export default function JustNotes() {
     // Create new note and show it immediately (optimistic UI)
     const newNote = JSON.parse(JSON.stringify(defaultNote));
     newNote.id = generateNoteId(notes.map((note) => note.id));
+    newNote.pinned = false; // New notes are not pinned by default
     setNewNoteId(newNote.id);
 
-    const updatedNotes = [newNote, ...notes];
+    // Get pinned and unpinned notes
+    const pinnedNotes = notes.filter((note) => note.pinned);
+    const unpinnedNotes = notes.filter((note) => !note.pinned);
+
+    // Add the new note at the top of unpinned notes
+    const updatedNotes = [...pinnedNotes, newNote, ...unpinnedNotes];
     setNotes(updatedNotes);
 
     // Save note to Redis in background, don't block UI
     addNoteAction(userId, newNote)
       .then((result) => {
         if (result.success && result.notes && isMounted.current) {
-          setNotes(result.notes);
+          setNotes(sortNotes(result.notes));
         }
       })
       .catch((error) => {
@@ -210,6 +249,48 @@ export default function JustNotes() {
         setNewNoteId(null);
       }
     }, 600);
+  };
+
+  // Handle pin status change
+  const handlePinStatusChange = (noteId: string, isPinned: boolean) => {
+    console.log(`Pin status change for note ${noteId}: ${isPinned}`);
+
+    // Find the existing note to preserve its properties
+    const existingNote = notes.find((note) => note.id === noteId);
+    if (!existingNote) return;
+
+    // Create a new array with the updated note
+    const updatedNotes = notes.map((note) =>
+      note.id === noteId ? { ...note, pinned: isPinned } : note,
+    );
+
+    console.log("Sorting notes after pin status change");
+    // Sort notes with the new pin status
+    setNotes(sortNotes(updatedNotes));
+
+    // Disable automatic refreshes briefly to prevent flicker
+    const disableRefresh = true;
+    if (disableRefresh) {
+      const prevInterval = window.__noteRefreshInterval;
+      if (prevInterval) {
+        console.log("Temporarily disabling auto-refresh");
+        clearInterval(prevInterval);
+
+        // Re-enable after 5 seconds
+        setTimeout(() => {
+          console.log("Re-enabling auto-refresh");
+          window.__noteRefreshInterval = setInterval(async () => {
+            if (userId) {
+              console.log("Auto-refreshing notes");
+              const result = await getNotesByUserIdAction(userId);
+              if (result.success && result.notes) {
+                setNotes(sortNotes(result.notes));
+              }
+            }
+          }, 10000);
+        }, 5000);
+      }
+    }
   };
 
   if (isLoading) {
@@ -255,6 +336,7 @@ export default function JustNotes() {
                   prevNotes.filter((note) => note.id !== noteId),
                 );
               }}
+              onPinStatusChange={handlePinStatusChange}
             />
           </div>
         ))}
