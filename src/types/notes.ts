@@ -5,4 +5,5 @@
   createdAt?: number;
   updatedAt?: number;
   pinned?: boolean;
+  order?: number;
 }

@@ -33,21 +33,55 @@ export default function JustNotes() {
   const sortNotes = (notesToSort: Note[]): Note[] => {
     return [...notesToSort].sort((a, b) => {
       // First sort by pin status (pinned notes first)
-      if ((a.pinned || false) && !(b.pinned || false)) return -1;
-      if (!(a.pinned || false) && (b.pinned || false)) return 1;
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
 
-      // For pinned notes, sort by updatedAt (most recent first)
-      if ((a.pinned || false) && (b.pinned || false)) {
+      // If both notes have order values, use them for sorting
+      if (a.order !== undefined && b.order !== undefined) {
+        return a.order - b.order;
+      }
+
+      // For pinned notes without order, sort by updatedAt (most recent first)
+      if (a.pinned && b.pinned) {
         const aTime = a.updatedAt || 0;
         const bTime = b.updatedAt || 0;
         return bTime - aTime;
       }
 
-      // For unpinned notes, sort by createdAt (most recent first)
+      // For unpinned notes without order, sort by createdAt (most recent first)
       const aCreate = a.createdAt || 0;
       const bCreate = b.createdAt || 0;
       return bCreate - aCreate;
     });
+  };
+
+  // Get position info for each note
+  const getNotePositionInfo = (noteId: string, pinStatus: boolean) => {
+    // Get all pinned and unpinned notes
+    const pinnedNotes = notes.filter((note) => note.pinned);
+    const unpinnedNotes = notes.filter((note) => !note.pinned);
+
+    if (pinStatus) {
+      // For pinned notes
+      const pinnedIndex = pinnedNotes.findIndex((note) => note.id === noteId);
+      return {
+        isFirstPinned: pinnedIndex === 0,
+        isLastPinned: pinnedIndex === pinnedNotes.length - 1,
+        isFirstUnpinned: false,
+        isLastUnpinned: false,
+      };
+    } else {
+      // For unpinned notes
+      const unpinnedIndex = unpinnedNotes.findIndex(
+        (note) => note.id === noteId,
+      );
+      return {
+        isFirstPinned: false,
+        isLastPinned: false,
+        isFirstUnpinned: unpinnedIndex === 0,
+        isLastUnpinned: unpinnedIndex === unpinnedNotes.length - 1,
+      };
+    }
   };
 
   // Load notes from Redis on initial mount
@@ -148,8 +182,20 @@ export default function JustNotes() {
             (result.notes && result.notes.length > 0) ||
             !optimisticNoteAdded.current
           ) {
+            // Add createdAt if missing (for existing notes in the database)
+            const notesWithCreatedAt =
+              result.notes?.map((note) => {
+                if (!note.createdAt) {
+                  return {
+                    ...note,
+                    createdAt: note.updatedAt || Date.now(), // Fall back to updatedAt or current time
+                  };
+                }
+                return note;
+              }) || [];
+
             // Sort notes when refreshing
-            setNotes(sortNotes(result.notes || []));
+            setNotes(sortNotes(notesWithCreatedAt));
 
             // If we see our optimistic note has been saved to Redis, clear the flag
             if (
@@ -191,7 +237,13 @@ export default function JustNotes() {
     // Only set up the interval for periodic refreshes
     const intervalId = setInterval(refreshNotes, 10000);
 
-    return () => clearInterval(intervalId);
+    // Store the interval ID globally to be able to clear it during pin operations
+    window.__noteRefreshInterval = intervalId;
+
+    return () => {
+      clearInterval(intervalId);
+      window.__noteRefreshInterval = null;
+    };
   }, [userId, notes]);
 
   // Add note function
@@ -204,6 +256,8 @@ export default function JustNotes() {
     const newNote = JSON.parse(JSON.stringify(defaultNote));
     newNote.id = generateNoteId(notes.map((note) => note.id));
     newNote.pinned = false; // New notes are not pinned by default
+    newNote.createdAt = Date.now(); // Set creation timestamp
+    newNote.updatedAt = Date.now(); // Set update timestamp
     setNewNoteId(newNote.id);
 
     // Get pinned and unpinned notes
@@ -293,6 +347,20 @@ export default function JustNotes() {
     }
   };
 
+  // Handle note reordering
+  const handleReorder = (noteId: string, direction: "up" | "down") => {
+    console.log(`Reordering note ${noteId} ${direction}`);
+
+    // Refresh notes from the server to get the updated order
+    if (userId) {
+      getNotesByUserIdAction(userId).then((result) => {
+        if (result.success && result.notes) {
+          setNotes(sortNotes(result.notes));
+        }
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="col-span-12 text-center py-10">Loading your notes...</div>
@@ -316,30 +384,45 @@ export default function JustNotes() {
       </section>
 
       <div className="col-span-12 grid grid-cols-12 gap-4 note-container">
-        {notes.map((note: Note, index) => (
-          <div
-            key={note.id}
-            className={`col-span-12 ${
-              note.id === newNoteId
-                ? "animate-slide-in"
-                : animating && index > 0
-                  ? "animate-shift-down"
-                  : ""
-            }`}
-          >
-            <NoteBlock
-              details={note}
-              userId={userId || ""}
-              showDelete={notes.length > 1}
-              onDelete={(noteId) => {
-                setNotes((prevNotes) =>
-                  prevNotes.filter((note) => note.id !== noteId),
-                );
-              }}
-              onPinStatusChange={handlePinStatusChange}
-            />
-          </div>
-        ))}
+        {notes.map((note: Note, index) => {
+          // Get position information for each note
+          const {
+            isFirstPinned,
+            isLastPinned,
+            isFirstUnpinned,
+            isLastUnpinned,
+          } = getNotePositionInfo(note.id, note.pinned || false);
+
+          return (
+            <div
+              key={note.id}
+              className={`col-span-12 ${
+                note.id === newNoteId
+                  ? "animate-slide-in"
+                  : animating && index > 0
+                    ? "animate-shift-down"
+                    : ""
+              }`}
+            >
+              <NoteBlock
+                details={note}
+                userId={userId || ""}
+                showDelete={notes.length > 1}
+                onDelete={(noteId) => {
+                  setNotes((prevNotes) =>
+                    prevNotes.filter((note) => note.id !== noteId),
+                  );
+                }}
+                onPinStatusChange={handlePinStatusChange}
+                onReorder={handleReorder}
+                isFirstPinned={isFirstPinned}
+                isLastPinned={isLastPinned}
+                isFirstUnpinned={isFirstUnpinned}
+                isLastUnpinned={isLastUnpinned}
+              />
+            </div>
+          );
+        })}
       </div>
     </main>
   );

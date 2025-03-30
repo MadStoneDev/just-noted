@@ -331,3 +331,115 @@ export async function updateNotePinStatusAction(
     return { success: false, error: "Failed to update note pin status" };
   }
 }
+
+export async function reorderNoteAction(
+  userId: string,
+  noteId: string,
+  direction: "up" | "down",
+) {
+  try {
+    // Check if the request is from a bot
+    const { headers } = require("next/headers");
+    const isBotHeader = headers().get("x-is-bot");
+    const isBot = isBotHeader === "true";
+
+    // Don't process reordering for bots
+    if (isBot) {
+      console.log("Bot detected, skipping note reordering");
+      return {
+        success: true,
+      };
+    }
+
+    // Get all notes for the user
+    const currentNotes = ((await redis.get(`notes:${userId}`)) as Note[]) || [];
+
+    // Find the index of the note to be moved
+    const noteIndex = currentNotes.findIndex((note) => note.id === noteId);
+
+    if (noteIndex === -1) {
+      return { success: false, error: "Note not found" };
+    }
+
+    // Get the current note
+    const currentNote = currentNotes[noteIndex];
+
+    // Separate pinned and unpinned notes
+    const pinnedNotes = currentNotes.filter((note) => note.pinned);
+    const unpinnedNotes = currentNotes.filter((note) => !note.pinned);
+
+    // Handle reordering differently based on whether the note is pinned
+    if (currentNote.pinned) {
+      // For pinned notes
+      const pinnedIndex = pinnedNotes.findIndex((note) => note.id === noteId);
+
+      if (direction === "up" && pinnedIndex > 0) {
+        // Swap with the previous pinned note
+        [pinnedNotes[pinnedIndex], pinnedNotes[pinnedIndex - 1]] = [
+          pinnedNotes[pinnedIndex - 1],
+          pinnedNotes[pinnedIndex],
+        ];
+      } else if (direction === "down" && pinnedIndex < pinnedNotes.length - 1) {
+        // Swap with the next pinned note
+        [pinnedNotes[pinnedIndex], pinnedNotes[pinnedIndex + 1]] = [
+          pinnedNotes[pinnedIndex + 1],
+          pinnedNotes[pinnedIndex],
+        ];
+      }
+
+      // Assign explicit order values to all pinned notes
+      pinnedNotes.forEach((note, index) => {
+        note.order = index;
+      });
+
+      // Recombine the notes
+      const updatedNotes = [...pinnedNotes, ...unpinnedNotes];
+      await redis.set(`notes:${userId}`, updatedNotes);
+    } else {
+      // For unpinned notes
+      const unpinnedIndex = unpinnedNotes.findIndex(
+        (note) => note.id === noteId,
+      );
+
+      if (direction === "up" && unpinnedIndex > 0) {
+        // Swap with the previous unpinned note
+        [unpinnedNotes[unpinnedIndex], unpinnedNotes[unpinnedIndex - 1]] = [
+          unpinnedNotes[unpinnedIndex - 1],
+          unpinnedNotes[unpinnedIndex],
+        ];
+      } else if (
+        direction === "down" &&
+        unpinnedIndex < unpinnedNotes.length - 1
+      ) {
+        // Swap with the next unpinned note
+        [unpinnedNotes[unpinnedIndex], unpinnedNotes[unpinnedIndex + 1]] = [
+          unpinnedNotes[unpinnedIndex + 1],
+          unpinnedNotes[unpinnedIndex],
+        ];
+      }
+
+      // Assign explicit order values to all unpinned notes
+      // Start unpinned order values higher than pinned notes to maintain separation
+      const pinnedCount = pinnedNotes.length;
+      unpinnedNotes.forEach((note, index) => {
+        note.order = pinnedCount + index;
+      });
+
+      // Recombine the notes
+      const updatedNotes = [...pinnedNotes, ...unpinnedNotes];
+      await redis.set(`notes:${userId}`, updatedNotes);
+    }
+
+    // Get the updated notes
+    const updatedNotes = ((await redis.get(`notes:${userId}`)) as Note[]) || [];
+
+    revalidatePath("/");
+    return {
+      success: true,
+      notes: updatedNotes,
+    };
+  } catch (error) {
+    console.error("Failed to reorder note:", error);
+    return { success: false, error: "Failed to reorder note" };
+  }
+}

@@ -17,13 +17,16 @@ import {
   IconLoader,
   IconPin,
   IconPinnedFilled,
+  IconArrowUp,
+  IconArrowDown,
 } from "@tabler/icons-react";
 
 import {
   deleteNoteAction,
   updateNoteAction,
   updateNoteTitleAction,
-  updateNotePinStatusAction, // We'll need to create this action
+  updateNotePinStatusAction,
+  reorderNoteAction,
 } from "@/app/actions/noteActions";
 
 // Keeping your original debounce logic
@@ -52,20 +55,31 @@ export default function NoteBlock({
   userId,
   showDelete = true,
   onDelete,
-  onPinStatusChange, // Add callback for pin status changes
+  onPinStatusChange,
+  isFirstPinned = false,
+  isLastPinned = false,
+  isFirstUnpinned = false,
+  isLastUnpinned = false,
+  onReorder,
 }: {
   details: Note;
   userId: string;
   showDelete?: boolean;
   onDelete?: (noteId: string) => void;
-  onPinStatusChange?: (noteId: string, isPinned: boolean) => void; // New prop
+  onPinStatusChange?: (noteId: string, isPinned: boolean) => void;
+  isFirstPinned?: boolean;
+  isLastPinned?: boolean;
+  isFirstUnpinned?: boolean;
+  isLastUnpinned?: boolean;
+  onReorder?: (noteId: string, direction: "up" | "down") => void;
 }) {
   // States
   const [noteTitle, setNoteTitle] = useState(details.title);
   const [noteContent, setNoteContent] = useState(details.content);
   const [editingTitle, setEditingTitle] = useState(false);
-  const [isPinned, setIsPinned] = useState(details.pinned || false); // Default to false if property doesn't exist
+  const [isPinned, setIsPinned] = useState(details.pinned || false);
   const [isPinUpdating, setIsPinUpdating] = useState(false);
+  const [isReordering, setIsReordering] = useState(false);
 
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
@@ -110,14 +124,84 @@ export default function NoteBlock({
     setSaveStatus(message);
     setSaveIcon(icon);
 
-    // Debug the timeout behavior
-    console.log(`Setting status: ${message}, will clear in ${delay}ms`);
-
     statusTimeoutRef.current = setTimeout(() => {
-      console.log(`Clearing status: ${message}`);
       setSaveStatus("");
       setSaveIcon(null);
     }, delay);
+  };
+
+  // Determine if Up/Down buttons should be disabled
+  const canMoveUp = (): boolean => {
+    if (isPinned) {
+      return !isFirstPinned;
+    } else {
+      return !isFirstUnpinned;
+    }
+  };
+
+  const canMoveDown = (): boolean => {
+    if (isPinned) {
+      return !isLastPinned;
+    } else {
+      return !isLastUnpinned;
+    }
+  };
+
+  // Handle moving notes up or down
+  const handleMoveNote = async (direction: "up" | "down") => {
+    if (isReordering) return;
+
+    setIsReordering(true);
+    setStatusWithTimeout(
+      direction === "up" ? "Moving up..." : "Moving down...",
+      <IconLoader className="animate-spin" />,
+      false,
+      10000,
+    );
+
+    try {
+      const result = await reorderNoteAction(userId, details.id, direction);
+
+      if (result.success) {
+        // Clear previous status
+        clearStatusTimeout();
+        setSaveStatus("");
+        setSaveIcon(null);
+
+        // Set new status with a slight delay
+        setTimeout(() => {
+          setStatusWithTimeout(
+            direction === "up" ? "Moved up" : "Moved down",
+            <IconCircleCheck className="text-mercedes-primary" />,
+            false,
+            2000,
+          );
+        }, 50);
+
+        // Notify parent component
+        if (onReorder) {
+          onReorder(details.id, direction);
+        }
+      } else {
+        setStatusWithTimeout(
+          `Failed to move ${direction}`,
+          <IconCircleX className="text-red-700" />,
+          true,
+          3000,
+        );
+        console.error(`Failed to move note ${direction}:`, result.error);
+      }
+    } catch (error) {
+      setStatusWithTimeout(
+        `Error moving ${direction}`,
+        <IconCircleX className="text-red-700" />,
+        true,
+        3000,
+      );
+      console.error(`Error moving note ${direction}:`, error);
+    } finally {
+      setIsReordering(false);
+    }
   };
 
   // The key fix: Only save content that has actually changed
@@ -492,6 +576,36 @@ export default function NoteBlock({
           className={`flex-grow h-0.5 ${themeColour} transition-all duration-300 ease-in-out`}
         ></div>
 
+        {/* Order Controls */}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => handleMoveNote("up")}
+            disabled={!canMoveUp() || isReordering}
+            className={`p-1 cursor-pointer rounded-lg border border-neutral-300 ${
+              !canMoveUp() || isReordering
+                ? "opacity-30 cursor-not-allowed"
+                : "hover:bg-neutral-100 opacity-60 hover:opacity-100"
+            } transition-all duration-300 ease-in-out`}
+            title="Move note up"
+          >
+            <IconArrowUp size={18} strokeWidth={1.5} />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleMoveNote("down")}
+            disabled={!canMoveDown() || isReordering}
+            className={`p-1 cursor-pointer rounded-lg border border-neutral-300 ${
+              !canMoveDown() || isReordering
+                ? "opacity-30 cursor-not-allowed"
+                : "hover:bg-neutral-100 opacity-60 hover:opacity-100"
+            } transition-all duration-300 ease-in-out`}
+            title="Move note down"
+          >
+            <IconArrowDown size={18} strokeWidth={1.5} />
+          </button>
+        </div>
+
         {saveStatus && (
           <div className="flex items-center gap-1 text-sm text-neutral-500 italic">
             {saveIcon}
@@ -500,7 +614,9 @@ export default function NoteBlock({
                 saveStatus === "Saved" ||
                 saveStatus === "Pinned" ||
                 saveStatus === "Unpinned" ||
-                saveStatus === "Title saved"
+                saveStatus === "Title saved" ||
+                saveStatus === "Moved up" ||
+                saveStatus === "Moved down"
                   ? "text-mercedes-primary"
                   : saveStatus.includes("fail") || saveStatus.includes("Error")
                     ? "text-red-700"
