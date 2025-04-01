@@ -3,53 +3,111 @@
 import { revalidatePath } from "next/cache";
 
 import redis from "@/utils/redis";
-
 import { Note } from "@/types/notes";
 import { incrementGlobalNoteCount } from "./counterActions";
 
-function addTimestamp(note: Note): Note {
-  return {
-    ...note,
-    updatedAt: Date.now(),
-  };
+function isBotRequest(action: string): boolean {
+  const { headers } = require("next/headers");
+  const isBotHeader = headers().get("x-is-bot");
+  const isBot = isBotHeader === "true";
+
+  if (isBot) {
+    console.log(`Bot detected, skipping ${action}`);
+  }
+
+  return isBot;
 }
 
-function ensureTimestamps(note: Note): Note {
-  const now = Date.now();
-  return {
-    ...note,
-    createdAt: note.createdAt || now, // Use existing or create new
-    updatedAt: now, // Always update the updatedAt timestamp
-  };
+async function updateNoteProperty(
+  userId: string,
+  noteId: string,
+  updateFn: (note: Note) => Note,
+) {
+  const transaction = redis.multi();
+
+  transaction.get(`notes:${userId}`);
+  const results = await transaction.exec();
+
+  if (!results || !results[0]) {
+    throw new Error(`Failed to get notes for user ${userId}`);
+  }
+
+  const currentNotes = (results[0] as Note[]) || [];
+  const noteIndex = currentNotes.findIndex((note) => note.id === noteId);
+
+  if (noteIndex === -1) {
+    throw new Error(`Note ${noteId} not found for user ${userId}`);
+  }
+
+  const updatedNotes = [
+    ...currentNotes.slice(0, noteIndex),
+
+    updateFn(currentNotes[noteIndex]),
+    ...currentNotes.slice(noteIndex + 1),
+  ];
+
+  await redis.set(`notes:${userId}`, updatedNotes);
+  return updatedNotes;
 }
 
 export async function deleteNoteAction(userId: string, noteId: string) {
   try {
-    // Check if the request is from a bot using the header set in middleware
-    const { headers } = require("next/headers");
-    const isBotHeader = headers().get("x-is-bot");
-    const isBot = isBotHeader === "true";
-
-    // Don't save notes for bots
-    if (isBot) {
-      console.log("Bot detected, skipping note deletion");
+    if (isBotRequest("note delete")) {
       return {
         success: true,
-        notes: [],
       };
     }
 
-    const currentNotes = ((await redis.get(`notes:${userId}`)) as Note[]) || [];
+    const { isUserIdActive, registerUserId, refreshUserActivity } =
+      await import("@/utils/userIdManagement");
+
+    const isActive = await isUserIdActive(userId);
+
+    if (!isActive) {
+      await registerUserId(userId);
+    } else {
+      await refreshUserActivity(userId);
+    }
+
+    const transaction = redis.multi();
+    transaction.get(`notes:${userId}`);
+    const results = await transaction.exec();
+
+    if (!results || !results[0]) {
+      return {
+        success: false,
+        error: `Failed to get notes for user ${userId}`,
+      };
+    }
+
+    const currentNotes = (results[0] as Note[]) || [];
+
+    const noteToDelete = currentNotes.find((note) => note.id === noteId);
+    if (!noteToDelete) {
+      return {
+        success: false,
+        error: `Note with ID ${noteId} not found for user ${userId}`,
+      };
+    }
+
     const updatedNotes = currentNotes.filter((note) => note.id !== noteId);
 
     await redis.set(`notes:${userId}`, updatedNotes);
 
     revalidatePath("/");
 
-    return { success: true, notes: updatedNotes };
+    return {
+      success: true,
+      notes: updatedNotes,
+      deletedNote: noteToDelete,
+    };
   } catch (error) {
     console.error("Failed to delete note:", error);
-    return { success: false, error: "Failed to delete note" };
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      error: `Failed to delete note: ${errorMessage}`,
+    };
   }
 }
 
@@ -59,168 +117,175 @@ export async function updateNoteAction(
   content: string,
 ) {
   try {
-    // Check if the request is from a bot using the header set in middleware
-    const { headers } = require("next/headers");
-    const isBotHeader = headers().get("x-is-bot");
-    const isBot = isBotHeader === "true";
-
-    // Don't update notes for bots
-    if (isBot) {
-      console.log("Bot detected, skipping note update");
-      return { success: true };
+    if (isBotRequest("note update")) {
+      return {
+        success: true,
+      };
     }
 
-    // Validate the user ID
-    const { isUserIdActive, registerUserId } = await import(
-      "@/utils/userIdManagement"
-    );
+    if (!userId) {
+      return {
+        success: false,
+        error: "Invalid user ID: User ID cannot be empty",
+      };
+    }
 
-    // Check if user ID is active
+    // Validate the user ID and ensure it's registered
+    const { isUserIdActive, registerUserId, refreshUserActivity } =
+      await import("@/utils/userIdManagement");
+
     const isActive = await isUserIdActive(userId);
-
-    // If not active, register it - this could be a valid user with a cleared Redis cache
     if (!isActive) {
       await registerUserId(userId);
+    } else {
+      await refreshUserActivity(userId);
     }
-
-    let currentNotes: Note[] = [];
 
     try {
-      // Try to get existing notes
-      currentNotes = ((await redis.get(`notes:${userId}`)) as Note[]) || [];
+      // Try to update the note property
+      const updatedNotes = await updateNoteProperty(userId, noteId, (note) => ({
+        ...note,
+        content,
+        updatedAt: Date.now(),
+      }));
+
+      revalidatePath("/");
+      return {
+        success: true,
+        notes: updatedNotes,
+      };
     } catch (error) {
-      // If the record doesn't exist, create a new note instead
-      console.log(
-        `No existing notes for user ${userId}, creating new record with this note`,
-      );
+      // If the update fails, it might be because the note doesn't exist
+      // Let's check if it's because the note wasn't found
+      if (error instanceof Error && error.message.includes("not found")) {
+        // Create a new note with this ID
+        console.log(
+          `Note ${noteId} not found for user ${userId}, creating new note`,
+        );
 
-      // Create a new note with the provided content
-      const newNote: Note = {
-        id: noteId,
-        title: "Just Noted",
-        content,
-        updatedAt: Date.now(),
-      };
+        // Get existing notes to add the new note
+        let currentNotes: Note[] = [];
+        try {
+          currentNotes = ((await redis.get(`notes:${userId}`)) as Note[]) || [];
+        } catch (e) {
+          // If no notes exist yet, use an empty array
+          console.log(
+            `No existing notes for user ${userId}, creating new record`,
+          );
+        }
 
-      // Get the next note number for the title
-      const noteNumber = await incrementGlobalNoteCount();
-      newNote.title = `Just Noted #${noteNumber}`;
+        // Create a new note
+        const noteNumber = await incrementGlobalNoteCount();
+        const newNote: Note = {
+          id: noteId,
+          title: `Just Noted #${noteNumber}`,
+          content,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
 
-      await redis.set(`notes:${userId}`, [newNote]);
+        // Add to beginning of notes array
+        const updatedNotes = [newNote, ...currentNotes];
 
-      revalidatePath("/");
-      return { success: true };
+        // Save to Redis
+        await redis.set(`notes:${userId}`, updatedNotes);
+
+        revalidatePath("/");
+        return {
+          success: true,
+          notes: updatedNotes,
+        };
+      }
+
+      // Re-throw for other types of errors
+      throw error;
     }
-
-    const noteIndex = currentNotes.findIndex((note) => note.id === noteId);
-
-    if (noteIndex === -1) {
-      // Note not found - create a new note with this ID instead of throwing an error
-      console.log(
-        `Note ${noteId} not found for user ${userId}, creating new note`,
-      );
-
-      // Create a new note with the provided ID and content
-      const newNote: Note = {
-        id: noteId,
-        title: "Just Noted",
-        content,
-        updatedAt: Date.now(),
-      };
-
-      // Get the next note number for the title
-      const noteNumber = await incrementGlobalNoteCount();
-      newNote.title = `Just Noted #${noteNumber}`;
-
-      // Add the new note to the list
-      currentNotes.unshift(newNote);
-
-      await redis.set(`notes:${userId}`, currentNotes);
-
-      revalidatePath("/");
-      return { success: true };
-    }
-
-    const updatedNotes = [...currentNotes];
-    updatedNotes[noteIndex] = addTimestamp({
-      ...updatedNotes[noteIndex],
-      content,
-    });
-
-    await redis.set(`notes:${userId}`, updatedNotes);
-
-    revalidatePath("/");
-    return { success: true };
   } catch (error) {
     console.error("Failed to update note:", error);
-    return { success: false, error: String(error) };
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      error: `Failed to update note content: ${errorMessage}`,
+    };
   }
 }
 
 export async function getNotesByUserIdAction(userId: string) {
   try {
+    if (!userId) {
+      return {
+        success: false,
+        error: "Invalid user ID: User ID cannot be empty",
+      };
+    }
+
     const notes = ((await redis.get(`notes:${userId}`)) as Note[]) || [];
     return { success: true, notes };
   } catch (error) {
     console.error("Failed to get notes:", error);
-    return { success: false, error: "Failed to get notes" };
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      error: `Failed to retrieve notes: ${errorMessage}`,
+    };
   }
 }
 
 export async function addNoteAction(userId: string, newNote: Note) {
   try {
-    // Check if the request is from a bot using the header set in middleware
-    const { headers } = require("next/headers");
-    const isBotHeader = headers().get("x-is-bot");
-    const isBot = isBotHeader === "true";
-
-    // Don't save notes for bots
-    if (isBot) {
-      console.log("Bot detected, skipping note creation");
+    if (isBotRequest("note add")) {
       return {
         success: true,
-        notes: [],
       };
     }
 
-    // Validate and register the user ID
-    const { isUserIdActive, registerUserId } = await import(
-      "@/utils/userIdManagement"
-    );
+    if (!userId) {
+      return {
+        success: false,
+        error: "Invalid user ID: User ID cannot be empty",
+      };
+    }
 
-    // Check if user ID is active
+    if (!newNote || !newNote.id) {
+      return {
+        success: false,
+        error: "Invalid note data: Note must have an ID",
+      };
+    }
+
+    const { isUserIdActive, registerUserId, refreshUserActivity } =
+      await import("@/utils/userIdManagement");
+
     const isActive = await isUserIdActive(userId);
 
-    // If not active, register it
     if (!isActive) {
       await registerUserId(userId);
+    } else {
+      await refreshUserActivity(userId);
     }
 
-    // Get the next note number by incrementing the global counter
     const noteNumber = await incrementGlobalNoteCount();
 
-    // Update the note title to include the number if it's the default title
-    if (newNote.title === "Just Noted") {
-      newNote.title = `Just Noted #${noteNumber}`;
-    }
-
-    // Add timestamps to the new note
     const now = Date.now();
     const noteWithTimestamps = {
       ...newNote,
-      createdAt: now, // Add creation timestamp
+      title:
+        newNote.title === "Just Noted"
+          ? `Just Noted #${noteNumber}`
+          : newNote.title,
+      createdAt: now,
       updatedAt: now,
     };
 
-    let currentNotes: Note[] = [];
+    const transaction = redis.multi();
+    transaction.get(`notes:${userId}`);
+    const results = await transaction.exec();
 
-    try {
-      // Try to get existing notes
-      currentNotes = ((await redis.get(`notes:${userId}`)) as Note[]) || [];
-    } catch (error) {
-      // If the record doesn't exist, just log it and continue with an empty array
+    let currentNotes: Note[] = [];
+    if (results && results[0]) {
+      currentNotes = (results[0] as Note[]) || [];
+    } else {
       console.log(`No existing notes for user ${userId}, creating new record`);
-      // currentNotes already initialized as empty array
     }
 
     const updatedNotes = [noteWithTimestamps, ...currentNotes];
@@ -231,7 +296,11 @@ export async function addNoteAction(userId: string, newNote: Note) {
     return { success: true, notes: updatedNotes };
   } catch (error) {
     console.error("Failed to add note:", error);
-    return { success: false, error: "Failed to add note" };
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      error: `Failed to add note: ${errorMessage}`,
+    };
   }
 }
 
@@ -241,32 +310,49 @@ export async function updateNoteTitleAction(
   title: string,
 ) {
   try {
-    // Check if the request is from a bot using the header set in middleware
-    const { headers } = require("next/headers");
-    const isBotHeader = headers().get("x-is-bot");
-    const isBot = isBotHeader === "true";
-
-    // Don't save notes for bots
-    if (isBot) {
-      console.log("Bot detected, skipping note creation");
+    if (isBotRequest("note title update")) {
       return {
         success: true,
       };
     }
 
-    const currentNotes = ((await redis.get(`notes:${userId}`)) as Note[]) || [];
+    if (!title.trim()) {
+      return {
+        success: false,
+        error: "Invalid title: Title cannot be empty",
+      };
+    }
 
-    const updatedNotes = currentNotes.map((note) =>
-      note.id === noteId ? addTimestamp({ ...note, title }) : note,
-    );
+    const { isUserIdActive, registerUserId, refreshUserActivity } =
+      await import("@/utils/userIdManagement");
 
-    await redis.set(`notes:${userId}`, updatedNotes);
+    const isActive = await isUserIdActive(userId);
+
+    if (!isActive) {
+      await registerUserId(userId);
+    } else {
+      await refreshUserActivity(userId);
+    }
+
+    // Update the note title
+    const updatedNotes = await updateNoteProperty(userId, noteId, (note) => ({
+      ...note,
+      title,
+      updatedAt: Date.now(),
+    }));
 
     revalidatePath("/");
-    return { success: true };
+    return {
+      success: true,
+      notes: updatedNotes,
+    };
   } catch (error) {
     console.error("Failed to update note title:", error);
-    return { success: false, error: "Failed to update note title" };
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      error: `Failed to update note title: ${errorMessage}`,
+    };
   }
 }
 
@@ -276,59 +362,52 @@ export async function updateNotePinStatusAction(
   pinned: boolean,
 ) {
   try {
-    // Check if the request is from a bot using the header set in middleware
-    const { headers } = require("next/headers");
-    const isBotHeader = headers().get("x-is-bot");
-    const isBot = isBotHeader === "true";
-
-    // Don't save notes for bots
-    if (isBot) {
-      console.log("Bot detected, skipping note pin status update");
+    if (isBotRequest("note pin status update")) {
       return {
         success: true,
       };
     }
 
-    const currentNotes = ((await redis.get(`notes:${userId}`)) as Note[]) || [];
+    const { isUserIdActive, registerUserId, refreshUserActivity } =
+      await import("@/utils/userIdManagement");
 
-    // Find the note being updated
-    const noteIndex = currentNotes.findIndex((note) => note.id === noteId);
+    const isActive = await isUserIdActive(userId);
 
-    if (noteIndex === -1) {
-      console.error(`Note ${noteId} not found for user ${userId}`);
-      return { success: false, error: "Note not found" };
+    if (!isActive) {
+      await registerUserId(userId);
+    } else {
+      await refreshUserActivity(userId);
     }
 
-    // Create a copy of the notes array
-    const updatedNotes = [...currentNotes];
-
-    // Use ensureTimestamps to maintain proper timestamps
-    // Only update the updatedAt timestamp, preserve the original createdAt
-    const now = Date.now();
-    updatedNotes[noteIndex] = {
-      ...updatedNotes[noteIndex],
+    // Update the note with the new pin status
+    const updatedNotes = await updateNoteProperty(userId, noteId, (note) => ({
+      ...note,
       pinned,
-      updatedAt: now,
-      // Preserve the original createdAt or use updatedAt as fallback
-      createdAt:
-        updatedNotes[noteIndex].createdAt ||
-        updatedNotes[noteIndex].updatedAt ||
-        now,
-    };
+      updatedAt: Date.now(),
+      // Preserve original createdAt or use updatedAt as fallback
+      createdAt: note.createdAt || note.updatedAt || Date.now(),
+    }));
 
-    // Save the updated notes array
-    await redis.set(`notes:${userId}`, updatedNotes);
+    // Sort notes by pin status and order for consistent order
+    const sortedNotes = sortNotesByPinStatus(updatedNotes);
 
-    // Force revalidation to ensure all clients get the update
+    // Save sorted notes back to Redis
+    await redis.set(`notes:${userId}`, sortedNotes);
+
+    // Force revalidation
     revalidatePath("/");
 
     return {
       success: true,
-      notes: updatedNotes,
+      notes: sortedNotes,
     };
   } catch (error) {
     console.error("Failed to update note pin status:", error);
-    return { success: false, error: "Failed to update note pin status" };
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      error: `Failed to update note pin status: ${errorMessage}`,
+    };
   }
 }
 
@@ -338,108 +417,147 @@ export async function reorderNoteAction(
   direction: "up" | "down",
 ) {
   try {
-    // Check if the request is from a bot
-    const { headers } = require("next/headers");
-    const isBotHeader = headers().get("x-is-bot");
-    const isBot = isBotHeader === "true";
-
-    // Don't process reordering for bots
-    if (isBot) {
-      console.log("Bot detected, skipping note reordering");
+    if (isBotRequest("note reorder")) {
       return {
         success: true,
       };
     }
 
-    // Get all notes for the user
-    const currentNotes = ((await redis.get(`notes:${userId}`)) as Note[]) || [];
+    const { isUserIdActive, registerUserId, refreshUserActivity } =
+      await import("@/utils/userIdManagement");
 
-    // Find the index of the note to be moved
+    const isActive = await isUserIdActive(userId);
+
+    if (!isActive) {
+      await registerUserId(userId);
+    } else {
+      await refreshUserActivity(userId);
+    }
+
+    const transaction = redis.multi();
+    transaction.get(`notes:${userId}`);
+    const results = await transaction.exec();
+
+    if (!results || !results[0]) {
+      return {
+        success: false,
+        error: `Failed to get notes for user ${userId}`,
+      };
+    }
+
+    const currentNotes = (results[0] as Note[]) || [];
+
     const noteIndex = currentNotes.findIndex((note) => note.id === noteId);
 
     if (noteIndex === -1) {
-      return { success: false, error: "Note not found" };
+      return {
+        success: false,
+        error: `Note with ID ${noteId} not found for user ${userId}`,
+      };
     }
 
-    // Get the current note
     const currentNote = currentNotes[noteIndex];
 
-    // Separate pinned and unpinned notes
     const pinnedNotes = currentNotes.filter((note) => note.pinned);
     const unpinnedNotes = currentNotes.filter((note) => !note.pinned);
 
-    // Handle reordering differently based on whether the note is pinned
+    let updatedPinnedNotes: Note[] = [...pinnedNotes];
+    let updatedUnpinnedNotes: Note[] = [...unpinnedNotes];
+
     if (currentNote.pinned) {
-      // For pinned notes
       const pinnedIndex = pinnedNotes.findIndex((note) => note.id === noteId);
 
       if (direction === "up" && pinnedIndex > 0) {
-        // Swap with the previous pinned note
-        [pinnedNotes[pinnedIndex], pinnedNotes[pinnedIndex - 1]] = [
-          pinnedNotes[pinnedIndex - 1],
+        updatedPinnedNotes = [
+          ...pinnedNotes.slice(0, pinnedIndex - 1),
           pinnedNotes[pinnedIndex],
+          pinnedNotes[pinnedIndex - 1],
+          ...pinnedNotes.slice(pinnedIndex + 1),
         ];
       } else if (direction === "down" && pinnedIndex < pinnedNotes.length - 1) {
-        // Swap with the next pinned note
-        [pinnedNotes[pinnedIndex], pinnedNotes[pinnedIndex + 1]] = [
+        updatedPinnedNotes = [
+          ...pinnedNotes.slice(0, pinnedIndex),
           pinnedNotes[pinnedIndex + 1],
           pinnedNotes[pinnedIndex],
+          ...pinnedNotes.slice(pinnedIndex + 2),
         ];
       }
 
-      // Assign explicit order values to all pinned notes
-      pinnedNotes.forEach((note, index) => {
-        note.order = index;
-      });
-
-      // Recombine the notes
-      const updatedNotes = [...pinnedNotes, ...unpinnedNotes];
-      await redis.set(`notes:${userId}`, updatedNotes);
+      updatedPinnedNotes = updatedPinnedNotes.map((note, index) => ({
+        ...note,
+        order: index,
+      }));
     } else {
-      // For unpinned notes
       const unpinnedIndex = unpinnedNotes.findIndex(
         (note) => note.id === noteId,
       );
 
       if (direction === "up" && unpinnedIndex > 0) {
-        // Swap with the previous unpinned note
-        [unpinnedNotes[unpinnedIndex], unpinnedNotes[unpinnedIndex - 1]] = [
-          unpinnedNotes[unpinnedIndex - 1],
+        updatedUnpinnedNotes = [
+          ...unpinnedNotes.slice(0, unpinnedIndex - 1),
           unpinnedNotes[unpinnedIndex],
+          unpinnedNotes[unpinnedIndex - 1],
+          ...unpinnedNotes.slice(unpinnedIndex + 1),
         ];
       } else if (
         direction === "down" &&
         unpinnedIndex < unpinnedNotes.length - 1
       ) {
-        // Swap with the next unpinned note
-        [unpinnedNotes[unpinnedIndex], unpinnedNotes[unpinnedIndex + 1]] = [
+        updatedUnpinnedNotes = [
+          ...unpinnedNotes.slice(0, unpinnedIndex),
           unpinnedNotes[unpinnedIndex + 1],
           unpinnedNotes[unpinnedIndex],
+          ...unpinnedNotes.slice(unpinnedIndex + 2),
         ];
       }
 
-      // Assign explicit order values to all unpinned notes
-      // Start unpinned order values higher than pinned notes to maintain separation
-      const pinnedCount = pinnedNotes.length;
-      unpinnedNotes.forEach((note, index) => {
-        note.order = pinnedCount + index;
-      });
-
-      // Recombine the notes
-      const updatedNotes = [...pinnedNotes, ...unpinnedNotes];
-      await redis.set(`notes:${userId}`, updatedNotes);
+      const pinnedCount = updatedPinnedNotes.length;
+      updatedUnpinnedNotes = updatedUnpinnedNotes.map((note, index) => ({
+        ...note,
+        order: pinnedCount + index,
+      }));
     }
 
-    // Get the updated notes
-    const updatedNotes = ((await redis.get(`notes:${userId}`)) as Note[]) || [];
+    const finalUpdatedNotes = [...updatedPinnedNotes, ...updatedUnpinnedNotes];
+
+    await redis.set(`notes:${userId}`, finalUpdatedNotes);
 
     revalidatePath("/");
     return {
       success: true,
-      notes: updatedNotes,
+      notes: finalUpdatedNotes,
     };
   } catch (error) {
     console.error("Failed to reorder note:", error);
-    return { success: false, error: "Failed to reorder note" };
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      error: `Failed to reorder note: ${errorMessage}`,
+    };
   }
+}
+
+function sortNotesByPinStatus(notes: Note[]): Note[] {
+  return [...notes].sort((a, b) => {
+    // First sort by pin status (pinned notes first)
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+
+    // If both notes have order values, use them for sorting
+    if (a.order !== undefined && b.order !== undefined) {
+      return a.order - b.order;
+    }
+
+    // For pinned notes without order, sort by updatedAt (most recent first)
+    if (a.pinned && b.pinned) {
+      const aTime = a.updatedAt || 0;
+      const bTime = b.updatedAt || 0;
+      return bTime - aTime;
+    }
+
+    // For unpinned notes without order, sort by createdAt (most recent first)
+    const aCreate = a.createdAt || 0;
+    const bCreate = b.createdAt || 0;
+    return bCreate - aCreate;
+  });
 }

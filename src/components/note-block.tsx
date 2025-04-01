@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-
 import { Note } from "@/types/notes";
 import TextBlock from "@/components/text-block";
 
@@ -29,7 +28,6 @@ import {
   reorderNoteAction,
 } from "@/app/actions/noteActions";
 
-// Keeping your original debounce logic
 const useDebounce = <T extends (...args: any[]) => any>(
   callback: T,
   delay: number,
@@ -45,6 +43,13 @@ const useDebounce = <T extends (...args: any[]) => any>(
       timeoutRef.current = setTimeout(() => {
         callback(...args);
       }, delay);
+
+      // Return cleanup function
+      return () => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+      };
     },
     [callback, delay],
   );
@@ -84,26 +89,60 @@ export default function NoteBlock({
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
 
-  const [themeColour, setThemeColour] = useState("bg-neutral-300");
-
   const [saveStatus, setSaveStatus] = useState("");
   const [saveIcon, setSaveIcon] = useState<React.ReactNode | null>(null);
   const [isPending, setIsPending] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Refs
   const titleInputRef = useRef<HTMLInputElement>(null);
   const statusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // This ref stores the last content that was saved to prevent duplicate saves
   const lastSavedContentRef = useRef(details.content);
+  // Use a ref instead of state for themeColor to prevent re-renders
+  const themeColorRef = useRef("bg-neutral-300");
+  // Status message tracking (to handle race conditions)
+  const statusMessageIdRef = useRef<number>(0);
+  // Track server operations for race condition prevention
+  const reorderOperationRef = useRef<{ id: string; timestamp: number } | null>(
+    null,
+  );
 
   // Functions
   const updateStats = useCallback((text: string) => {
-    const words: string[] = text.split(/\s+/).filter((word) => word !== "");
-    const chars = text.replace(/<[^>]*>/g, "").trim();
+    // Create a temporary DOM element to parse HTML safely
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = text;
+
+    // Get text content which removes all HTML tags and preserves proper spacing
+    const plainText = tempDiv.textContent || tempDiv.innerText || "";
+
+    // Normalize whitespace (replace multiple spaces with a single space)
+    const normalizedText = plainText.replace(/\s+/g, " ").trim();
+
+    // Count words (split by whitespace and filter out empty strings)
+    const words = normalizedText
+      ? normalizedText.split(/\s+/).filter(Boolean)
+      : [];
+
+    // Set the state with accurate counts
     setWordCount(words.length);
-    setCharCount(chars.length);
+    setCharCount(plainText.length); // Count actual characters including whitespace
   }, []);
+
+  // Get current theme color from ref
+  const getThemeColor = () => themeColorRef.current;
+
+  // Update theme color
+  const setThemeColor = (color: string) => {
+    themeColorRef.current = color;
+    // Force re-render of elements that depend on this color
+    const elements = document.querySelectorAll(`.theme-color-dependent`);
+    elements.forEach((el) => {
+      if (el instanceof HTMLElement) {
+        el.className = el.className.replace(/bg-[^ ]+/, color);
+      }
+    });
+  };
 
   // Clear status timeout helper function
   const clearStatusTimeout = () => {
@@ -113,7 +152,7 @@ export default function NoteBlock({
     }
   };
 
-  // Set status with auto-clear after delay
+  // Set status with auto-clear after delay - now with race condition prevention
   const setStatusWithTimeout = (
     message: string,
     icon: React.ReactNode,
@@ -121,12 +160,20 @@ export default function NoteBlock({
     delay = 2000,
   ) => {
     clearStatusTimeout();
+
+    // Generate a unique ID for this status message
+    const messageId = Date.now();
+    statusMessageIdRef.current = messageId;
+
     setSaveStatus(message);
     setSaveIcon(icon);
 
     statusTimeoutRef.current = setTimeout(() => {
-      setSaveStatus("");
-      setSaveIcon(null);
+      // Only clear if this is still the active message
+      if (statusMessageIdRef.current === messageId) {
+        setSaveStatus("");
+        setSaveIcon(null);
+      }
     }, delay);
   };
 
@@ -147,11 +194,22 @@ export default function NoteBlock({
     }
   };
 
-  // Handle moving notes up or down
+  // Handle moving notes up or down - now with race condition prevention
   const handleMoveNote = async (direction: "up" | "down") => {
     if (isReordering) return;
 
     setIsReordering(true);
+
+    // Generate a unique operation ID
+    const operationId = `${details.id}-${Date.now()}`;
+    const operationTimestamp = Date.now();
+
+    // Store the current operation details to handle race conditions
+    reorderOperationRef.current = {
+      id: operationId,
+      timestamp: operationTimestamp,
+    };
+
     setStatusWithTimeout(
       direction === "up" ? "Moving up..." : "Moving down...",
       <IconLoader className="animate-spin" />,
@@ -162,27 +220,37 @@ export default function NoteBlock({
     try {
       const result = await reorderNoteAction(userId, details.id, direction);
 
-      if (result.success) {
+      // Only process this response if it's the most recent operation
+      if (reorderOperationRef.current?.id === operationId && result.success) {
         // Clear previous status
         clearStatusTimeout();
+
+        // Generate a new message ID
+        const messageId = Date.now();
+        statusMessageIdRef.current = messageId;
+
         setSaveStatus("");
         setSaveIcon(null);
 
         // Set new status with a slight delay
         setTimeout(() => {
-          setStatusWithTimeout(
-            direction === "up" ? "Moved up" : "Moved down",
-            <IconCircleCheck className="text-mercedes-primary" />,
-            false,
-            2000,
-          );
+          // Only update if this is still the active message
+          if (statusMessageIdRef.current === messageId) {
+            setStatusWithTimeout(
+              direction === "up" ? "Moved up" : "Moved down",
+              <IconCircleCheck className="text-mercedes-primary" />,
+              false,
+              2000,
+            );
+          }
         }, 50);
 
         // Notify parent component
         if (onReorder) {
           onReorder(details.id, direction);
         }
-      } else {
+      } else if (reorderOperationRef.current?.id === operationId) {
+        // This is still the current operation but it failed
         setStatusWithTimeout(
           `Failed to move ${direction}`,
           <IconCircleX className="text-red-700" />,
@@ -192,15 +260,22 @@ export default function NoteBlock({
         console.error(`Failed to move note ${direction}:`, result.error);
       }
     } catch (error) {
-      setStatusWithTimeout(
-        `Error moving ${direction}`,
-        <IconCircleX className="text-red-700" />,
-        true,
-        3000,
-      );
-      console.error(`Error moving note ${direction}:`, error);
+      // Only show error if this is still the current operation
+      if (reorderOperationRef.current?.id === operationId) {
+        setStatusWithTimeout(
+          `Error moving ${direction}`,
+          <IconCircleX className="text-red-700" />,
+          true,
+          3000,
+        );
+        console.error(`Error moving note ${direction}:`, error);
+      }
     } finally {
-      setIsReordering(false);
+      // Only update reordering state for the current operation
+      if (reorderOperationRef.current?.id === operationId) {
+        setIsReordering(false);
+        reorderOperationRef.current = null;
+      }
     }
   };
 
@@ -282,9 +357,8 @@ export default function NoteBlock({
       // Update local state first for responsive UI
       setNoteContent(value);
 
-      // Update stats
-      const plainText = value.replace(/<[^>]*>/g, "").trim();
-      updateStats(plainText);
+      // Update stats using the more robust HTML stripping function
+      updateStats(value);
 
       // Queue auto-save without affecting the UI
       debouncedAutoSave(value);
@@ -315,6 +389,10 @@ export default function NoteBlock({
       );
 
       if (result.success) {
+        // Create a unique message ID for this status update to handle race conditions
+        const messageId = Date.now();
+        statusMessageIdRef.current = messageId;
+
         // Clear previous status first to force UI update
         clearStatusTimeout();
         setSaveStatus("");
@@ -322,12 +400,15 @@ export default function NoteBlock({
 
         // Then set the new status with a slight delay to ensure it's seen as a new message
         setTimeout(() => {
-          setStatusWithTimeout(
-            newPinStatus ? "Pinned" : "Unpinned",
-            <IconCircleCheck className="text-mercedes-primary" />,
-            false,
-            2000,
-          );
+          // Only update if this is still the active message
+          if (statusMessageIdRef.current === messageId) {
+            setStatusWithTimeout(
+              newPinStatus ? "Pinned" : "Unpinned",
+              <IconCircleCheck className="text-mercedes-primary" />,
+              false,
+              2000,
+            );
+          }
         }, 50);
 
         // Notify parent component about the pin status change
@@ -448,10 +529,14 @@ export default function NoteBlock({
   };
 
   const handleExportTxt = () => {
-    const textContent = `${noteTitle}\n\n${noteContent.replace(
-      /<[^>]*>/g,
-      "",
-    )}`;
+    // Create a temporary DOM element to parse HTML safely
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = noteContent;
+
+    // Get text content which removes all HTML tags
+    const plainText = tempDiv.textContent || tempDiv.innerText || "";
+
+    const textContent = `${noteTitle}\n\n${plainText}`;
     const blob = new Blob([textContent], { type: "text/plain" });
 
     const url = URL.createObjectURL(blob);
@@ -469,7 +554,7 @@ export default function NoteBlock({
   };
 
   // Effects
-  // IMPORTANT: Only run this effect once on mount, not on every render or updateStats change
+  // IMPORTANT: Only run this effect once on mount, not on every render
   useEffect(() => {
     setNoteContent(details.content);
     setNoteTitle(details.title);
@@ -477,8 +562,8 @@ export default function NoteBlock({
     // Set initial pin status from the details
     setIsPinned(details.pinned || false);
 
-    const plainText = details.content.replace(/<[^>]*>/g, "").trim();
-    updateStats(plainText);
+    // Update stats with the more robust HTML stripping method
+    updateStats(details.content);
 
     return () => {
       clearStatusTimeout();
@@ -573,7 +658,7 @@ export default function NoteBlock({
         </div>
 
         <div
-          className={`flex-grow h-0.5 ${themeColour} transition-all duration-300 ease-in-out`}
+          className={`flex-grow h-0.5 theme-color-dependent ${getThemeColor()} transition-all duration-300 ease-in-out`}
         ></div>
 
         {/* Order Controls */}
@@ -649,7 +734,7 @@ export default function NoteBlock({
             <button
               onClick={handleTogglePin}
               disabled={isPinUpdating}
-              className={`p-2 border ${
+              className={`p-1 border ${
                 isPinned
                   ? "border-mercedes-primary bg-mercedes-primary text-neutral-100"
                   : "border-neutral-400 text-neutral-500 hover:border-mercedes-primary hover:text-mercedes-primary"
@@ -661,9 +746,9 @@ export default function NoteBlock({
               title={isPinned ? "Unpin this note" : "Pin this note"}
             >
               {isPinned ? (
-                <IconPinnedFilled size={24} strokeWidth={2} />
+                <IconPinnedFilled size={20} strokeWidth={2} />
               ) : (
-                <IconPin size={24} strokeWidth={2} />
+                <IconPin size={20} strokeWidth={2} />
               )}
             </button>
           </article>
@@ -701,8 +786,8 @@ export default function NoteBlock({
           className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg border-2 border-mercedes-primary hover:bg-mercedes-primary text-neutral-800 transition-all duration-300 ease-in-out ${
             isPending ? "opacity-50 cursor-not-allowed" : ""
           }`}
-          onPointerEnter={() => setThemeColour("bg-mercedes-primary")}
-          onPointerLeave={() => setThemeColour("bg-neutral-300")}
+          onPointerEnter={() => setThemeColor("bg-mercedes-primary")}
+          onPointerLeave={() => setThemeColor("bg-neutral-300")}
         >
           <IconDeviceFloppy size={20} strokeWidth={2} />
         </button>
@@ -712,14 +797,14 @@ export default function NoteBlock({
           onClick={handleExportTxt}
           title={`Export as text file`}
           className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg border-2 border-mercedes-primary hover:bg-mercedes-primary text-neutral-800 transition-all duration-300 ease-in-out`}
-          onPointerEnter={() => setThemeColour("bg-mercedes-primary")}
-          onPointerLeave={() => setThemeColour("bg-neutral-300")}
+          onPointerEnter={() => setThemeColor("bg-mercedes-primary")}
+          onPointerLeave={() => setThemeColor("bg-neutral-300")}
         >
           <IconFileTypeTxt size={20} strokeWidth={2} />
         </button>
 
         <div
-          className={`flex-grow h-0.5 ${themeColour} transition-all duration-300 ease-in-out`}
+          className={`flex-grow h-0.5 theme-color-dependent ${getThemeColor()} transition-all duration-300 ease-in-out`}
         ></div>
 
         {showDelete && (
@@ -728,8 +813,8 @@ export default function NoteBlock({
             onClick={handleDelete}
             title={`Delete this note`}
             className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg hover:bg-red-700 text-neutral-800 hover:text-neutral-100 transition-all duration-300 ease-in-out`}
-            onPointerEnter={() => setThemeColour("bg-red-700")}
-            onPointerLeave={() => setThemeColour("bg-neutral-300")}
+            onPointerEnter={() => setThemeColor("bg-red-700")}
+            onPointerLeave={() => setThemeColor("bg-neutral-300")}
           >
             <IconTrash size={20} strokeWidth={2} />
           </button>
