@@ -113,3 +113,24 @@ async function scanAllKeys(pattern: string): Promise<string[]> {
 
   return allKeys;
 }
+
+/**
+ * Refresh the activity timestamp for a user ID
+ * This will extend the TTL for another 2 months
+ */
+export async function refreshUserActivity(userId: string): Promise<boolean> {
+  try {
+    // Set the current timestamp as the activity value with a 2-month TTL
+    const now = Date.now();
+    await redis.setex(
+      `${USER_ACTIVITY_PREFIX}${userId}`,
+      TWO_MONTHS_SECONDS,
+      now.toString(),
+    );
+
+    return true;
+  } catch (error) {
+    console.error("Failed to refresh user activity:", error);
+    return false;
+  }
+}
