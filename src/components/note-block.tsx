@@ -95,21 +95,19 @@ export default function NoteBlock({
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Refs
+  const containerRef = useRef<HTMLElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const statusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedContentRef = useRef(details.content);
-  // Use a ref instead of state for themeColor to prevent re-renders
   const themeColorRef = useRef("bg-neutral-300");
-  // Status message tracking (to handle race conditions)
   const statusMessageIdRef = useRef<number>(0);
-  // Track server operations for race condition prevention
   const reorderOperationRef = useRef<{ id: string; timestamp: number } | null>(
     null,
   );
 
   // Functions
   const updateStats = useCallback((text: string) => {
-    // Create a temporary DOM element to parse HTML safely
+    // Create a temporary DOM element to parse HTML safelysettheme
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = text;
 
@@ -132,16 +130,19 @@ export default function NoteBlock({
   // Get current theme color from ref
   const getThemeColor = () => themeColorRef.current;
 
-  // Update theme color
   const setThemeColor = (color: string) => {
     themeColorRef.current = color;
-    // Force re-render of elements that depend on this color
-    const elements = document.querySelectorAll(`.theme-color-dependent`);
-    elements.forEach((el) => {
-      if (el instanceof HTMLElement) {
-        el.className = el.className.replace(/bg-[^ ]+/, color);
-      }
-    });
+
+    if (containerRef.current) {
+      const elements = containerRef.current.querySelectorAll(
+        `.theme-color-dependent`,
+      );
+      elements.forEach((el) => {
+        if (el instanceof HTMLElement) {
+          el.className = el.className.replace(/bg-[^ ]+/, color);
+        }
+      });
+    }
   };
 
   // Clear status timeout helper function
@@ -606,6 +607,7 @@ export default function NoteBlock({
 
   return (
     <section
+      ref={containerRef}
       className={`col-span-12 flex flex-col gap-3 ${
         isPending ? "opacity-70" : ""
       }`}
