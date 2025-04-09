@@ -107,7 +107,7 @@ export default function NoteBlock({
 
   // Functions
   const updateStats = useCallback((text: string) => {
-    // Create a temporary DOM element to parse HTML safelysettheme
+    // Create a temporary DOM element to parse HTML safely
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = text;
 
@@ -122,9 +122,12 @@ export default function NoteBlock({
       ? normalizedText.split(/\s+/).filter(Boolean)
       : [];
 
+    // Check if the content is essentially empty (only contains whitespace or HTML structure)
+    const isContentEmpty = plainText.trim().length === 0;
+
     // Set the state with accurate counts
     setWordCount(words.length);
-    setCharCount(plainText.length); // Count actual characters including whitespace
+    setCharCount(isContentEmpty ? 0 : plainText.length);
   }, []);
 
   // Get current theme color from ref
