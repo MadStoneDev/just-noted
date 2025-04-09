@@ -114,7 +114,10 @@ export default function NoteBlock({
     // Get text content which removes all HTML tags and preserves proper spacing
     const plainText = tempDiv.textContent || tempDiv.innerText || "";
 
-    // Normalize whitespace (replace multiple spaces with a single space)
+    // For more accurate character counting, let's remove all whitespace first
+    const contentWithoutWhitespace = plainText.replace(/\s/g, "");
+
+    // For word counting, we still want normalized text (single spaces between words)
     const normalizedText = plainText.replace(/\s+/g, " ").trim();
 
     // Count words (split by whitespace and filter out empty strings)
@@ -122,12 +125,18 @@ export default function NoteBlock({
       ? normalizedText.split(/\s+/).filter(Boolean)
       : [];
 
-    // Check if the content is essentially empty (only contains whitespace or HTML structure)
-    const isContentEmpty = plainText.trim().length === 0;
-
-    // Set the state with accurate counts
+    // Set word count
     setWordCount(words.length);
-    setCharCount(isContentEmpty ? 0 : plainText.length);
+
+    // For character count, we have two options:
+    // 1. Count only non-whitespace characters:
+    // setCharCount(contentWithoutWhitespace.length);
+
+    // 2. Count all characters including whitespace, but handle empty case:
+    const isEmpty = contentWithoutWhitespace.length === 0;
+    setCharCount(isEmpty ? 0 : plainText.length);
+
+    // You can choose which approach makes most sense for your application
   }, []);
 
   // Get current theme color from ref
