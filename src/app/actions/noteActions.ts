@@ -6,16 +6,31 @@ import redis from "@/utils/redis";
 import { Note } from "@/types/notes";
 import { incrementGlobalNoteCount } from "./counterActions";
 
-function isBotRequest(action: string): boolean {
-  const { headers } = require("next/headers");
-  const isBotHeader = headers().get("x-is-bot");
-  const isBot = isBotHeader === "true";
+async function isBotRequest(action: string): Promise<boolean> {
+  try {
+    const { headers } = require("next/headers");
+    // Wrap the headers call in a try/catch block in case it's not available
+    try {
+      const headersList = await headers();
+      const isBotHeader = headersList?.get("x-is-bot");
+      const isBot = isBotHeader === "true";
 
-  if (isBot) {
-    console.log(`Bot detected, skipping ${action}`);
+      if (isBot) {
+        console.log(`Bot detected, skipping ${action}`);
+      }
+
+      return isBot;
+    } catch (headerError) {
+      console.log(
+        `Headers not available during ${action}, assuming not a bot request`,
+      );
+      return false;
+    }
+  } catch (error) {
+    console.error(`Error in isBotRequest for ${action}:`, error);
+    // If we can't determine if it's a bot, assume it's not a bot
+    return false;
   }
-
-  return isBot;
 }
 
 async function updateNoteProperty(
@@ -52,7 +67,7 @@ async function updateNoteProperty(
 
 export async function deleteNoteAction(userId: string, noteId: string) {
   try {
-    if (isBotRequest("note delete")) {
+    if (await isBotRequest("note delete")) {
       return {
         success: true,
       };
@@ -117,7 +132,7 @@ export async function updateNoteAction(
   content: string,
 ) {
   try {
-    if (isBotRequest("note update")) {
+    if (await isBotRequest("note update")) {
       return {
         success: true,
       };
@@ -233,7 +248,7 @@ export async function getNotesByUserIdAction(userId: string) {
 
 export async function addNoteAction(userId: string, newNote: Note) {
   try {
-    if (isBotRequest("note add")) {
+    if (await isBotRequest("note add")) {
       return {
         success: true,
       };
@@ -310,7 +325,7 @@ export async function updateNoteTitleAction(
   title: string,
 ) {
   try {
-    if (isBotRequest("note title update")) {
+    if (await isBotRequest("note title update")) {
       return {
         success: true,
       };
@@ -362,7 +377,7 @@ export async function updateNotePinStatusAction(
   pinned: boolean,
 ) {
   try {
-    if (isBotRequest("note pin status update")) {
+    if (await isBotRequest("note pin status update")) {
       return {
         success: true,
       };
@@ -417,7 +432,7 @@ export async function reorderNoteAction(
   direction: "up" | "down",
 ) {
   try {
-    if (isBotRequest("note reorder")) {
+    if (await isBotRequest("note reorder")) {
       return {
         success: true,
       };

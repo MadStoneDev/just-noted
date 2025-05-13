@@ -49,3 +49,249 @@ body {
     position: relative;
     z-index: 10;
 }
+
+/* MDXEditor Z-Index and Dropdown Fixes */
+
+/* Set proper stacking context for the editor container */
+.mdx-editor-custom {
+    position: relative !important;
+    z-index: 0 !important; /* Base z-index */
+}
+
+/* Ensure toolbar has higher z-index than content but lower than dropdowns */
+.mdx-editor-custom .mdxeditor-toolbar {
+    position: relative !important;
+    z-index: 10 !important;
+}
+
+/* Make sure content is behind toolbar */
+.mdx-editor-custom .mdxeditor-content-editable {
+    position: relative !important;
+    z-index: 5 !important;
+}
+
+/* Make dropdowns and tooltips appear above everything */
+.mdx-editor-custom .mdxeditor-toolbar [role="listbox"],
+.mdx-editor-custom .mdxeditor-toolbar [role="menu"],
+.mdx-editor-custom .mdxeditor-toolbar [role="combobox"],
+.mdx-editor-custom .mdxeditor-toolbar .mdxeditor-select,
+.mdx-editor-custom .mdxeditor-toolbar .mdxeditor-dropdown,
+.mdx-editor-custom .mdxeditor-toolbar [data-radix-popper-content-wrapper],
+.mdx-editor-custom .mdxeditor-toolbar-dropdown {
+    position: relative !important;
+    z-index: 1000 !important; /* Much higher than anything else */
+}
+
+/* Ensure tooltips also appear on top */
+.mdx-editor-custom [role="tooltip"],
+.mdx-editor-custom [data-tooltip],
+.mdx-editor-custom .mdxeditor-tooltip {
+    position: absolute !important;
+    z-index: 1000 !important;
+}
+
+/* Make sure any popup menus are visible */
+.mdxeditor-popup-container,
+[data-radix-popper-content-wrapper],
+.mdxeditor-block-type-select {
+    z-index: 1000 !important;
+}
+
+/* Fix overflow issues that might be cutting off dropdowns */
+.mdx-editor-custom .mdxeditor-root {
+    overflow: visible !important;
+}
+
+/* This targets the specific BlockTypeSelect dropdown */
+.mdxeditor-block-type-select {
+    position: relative !important;
+    z-index: 1000 !important;
+}
+
+/* Ensure blockTypeSelect button has proper z-index */
+.mdxeditor-toolbar button[aria-haspopup="listbox"],
+.mdxeditor-toolbar button[aria-haspopup="menu"] {
+    position: relative !important;
+    z-index: 10 !important;
+}
+
+/* Make sure toolbar doesn't obstruct popup contents */
+.mdxeditor-toolbar {
+    position: relative !important;
+    z-index: 10 !important;
+}
+
+.mdx-editor-custom h1 {
+    font-size: 2rem !important;
+    font-weight: 900 !important;
+}
+
+.mdx-editor-custom h2 {
+    font-size: 1.6rem !important;
+    font-weight: 800 !important;
+}
+
+.mdx-editor-custom h3 {
+    font-size: 1.4rem !important;
+    font-weight: 900 !important;
+}
+
+.mdx-editor-custom h4 {
+    font-size: 1.25rem !important;
+    font-weight: 900 !important;
+}
+
+.mdx-editor-custom h5 {
+    font-size: 1.15rem !important;
+    font-weight: 900 !important;
+}
+
+.mdx-editor-custom h6 {
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    font-style: italic !important;
+}
+
+.mdx-editor-custom .mdxeditor-toolbar {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 10 !important;
+    background-color: #eaeaea;
+    padding: 6px;
+    min-height: 34px;
+}
+
+/* Hide empty popup container */
+.mdxeditor-popup-container:empty {
+    display: none !important;
+}
+
+/* Alternative approach - hide based on lack of children */
+.mdxeditor-popup-container:not(:has(*)) {
+    display: none !important;
+}
+
+/* Make sure popup containers have a proper fixed position when they're actually in use */
+.mdxeditor-popup-container:not(:empty) {
+    position: fixed !important;
+    left: -9999px !important;
+    z-index: 1000 !important;
+}
+
+/* Ensure proper z-index stacking for popups and dropdowns */
+.mdxeditor-popup-container[data-popper-placement] {
+    z-index: 1000 !important;
+}
+
+/* Custom styling for the content area */
+.custom-editor-content {
+    padding: 0.5rem !important;
+    font-family: inherit !important;
+}
+
+/* Bold text */
+.mdx-editor-custom strong {
+    font-weight: 700 !important;
+}
+
+/* Italic text */
+.mdx-editor-custom em {
+    font-style: italic !important;
+}
+
+/* Z-index fixes */
+.mdx-editor-custom {
+    position: relative;
+    z-index: 0;
+}
+
+.mdx-editor-custom .mdxeditor-toolbar [role="listbox"],
+.mdx-editor-custom .mdxeditor-toolbar [role="menu"],
+.mdx-editor-custom .mdxeditor-select,
+.mdxeditor-block-type-select,
+.mdx-editor-custom [role="tooltip"],
+.mdx-editor-custom [data-tooltip] {
+position: absolute;
+z-index: 1000;
+}
+
+/* Remove borders around the editor */
+.mdx-editor-custom .mdxeditor-root {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    overflow: visible !important;
+}
+
+/* Force editor to render headings properly */
+.mdx-editor-custom [data-lexical-editor] h1,
+.mdx-editor-custom [data-lexical-editor] h2,
+.mdx-editor-custom [data-lexical-editor] h3,
+.mdx-editor-custom [data-lexical-editor] h4,
+.mdx-editor-custom [data-lexical-editor] h5,
+.mdx-editor-custom [data-lexical-editor] h6{
+    display: block !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+}
+
+/* Mercedes focus styles */
+.mdx-editor-custom .mdxeditor-content-editable:focus-within {
+    outline: 2px solid #00a291;
+    outline-offset: 2px;
+}
+
+.mdx-editor-custom li[role="checkbox"] {
+    left: 15px !important;
+}
+
+.mdx-editor-custom li[role="checkbox"][aria-checked="false"]::before {
+    content: "" !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0.25rem !important;
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+    border: 2px solid #64748b !important; /* Slate-500 */
+    border-radius: 0.25rem !important;
+    background-color: white !important;
+    box-sizing: border-box !important;
+}
+
+/* Checked checkbox style */
+.mdx-editor-custom li[role="checkbox"][aria-checked="true"]::before {
+    content: "" !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0.25rem !important;
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+    border: 2px solid var(--color-mercedes-primary) !important; /* mercedes-primary */
+    border-radius: 0.25rem !important;
+    background-color: var(--color-mercedes-primary) !important;
+    box-sizing: border-box !important;
+}
+
+/* Checkmark for checked items */
+.mdx-editor-custom li[role="checkbox"][aria-checked="true"]::after {
+    content: "" !important;
+    position: absolute !important;
+    left: 0.45rem !important;
+    top: 0.5rem !important;
+    width: 0.35rem !important;
+    height: 0.7rem !important;
+    border: solid white !important;
+    border-width: 0 3px 3px 0 !important;
+    transform: rotate(45deg) !important;
+    box-sizing: border-box !important;
+}
+
+/* Text styling for checked items */
+.mdx-editor-custom li[role="checkbox"][aria-checked="true"] span {
+    text-decoration: line-through !important;
+    color: #64748b !important; /* Slate-500 */
+}
+
+.mdx-editor-custom li[role="checkbox"] span {
+    margin-left: 5px;
+}

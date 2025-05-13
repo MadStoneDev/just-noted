@@ -1,4 +1,5 @@
 import "./globals.css";
+import "@mdxeditor/editor/style.css";
 
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { Outfit, Playfair_Display } from "next/font/google";
