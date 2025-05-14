@@ -7,6 +7,8 @@ import {
   addNoteAction,
   getNotesByUserIdAction,
   updateNotePinStatusAction,
+  updateNotePrivacyStatusAction,
+  updateNoteCollapsedStatusAction,
   reorderNoteAction,
 } from "@/app/actions/noteActions";
 import { defaultNote } from "@/data/defaults/default-note";
@@ -39,6 +41,8 @@ export function useNotes() {
   const optimisticNoteAdded = useRef(false);
   const optimisticNoteId = useRef<string | null>(null);
   const retryCount = useRef(0);
+  const privacyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const collapsedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const MAX_RETRIES = 3;
 
   /**
@@ -240,6 +244,8 @@ export function useNotes() {
     const newNote = JSON.parse(JSON.stringify(defaultNote));
     newNote.id = generateNoteId(notes.map((note) => note.id));
     newNote.pinned = false; // New notes are not pinned by default
+    newNote.isPrivate = false; // New notes are not private by default
+    newNote.isCollapsed = false; // New notes are not collapsed by default
     newNote.createdAt = Date.now(); // Set creation timestamp
     newNote.updatedAt = Date.now(); // Set update timestamp
     setNewNoteId(newNote.id);
@@ -341,6 +347,109 @@ export function useNotes() {
   );
 
   /**
+   * Update a note's privacy status with optimistic UI
+   */
+  const updatePrivacyStatus = useCallback(
+    async (noteId: string, isPrivate: boolean) => {
+      if (!userId) return;
+
+      // Find the existing note to preserve its properties
+      const existingNote = notes.find((note) => note.id === noteId);
+      if (!existingNote) return;
+
+      // Optimistic UI update first
+      const updatedNotes = notes.map((note) =>
+        note.id === noteId ? { ...note, isPrivate } : note,
+      );
+
+      // Update UI immediately
+      setNotes(updatedNotes);
+
+      // Clear any existing timeout
+      if (privacyTimeoutRef.current) {
+        clearTimeout(privacyTimeoutRef.current);
+      }
+
+      // Now handle the server update with a slight delay to avoid too many requests
+      privacyTimeoutRef.current = setTimeout(async () => {
+        // Pause automatic refreshes briefly to prevent flicker
+        pauseRefreshing(3000);
+
+        try {
+          const result = await updateNotePrivacyStatusAction(
+            userId,
+            noteId,
+            isPrivate,
+          );
+
+          if (result.success && result.notes) {
+            setNotes(sortNotes(result.notes));
+          } else {
+            // If the server update failed, revert to the previous state
+            refreshNotes();
+          }
+        } catch (error) {
+          console.error("Failed to update privacy status:", error);
+          // Refresh from server to get the correct state
+          refreshNotes();
+        }
+      }, 300); // Small delay to debounce rapid toggles
+    },
+    [userId, notes, sortNotes, pauseRefreshing, refreshNotes],
+  );
+
+  /**
+   * Update a note's collapsed status with optimistic UI
+   */
+  const updateCollapsedStatus = useCallback(
+    async (noteId: string, isCollapsed: boolean) => {
+      if (!userId) return;
+
+      // Find the existing note to preserve its properties
+      const existingNote = notes.find((note) => note.id === noteId);
+      if (!existingNote) return;
+
+      // Optimistic UI update first
+      const updatedNotes = notes.map((note) =>
+        note.id === noteId ? { ...note, isCollapsed } : note,
+      );
+
+      // Update UI immediately
+      setNotes(updatedNotes);
+
+      // Clear any existing timeout
+      if (collapsedTimeoutRef.current) {
+        clearTimeout(collapsedTimeoutRef.current);
+      }
+
+      // Now handle the server update with a slight delay to avoid too many requests
+      collapsedTimeoutRef.current = setTimeout(async () => {
+        try {
+          const result = await updateNoteCollapsedStatusAction(
+            userId,
+            noteId,
+            isCollapsed,
+          );
+
+          if (result.success && result.notes) {
+            // No need to update UI state here as we've already done it optimistically
+            // Just keep the server's state for consistency
+            setNotes(sortNotes(result.notes));
+          } else {
+            // If the server update failed, revert to the previous state
+            refreshNotes();
+          }
+        } catch (error) {
+          console.error("Failed to update collapsed status:", error);
+          // Refresh from server to get the correct state
+          refreshNotes();
+        }
+      }, 300); // Small delay to debounce rapid toggles
+    },
+    [userId, notes, sortNotes, refreshNotes],
+  );
+
+  /**
    * Reorder a note (move up/down)
    */
   const reorderNote = useCallback(
@@ -387,6 +496,10 @@ export function useNotes() {
         const optimisticNote = JSON.parse(JSON.stringify(defaultNote));
         optimisticNote.id = generateNoteId([]);
         optimisticNoteId.current = optimisticNote.id;
+
+        // Make sure default note has privacy and collapse properties set
+        optimisticNote.isPrivate = false;
+        optimisticNote.isCollapsed = false;
 
         // Show the note immediately
         setNotes([optimisticNote]);
@@ -466,6 +579,14 @@ export function useNotes() {
       if (refreshIntervalRef.current) {
         clearInterval(refreshIntervalRef.current);
       }
+
+      if (privacyTimeoutRef.current) {
+        clearTimeout(privacyTimeoutRef.current);
+      }
+
+      if (collapsedTimeoutRef.current) {
+        clearTimeout(collapsedTimeoutRef.current);
+      }
     };
   }, [sortNotes]);
 
@@ -494,6 +615,8 @@ export function useNotes() {
     // Functions
     addNote,
     updatePinStatus,
+    updatePrivacyStatus,
+    updateCollapsedStatus,
     reorderNote,
     deleteNote,
     getNotePositionInfo,

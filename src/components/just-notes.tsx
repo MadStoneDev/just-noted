@@ -16,6 +16,8 @@ export default function JustNotes() {
     userId,
     addNote,
     updatePinStatus,
+    updatePrivacyStatus,
+    updateCollapsedStatus,
     reorderNote,
     deleteNote,
     getNotePositionInfo,
@@ -70,6 +72,8 @@ export default function JustNotes() {
                 showDelete={notes.length > 1}
                 onDelete={deleteNote}
                 onPinStatusChange={updatePinStatus}
+                onPrivacyStatusChange={updatePrivacyStatus}
+                onCollapsedStatusChange={updateCollapsedStatus}
                 onReorder={reorderNote}
                 isFirstPinned={isFirstPinned}
                 isLastPinned={isLastPinned}

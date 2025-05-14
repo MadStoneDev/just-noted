@@ -576,3 +576,97 @@ function sortNotesByPinStatus(notes: Note[]): Note[] {
     return bCreate - aCreate;
   });
 }
+
+export async function updateNotePrivacyStatusAction(
+  userId: string,
+  noteId: string,
+  isPrivate: boolean,
+) {
+  try {
+    if (await isBotRequest("note privacy update")) {
+      return {
+        success: true,
+      };
+    }
+
+    const { isUserIdActive, registerUserId, refreshUserActivity } =
+      await import("@/utils/userIdManagement");
+
+    const isActive = await isUserIdActive(userId);
+
+    if (!isActive) {
+      await registerUserId(userId);
+    } else {
+      await refreshUserActivity(userId);
+    }
+
+    // Update the note with the new privacy status
+    const updatedNotes = await updateNoteProperty(userId, noteId, (note) => ({
+      ...note,
+      isPrivate,
+      updatedAt: Date.now(),
+    }));
+
+    // Force revalidation
+    revalidatePath("/");
+
+    return {
+      success: true,
+      notes: updatedNotes,
+    };
+  } catch (error) {
+    console.error("Failed to update note privacy status:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      error: `Failed to update note privacy status: ${errorMessage}`,
+    };
+  }
+}
+
+export async function updateNoteCollapsedStatusAction(
+  userId: string,
+  noteId: string,
+  isCollapsed: boolean,
+) {
+  try {
+    if (await isBotRequest("note collapse status update")) {
+      return {
+        success: true,
+      };
+    }
+
+    const { isUserIdActive, registerUserId, refreshUserActivity } =
+      await import("@/utils/userIdManagement");
+
+    const isActive = await isUserIdActive(userId);
+
+    if (!isActive) {
+      await registerUserId(userId);
+    } else {
+      await refreshUserActivity(userId);
+    }
+
+    // Update the note with the new collapsed status
+    const updatedNotes = await updateNoteProperty(userId, noteId, (note) => ({
+      ...note,
+      isCollapsed,
+      updatedAt: Date.now(),
+    }));
+
+    // Force revalidation
+    revalidatePath("/");
+
+    return {
+      success: true,
+      notes: updatedNotes,
+    };
+  } catch (error) {
+    console.error("Failed to update note collapsed status:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      error: `Failed to update note collapsed status: ${errorMessage}`,
+    };
+  }
+}

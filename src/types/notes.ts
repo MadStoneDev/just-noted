@@ -6,4 +6,6 @@
   updatedAt?: number;
   pinned?: boolean;
   order?: number;
+  isPrivate?: boolean;
+  isCollapsed?: boolean;
 }

@@ -348,3 +348,99 @@ export async function reorderNoteSafe(
     error: result.error,
   };
 }
+
+export async function toggleNotePrivacyStatusSafe(
+  userId: string,
+  noteId: string,
+  isPrivate: boolean,
+): Promise<{
+  success: boolean;
+  notes?: Note[];
+  error?: string;
+}> {
+  if (isBotRequest()) {
+    console.log("Bot detected, skipping privacy status update");
+    return { success: true, notes: [] };
+  }
+
+  const result = await safeRedisOperation(async () => {
+    const currentNotes = ((await redis.get(`notes:${userId}`)) as Note[]) || [];
+    const noteIndex = currentNotes.findIndex((note) => note.id === noteId);
+
+    if (noteIndex === -1) {
+      throw new Error("Note not found");
+    }
+
+    // Create a copy of notes array
+    const updatedNotes = [...currentNotes];
+
+    // Update the note
+    updatedNotes[noteIndex] = {
+      ...updatedNotes[noteIndex],
+      isPrivate,
+      updatedAt: Date.now(),
+    };
+
+    // Save to Redis
+    await redis.set(`notes:${userId}`, updatedNotes);
+
+    // Revalidate
+    revalidatePath("/");
+
+    return updatedNotes;
+  }, `Failed to update note privacy status`);
+
+  return {
+    success: result.success,
+    notes: result.data as Note[] | undefined,
+    error: result.error,
+  };
+}
+
+export async function toggleNoteCollapsedStatusSafe(
+  userId: string,
+  noteId: string,
+  isCollapsed: boolean,
+): Promise<{
+  success: boolean;
+  notes?: Note[];
+  error?: string;
+}> {
+  if (isBotRequest()) {
+    console.log("Bot detected, skipping collapsed status update");
+    return { success: true, notes: [] };
+  }
+
+  const result = await safeRedisOperation(async () => {
+    const currentNotes = ((await redis.get(`notes:${userId}`)) as Note[]) || [];
+    const noteIndex = currentNotes.findIndex((note) => note.id === noteId);
+
+    if (noteIndex === -1) {
+      throw new Error("Note not found");
+    }
+
+    // Create a copy of notes array
+    const updatedNotes = [...currentNotes];
+
+    // Update the note
+    updatedNotes[noteIndex] = {
+      ...updatedNotes[noteIndex],
+      isCollapsed,
+      updatedAt: Date.now(),
+    };
+
+    // Save to Redis
+    await redis.set(`notes:${userId}`, updatedNotes);
+
+    // Revalidate
+    revalidatePath("/");
+
+    return updatedNotes;
+  }, `Failed to update note collapsed status`);
+
+  return {
+    success: result.success,
+    notes: result.data as Note[] | undefined,
+    error: result.error,
+  };
+}

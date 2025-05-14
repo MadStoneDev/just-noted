@@ -18,6 +18,10 @@ import {
   IconPinnedFilled,
   IconArrowUp,
   IconArrowDown,
+  IconEye,
+  IconEyeClosed,
+  IconLock,
+  IconLockOpen,
 } from "@tabler/icons-react";
 
 import {
@@ -26,6 +30,8 @@ import {
   updateNoteTitleAction,
   updateNotePinStatusAction,
   reorderNoteAction,
+  updateNotePrivacyStatusAction,
+  updateNoteCollapsedStatusAction,
 } from "@/app/actions/noteActions";
 
 const useDebounce = <T extends (...args: any[]) => any>(
@@ -61,6 +67,8 @@ export default function NoteBlock({
   showDelete = true,
   onDelete,
   onPinStatusChange,
+  onPrivacyStatusChange,
+  onCollapsedStatusChange,
   isFirstPinned = false,
   isLastPinned = false,
   isFirstUnpinned = false,
@@ -72,6 +80,8 @@ export default function NoteBlock({
   showDelete?: boolean;
   onDelete?: (noteId: string) => void;
   onPinStatusChange?: (noteId: string, isPinned: boolean) => void;
+  onPrivacyStatusChange?: (noteId: string, isPrivate: boolean) => void;
+  onCollapsedStatusChange?: (noteId: string, isCollapsed: boolean) => void; // Add this prop type
   isFirstPinned?: boolean;
   isLastPinned?: boolean;
   isFirstUnpinned?: boolean;
@@ -85,6 +95,13 @@ export default function NoteBlock({
   const [isPinned, setIsPinned] = useState(details.pinned || false);
   const [isPinUpdating, setIsPinUpdating] = useState(false);
   const [isReordering, setIsReordering] = useState(false);
+
+  const [isContentVisible, setIsContentVisible] = useState(true);
+  const [isContentExpanded, setIsContentExpanded] = useState(true);
+  const [isCollapsedUpdating, setIsCollapsedUpdating] = useState(false);
+
+  const [isPrivate, setIsPrivate] = useState(details.isPrivate || false);
+  const [isPrivacyUpdating, setIsPrivacyUpdating] = useState(false);
 
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
@@ -104,6 +121,9 @@ export default function NoteBlock({
   const reorderOperationRef = useRef<{ id: string; timestamp: number } | null>(
     null,
   );
+
+  const collapseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const collapseSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Functions
   const updateStats = useCallback((text: string) => {
@@ -139,21 +159,67 @@ export default function NoteBlock({
     // You can choose which approach makes most sense for your application
   }, []);
 
-  // Get current theme color from ref
-  const getThemeColor = () => themeColorRef.current;
+  // Toggle visibility of note content
+  const toggleContentVisibility = () => {
+    const newCollapsedState = isContentExpanded;
 
-  const setThemeColor = (color: string) => {
-    themeColorRef.current = color;
+    if (isContentExpanded) {
+      // Collapsing the note
+      setIsContentExpanded(false);
 
-    if (containerRef.current) {
-      const elements = containerRef.current.querySelectorAll(
-        `.theme-color-dependent`,
-      );
-      elements.forEach((el) => {
-        if (el instanceof HTMLElement) {
-          el.className = el.className.replace(/bg-[^ ]+/, color);
-        }
+      collapseTimeoutRef.current = setTimeout(() => {
+        setIsContentVisible(false);
+      }, 300);
+    } else {
+      // Expanding the note
+      setIsContentVisible(true);
+
+      // Use requestAnimationFrame to ensure DOM is updated before animation begins
+      requestAnimationFrame(() => {
+        setIsContentExpanded(true);
       });
+    }
+
+    // Use a debounce to avoid too many server calls during rapid toggling
+    if (collapseSaveTimeoutRef.current) {
+      clearTimeout(collapseSaveTimeoutRef.current);
+    }
+
+    collapseSaveTimeoutRef.current = setTimeout(() => {
+      saveCollapsedState(newCollapsedState);
+    }, 300);
+  };
+
+  // Function to save collapsed state to the server
+  const saveCollapsedState = async (isCollapsed: boolean) => {
+    setIsCollapsedUpdating(true);
+
+    try {
+      const result = await updateNoteCollapsedStatusAction(
+        userId,
+        details.id,
+        isCollapsed,
+      );
+
+      if (result.success) {
+        if (onCollapsedStatusChange && result.notes) {
+          const updatedNote = result.notes.find(
+            (note) => note.id === details.id,
+          );
+          if (updatedNote) {
+            onCollapsedStatusChange(
+              details.id,
+              updatedNote.isCollapsed || false,
+            );
+          }
+        }
+      } else {
+        console.error("Failed to update collapsed state:", result.error);
+      }
+    } catch (error) {
+      console.error("Error updating collapsed state:", error);
+    } finally {
+      setIsCollapsedUpdating(false);
     }
   };
 
@@ -566,6 +632,91 @@ export default function NoteBlock({
     }, 100);
   };
 
+  const handleTogglePrivacy = async () => {
+    const newPrivacyStatus = !isPrivate;
+
+    setIsPrivate(newPrivacyStatus);
+    setIsPrivacyUpdating(true);
+
+    setStatusWithTimeout(
+      newPrivacyStatus ? "Setting to private..." : "Setting to public...",
+      <IconLoader className="animate-spin" />,
+      false,
+      10000,
+    );
+
+    try {
+      const result = await updateNotePrivacyStatusAction(
+        userId,
+        details.id,
+        newPrivacyStatus,
+      );
+
+      if (result.success) {
+        // Create a unique message ID for this status update to handle race conditions
+        const messageId = Date.now();
+        statusMessageIdRef.current = messageId;
+
+        // Clear previous status first to force UI update
+        clearStatusTimeout();
+        setSaveStatus("");
+        setSaveIcon(null);
+
+        // Then set the new status with a slight delay to ensure it's seen as a new message
+        setTimeout(() => {
+          // Only update if this is still the active message
+          if (statusMessageIdRef.current === messageId) {
+            setStatusWithTimeout(
+              newPrivacyStatus ? "Set to private" : "Set to public",
+              <IconCircleCheck className="text-mercedes-primary" />,
+              false,
+              2000,
+            );
+          }
+        }, 50);
+
+        // Notify parent component about the privacy status change
+        if (onPrivacyStatusChange && result.notes) {
+          // Find the updated note in the result
+          const updatedNote = result.notes.find(
+            (note) => note.id === details.id,
+          );
+          if (updatedNote) {
+            onPrivacyStatusChange(details.id, updatedNote.isPrivate || false);
+          }
+        }
+      } else {
+        // Revert local state if API call fails
+        setIsPrivate(!newPrivacyStatus);
+        setStatusWithTimeout(
+          `Failed to set ${newPrivacyStatus ? "private" : "public"}`,
+          <IconCircleX className="text-red-700" />,
+          true,
+          3000,
+        );
+        console.error(
+          `Failed to set note to ${newPrivacyStatus ? "private" : "public"}:`,
+          result.error,
+        );
+      }
+    } catch (error) {
+      // Revert local state if API call throws an error
+      setIsPrivate(!newPrivacyStatus);
+      setStatusWithTimeout(
+        `Error setting ${newPrivacyStatus ? "private" : "public"}`,
+        <IconCircleX className="text-red-700" />,
+        true,
+        3000,
+      );
+      console.error(
+        `Error setting note to ${newPrivacyStatus ? "private" : "public"}:`,
+        error,
+      );
+    } finally {
+      setIsPrivacyUpdating(false);
+    }
+  };
+
   // Effects
   // IMPORTANT: Only run this effect once on mount, not on every render
   useEffect(() => {
@@ -574,12 +725,21 @@ export default function NoteBlock({
     lastSavedContentRef.current = details.content;
     // Set initial pin status from the details
     setIsPinned(details.pinned || false);
+    setIsPrivate(details.isPrivate || false);
+    setIsContentExpanded(!(details.isCollapsed || false));
+    setIsContentVisible(!(details.isCollapsed || false));
 
     // Update stats with the more robust HTML stripping method
     updateStats(details.content);
 
     return () => {
       clearStatusTimeout();
+      if (collapseTimeoutRef.current) {
+        clearTimeout(collapseTimeoutRef.current);
+      }
+      if (collapseSaveTimeoutRef.current) {
+        clearTimeout(collapseSaveTimeoutRef.current);
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -617,6 +777,25 @@ export default function NoteBlock({
     );
   }
 
+  useEffect(() => {
+    return () => {
+      if (collapseTimeoutRef.current) {
+        clearTimeout(collapseTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (details.isCollapsed !== undefined) {
+      setIsContentExpanded(!details.isCollapsed);
+      setIsContentVisible(!details.isCollapsed);
+    }
+  }, [details.isCollapsed]);
+
+  useEffect(() => {
+    setIsPrivate(details.isPrivate || false);
+  }, [details.isPrivate]);
+
   return (
     <section
       ref={containerRef}
@@ -636,13 +815,17 @@ export default function NoteBlock({
                 value={noteTitle}
                 onChange={(e) => setNoteTitle(e.target.value)}
                 onKeyDown={handleTitleKeyDown}
-                className={`px-2 py-1 border border-mercedes-primary focus:outline-none rounded bg-white text-neutral-800 font-semibold`}
+                className={`px-2 py-1 border ${
+                  isPrivate ? "border-violet-800" : "border-mercedes-primary"
+                } focus:outline-none rounded bg-white text-neutral-800 font-semibold`}
                 maxLength={50}
               />
               <div className="flex items-center">
                 <button
                   onClick={handleSaveTitle}
-                  className={`p-1 cursor-pointer rounded-full text-mercedes-primary opacity-50 hover:opacity-100 transition-all duration-300 ease-in-out`}
+                  className={`p-1 cursor-pointer rounded-full ${
+                    isPrivate ? "text-violet-800" : "text-mercedes-primary"
+                  } opacity-50 hover:opacity-100 transition-all duration-300 ease-in-out`}
                 >
                   <IconCheck size={18} strokeWidth={2} />
                 </button>
@@ -656,13 +839,25 @@ export default function NoteBlock({
             </div>
           ) : (
             <>
-              <span>{noteTitle}</span>
+              <span className={`flex items-center gap-1`}>
+                {isPrivate && (
+                  <IconLock
+                    size={16}
+                    strokeWidth={2}
+                    className="text-neutral-500"
+                    title="Private note"
+                  />
+                )}
+                {noteTitle}
+              </span>
               <div
                 className={`w-fit max-w-0 group-hover:max-w-[999px] overflow-hidden transition-all duration-500 ease-in-out cursor-pointer`}
                 onClick={handleEditTitle}
               >
                 <IconPencil
-                  className={`opacity-50 hover:opacity-100 text-mercedes-primary transition-all duration-300 ease-in-out`}
+                  className={`opacity-50 hover:opacity-100 ${
+                    isPrivate ? "text-violet-800" : "text-mercedes-primary"
+                  } transition-all duration-300 ease-in-out`}
                   size={20}
                   strokeWidth={2}
                 />
@@ -672,8 +867,23 @@ export default function NoteBlock({
         </div>
 
         <div
-          className={`flex-grow h-0.5 theme-color-dependent ${getThemeColor()} transition-all duration-300 ease-in-out`}
+          className={`flex-grow h-0.5 ${
+            isPrivate ? "bg-violet-800" : "bg-neutral-300"
+          } transition-all duration-300 ease-in-out`}
         ></div>
+
+        <button
+          type={`button`}
+          onClick={toggleContentVisibility}
+          className={`p-1 cursor-pointer rounded-lg border border-neutral-300 hover:bg-neutral-100 opacity-60 hover:opacity-100 transition-all duration-300 ease-in-out`}
+          title={isContentVisible ? "Hide note content" : "Show note content"}
+        >
+          {isContentVisible ? (
+            <IconEye size={18} strokeWidth={1.5} />
+          ) : (
+            <IconEyeClosed size={18} strokeWidth={1.5} />
+          )}
+        </button>
 
         {/* Order Controls */}
         <div className="flex items-center gap-1">
@@ -716,7 +926,9 @@ export default function NoteBlock({
                 saveStatus === "Title saved" ||
                 saveStatus === "Moved up" ||
                 saveStatus === "Moved down"
-                  ? "text-mercedes-primary"
+                  ? isPrivate
+                    ? "text-violet-800"
+                    : "text-mercedes-primary"
                   : saveStatus.includes("fail") || saveStatus.includes("Error")
                     ? "text-red-700"
                     : ""
@@ -729,111 +941,168 @@ export default function NoteBlock({
       </article>
 
       {/* Note Content */}
-      <article className={`grid grid-cols-12 gap-4`}>
-        <div
-          className={`col-span-12 sm:col-span-8 md:col-span-9 3xl:col-span-10`}
-        >
-          <TextBlock
-            value={noteContent}
-            onChange={handleChange}
-            placeholder="Just start typing..."
-          />
-        </div>
+      <div
+        className={`note-content-wrapper overflow-hidden transition-all duration-300 ease-in-out ${
+          isContentExpanded ? "max-h-[600px]" : "max-h-0"
+        }`}
+      >
+        {isContentVisible && (
+          <>
+            <article className={`grid grid-cols-12 gap-4`}>
+              <div
+                className={`col-span-12 sm:col-span-8 md:col-span-9 3xl:col-span-10`}
+              >
+                <TextBlock
+                  value={noteContent}
+                  onChange={handleChange}
+                  placeholder="Just start typing..."
+                />
+              </div>
 
-        <div
-          className={`p-4 col-span-12 sm:col-span-4 md:col-span-3 3xl:col-span-2 grid grid-cols-3 sm:flex sm:flex-col justify-start gap-2 bg-neutral-300 rounded-xl text-sm xs:text-lg sm:text-xl text-neutral-500/70 font-light capitalize`}
-        >
-          <article className={`flex justify-end w-full`}>
-            {/* Pin button - show either pinned or unpinned based on state */}
-            <button
-              onClick={handleTogglePin}
-              disabled={isPinUpdating}
-              className={`p-1 border ${
-                isPinned
-                  ? "border-mercedes-primary bg-mercedes-primary text-neutral-100"
-                  : "border-neutral-400 text-neutral-500 hover:border-mercedes-primary hover:text-mercedes-primary"
-              } rounded-lg transition-all duration-300 ease-in-out ${
-                isPinUpdating
-                  ? "opacity-50 cursor-not-allowed"
-                  : "cursor-pointer"
-              }`}
-              title={isPinned ? "Unpin this note" : "Pin this note"}
-            >
-              {isPinned ? (
-                <IconPinnedFilled size={20} strokeWidth={2} />
-              ) : (
-                <IconPin size={20} strokeWidth={2} />
+              <div
+                className={`p-4 col-span-12 sm:col-span-4 md:col-span-3 3xl:col-span-2 grid grid-cols-3 sm:flex sm:flex-col justify-start gap-2 bg-neutral-300 rounded-xl text-sm xs:text-lg sm:text-xl text-neutral-500/70 font-light capitalize`}
+              >
+                <article className={`flex justify-end gap-2 w-full`}>
+                  {/* Pin button - show either pinned or unpinned based on state */}
+                  <button
+                    onClick={handleTogglePin}
+                    disabled={isPinUpdating}
+                    className={`p-1 border ${
+                      isPinned
+                        ? `${
+                            isPrivate
+                              ? "border-violet-800 hover:border-violet-800 hover:text-violet-800"
+                              : "border-mercedes-primary hover:border-mercedes-primary hover:text-mercedes-primary"
+                          } bg-mercedes-primary text-neutral-100`
+                        : "border-neutral-400 text-neutral-500"
+                    } rounded-lg transition-all duration-300 ease-in-out ${
+                      isPinUpdating
+                        ? "opacity-50 cursor-not-allowed"
+                        : "cursor-pointer"
+                    }`}
+                    title={isPinned ? "Unpin this note" : "Pin this note"}
+                  >
+                    {isPinned ? (
+                      <IconPinnedFilled size={20} strokeWidth={2} />
+                    ) : (
+                      <IconPin size={20} strokeWidth={2} />
+                    )}
+                  </button>
+
+                  {/* Privacy toggle button */}
+                  <button
+                    onClick={handleTogglePrivacy}
+                    disabled={isPrivacyUpdating}
+                    className={`p-1 border ${
+                      isPrivate
+                        ? `${
+                            isPrivate
+                              ? "border-violet-800 bg-violet-800"
+                              : "border-mercedes-primary bg-mercedes-primary"
+                          } text-neutral-100`
+                        : `border-neutral-400 text-neutral-500 ${
+                            isPrivate
+                              ? "border-violet-800 text-violet-800"
+                              : "border-mercedes-primary" +
+                                " text-mercedes-primary"
+                          }`
+                    } rounded-lg transition-all duration-300 ease-in-out ${
+                      isPrivacyUpdating
+                        ? "opacity-50 cursor-not-allowed"
+                        : "cursor-pointer"
+                    }`}
+                    title={
+                      isPrivate
+                        ? "Make this note public"
+                        : "Make this note private"
+                    }
+                  >
+                    {isPrivate ? (
+                      <IconLock size={20} strokeWidth={2} />
+                    ) : (
+                      <IconLockOpen size={20} strokeWidth={2} />
+                    )}
+                  </button>
+                </article>
+                <p
+                  className={`p-1 xs:p-2 col-span-3 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-1 xs:gap-0 lg:gap-1 rounded-xl border border-neutral-400`}
+                >
+                  <span
+                    className={`${
+                      isPrivate ? "text-violet-800" : "text-mercedes-primary"
+                    } text-lg xs:text-xl sm:text-2xl font-medium`}
+                  >
+                    {wordCount}
+                  </span>
+                  <span>words</span>
+                </p>
+
+                <p
+                  className={`p-1 xs:p-2 col-span-3 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-1 xs:gap-0 lg:gap-1 rounded-xl border border-neutral-400`}
+                >
+                  <span
+                    className={`${
+                      isPrivate ? "text-violet-800" : "text-mercedes-primary"
+                    } text-lg xs:text-xl sm:text-2xl font-medium`}
+                  >
+                    {charCount}
+                  </span>
+                  <span>characters</span>
+                </p>
+              </div>
+            </article>
+
+            {/* Actions */}
+            <article className={`mt-2 flex gap-2 items-center`}>
+              <button
+                type={`button`}
+                disabled={isPending}
+                onClick={handleManualSave}
+                title={`Save note manually`}
+                className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg border-2 ${
+                  isPrivate
+                    ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
+                    : "border-mercedes-primary hover:bg-mercedes-primary"
+                } text-neutral-800 transition-all duration-300 ease-in-out ${
+                  isPending ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+              >
+                <IconDeviceFloppy size={20} strokeWidth={2} />
+              </button>
+
+              <button
+                type={`button`}
+                onClick={handleExportTxt}
+                title={`Export as text file`}
+                className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg border-2 ${
+                  isPrivate
+                    ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
+                    : "border-mercedes-primary hover:bg-mercedes-primary"
+                } text-neutral-800 transition-all duration-300 ease-in-out`}
+              >
+                <IconFileTypeTxt size={20} strokeWidth={2} />
+              </button>
+
+              <div
+                className={`flex-grow h-0.5 ${
+                  isPrivate ? "bg-violet-800" : "bg-neutral-300"
+                } transition-all duration-300 ease-in-out`}
+              ></div>
+
+              {showDelete && (
+                <button
+                  type={`button`}
+                  onClick={handleDelete}
+                  title={`Delete this note`}
+                  className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg hover:bg-red-700 text-neutral-800 hover:text-neutral-100 transition-all duration-300 ease-in-out`}
+                >
+                  <IconTrash size={20} strokeWidth={2} />
+                </button>
               )}
-            </button>
-          </article>
-          <p
-            className={`p-1 xs:p-2 col-span-3 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-1 xs:gap-0 lg:gap-1 rounded-xl border border-neutral-400`}
-          >
-            <span
-              className={`text-mercedes-primary text-lg xs:text-xl sm:text-2xl font-medium`}
-            >
-              {wordCount}
-            </span>
-            <span>words</span>
-          </p>
-
-          <p
-            className={`p-1 xs:p-2 col-span-3 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-1 xs:gap-0 lg:gap-1 rounded-xl border border-neutral-400`}
-          >
-            <span
-              className={`text-mercedes-primary text-lg xs:text-xl sm:text-2xl font-medium`}
-            >
-              {charCount}
-            </span>
-            <span>characters</span>
-          </p>
-        </div>
-      </article>
-
-      {/* Actions */}
-      <article className={`flex gap-2 items-center`}>
-        <button
-          type={`button`}
-          disabled={isPending}
-          onClick={handleManualSave}
-          title={`Save note manually`}
-          className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg border-2 border-mercedes-primary hover:bg-mercedes-primary text-neutral-800 transition-all duration-300 ease-in-out ${
-            isPending ? "opacity-50 cursor-not-allowed" : ""
-          }`}
-          onPointerEnter={() => setThemeColor("bg-mercedes-primary")}
-          onPointerLeave={() => setThemeColor("bg-neutral-300")}
-        >
-          <IconDeviceFloppy size={20} strokeWidth={2} />
-        </button>
-
-        <button
-          type={`button`}
-          onClick={handleExportTxt}
-          title={`Export as text file`}
-          className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg border-2 border-mercedes-primary hover:bg-mercedes-primary text-neutral-800 transition-all duration-300 ease-in-out`}
-          onPointerEnter={() => setThemeColor("bg-mercedes-primary")}
-          onPointerLeave={() => setThemeColor("bg-neutral-300")}
-        >
-          <IconFileTypeTxt size={20} strokeWidth={2} />
-        </button>
-
-        <div
-          className={`flex-grow h-0.5 theme-color-dependent ${getThemeColor()} transition-all duration-300 ease-in-out`}
-        ></div>
-
-        {showDelete && (
-          <button
-            type={`button`}
-            onClick={handleDelete}
-            title={`Delete this note`}
-            className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg hover:bg-red-700 text-neutral-800 hover:text-neutral-100 transition-all duration-300 ease-in-out`}
-            onPointerEnter={() => setThemeColor("bg-red-700")}
-            onPointerLeave={() => setThemeColor("bg-neutral-300")}
-          >
-            <IconTrash size={20} strokeWidth={2} />
-          </button>
+            </article>
+          </>
         )}
-      </article>
+      </div>
     </section>
   );
 }
