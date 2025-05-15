@@ -432,22 +432,7 @@ export async function reorderNoteAction(
   direction: "up" | "down",
 ) {
   try {
-    if (await isBotRequest("note reorder")) {
-      return {
-        success: true,
-      };
-    }
-
-    const { isUserIdActive, registerUserId, refreshUserActivity } =
-      await import("@/utils/userIdManagement");
-
-    const isActive = await isUserIdActive(userId);
-
-    if (!isActive) {
-      await registerUserId(userId);
-    } else {
-      await refreshUserActivity(userId);
-    }
+    // Verify user and other checks...
 
     const transaction = redis.multi();
     transaction.get(`notes:${userId}`);
@@ -462,8 +447,8 @@ export async function reorderNoteAction(
 
     const currentNotes = (results[0] as Note[]) || [];
 
+    // Find the note to reorder and its index
     const noteIndex = currentNotes.findIndex((note) => note.id === noteId);
-
     if (noteIndex === -1) {
       return {
         success: false,
@@ -473,74 +458,70 @@ export async function reorderNoteAction(
 
     const currentNote = currentNotes[noteIndex];
 
-    const pinnedNotes = currentNotes.filter((note) => note.pinned);
-    const unpinnedNotes = currentNotes.filter((note) => !note.pinned);
+    // IMPROVED: Find adjacent note based on pin status and adjacent position
+    // Pinned notes can only be reordered relative to other pinned notes
+    // Unpinned notes can only be reordered relative to other unpinned notes
 
-    let updatedPinnedNotes: Note[] = [...pinnedNotes];
-    let updatedUnpinnedNotes: Note[] = [...unpinnedNotes];
+    const isPinned = !!currentNote.pinned;
 
-    if (currentNote.pinned) {
-      const pinnedIndex = pinnedNotes.findIndex((note) => note.id === noteId);
+    // Get all notes with the same pin status
+    const sameStatusNotes = currentNotes.filter(
+      (note) => !!note.pinned === isPinned,
+    );
+    const noteIndexInGroup = sameStatusNotes.findIndex(
+      (note) => note.id === noteId,
+    );
 
-      if (direction === "up" && pinnedIndex > 0) {
-        updatedPinnedNotes = [
-          ...pinnedNotes.slice(0, pinnedIndex - 1),
-          pinnedNotes[pinnedIndex],
-          pinnedNotes[pinnedIndex - 1],
-          ...pinnedNotes.slice(pinnedIndex + 1),
-        ];
-      } else if (direction === "down" && pinnedIndex < pinnedNotes.length - 1) {
-        updatedPinnedNotes = [
-          ...pinnedNotes.slice(0, pinnedIndex),
-          pinnedNotes[pinnedIndex + 1],
-          pinnedNotes[pinnedIndex],
-          ...pinnedNotes.slice(pinnedIndex + 2),
-        ];
-      }
+    // Find the adjacent note based on direction
+    let adjacentNoteIndex = -1;
 
-      updatedPinnedNotes = updatedPinnedNotes.map((note, index) => ({
-        ...note,
-        order: index,
-      }));
-    } else {
-      const unpinnedIndex = unpinnedNotes.findIndex(
-        (note) => note.id === noteId,
+    if (direction === "up" && noteIndexInGroup > 0) {
+      // Moving up - swap with the previous note in the group
+      const adjacentNote = sameStatusNotes[noteIndexInGroup - 1];
+      adjacentNoteIndex = currentNotes.findIndex(
+        (note) => note.id === adjacentNote.id,
       );
-
-      if (direction === "up" && unpinnedIndex > 0) {
-        updatedUnpinnedNotes = [
-          ...unpinnedNotes.slice(0, unpinnedIndex - 1),
-          unpinnedNotes[unpinnedIndex],
-          unpinnedNotes[unpinnedIndex - 1],
-          ...unpinnedNotes.slice(unpinnedIndex + 1),
-        ];
-      } else if (
-        direction === "down" &&
-        unpinnedIndex < unpinnedNotes.length - 1
-      ) {
-        updatedUnpinnedNotes = [
-          ...unpinnedNotes.slice(0, unpinnedIndex),
-          unpinnedNotes[unpinnedIndex + 1],
-          unpinnedNotes[unpinnedIndex],
-          ...unpinnedNotes.slice(unpinnedIndex + 2),
-        ];
-      }
-
-      const pinnedCount = updatedPinnedNotes.length;
-      updatedUnpinnedNotes = updatedUnpinnedNotes.map((note, index) => ({
-        ...note,
-        order: pinnedCount + index,
-      }));
+    } else if (
+      direction === "down" &&
+      noteIndexInGroup < sameStatusNotes.length - 1
+    ) {
+      // Moving down - swap with the next note in the group
+      const adjacentNote = sameStatusNotes[noteIndexInGroup + 1];
+      adjacentNoteIndex = currentNotes.findIndex(
+        (note) => note.id === adjacentNote.id,
+      );
     }
 
-    const finalUpdatedNotes = [...updatedPinnedNotes, ...updatedUnpinnedNotes];
+    // If no adjacent note was found, nothing to do
+    if (adjacentNoteIndex === -1) {
+      return {
+        success: true,
+        notes: currentNotes,
+      };
+    }
 
-    await redis.set(`notes:${userId}`, finalUpdatedNotes);
+    // Swap the order property between the current note and adjacent note
+    const currentOrder =
+      currentNote.order !== undefined ? currentNote.order : noteIndex;
+    const adjacentNote = currentNotes[adjacentNoteIndex];
+    const adjacentOrder =
+      adjacentNote.order !== undefined ? adjacentNote.order : adjacentNoteIndex;
+
+    // Create a new array with the swapped order values
+    const updatedNotes = [...currentNotes];
+    updatedNotes[noteIndex] = { ...currentNote, order: adjacentOrder };
+    updatedNotes[adjacentNoteIndex] = { ...adjacentNote, order: currentOrder };
+
+    // Sort the notes by pin status first, then by order
+    const sortedNotes = sortNotesByPinStatus(updatedNotes);
+
+    // Save the updated notes
+    await redis.set(`notes:${userId}`, sortedNotes);
 
     revalidatePath("/");
     return {
       success: true,
-      notes: finalUpdatedNotes,
+      notes: sortedNotes,
     };
   } catch (error) {
     console.error("Failed to reorder note:", error);

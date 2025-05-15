@@ -1,8 +1,10 @@
 ﻿"use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Note } from "@/types/notes";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+
 import TextBlock from "@/components/text-block";
+import { ShareNoteButton } from "@/components/share-note-button";
 
 import {
   IconFileTypeTxt,
@@ -33,6 +35,7 @@ import {
   updateNotePrivacyStatusAction,
   updateNoteCollapsedStatusAction,
 } from "@/app/actions/noteActions";
+import { TransferNoteButton } from "@/components/transfer-note-button";
 
 const useDebounce = <T extends (...args: any[]) => any>(
   callback: T,
@@ -61,6 +64,27 @@ const useDebounce = <T extends (...args: any[]) => any>(
   );
 };
 
+interface NoteBlockProps {
+  details: Note;
+  userId: string;
+  showDelete?: boolean;
+  onDelete?: (noteId: string) => void;
+  onPinStatusChange?: (noteId: string, isPinned: boolean) => void;
+  onPrivacyStatusChange?: (noteId: string, isPrivate: boolean) => void;
+  onCollapsedStatusChange?: (noteId: string, isCollapsed: boolean) => void;
+  onTransfer?: (noteId: string) => void;
+  isFirstPinned?: boolean;
+  isLastPinned?: boolean;
+  isFirstUnpinned?: boolean;
+  isLastUnpinned?: boolean;
+  onReorder?: (noteId: string, direction: "up" | "down") => void;
+  isAuthenticated?: boolean;
+  authUserId?: string | null;
+  storageType?: "redis" | "supabase";
+  canTransfer?: boolean;
+  isTransferring?: boolean;
+}
+
 export default function NoteBlock({
   details,
   userId,
@@ -69,25 +93,18 @@ export default function NoteBlock({
   onPinStatusChange,
   onPrivacyStatusChange,
   onCollapsedStatusChange,
+  onTransfer,
   isFirstPinned = false,
   isLastPinned = false,
   isFirstUnpinned = false,
   isLastUnpinned = false,
   onReorder,
-}: {
-  details: Note;
-  userId: string;
-  showDelete?: boolean;
-  onDelete?: (noteId: string) => void;
-  onPinStatusChange?: (noteId: string, isPinned: boolean) => void;
-  onPrivacyStatusChange?: (noteId: string, isPrivate: boolean) => void;
-  onCollapsedStatusChange?: (noteId: string, isCollapsed: boolean) => void; // Add this prop type
-  isFirstPinned?: boolean;
-  isLastPinned?: boolean;
-  isFirstUnpinned?: boolean;
-  isLastUnpinned?: boolean;
-  onReorder?: (noteId: string, direction: "up" | "down") => void;
-}) {
+  isAuthenticated,
+  authUserId = null,
+  storageType = "redis",
+  canTransfer = false,
+  isTransferring = false,
+}: NoteBlockProps) {
   // States
   const [noteTitle, setNoteTitle] = useState(details.title);
   const [noteContent, setNoteContent] = useState(details.content);
@@ -850,6 +867,26 @@ export default function NoteBlock({
                 )}
                 {noteTitle}
               </span>
+              {storageType && (
+                <span
+                  className="text-xs px-1 rounded-full ml-1 opacity-60"
+                  title={`Stored in ${
+                    storageType === "redis"
+                      ? "temporary storage"
+                      : "your account"
+                  }`}
+                >
+                  {storageType === "redis" ? (
+                    <span className="text-amber-600 border border-amber-600 px-1 rounded text-[10px]">
+                      local
+                    </span>
+                  ) : (
+                    <span className="text-emerald-600 border border-emerald-600 px-1 rounded text-[10px]">
+                      cloud
+                    </span>
+                  )}
+                </span>
+              )}
               <div
                 className={`w-fit max-w-0 group-hover:max-w-[999px] overflow-hidden transition-all duration-500 ease-in-out cursor-pointer`}
                 onClick={handleEditTitle}
@@ -1061,9 +1098,9 @@ export default function NoteBlock({
                 title={`Save note manually`}
                 className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg border-2 ${
                   isPrivate
-                    ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
+                    ? "border-violet-800 hover:bg-violet-800"
                     : "border-mercedes-primary hover:bg-mercedes-primary"
-                } text-neutral-800 transition-all duration-300 ease-in-out ${
+                } text-neutral-800 hover:text-white transition-all duration-300 ease-in-out ${
                   isPending ? "opacity-50 cursor-not-allowed" : ""
                 }`}
               >
@@ -1076,16 +1113,41 @@ export default function NoteBlock({
                 title={`Export as text file`}
                 className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg border-2 ${
                   isPrivate
-                    ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
+                    ? "border-violet-800 hover:bg-violet-800"
                     : "border-mercedes-primary hover:bg-mercedes-primary"
-                } text-neutral-800 transition-all duration-300 ease-in-out`}
+                } text-neutral-800 hover:text-white transition-all duration-300 ease-in-out ${
+                  isPending ? "opacity-50 cursor-not-allowed" : ""
+                }`}
               >
                 <IconFileTypeTxt size={20} strokeWidth={2} />
               </button>
 
+              <ShareNoteButton
+                note={details}
+                userId={userId}
+                authUserId={authUserId}
+                isAuthenticated={!!isAuthenticated}
+                storageType={storageType}
+                noteIsPrivate={isPrivate}
+              />
+
+              <TransferNoteButton
+                note={details}
+                redisUserId={userId}
+                authUserId={authUserId}
+                onTransfer={
+                  onTransfer && storageType === "redis" && isAuthenticated
+                    ? () => onTransfer(details.id)
+                    : undefined
+                }
+                noteIsPrivate={isPrivate}
+                canTransfer={canTransfer}
+                isTransferring={isTransferring}
+              />
+
               <div
                 className={`flex-grow h-0.5 ${
-                  isPrivate ? "bg-violet-800" : "bg-neutral-300"
+                  isPrivate ? `bg-violet-800` : "bg-neutral-300"
                 } transition-all duration-300 ease-in-out`}
               ></div>
 
