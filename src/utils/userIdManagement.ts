@@ -1,20 +1,16 @@
 ﻿import redis from "@/utils/redis";
 
 // Keys for Redis
-const ACTIVE_USER_IDS_KEY = "global:active:user:ids"; // Keep this for backwards compatibility
-const USER_ACTIVITY_PREFIX = "user:activity:"; // New prefix for activity timestamps
+const USER_ACTIVITY_PREFIX = "user:activity:";
 
 // TTL for user activity (2 months in seconds)
-const TWO_MONTHS_SECONDS = 2 * 30 * 24 * 60 * 60; // 2 months in seconds
+const TWO_MONTHS_SECONDS = 2 * 30 * 24 * 60 * 60;
 
 /**
  * Register a user ID and set/refresh its activity timestamp with a 2-month TTL
  */
 export async function registerUserId(userId: string): Promise<boolean> {
   try {
-    // Add to the set (keep for backwards compatibility)
-    await redis.sadd(ACTIVE_USER_IDS_KEY, userId);
-
     // Set the current timestamp as the activity value with a 2-month TTL
     const now = Date.now();
     await redis.setex(
@@ -35,12 +31,10 @@ export async function registerUserId(userId: string): Promise<boolean> {
  */
 export async function isUserIdActive(userId: string): Promise<boolean> {
   try {
-    // Check if the user has an activity timestamp
     const exists = await redis.exists(`${USER_ACTIVITY_PREFIX}${userId}`);
     return Boolean(exists);
   } catch (error) {
     console.error("Failed to check user ID:", error);
-    // Default to true to avoid blocking legitimate users if Redis has issues
     return true;
   }
 }
@@ -50,10 +44,6 @@ export async function isUserIdActive(userId: string): Promise<boolean> {
  */
 export async function removeUserId(userId: string): Promise<boolean> {
   try {
-    // Remove from the set
-    await redis.srem(ACTIVE_USER_IDS_KEY, userId);
-
-    // Delete the activity timestamp
     await redis.del(`${USER_ACTIVITY_PREFIX}${userId}`);
 
     return true;
@@ -101,11 +91,8 @@ async function scanAllKeys(pattern: string): Promise<string[]> {
 
   do {
     const [newCursor, keys] = await redis.scan(cursor, { match: pattern });
+    cursor = parseInt(newCursor, 10);
 
-    cursor =
-      typeof newCursor === "string" ? parseInt(newCursor, 10) : newCursor;
-
-    // Add the keys to our collection
     if (Array.isArray(keys)) {
       allKeys.push(...keys);
     }

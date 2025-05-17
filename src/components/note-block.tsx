@@ -32,7 +32,19 @@ import {
   reorderNoteAction,
   updateNotePrivacyStatusAction,
   updateNoteCollapsedStatusAction,
-} from "@/app/actions/noteActions";
+} from "@/app/actions/redisActions";
+
+import { NoteSource } from "@/types/combined-notes";
+import {
+  updateNote as updateSupabaseNote,
+  updateNoteTitle as updateSupabaseNoteTitle,
+  updateNotePinStatus as updateSupabaseNotePinStatus,
+  updateNotePrivacyStatus as updateSupabaseNotePrivacyStatus,
+  updateNoteCollapsedStatus as updateSupabaseNoteCollapsedStatus,
+  reorderNote as reorderSupabaseNote,
+  deleteNote as deleteSupabaseNote,
+} from "@/app/actions/supabaseActions";
+import DeleteButton from "@/components/delete-button";
 
 const useDebounce = <T extends (...args: any[]) => any>(
   callback: T,
@@ -61,6 +73,25 @@ const useDebounce = <T extends (...args: any[]) => any>(
   );
 };
 
+interface NoteBlockProps {
+  details: Note;
+  userId: string;
+  showDelete?: boolean;
+  onDelete?: (noteId: string) => void;
+  onPinStatusChange?: (noteId: string, isPinned: boolean) => void;
+  onPrivacyStatusChange?: (noteId: string, isPrivate: boolean) => void;
+  onCollapsedStatusChange?: (noteId: string, isCollapsed: boolean) => void;
+  isFirstPinned?: boolean;
+  isLastPinned?: boolean;
+  isFirstUnpinned?: boolean;
+  isLastUnpinned?: boolean;
+  onReorder?: (noteId: string, direction: "up" | "down") => void;
+  // New props:
+  noteSource?: NoteSource;
+  onTransferNote?: (noteId: string, targetSource: NoteSource) => void;
+  isAuthenticated?: boolean;
+}
+
 export default function NoteBlock({
   details,
   userId,
@@ -74,20 +105,10 @@ export default function NoteBlock({
   isFirstUnpinned = false,
   isLastUnpinned = false,
   onReorder,
-}: {
-  details: Note;
-  userId: string;
-  showDelete?: boolean;
-  onDelete?: (noteId: string) => void;
-  onPinStatusChange?: (noteId: string, isPinned: boolean) => void;
-  onPrivacyStatusChange?: (noteId: string, isPrivate: boolean) => void;
-  onCollapsedStatusChange?: (noteId: string, isCollapsed: boolean) => void; // Add this prop type
-  isFirstPinned?: boolean;
-  isLastPinned?: boolean;
-  isFirstUnpinned?: boolean;
-  isLastUnpinned?: boolean;
-  onReorder?: (noteId: string, direction: "up" | "down") => void;
-}) {
+  noteSource = "redis",
+  onTransferNote,
+  isAuthenticated = false,
+}: NoteBlockProps) {
   // States
   const [noteTitle, setNoteTitle] = useState(details.title);
   const [noteContent, setNoteContent] = useState(details.content);
@@ -99,6 +120,8 @@ export default function NoteBlock({
   const [isContentVisible, setIsContentVisible] = useState(true);
   const [isContentExpanded, setIsContentExpanded] = useState(true);
   const [isCollapsedUpdating, setIsCollapsedUpdating] = useState(false);
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const [isPrivate, setIsPrivate] = useState(details.isPrivate || false);
   const [isPrivacyUpdating, setIsPrivacyUpdating] = useState(false);
@@ -191,36 +214,29 @@ export default function NoteBlock({
   };
 
   // Function to save collapsed state to the server
-  const saveCollapsedState = async (isCollapsed: boolean) => {
+  const saveCollapsedState = (isCollapsed: boolean) => {
     setIsCollapsedUpdating(true);
 
-    try {
-      const result = await updateNoteCollapsedStatusAction(
-        userId,
-        details.id,
-        isCollapsed,
-      );
+    // Define the promise based on source
+    const updatePromise =
+      noteSource === "redis"
+        ? updateNoteCollapsedStatusAction(userId, details.id, isCollapsed)
+        : updateSupabaseNoteCollapsedStatus(userId, details.id, isCollapsed);
 
-      if (result.success) {
-        if (onCollapsedStatusChange && result.notes) {
-          const updatedNote = result.notes.find(
-            (note) => note.id === details.id,
-          );
-          if (updatedNote) {
-            onCollapsedStatusChange(
-              details.id,
-              updatedNote.isCollapsed || false,
-            );
-          }
+    updatePromise
+      .then((result) => {
+        if (result.success && onCollapsedStatusChange) {
+          onCollapsedStatusChange(details.id, isCollapsed);
+        } else if (!result.success) {
+          console.error("Failed to update collapsed state:", result.error);
         }
-      } else {
-        console.error("Failed to update collapsed state:", result.error);
-      }
-    } catch (error) {
-      console.error("Error updating collapsed state:", error);
-    } finally {
-      setIsCollapsedUpdating(false);
-    }
+      })
+      .catch((error) => {
+        console.error("Error updating collapsed state:", error);
+      })
+      .finally(() => {
+        setIsCollapsedUpdating(false);
+      });
   };
 
   // Clear status timeout helper function
@@ -358,7 +374,6 @@ export default function NoteBlock({
     }
   };
 
-  // The key fix: Only save content that has actually changed
   const saveContent = useCallback(
     async (content: string, isManualSave = false) => {
       // Don't save if content hasn't changed
@@ -380,7 +395,15 @@ export default function NoteBlock({
       }
 
       try {
-        const result = await updateNoteAction(userId, details.id, content);
+        let result;
+
+        // Use the appropriate action based on note source
+        if (noteSource === "redis") {
+          result = await updateNoteAction(userId, details.id, content);
+        } else {
+          // For Supabase notes - use the updateNote function from supabaseActions
+          result = await updateSupabaseNote(userId, details.id, content);
+        }
 
         if (result.success) {
           // Only update the lastSavedContent after successful save
@@ -418,7 +441,7 @@ export default function NoteBlock({
         }
       }
     },
-    [userId, details.id],
+    [userId, details.id, noteSource],
   );
 
   // Manual save function
@@ -533,27 +556,41 @@ export default function NoteBlock({
   };
 
   // The rest of your code remains largely unchanged
-  const handleDelete = async () => {
-    if (window.confirm("Are you sure you want to delete this note?")) {
-      setIsDeleting(true);
-      try {
-        const result = await deleteNoteAction(userId, details.id);
+  const handleDelete = () => {
+    // Instead of window.confirm, set a state to show our own confirmation UI
+    setShowDeleteConfirm(true);
+  };
 
-        // If parent component has a callback for deletion, call it
+  // Add this new function to actually perform the deletion:
+  const confirmDelete = () => {
+    setIsDeleting(true);
+    setShowDeleteConfirm(false);
+
+    // Use Promise pattern
+    const deletePromise =
+      noteSource === "redis"
+        ? deleteNoteAction(userId, details.id)
+        : deleteSupabaseNote(userId, details.id);
+
+    deletePromise
+      .then((result) => {
         if (onDelete && typeof onDelete === "function" && result.success) {
           onDelete(details.id);
-          // No need to set isDeleting to false as component will unmount
         } else {
-          // If no callback exists, wait for revalidation (fallback)
           setTimeout(() => {
             setIsDeleting(false);
-          }, 3000); // Timeout fallback in case revalidation takes too long
+          }, 3000);
         }
-      } catch (error) {
+      })
+      .catch((error) => {
         console.error("Error deleting note:", error);
         setIsDeleting(false);
-      }
-    }
+      });
+  };
+
+  // Add this function to cancel deletion
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
   };
 
   const handleEditTitle = () => {
@@ -576,13 +613,32 @@ export default function NoteBlock({
     );
 
     try {
-      await updateNoteTitleAction(userId, details.id, noteTitle);
-      setStatusWithTimeout(
-        "Title saved",
-        <IconCircleCheck className="text-mercedes-primary" />,
-        false,
-        2000,
-      );
+      let result;
+
+      // Use the appropriate action based on note source
+      if (noteSource === "redis") {
+        result = await updateNoteTitleAction(userId, details.id, noteTitle);
+      } else {
+        // For Supabase notes
+        result = await updateSupabaseNoteTitle(userId, details.id, noteTitle);
+      }
+
+      if (result.success) {
+        setStatusWithTimeout(
+          "Title saved",
+          <IconCircleCheck className="text-mercedes-primary" />,
+          false,
+          2000,
+        );
+      } else {
+        setStatusWithTimeout(
+          "Title save failed",
+          <IconCircleX className="text-red-700" />,
+          true,
+          3000,
+        );
+        console.error("Failed to save title:", result.error);
+      }
     } catch (error) {
       console.error("Error updating note title:", error);
       setStatusWithTimeout(
@@ -632,7 +688,7 @@ export default function NoteBlock({
     }, 100);
   };
 
-  const handleTogglePrivacy = async () => {
+  const handleTogglePrivacy = () => {
     const newPrivacyStatus = !isPrivate;
 
     setIsPrivate(newPrivacyStatus);
@@ -645,76 +701,73 @@ export default function NoteBlock({
       10000,
     );
 
-    try {
-      const result = await updateNotePrivacyStatusAction(
-        userId,
-        details.id,
-        newPrivacyStatus,
-      );
+    // Define the promise based on source
+    const updatePromise =
+      noteSource === "redis"
+        ? updateNotePrivacyStatusAction(userId, details.id, newPrivacyStatus)
+        : updateSupabaseNotePrivacyStatus(userId, details.id, newPrivacyStatus);
 
-      if (result.success) {
-        // Create a unique message ID for this status update to handle race conditions
-        const messageId = Date.now();
-        statusMessageIdRef.current = messageId;
+    updatePromise
+      .then((result) => {
+        if (result.success) {
+          // Create a unique message ID for this status update to handle race conditions
+          const messageId = Date.now();
+          statusMessageIdRef.current = messageId;
 
-        // Clear previous status first to force UI update
-        clearStatusTimeout();
-        setSaveStatus("");
-        setSaveIcon(null);
+          // Clear previous status first to force UI update
+          clearStatusTimeout();
+          setSaveStatus("");
+          setSaveIcon(null);
 
-        // Then set the new status with a slight delay to ensure it's seen as a new message
-        setTimeout(() => {
-          // Only update if this is still the active message
-          if (statusMessageIdRef.current === messageId) {
-            setStatusWithTimeout(
-              newPrivacyStatus ? "Set to private" : "Set to public",
-              <IconCircleCheck className="text-mercedes-primary" />,
-              false,
-              2000,
-            );
+          // Then set the new status with a slight delay to ensure it's seen as a new message
+          setTimeout(() => {
+            // Only update if this is still the active message
+            if (statusMessageIdRef.current === messageId) {
+              setStatusWithTimeout(
+                newPrivacyStatus ? "Set to private" : "Set to public",
+                <IconCircleCheck className="text-mercedes-primary" />,
+                false,
+                2000,
+              );
+            }
+          }, 50);
+
+          // Notify parent component about the privacy status change
+          if (onPrivacyStatusChange) {
+            onPrivacyStatusChange(details.id, newPrivacyStatus);
           }
-        }, 50);
-
-        // Notify parent component about the privacy status change
-        if (onPrivacyStatusChange && result.notes) {
-          // Find the updated note in the result
-          const updatedNote = result.notes.find(
-            (note) => note.id === details.id,
+        } else {
+          // Revert local state if API call fails
+          setIsPrivate(!newPrivacyStatus);
+          setStatusWithTimeout(
+            `Failed to set ${newPrivacyStatus ? "private" : "public"}`,
+            <IconCircleX className="text-red-700" />,
+            true,
+            3000,
           );
-          if (updatedNote) {
-            onPrivacyStatusChange(details.id, updatedNote.isPrivate || false);
-          }
+          console.error(
+            `Failed to set note to ${newPrivacyStatus ? "private" : "public"}:`,
+            result.error,
+          );
         }
-      } else {
-        // Revert local state if API call fails
+      })
+      .catch((error) => {
+        // Revert local state if API call throws an error
         setIsPrivate(!newPrivacyStatus);
         setStatusWithTimeout(
-          `Failed to set ${newPrivacyStatus ? "private" : "public"}`,
+          `Error setting ${newPrivacyStatus ? "private" : "public"}`,
           <IconCircleX className="text-red-700" />,
           true,
           3000,
         );
         console.error(
-          `Failed to set note to ${newPrivacyStatus ? "private" : "public"}:`,
-          result.error,
+          `Error setting note to ${newPrivacyStatus ? "private" : "public"}:`,
+          error,
         );
-      }
-    } catch (error) {
-      // Revert local state if API call throws an error
-      setIsPrivate(!newPrivacyStatus);
-      setStatusWithTimeout(
-        `Error setting ${newPrivacyStatus ? "private" : "public"}`,
-        <IconCircleX className="text-red-700" />,
-        true,
-        3000,
-      );
-      console.error(
-        `Error setting note to ${newPrivacyStatus ? "private" : "public"}:`,
-        error,
-      );
-    } finally {
-      setIsPrivacyUpdating(false);
-    }
+      })
+      .finally(() => {
+        setIsPrivacyUpdating(false);
+      });
   };
 
   // Effects
@@ -862,13 +915,28 @@ export default function NoteBlock({
                   strokeWidth={2}
                 />
               </div>
+              <span className={`flex items-center gap-1 ml-2`}>
+                {noteSource === "supabase" ? (
+                  <span className="text-xs px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 border border-blue-300">
+                    CLOUD
+                  </span>
+                ) : (
+                  <span className="text-xs px-2 py-0.5 rounded-md bg-orange-100 text-orange-800 border border-orange-300">
+                    LOCAL
+                  </span>
+                )}
+              </span>
             </>
           )}
         </div>
 
         <div
           className={`flex-grow h-0.5 ${
-            isPrivate ? "bg-violet-800" : "bg-neutral-300"
+            isPrivate
+              ? "bg-violet-800"
+              : isPinned
+                ? "bg-mercedes-primary"
+                : "bg-neutral-300"
           } transition-all duration-300 ease-in-out`}
         ></div>
 
@@ -1083,21 +1151,89 @@ export default function NoteBlock({
                 <IconFileTypeTxt size={20} strokeWidth={2} />
               </button>
 
+              {onTransferNote && noteSource && (
+                <button
+                  type={`button`}
+                  onClick={() => {
+                    if (noteSource === "redis") {
+                      if (!isAuthenticated) {
+                        alert(
+                          "You need to be signed in to save notes to the cloud.",
+                        );
+                        return;
+                      }
+                      onTransferNote(details.id, "supabase");
+                    } else {
+                      onTransferNote(details.id, "redis");
+                    }
+                  }}
+                  title={
+                    noteSource === "redis"
+                      ? "Transfer to Cloud"
+                      : "Transfer to Local"
+                  }
+                  className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg border-2 ${
+                    isPrivate
+                      ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
+                      : "border-mercedes-primary hover:bg-mercedes-primary hover:text-neutral-100"
+                  } text-neutral-800 transition-all duration-300 ease-in-out`}
+                >
+                  {noteSource === "redis" ? (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M3 16.5L12 21l9-4.5" />
+                      <path d="M12 21v-12" />
+                      <path d="M3 12l9 4.5 9-4.5" />
+                      <path d="M3 7.5L12 12l9-4.5" />
+                      <path d="M12 3v4.5" />
+                    </svg>
+                  ) : (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" />
+                      <path d="M12 15l-3 -3h6l-3 3" />
+                      <path d="M12 9l-3 3h6l-3 -3" />
+                    </svg>
+                  )}
+                </button>
+              )}
+
               <div
                 className={`flex-grow h-0.5 ${
-                  isPrivate ? "bg-violet-800" : "bg-neutral-300"
+                  isPrivate
+                    ? "bg-violet-800"
+                    : isPinned
+                      ? "bg-mercedes-primary"
+                      : "bg-neutral-300"
                 } transition-all duration-300 ease-in-out`}
               ></div>
 
               {showDelete && (
-                <button
-                  type={`button`}
-                  onClick={handleDelete}
-                  title={`Delete this note`}
-                  className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg hover:bg-red-700 text-neutral-800 hover:text-neutral-100 transition-all duration-300 ease-in-out`}
-                >
-                  <IconTrash size={20} strokeWidth={2} />
-                </button>
+                <DeleteButton
+                  noteId={details.id}
+                  noteTitle={details.title}
+                  userId={userId}
+                  noteSource={noteSource}
+                  onDeleteSuccess={onDelete}
+                />
               )}
             </article>
           </>

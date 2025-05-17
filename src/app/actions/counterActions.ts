@@ -15,7 +15,6 @@ export async function getGlobalNoteCount() {
       return 0;
     }
 
-    // Make sure we handle the type properly for parseInt
     return typeof count === "string"
       ? parseInt(count, 10)
       : typeof count === "number"
@@ -23,7 +22,7 @@ export async function getGlobalNoteCount() {
         : 0;
   } catch (error) {
     console.error("Failed to get global note count:", error);
-    return 0; // Default to 0 if there's an error
+    return 0;
   }
 }
 
@@ -33,7 +32,6 @@ export async function incrementGlobalNoteCount() {
   } catch (error) {
     console.error("Failed to increment global note count:", error);
 
-    // Fallback: get the current count and add 1
     try {
       const currentCount = await getGlobalNoteCount();
       const newCount = currentCount + 1;

@@ -61,13 +61,9 @@ export default function RootLayout({
       <body
         className={`bg-neutral-200 min-h-dvh flex flex-col ${outfit.variable} ${playfair.variable} antialiased`}
       >
-        <GlobalHeader />
+        <div className={`h-18`}></div>
 
-        <main className={`mt-20 flex-grow px-4 sm:px-8 w-full overflow-hidden`}>
-          {children}
-        </main>
-
-        <GlobalFooter />
+        {children}
       </body>
       <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID || ""} />
     </html>

@@ -10,7 +10,7 @@ import {
   updateNotePrivacyStatusAction,
   updateNoteCollapsedStatusAction,
   reorderNoteAction,
-} from "@/app/actions/noteActions";
+} from "@/app/actions/redisActions";
 import { defaultNote } from "@/data/defaults/default-note";
 
 /**
@@ -173,9 +173,6 @@ export function useNotes() {
           );
           if (optimisticNote) {
             retryCount.current++;
-            console.log(
-              `Attempting to save optimistic note again, try ${retryCount.current}`,
-            );
             addNoteAction(userId, optimisticNote).catch((e) =>
               console.error(`Refresh retry ${retryCount.current} failed:`, e),
             );

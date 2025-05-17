@@ -1,0 +1,125 @@
+﻿"use server";
+
+import { revalidatePath } from "next/cache";
+
+import { redirect } from "next/navigation";
+import { createClient } from "@/utils/supabase/server";
+
+type AuthResponse = {
+  error: string | null;
+  success: boolean;
+  redirectTo?: string;
+};
+
+export async function handleAuth(formData: FormData): Promise<AuthResponse> {
+  const email = formData.get("email") as string;
+
+  if (!email) {
+    return {
+      error: "Oops! No email? Try again.",
+      success: false,
+    };
+  }
+
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: true,
+      },
+    });
+
+    if (error) {
+      console.error("Supabase auth error:", error);
+
+      if (error.message.includes("Invalid email")) {
+        return {
+          error: "Please enter a valid email address.",
+          success: false,
+        };
+      }
+
+      if (error.message.includes("rate limit")) {
+        return {
+          error:
+            "Too many attempts. Please wait a few minutes before trying again.",
+          success: false,
+        };
+      }
+    }
+
+    revalidatePath("/");
+
+    return {
+      error: null,
+      success: true,
+    };
+  } catch (error) {
+    console.error("Unexpected error during authentication:", error);
+    return {
+      error: "An unexpected error occurred. Please try again later.",
+      success: false,
+    };
+  }
+}
+
+export async function verifyOtp(formData: FormData): Promise<AuthResponse> {
+  const email = formData.get("email") as string;
+  const otp = formData.get("otp") as string;
+
+  if (!email || !otp) {
+    return {
+      error: "Missing email or verification code",
+      success: false,
+    };
+  }
+
+  try {
+    const supabase = await createClient();
+
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token: otp,
+      type: "email",
+    });
+
+    if (error) {
+      console.error("OTP verification error:", error);
+
+      if (error.message.includes("Invalid OTP")) {
+        return {
+          error: "That code isn't right. Double-check and try again.",
+          success: false,
+        };
+      }
+
+      if (error.message.includes("expired")) {
+        return {
+          error: "This code has expired. Please request a new one.",
+          success: false,
+        };
+      }
+
+      return {
+        error: "Verification failed. Please try again.",
+        success: false,
+      };
+    }
+
+    revalidatePath("/");
+
+    // Redirect to user profile after successful verification
+    return {
+      error: null,
+      success: true,
+      redirectTo: "/me",
+    };
+  } catch (error) {
+    console.error("Unexpected error during OTP verification:", error);
+    return {
+      error: "An unexpected error occurred. Please try again later.",
+      success: false,
+    };
+  }
+}

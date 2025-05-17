@@ -1,15 +1,15 @@
 ﻿"use server";
 
+import redis from "@/utils/redis";
 import { revalidatePath } from "next/cache";
 
-import redis from "@/utils/redis";
 import { Note } from "@/types/notes";
 import { incrementGlobalNoteCount } from "./counterActions";
 
 async function isBotRequest(action: string): Promise<boolean> {
   try {
     const { headers } = require("next/headers");
-    // Wrap the headers call in a try/catch block in case it's not available
+
     try {
       const headersList = await headers();
       const isBotHeader = headersList?.get("x-is-bot");
@@ -24,11 +24,11 @@ async function isBotRequest(action: string): Promise<boolean> {
       console.log(
         `Headers not available during ${action}, assuming not a bot request`,
       );
+
       return false;
     }
   } catch (error) {
     console.error(`Error in isBotRequest for ${action}:`, error);
-    // If we can't determine if it's a bot, assume it's not a bot
     return false;
   }
 }
@@ -667,6 +667,60 @@ export async function updateNoteCollapsedStatusAction(
     return {
       success: false,
       error: `Failed to update note collapsed status: ${errorMessage}`,
+    };
+  }
+}
+
+export async function updateNoteOrderAction(
+  userId: string,
+  noteId: string,
+  newOrder: number,
+) {
+  try {
+    if (await isBotRequest("note order update")) {
+      return {
+        success: true,
+      };
+    }
+
+    if (!userId) {
+      return {
+        success: false,
+        error: "Invalid user ID: User ID cannot be empty",
+      };
+    }
+
+    const { isUserIdActive, registerUserId, refreshUserActivity } =
+      await import("@/utils/userIdManagement");
+
+    const isActive = await isUserIdActive(userId);
+
+    if (!isActive) {
+      await registerUserId(userId);
+    } else {
+      await refreshUserActivity(userId);
+    }
+
+    // Update the note with the new order
+    const updatedNotes = await updateNoteProperty(userId, noteId, (note) => ({
+      ...note,
+      order: newOrder,
+      updatedAt: Date.now(),
+    }));
+
+    // Force revalidation
+    revalidatePath("/");
+
+    return {
+      success: true,
+      notes: updatedNotes,
+    };
+  } catch (error) {
+    console.error("Failed to update note order:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      error: `Failed to update note order: ${errorMessage}`,
     };
   }
 }

@@ -1,6 +1,5 @@
-﻿// middleware.ts
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+﻿import { NextRequest } from "next/server";
+import { updateSession } from "@/utils/supabase/middleware";
 
 export const config = {
   matcher: [
@@ -12,11 +11,11 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|public).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };
 
-export default function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   // Get the bot information from the User-Agent
   const botInfo = request.headers.get("x-vercel-bot");
   const isBot = botInfo ? JSON.parse(botInfo).isBot : false;
@@ -25,10 +24,10 @@ export default function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-is-bot", isBot.toString());
 
-  // Continue to the destination, but with the updated headers
-  return NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
+  const requestWithBotHeader = new NextRequest(request.url, {
+    headers: requestHeaders,
+    method: request.method,
   });
+
+  return await updateSession(requestWithBotHeader);
 }
