@@ -140,7 +140,7 @@ export async function verifyOtp(formData: FormData): Promise<AuthResponse> {
     return {
       error: null,
       success: true,
-      redirectTo: "/me",
+      redirectTo: "/",
     };
   } catch (error: any) {
     console.error("Unexpected error during OTP verification:", error);
