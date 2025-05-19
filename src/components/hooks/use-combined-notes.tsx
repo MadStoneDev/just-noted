@@ -26,22 +26,16 @@ import {
   updateNotePinStatusAction,
   updateNotePrivacyStatusAction,
   updateNoteCollapsedStatusAction,
-  reorderNoteAction,
   deleteNoteAction,
-  updateNoteAction,
-  updateNoteTitleAction,
   updateNoteOrderAction,
 } from "@/app/actions/redisActions";
 
 import {
   createNote as createSupabaseNote,
-  updateNote as updateSupabaseNote,
   getNotesByUserId as getSupabaseNotesByUserId,
-  updateNoteTitle as updateSupabaseNoteTitle,
   updateNotePinStatus as updateSupabaseNotePinStatus,
   updateNotePrivacyStatus as updateSupabaseNotePrivacyStatus,
   updateNoteCollapsedStatus as updateSupabaseNoteCollapsedStatus,
-  reorderNote as reorderSupabaseNote,
   deleteNote as deleteSupabaseNote,
   updateSupabaseNoteOrder,
 } from "@/app/actions/supabaseActions";
@@ -56,14 +50,18 @@ import { incrementGlobalNoteCount } from "@/app/actions/counterActions";
 export function useCombinedNotes() {
   // States
   const [notes, setNotes] = useState<CombinedNote[]>([]);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [redisUserId, setRedisUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [animating, setAnimating] = useState(false);
   const [newNoteId, setNewNoteId] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isReorderingInProgress, setIsReorderingInProgress] = useState(false);
+  const [lastUpdateTimestamp, setLastUpdateTimestamp] = useState<number>(
+    Date.now(),
+  );
 
   const [creationError, setCreationError] = useState(false);
+  const [transferError, setTransferError] = useState(false);
   const [transferringNoteId, setTransferringNoteId] = useState<string | null>(
     null,
   );
@@ -79,11 +77,14 @@ export function useCombinedNotes() {
   const isInitialLoad = useRef(true);
 
   /**
-   * Sort notes based on pin status, order, and creation date
+   * Mark an update happened to track activity
    */
+  const markUpdated = useCallback(() => {
+    setLastUpdateTimestamp(Date.now());
+  }, []);
 
   /**
-   * Updated sortNotes that respects absolute order but displays pinned notes first
+   * Sort notes based on pin status, order, and creation date
    */
   const sortNotes = useCallback(
     (notesToSort: CombinedNote[]): CombinedNote[] => {
@@ -166,13 +167,33 @@ export function useCombinedNotes() {
   );
 
   /**
+   * Centralized error handler for operations
+   */
+  const handleOperationError = useCallback((operation: string, error: any) => {
+    console.error(`Failed to ${operation}:`, error);
+
+    // Set user-visible error state based on operation type
+    if (operation.includes("create")) {
+      setCreationError(true);
+      // Clear after a while
+      setTimeout(() => setCreationError(false), 3000);
+    } else if (operation.includes("transfer")) {
+      setTransferError(true);
+      setTimeout(() => setTransferError(false), 3000);
+    }
+
+    // Always refresh to ensure consistent state
+    refreshNotes();
+  }, []);
+
+  /**
    * Convert a Note to a CombinedNote with source information
    */
   const convertToRedisNote = useCallback(
     (note: CombinedNote): RedisNote => {
       return {
         id: note.id,
-        author: note.author || userId || "",
+        author: note.author || redisUserId || "",
         title: note.title || "",
         content: note.content || "",
         pinned: note.isPinned,
@@ -183,7 +204,7 @@ export function useCombinedNotes() {
         updatedAt: note.updatedAt,
       };
     },
-    [userId],
+    [redisUserId],
   );
 
   /**
@@ -194,7 +215,7 @@ export function useCombinedNotes() {
       // Use Partial<SupabaseNote> to allow us to set only the fields we need
       return {
         id: note.id,
-        author: user?.id || note.author || userId || null,
+        author: user?.id || note.author || null,
         title: note.title || null,
         content: note.content || null,
         is_pinned: note.isPinned === undefined ? null : note.isPinned,
@@ -205,7 +226,7 @@ export function useCombinedNotes() {
         updated_at: new Date(note.updatedAt).toISOString(),
       };
     },
-    [userId],
+    [user?.id],
   );
 
   /**
@@ -336,11 +357,11 @@ export function useCombinedNotes() {
    * Force refresh notes from both Redis and Supabase
    */
   const refreshNotes = useCallback(async () => {
-    if (!userId || !isMounted.current) return;
+    if (!redisUserId || !isMounted.current) return;
 
     try {
-      // Get Redis notes using the local userId
-      const redisResult = await getNotesByUserIdAction(userId);
+      // Get Redis notes using the local redisUserId
+      const redisResult = await getNotesByUserIdAction(redisUserId);
       let redisNotes: CombinedNote[] = [];
       if (redisResult.success && redisResult.notes) {
         redisNotes = redisResult.notes.map((note) =>
@@ -386,15 +407,19 @@ export function useCombinedNotes() {
           saveUpdatedOrders(notesWithNewOrders);
         }
       }
+
+      // Mark that we've refreshed
+      markUpdated();
     } catch (error) {
       console.error("Failed to refresh notes:", error);
     }
   }, [
-    userId,
+    redisUserId,
     isAuthenticated,
     user?.id,
     convertToCombinedNote,
     normalizeNotesOrdering,
+    markUpdated,
   ]);
 
   /**
@@ -408,18 +433,14 @@ export function useCombinedNotes() {
         if (note.source === "redis") {
           updatePromises.push(
             updateNoteOrderAction(
-              userId as string,
+              redisUserId as string,
               note.id,
               note.order as number,
             ),
           );
-        } else {
+        } else if (user?.id) {
           updatePromises.push(
-            updateSupabaseNoteOrder(
-              userId as string,
-              note.id,
-              note.order as number,
-            ),
+            updateSupabaseNoteOrder(user.id, note.id, note.order as number),
           );
         }
       }
@@ -431,7 +452,31 @@ export function useCombinedNotes() {
         console.error("Failed to update order numbers:", error);
       }
     },
-    [userId],
+    [redisUserId, user?.id],
+  );
+
+  /**
+   * Update a single note in state with optimized rendering
+   */
+  const updateNoteInState = useCallback(
+    (noteId: string, updates: Partial<CombinedNote>) => {
+      setNotes((prevNotes) => {
+        // Only create a new array if we're actually updating something
+        const noteIndex = prevNotes.findIndex((note) => note.id === noteId);
+        if (noteIndex === -1) return prevNotes;
+
+        // Create a new array with the updated note
+        const newNotes = [...prevNotes];
+        newNotes[noteIndex] = { ...newNotes[noteIndex], ...updates };
+
+        // Only sort if the update affects sorting (pin status or order)
+        if ("isPinned" in updates || "order" in updates) {
+          return sortNotes(newNotes);
+        }
+        return newNotes;
+      });
+    },
+    [sortNotes],
   );
 
   /**
@@ -439,7 +484,7 @@ export function useCombinedNotes() {
    * Uses absolute ordering regardless of pinned status
    */
   const syncAndRenumberNotes = useCallback(async () => {
-    if (!userId) return;
+    if (!redisUserId) return;
     setIsReorderingInProgress(true);
 
     try {
@@ -483,57 +528,34 @@ export function useCombinedNotes() {
         (note) => note.source === "supabase",
       );
 
-      // Prepare update promises
+      // Prepare batch update data
+      const redisOrderUpdates = redisNotes.map((note) => ({
+        id: note.id,
+        order: note.order as number,
+      }));
+
+      const supabaseOrderUpdates = supabaseNotes.map((note) => ({
+        id: note.id,
+        order: note.order as number,
+      }));
+
+      // Execute batch updates
       const updatePromises = [];
 
-      // Update Redis notes
-      for (const note of redisNotes) {
-        const redisNote = convertFromCombinedNote(note, "redis");
-        updatePromises.push(
-          // Update the note content, title, pin status, privacy, and most importantly: order
-          updateNoteAction(userId, note.id, note.content)
-            .then(() => updateNoteTitleAction(userId, note.id, note.title))
-            .then(() =>
-              updateNotePinStatusAction(userId, note.id, !!note.isPinned),
-            )
-            .then(() =>
-              updateNotePrivacyStatusAction(userId, note.id, !!note.isPrivate),
-            )
-            .then(() =>
-              updateNoteOrderAction(userId, note.id, note.order as number),
-            )
-            .catch((err) =>
-              console.error(`Failed to update Redis note ${note.id}:`, err),
-            ),
-        );
+      // Redis updates
+      if (redisOrderUpdates.length > 0) {
+        for (const update of redisOrderUpdates) {
+          updatePromises.push(
+            updateNoteOrderAction(redisUserId, update.id, update.order),
+          );
+        }
       }
 
-      // Update Supabase notes if authenticated
-      if (isAuthenticated) {
-        for (const note of supabaseNotes) {
-          const supabaseNote = convertFromCombinedNote(note, "supabase");
+      // Supabase updates if authenticated
+      if (isAuthenticated && user?.id && supabaseOrderUpdates.length > 0) {
+        for (const update of supabaseOrderUpdates) {
           updatePromises.push(
-            updateSupabaseNote(userId, note.id, note.content)
-              .then(() => updateSupabaseNoteTitle(userId, note.id, note.title))
-              .then(() =>
-                updateSupabaseNotePinStatus(userId, note.id, !!note.isPinned),
-              )
-              .then(() =>
-                updateSupabaseNotePrivacyStatus(
-                  userId,
-                  note.id,
-                  !!note.isPrivate,
-                ),
-              )
-              .then(() =>
-                updateSupabaseNoteOrder(userId, note.id, note.order as number),
-              )
-              .catch((err) =>
-                console.error(
-                  `Failed to update Supabase note ${note.id}:`,
-                  err,
-                ),
-              ),
+            updateSupabaseNoteOrder(user.id, update.id, update.order),
           );
         }
       }
@@ -543,18 +565,22 @@ export function useCombinedNotes() {
 
       // Refresh notes from both sources
       await refreshNotes();
+
+      // Mark that we've updated the state
+      markUpdated();
     } catch (error) {
       console.error("Error syncing and renumbering notes:", error);
     } finally {
       setIsReorderingInProgress(false);
     }
   }, [
-    userId,
+    redisUserId,
     notes,
     sortNotes,
-    convertFromCombinedNote,
     isAuthenticated,
+    user?.id,
     refreshNotes,
+    markUpdated,
   ]);
 
   /**
@@ -592,17 +618,37 @@ export function useCombinedNotes() {
   );
 
   /**
+   * Helper function to save a note to the appropriate storage
+   */
+  const saveToStorage = useCallback(
+    async (note: CombinedNote) => {
+      if (note.source === "redis") {
+        return addNoteAction(
+          redisUserId as string,
+          convertFromCombinedNote(note, "redis"),
+        );
+      } else if (note.source === "supabase" && user?.id) {
+        const supabaseNote = convertFromCombinedNote(note, "supabase");
+        supabaseNote.author = user.id; // Ensure correct author
+        return createSupabaseNote(supabaseNote);
+      }
+      throw new Error(`Cannot save to ${note.source} storage`);
+    },
+    [redisUserId, user?.id, convertFromCombinedNote],
+  );
+
+  /**
    * Add a new note
    */
   const addNote = useCallback(() => {
-    if (animating || !userId) {
-      console.log("Early return due to:", { animating, userId });
+    if (animating || !redisUserId) {
+      console.log("Early return due to:", { animating, redisUserId });
       return;
     }
 
     console.log("ADD NOTE - Auth status:", {
       isAuthenticated,
-      userId,
+      redisUserId,
       user: user?.id,
       timestamp: new Date().toISOString(),
     });
@@ -654,53 +700,32 @@ export function useCombinedNotes() {
       setNewNoteId(newNote.id);
       setNotes(sortNotes([...updatedNotes, newNote]));
 
-      // Save note to appropriate backend
-      if (noteSource === "redis") {
-        console.log("Saving to REDIS");
-        const redisNote = convertFromCombinedNote(newNote, "redis");
-        addNoteAction(userId, redisNote)
-          .then((result) => {
-            console.log("Redis save result:", result);
-            setAnimating(false); // Reset animation state on completion
+      // Save the note to the appropriate storage
+      saveToStorage(newNote)
+        .then((result) => {
+          console.log(`${noteSource} save result:`, result);
+          setAnimating(false);
 
+          if (result.success) {
             // After adding the note, update all other notes' order numbers in the background
             updateAllNoteOrders(updatedNotes);
-          })
-          .catch((error) => {
-            console.error("Failed to add note to Redis:", error);
-            setAnimating(false); // Reset animation state on error
-            setCreationError(true);
-          });
-      }
 
-      // When saving to Supabase
-      if (noteSource === "supabase") {
-        console.log("Saving to SUPABASE");
+            // Mark that we've updated state
+            markUpdated();
 
-        // Convert to Supabase format
-        const supabaseNote = convertToSupabaseNote(newNote);
-
-        // Make sure author is set to the auth user ID
-        supabaseNote.author = user?.id;
-
-        console.log("Creating NEW Supabase note:", supabaseNote);
-
-        // Use the createSupabaseNote function
-        createSupabaseNote(supabaseNote)
-          .then((result) => {
-            console.log("Supabase create result:", result);
-            setAnimating(false);
-            if (result.success) {
-              // After adding the note, update all other notes' order numbers in the background
-              updateAllNoteOrders(updatedNotes);
-              refreshNotes();
+            if (noteSource === "supabase") {
+              refreshNotes(); // Refresh to get the server-generated IDs
             }
-          })
-          .catch((error) => {
-            console.error("Failed to create Supabase note:", error);
-            setAnimating(false);
-          });
-      }
+          }
+        })
+        .catch((error) => {
+          handleOperationError("create note", error);
+          setAnimating(false);
+          setCreationError(true);
+
+          // Auto-clear error after delay
+          setTimeout(() => setCreationError(false), 3000);
+        });
 
       // Handle animation timing
       if (animationTimeout.current) {
@@ -716,41 +741,71 @@ export function useCombinedNotes() {
     });
   }, [
     animating,
-    userId,
+    redisUserId,
     notes,
     isAuthenticated,
+    user?.id,
     sortNotes,
-    convertFromCombinedNote,
+    saveToStorage,
     refreshNotes,
+    markUpdated,
+    handleOperationError,
   ]);
 
-  // Helper function to update order numbers for all notes
+  /**
+   * Helper function to update order numbers for all notes in a batch
+   */
   const updateAllNoteOrders = useCallback(
     async (notesToUpdate: CombinedNote[]) => {
       try {
-        const updatePromises = [];
+        // Group updates by source
+        const redisUpdates: { id: string; order: number }[] = [];
+        const supabaseUpdates: { id: string; order: number }[] = [];
 
-        for (const note of notesToUpdate) {
+        notesToUpdate.forEach((note) => {
           // Skip notes without valid order
-          if (note.order === undefined || note.order === null) continue;
+          if (note.order === undefined || note.order === null) return;
 
           if (note.source === "redis") {
-            updatePromises.push(
-              updateNoteOrderAction(userId as string, note.id, note.order),
-            );
+            redisUpdates.push({ id: note.id, order: note.order });
           } else {
+            supabaseUpdates.push({ id: note.id, order: note.order });
+          }
+        });
+
+        // Prepare update promises
+        const updatePromises = [];
+
+        // Update Redis notes
+        for (const update of redisUpdates) {
+          updatePromises.push(
+            updateNoteOrderAction(
+              redisUserId as string,
+              update.id,
+              update.order,
+            ),
+          );
+        }
+
+        // Update Supabase notes
+        if (user?.id) {
+          for (const update of supabaseUpdates) {
             updatePromises.push(
-              updateSupabaseNoteOrder(userId as string, note.id, note.order),
+              updateSupabaseNoteOrder(user.id, update.id, update.order),
             );
           }
         }
 
-        await Promise.all(updatePromises);
+        // Execute all updates in parallel
+        await Promise.allSettled(updatePromises);
+
+        // Mark that we've updated the notes
+        markUpdated();
       } catch (error) {
         console.error("Failed to update all note orders:", error);
       }
     },
-    [userId],
+    [redisUserId, user?.id, markUpdated],
   );
 
   /**
@@ -758,37 +813,41 @@ export function useCombinedNotes() {
    */
   const updatePinStatus = useCallback(
     async (noteId: string, isPinned: boolean) => {
-      if (!userId) return;
+      if (!redisUserId) return;
 
       // Find the note to be updated
       const targetNote = notes.find((note) => note.id === noteId);
       if (!targetNote) return;
 
       // Optimistic UI update
-      setNotes((prevNotes) => {
-        const updatedNotes = prevNotes.map((note) =>
-          note.id === noteId ? { ...note, isPinned } : note,
-        );
-        return sortNotes(updatedNotes);
-      });
+      updateNoteInState(noteId, { isPinned });
 
       try {
         // Update in the appropriate backend
         if (targetNote.source === "redis") {
-          await updateNotePinStatusAction(userId, noteId, isPinned);
-        } else {
-          await updateSupabaseNotePinStatus(userId, noteId, isPinned);
+          await updateNotePinStatusAction(redisUserId, noteId, isPinned);
+        } else if (user?.id) {
+          await updateSupabaseNotePinStatus(user.id, noteId, isPinned);
         }
 
         // Refresh notes to ensure correct order
         await refreshNotes();
+
+        // Mark that we've updated the state
+        markUpdated();
       } catch (error) {
-        console.error("Failed to update pin status:", error);
-        // Revert optimistic update on error
-        refreshNotes();
+        handleOperationError("update pin status", error);
       }
     },
-    [userId, notes, sortNotes, refreshNotes],
+    [
+      redisUserId,
+      notes,
+      user?.id,
+      updateNoteInState,
+      refreshNotes,
+      markUpdated,
+      handleOperationError,
+    ],
   );
 
   /**
@@ -796,34 +855,37 @@ export function useCombinedNotes() {
    */
   const updatePrivacyStatus = useCallback(
     async (noteId: string, isPrivate: boolean) => {
-      if (!userId) return;
+      if (!redisUserId) return;
 
       // Find the note to be updated
       const targetNote = notes.find((note) => note.id === noteId);
       if (!targetNote) return;
 
       // Optimistic UI update
-      setNotes((prevNotes) => {
-        const updatedNotes = prevNotes.map((note) =>
-          note.id === noteId ? { ...note, isPrivate } : note,
-        );
-        return sortNotes(updatedNotes);
-      });
+      updateNoteInState(noteId, { isPrivate });
 
       try {
         // Update in the appropriate backend
         if (targetNote.source === "redis") {
-          await updateNotePrivacyStatusAction(userId, noteId, isPrivate);
-        } else {
-          await updateSupabaseNotePrivacyStatus(userId, noteId, isPrivate);
+          await updateNotePrivacyStatusAction(redisUserId, noteId, isPrivate);
+        } else if (user?.id) {
+          await updateSupabaseNotePrivacyStatus(user.id, noteId, isPrivate);
         }
+
+        // Mark that we've updated the state
+        markUpdated();
       } catch (error) {
-        console.error("Failed to update privacy status:", error);
-        // Revert optimistic update on error
-        refreshNotes();
+        handleOperationError("update privacy status", error);
       }
     },
-    [userId, notes, sortNotes, refreshNotes],
+    [
+      redisUserId,
+      notes,
+      user?.id,
+      updateNoteInState,
+      markUpdated,
+      handleOperationError,
+    ],
   );
 
   /**
@@ -831,42 +893,49 @@ export function useCombinedNotes() {
    */
   const updateCollapsedStatus = useCallback(
     async (noteId: string, isCollapsed: boolean) => {
-      if (!userId) return;
+      if (!redisUserId) return;
 
       // Find the note to be updated
       const targetNote = notes.find((note) => note.id === noteId);
       if (!targetNote) return;
 
       // Optimistic UI update
-      setNotes((prevNotes) => {
-        const updatedNotes = prevNotes.map((note) =>
-          note.id === noteId ? { ...note, isCollapsed } : note,
-        );
-        return updatedNotes;
-      });
+      updateNoteInState(noteId, { isCollapsed });
 
       try {
         // Update in the appropriate backend
         if (targetNote.source === "redis") {
-          await updateNoteCollapsedStatusAction(userId, noteId, isCollapsed);
-        } else {
-          await updateSupabaseNoteCollapsedStatus(userId, noteId, isCollapsed);
+          await updateNoteCollapsedStatusAction(
+            redisUserId,
+            noteId,
+            isCollapsed,
+          );
+        } else if (user?.id) {
+          await updateSupabaseNoteCollapsedStatus(user.id, noteId, isCollapsed);
         }
+
+        // Mark that we've updated the state
+        markUpdated();
       } catch (error) {
-        console.error("Failed to update collapsed status:", error);
-        // Revert optimistic update on error
-        refreshNotes();
+        handleOperationError("update collapsed status", error);
       }
     },
-    [userId, notes, refreshNotes],
+    [
+      redisUserId,
+      notes,
+      user?.id,
+      updateNoteInState,
+      markUpdated,
+      handleOperationError,
+    ],
   );
 
   /**
-   * Reorder a note (move up/down) using the step-by-step approach that works reliably for both Redis and Supabase notes
+   * Reorder a note (move up/down) using a batch approach for better reliability
    */
   const reorderNote = useCallback(
     async (noteId: string, direction: "up" | "down") => {
-      if (!userId || isReorderingInProgress) return;
+      if (!redisUserId || isReorderingInProgress) return;
       setIsReorderingInProgress(true);
 
       try {
@@ -927,58 +996,61 @@ export function useCombinedNotes() {
           return sortNotes(updatedNotes);
         });
 
-        // Step 7: Create and assign temporary orders to avoid conflicts
-        const tempTargetOrder = -9999;
-        const tempSwapOrder = -8888;
+        // Step 7: Prepare batch operations for more reliability
+        const operations = [];
 
-        // For Supabase operations, use the auth user ID if available
-        const authUserId = user?.id;
-
-        // Step 8: Update with temporary orders first
-        // First update target note to temp order
+        // Add operations for target note
         if (targetNote.source === "redis") {
-          await updateNoteOrderAction(userId, targetNote.id, tempTargetOrder);
-        } else if (targetNote.source === "supabase" && authUserId) {
-          await updateSupabaseNoteOrder(
-            authUserId,
-            targetNote.id,
-            tempTargetOrder,
+          operations.push(() =>
+            updateNoteOrderAction(redisUserId, targetNote.id, swapOrder),
+          );
+        } else if (user?.id) {
+          operations.push(() =>
+            updateSupabaseNoteOrder(user.id, targetNote.id, swapOrder),
           );
         }
 
-        // Then update swap note to temp order
+        // Add operations for swap note
         if (swapNote.source === "redis") {
-          await updateNoteOrderAction(userId, swapNote.id, tempSwapOrder);
-        } else if (swapNote.source === "supabase" && authUserId) {
-          await updateSupabaseNoteOrder(authUserId, swapNote.id, tempSwapOrder);
+          operations.push(() =>
+            updateNoteOrderAction(redisUserId, swapNote.id, targetOrder),
+          );
+        } else if (user?.id) {
+          operations.push(() =>
+            updateSupabaseNoteOrder(user.id, swapNote.id, targetOrder),
+          );
         }
 
-        // Step 9: Now update to final orders
-        // Update target note to final order
-        if (targetNote.source === "redis") {
-          await updateNoteOrderAction(userId, targetNote.id, swapOrder);
-        } else if (targetNote.source === "supabase" && authUserId) {
-          await updateSupabaseNoteOrder(authUserId, targetNote.id, swapOrder);
+        // Execute all operations
+        const results = await Promise.allSettled(operations.map((op) => op()));
+
+        // Check if any operations failed
+        const failed = results.some((result) => result.status === "rejected");
+        if (failed) {
+          throw new Error("Some reordering operations failed");
         }
 
-        // Update swap note to final order
-        if (swapNote.source === "redis") {
-          await updateNoteOrderAction(userId, swapNote.id, targetOrder);
-        } else if (swapNote.source === "supabase" && authUserId) {
-          await updateSupabaseNoteOrder(authUserId, swapNote.id, targetOrder);
-        }
+        // Mark that we've updated state
+        markUpdated();
 
-        // Step 10: Refresh notes to ensure consistency
+        // Refresh notes to ensure consistency
         await refreshNotes();
       } catch (error) {
         console.error("Error reordering note:", error);
-        // Refresh to restore correct state
         await refreshNotes();
       } finally {
         setIsReorderingInProgress(false);
       }
     },
-    [userId, notes, sortNotes, refreshNotes, isReorderingInProgress, user?.id],
+    [
+      redisUserId,
+      notes,
+      user?.id,
+      sortNotes,
+      refreshNotes,
+      isReorderingInProgress,
+      markUpdated,
+    ],
   );
 
   /**
@@ -988,7 +1060,7 @@ export function useCombinedNotes() {
     async (noteId: string) => {
       // Find the note to be deleted
       const targetNote = notes.find((note) => note.id === noteId);
-      if (!targetNote || !userId) return;
+      if (!targetNote || !redisUserId) return;
 
       // Optimistic UI update
       setNotes((prevNotes) => prevNotes.filter((note) => note.id !== noteId));
@@ -996,18 +1068,19 @@ export function useCombinedNotes() {
       try {
         // Delete from the appropriate backend
         if (targetNote.source === "redis") {
-          await deleteNoteAction(userId, noteId);
-        } else {
-          // For Supabase, ensure we're using the deleteSupabaseNote function
-          await deleteSupabaseNote(userId, noteId);
+          await deleteNoteAction(redisUserId, noteId);
+        } else if (user?.id) {
+          // For Supabase, use the auth user ID
+          await deleteSupabaseNote(user.id, noteId);
         }
+
+        // Mark that we've updated state
+        markUpdated();
       } catch (error) {
-        console.error("Failed to delete note:", error);
-        // Revert optimistic update on error
-        refreshNotes();
+        handleOperationError("delete note", error);
       }
     },
-    [userId, notes, refreshNotes],
+    [redisUserId, notes, user?.id, markUpdated, handleOperationError],
   );
 
   /**
@@ -1016,7 +1089,7 @@ export function useCombinedNotes() {
    */
   const transferNote = useCallback(
     async (noteId: string, targetSource: NoteSource) => {
-      if (!userId) return;
+      if (!redisUserId) return;
 
       // Set the transferring state to show loading UI
       setTransferringNoteId(noteId);
@@ -1044,7 +1117,7 @@ export function useCombinedNotes() {
       try {
         // Add an artificial delay at the beginning to ensure the
         // transferring UI is visible to the user
-        await new Promise((resolve) => setTimeout(resolve, 800));
+        await new Promise((resolve) => setTimeout(resolve, 400));
 
         // Generate a new ID for the note in its new location
         const newNoteId = generateNoteId(notes.map((note) => note.id));
@@ -1063,33 +1136,34 @@ export function useCombinedNotes() {
         );
 
         // For Supabase notes, make sure the author is set correctly
-        if (targetSource === "supabase") {
-          convertedNote.author = user?.id;
+        if (targetSource === "supabase" && user?.id) {
+          convertedNote.author = user.id;
         }
 
         // Now perform the actual backend operations
         // First create the note in the target storage
         let createResult;
         if (targetSource === "redis") {
-          createResult = await addNoteAction(userId, convertedNote);
-        } else {
+          createResult = await addNoteAction(redisUserId, convertedNote);
+        } else if (user?.id) {
           createResult = await createSupabaseNote(convertedNote);
+        } else {
+          throw new Error("Cannot transfer to Supabase - not authenticated");
         }
 
-        if (createResult.success) {
+        if (createResult?.success) {
           // If creation succeeded, delete from the source storage
           let deleteResult;
           if (sourceNote.source === "redis") {
-            deleteResult = await deleteNoteAction(userId, noteId);
+            deleteResult = await deleteNoteAction(redisUserId, noteId);
+          } else if (user?.id) {
+            deleteResult = await deleteSupabaseNote(user.id, noteId);
           } else {
-            deleteResult = await deleteSupabaseNote(userId, noteId);
+            throw new Error("Cannot delete from source storage");
           }
 
-          // Add a delay before completing the transfer UI
-          await new Promise((resolve) => setTimeout(resolve, 400));
-
           // If both operations succeeded, update the UI
-          if (deleteResult.success) {
+          if (deleteResult?.success) {
             console.log(
               `Note successfully transferred from ${sourceNote.source} to ${targetSource}`,
             );
@@ -1102,45 +1176,49 @@ export function useCombinedNotes() {
               return sortNotes([...filteredNotes, noteToTransfer]);
             });
 
-            // Show completion UI for a meaningful duration
-            await new Promise((resolve) => setTimeout(resolve, 800));
+            // Mark that we've updated state
+            markUpdated();
           } else {
             // If delete failed, we need to refresh from server
-            console.error("Failed to delete source note:", deleteResult.error);
+            console.error("Failed to delete source note:", deleteResult?.error);
             await refreshNotes();
           }
         } else {
           // If creation failed, don't update UI
           console.error(
             "Failed to create note in target storage:",
-            createResult.error,
+            createResult?.error,
           );
           await refreshNotes();
         }
       } catch (error) {
-        console.error(`Failed to transfer note to ${targetSource}:`, error);
-        // In case of any error, refresh from server to get the correct state
-        await refreshNotes();
+        handleOperationError("transfer note", error);
       } finally {
-        // Keep the transferringNoteId state active for at least 800ms
+        // Keep the transferringNoteId state active for at least 400ms
         // to ensure UI visibility
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 400));
         setTransferringNoteId(null);
       }
     },
     [
-      userId,
+      redisUserId,
       notes,
       isAuthenticated,
-      convertFromCombinedNote,
-      refreshNotes,
       user?.id,
       sortNotes,
+      convertFromCombinedNote,
+      refreshNotes,
+      markUpdated,
+      handleOperationError,
     ],
   );
 
-  // Check authentication status on mount
+  // Initialize isMounted ref and get authentication status on mount
   useEffect(() => {
+    // Set mounted flag at initialization
+    isMounted.current = true;
+
+    // Check auth status
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user);
       setIsAuthenticated(!!data.user);
@@ -1155,7 +1233,19 @@ export function useCombinedNotes() {
     );
 
     return () => {
+      // Clear it on cleanup
+      isMounted.current = false;
+
       authListener.subscription.unsubscribe();
+
+      // Clean up timeouts and intervals
+      if (animationTimeout.current) {
+        clearTimeout(animationTimeout.current);
+      }
+
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+      }
     };
   }, []);
 
@@ -1167,17 +1257,20 @@ export function useCombinedNotes() {
         const { data } = await supabase.auth.getUser();
         const authUser = data.user;
 
-        const id = authUser?.id || getUserId();
-        setUserId(id);
+        const localRedisUserId = getUserId();
+        const authUserId = authUser?.id;
+
+        setRedisUserId(localRedisUserId);
         setUser(authUser);
+
         const authenticated = !!authUser;
         setIsAuthenticated(authenticated);
 
         // Load notes from both sources
         let initialNotes: CombinedNote[] = [];
 
-        // Get Redis notes
-        const redisResult = await getNotesByUserIdAction(id);
+        // Get Redis notes using redisUserId
+        const redisResult = await getNotesByUserIdAction(localRedisUserId);
 
         if (redisResult.success && redisResult.notes) {
           const redisNotes = redisResult.notes.map((note) =>
@@ -1186,9 +1279,9 @@ export function useCombinedNotes() {
           initialNotes = [...initialNotes, ...redisNotes];
         }
 
-        // Get Supabase notes if authenticated
-        if (authenticated) {
-          const supabaseResult = await getSupabaseNotesByUserId(id);
+        // Get Supabase notes if authenticated using the authUserId
+        if (authenticated && authUserId) {
+          const supabaseResult = await getSupabaseNotesByUserId(authUserId);
 
           if (supabaseResult.success && supabaseResult.notes) {
             const supabaseNotes = supabaseResult.notes.map((note) =>
@@ -1226,9 +1319,12 @@ export function useCombinedNotes() {
             newNote,
             defaultNoteSource,
           );
+
           if (defaultNoteSource === "redis") {
-            await addNoteAction(id, convertedNote);
-          } else {
+            await addNoteAction(localRedisUserId, convertedNote);
+          } else if (authUserId) {
+            // Ensure author is set correctly for Supabase
+            convertedNote.author = authUserId;
             await createSupabaseNote(convertedNote);
           }
         }
@@ -1245,19 +1341,6 @@ export function useCombinedNotes() {
     };
 
     loadNotes();
-
-    return () => {
-      isMounted.current = false;
-
-      // Clean up timeouts and intervals
-      if (animationTimeout.current) {
-        clearTimeout(animationTimeout.current);
-      }
-
-      if (refreshIntervalRef.current) {
-        clearInterval(refreshIntervalRef.current);
-      }
-    };
   }, [
     isAuthenticated,
     convertToCombinedNote,
@@ -1265,20 +1348,24 @@ export function useCombinedNotes() {
     convertFromCombinedNote,
   ]);
 
-  // Effect: Setup refresh interval
+  // Effect: Setup intelligent refresh interval
   useEffect(() => {
-    if (!userId || isInitialLoad.current) return;
+    if (!redisUserId || isInitialLoad.current) return;
 
     const refreshInterval = setInterval(() => {
-      refreshNotes();
-    }, 30000); // Refresh every 30 seconds
+      const timeSinceLastUpdate = Date.now() - lastUpdateTimestamp;
+      // Only refresh if no activity for 30 seconds
+      if (timeSinceLastUpdate > 30000) {
+        refreshNotes();
+      }
+    }, 10000); // Check every 10 seconds
 
     refreshIntervalRef.current = refreshInterval;
 
     return () => {
       clearInterval(refreshInterval);
     };
-  }, [userId, refreshNotes]);
+  }, [redisUserId, refreshNotes, lastUpdateTimestamp]);
 
   return {
     // State
@@ -1286,10 +1373,12 @@ export function useCombinedNotes() {
     isLoading,
     animating,
     newNoteId,
-    userId,
+    userId: redisUserId,
     isAuthenticated,
     isReorderingInProgress,
     transferringNoteId,
+    creationError,
+    transferError,
 
     // Functions
     addNote,

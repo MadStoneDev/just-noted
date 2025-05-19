@@ -1,7 +1,7 @@
 ﻿"use server";
 
-import { createClient } from "@/utils/supabase/server";
 import { Tables } from "../../../database.types";
+import { createClient } from "@/utils/supabase/server";
 
 type SupabaseNote = Tables<`notes`>;
 const getSupabase = async () => await createClient();
