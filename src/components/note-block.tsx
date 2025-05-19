@@ -28,25 +28,18 @@ import {
 } from "@tabler/icons-react";
 
 import {
-  deleteNoteAction,
   updateNoteAction,
   updateNoteTitleAction,
-  updateNotePinStatusAction,
-  reorderNoteAction,
-  updateNotePrivacyStatusAction,
-  updateNoteCollapsedStatusAction,
 } from "@/app/actions/redisActions";
 
 import { NoteSource } from "@/types/combined-notes";
 import {
   updateNote as updateSupabaseNote,
   updateNoteTitle as updateSupabaseNoteTitle,
-  updateNotePrivacyStatus as updateSupabaseNotePrivacyStatus,
-  updateNoteCollapsedStatus as updateSupabaseNoteCollapsedStatus,
-  deleteNote as deleteSupabaseNote,
 } from "@/app/actions/supabaseActions";
 
 import DeleteButton from "@/components/delete-button";
+import ShareNoteButton from "@/components/share-note-button";
 
 const useDebounce = <T extends (...args: any[]) => any>(
   callback: T,
@@ -92,6 +85,7 @@ interface NoteBlockProps {
   noteSource?: NoteSource;
   onTransferNote?: (noteId: string, targetSource: NoteSource) => void;
   isTransferring?: boolean;
+  shareableNote?: boolean;
   isAuthenticated?: boolean;
 }
 
@@ -974,6 +968,55 @@ export default function NoteBlock({
           </div>
         )}
 
+        {onTransferNote && noteSource && (
+          <button
+            type={`button`}
+            onClick={() => {
+              if (noteSource === "redis") {
+                if (!isAuthenticated) {
+                  alert("You need to be signed in to save notes to the cloud.");
+                  return;
+                }
+                onTransferNote(details.id, "supabase");
+              } else {
+                onTransferNote(details.id, "redis");
+              }
+            }}
+            title={
+              noteSource === "redis" ? "Transfer to Cloud" : "Transfer to Local"
+            }
+            className={`group/transfer px-2 cursor-pointer flex items-center justify-center gap-1 w-fit h-10 rounded-lg border-1 ${
+              isPrivate
+                ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
+                : "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary"
+            } text-neutral-800 overflow-hidden transition-all duration-300 ease-in-out`}
+          >
+            {noteSource === "redis" ? (
+              <div
+                className={`flex items-center gap-0 group-hover/transfer:gap-2 transition-all duration-400 ease-in-out`}
+              >
+                <IconCloudUpload size={20} strokeWidth={2} />
+                <span
+                  className={`w-fit max-w-0 group-hover/transfer:max-w-52 opacity-0 group-hover/transfer:opacity-100 overflow-hidden transition-all duration-300 ease-in-out`}
+                >
+                  Transfer to Cloud
+                </span>
+              </div>
+            ) : (
+              <div
+                className={`flex items-center gap-0 group-hover/transfer:gap-2 transition-all duration-400 ease-in-out`}
+              >
+                <IconDeviceDesktopDown size={20} strokeWidth={2} />
+                <span
+                  className={`w-fit max-w-0 group-hover/transfer:max-w-52 opacity-0 group-hover/transfer:opacity-100 overflow-hidden transition-all duration-300 ease-in-out`}
+                >
+                  Move to Local
+                </span>
+              </div>
+            )}
+          </button>
+        )}
+
         <div
           className={`flex-grow h-0.5 ${
             isPrivate
@@ -1240,6 +1283,16 @@ export default function NoteBlock({
                     </div>
                   )}
                 </button>
+              )}
+
+              {isAuthenticated && (
+                <ShareNoteButton
+                  noteId={details.id}
+                  noteTitle={details.title}
+                  noteSource={noteSource}
+                  isAuthenticated={isAuthenticated}
+                  userId={userId}
+                />
               )}
 
               <div
