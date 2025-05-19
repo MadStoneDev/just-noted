@@ -21,9 +21,19 @@ interface SharedNote {
   is_pinned?: boolean;
 }
 
-export default function SharedNotePage() {
+interface SharedNotePageProps {
+  shortcode?: string;
+}
+
+export default function SharedNotePage({
+  shortcode: propShortcode,
+}: SharedNotePageProps) {
+  // We'll use the prop if provided, otherwise fall back to params from the router
   const params = useParams();
-  const shortcode = params?.shortcode as string;
+  const routerShortcode = params?.shortcode as string;
+  const shortcode = propShortcode || routerShortcode;
+
+  console.log("SharedNotePage rendered with shortcode:", shortcode);
 
   const [note, setNote] = useState<SharedNote | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -179,7 +189,7 @@ export default function SharedNotePage() {
             </div>
           ) : (
             <Link
-              href="/login"
+              href="/get-access"
               className="text-mercedes-primary hover:underline"
             >
               Sign in

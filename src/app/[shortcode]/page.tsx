@@ -9,8 +9,10 @@ export const revalidate = 0;
 export default async function SharedNotePageWrapper({
   params,
 }: {
-  params: { shortcode: string };
+  params: Promise<{ shortcode: string }>;
 }) {
+  const { shortcode } = await params;
+
   const supabase = await createClient();
   const {
     data: { user },
