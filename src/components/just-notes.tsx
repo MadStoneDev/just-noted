@@ -16,6 +16,7 @@ export default function JustNotes() {
     userId,
     isAuthenticated,
     isReorderingInProgress,
+    transferringNoteId,
     addNote,
     updatePinStatus,
     updatePrivacyStatus,
@@ -110,6 +111,7 @@ export default function JustNotes() {
                 isLastUnpinned={isLastUnpinned}
                 noteSource={note.source}
                 onTransferNote={transferNote}
+                isTransferring={transferringNoteId === note.id}
                 isAuthenticated={isAuthenticated}
               />
             </div>

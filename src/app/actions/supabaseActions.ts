@@ -184,7 +184,6 @@ export const getNotesByUserId = async (userId: string) => {
 };
 
 // Get Note By Note Id
-
 export const getNoteByNoteId = async (userId: string, noteId: string) => {
   const supabase = await getSupabase();
 
@@ -408,7 +407,7 @@ export const deleteNote = async (userId: string, noteId: string) => {
 };
 
 export const updateSupabaseNoteOrder = async (
-  userId: string,
+  userId: string | null,
   noteId: string,
   newOrder: number,
 ) => {

@@ -672,7 +672,7 @@ export async function updateNoteCollapsedStatusAction(
 }
 
 export async function updateNoteOrderAction(
-  userId: string,
+  userId: string | null,
   noteId: string,
   newOrder: number,
 ) {

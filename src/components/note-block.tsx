@@ -7,7 +7,6 @@ import TextBlock from "@/components/text-block";
 import {
   IconFileTypeTxt,
   IconPencil,
-  IconTrash,
   IconCheck,
   IconX,
   IconDeviceFloppy,
@@ -22,6 +21,10 @@ import {
   IconEyeClosed,
   IconLock,
   IconLockOpen,
+  IconCloud,
+  IconCloudUpload,
+  IconDeviceDesktopDown,
+  IconDeviceDesktop,
 } from "@tabler/icons-react";
 
 import {
@@ -38,12 +41,11 @@ import { NoteSource } from "@/types/combined-notes";
 import {
   updateNote as updateSupabaseNote,
   updateNoteTitle as updateSupabaseNoteTitle,
-  updateNotePinStatus as updateSupabaseNotePinStatus,
   updateNotePrivacyStatus as updateSupabaseNotePrivacyStatus,
   updateNoteCollapsedStatus as updateSupabaseNoteCollapsedStatus,
-  reorderNote as reorderSupabaseNote,
   deleteNote as deleteSupabaseNote,
 } from "@/app/actions/supabaseActions";
+
 import DeleteButton from "@/components/delete-button";
 
 const useDebounce = <T extends (...args: any[]) => any>(
@@ -89,6 +91,7 @@ interface NoteBlockProps {
   // New props:
   noteSource?: NoteSource;
   onTransferNote?: (noteId: string, targetSource: NoteSource) => void;
+  isTransferring?: boolean;
   isAuthenticated?: boolean;
 }
 
@@ -107,6 +110,7 @@ export default function NoteBlock({
   onReorder,
   noteSource = "redis",
   onTransferNote,
+  isTransferring = false,
   isAuthenticated = false,
 }: NoteBlockProps) {
   // States
@@ -116,6 +120,8 @@ export default function NoteBlock({
   const [isPinned, setIsPinned] = useState(details.pinned || false);
   const [isPinUpdating, setIsPinUpdating] = useState(false);
   const [isReordering, setIsReordering] = useState(false);
+
+  const [transferComplete, setTransferComplete] = useState(false);
 
   const [isContentVisible, setIsContentVisible] = useState(true);
   const [isContentExpanded, setIsContentExpanded] = useState(true);
@@ -144,6 +150,8 @@ export default function NoteBlock({
   const reorderOperationRef = useRef<{ id: string; timestamp: number } | null>(
     null,
   );
+
+  const prevIsTransferring = useRef(false);
 
   const collapseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const collapseSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -217,26 +225,24 @@ export default function NoteBlock({
   const saveCollapsedState = (isCollapsed: boolean) => {
     setIsCollapsedUpdating(true);
 
-    // Define the promise based on source
-    const updatePromise =
-      noteSource === "redis"
-        ? updateNoteCollapsedStatusAction(userId, details.id, isCollapsed)
-        : updateSupabaseNoteCollapsedStatus(userId, details.id, isCollapsed);
+    try {
+      // Use the callback provided by parent component
+      if (onCollapsedStatusChange) {
+        // Call the callback but don't assume it returns a Promise
+        onCollapsedStatusChange(details.id, isCollapsed);
 
-    updatePromise
-      .then((result) => {
-        if (result.success && onCollapsedStatusChange) {
-          onCollapsedStatusChange(details.id, isCollapsed);
-        } else if (!result.success) {
-          console.error("Failed to update collapsed state:", result.error);
-        }
-      })
-      .catch((error) => {
-        console.error("Error updating collapsed state:", error);
-      })
-      .finally(() => {
+        // Since we can't wait for completion, just set loading to false after a reasonable delay
+        setTimeout(() => {
+          setIsCollapsedUpdating(false);
+        }, 500);
+      } else {
+        console.error("No onCollapsedStatusChange callback provided");
         setIsCollapsedUpdating(false);
-      });
+      }
+    } catch (error) {
+      console.error("Error in saveCollapsedState:", error);
+      setIsCollapsedUpdating(false);
+    }
   };
 
   // Clear status timeout helper function
@@ -290,21 +296,23 @@ export default function NoteBlock({
   };
 
   // Handle moving notes up or down - now with race condition prevention
-  const handleMoveNote = async (direction: "up" | "down") => {
+  const handleMoveNote = (direction: "up" | "down") => {
     if (isReordering) return;
 
+    // Start with loading state
     setIsReordering(true);
 
     // Generate a unique operation ID
     const operationId = `${details.id}-${Date.now()}`;
     const operationTimestamp = Date.now();
 
-    // Store the current operation details to handle race conditions
+    // Store the current operation details
     reorderOperationRef.current = {
       id: operationId,
       timestamp: operationTimestamp,
     };
 
+    // Show loading status immediately
     setStatusWithTimeout(
       direction === "up" ? "Moving up..." : "Moving down...",
       <IconLoader className="animate-spin" />,
@@ -313,64 +321,68 @@ export default function NoteBlock({
     );
 
     try {
-      const result = await reorderNoteAction(userId, details.id, direction);
-
-      // Only process this response if it's the most recent operation
-      if (reorderOperationRef.current?.id === operationId && result.success) {
-        // Clear previous status
-        clearStatusTimeout();
-
-        // Generate a new message ID
-        const messageId = Date.now();
-        statusMessageIdRef.current = messageId;
-
-        setSaveStatus("");
-        setSaveIcon(null);
-
-        // Set new status with a slight delay
+      if (onReorder) {
+        // Add a small delay before calling onReorder
         setTimeout(() => {
-          // Only update if this is still the active message
-          if (statusMessageIdRef.current === messageId) {
-            setStatusWithTimeout(
-              direction === "up" ? "Moved up" : "Moved down",
-              <IconCircleCheck className="text-mercedes-primary" />,
-              false,
-              2000,
-            );
-          }
-        }, 50);
-
-        // Notify parent component
-        if (onReorder) {
+          // Call the onReorder callback
           onReorder(details.id, direction);
-        }
-      } else if (reorderOperationRef.current?.id === operationId) {
-        // This is still the current operation but it failed
-        setStatusWithTimeout(
-          `Failed to move ${direction}`,
-          <IconCircleX className="text-red-700" />,
-          true,
-          3000,
-        );
-        console.error(`Failed to move note ${direction}:`, result.error);
+
+          // Show success status after a reasonable delay
+          setTimeout(() => {
+            if (reorderOperationRef.current?.id === operationId) {
+              const messageId = Date.now();
+              statusMessageIdRef.current = messageId;
+
+              clearStatusTimeout();
+              setSaveStatus("");
+              setSaveIcon(null);
+
+              setTimeout(() => {
+                if (statusMessageIdRef.current === messageId) {
+                  setStatusWithTimeout(
+                    direction === "up" ? "Moved up" : "Moved down",
+                    <IconCircleCheck className="text-mercedes-primary" />,
+                    false,
+                    2000,
+                  );
+                }
+              }, 50);
+
+              setIsReordering(false);
+              reorderOperationRef.current = null;
+            }
+          }, 800);
+        }, 300);
+      } else {
+        // No callback provided
+        setTimeout(() => {
+          setStatusWithTimeout(
+            `Cannot move ${direction}`,
+            <IconCircleX className="text-red-700" />,
+            true,
+            3000,
+          );
+          console.error("No onReorder callback provided");
+
+          setIsReordering(false);
+          reorderOperationRef.current = null;
+        }, 500);
       }
     } catch (error) {
-      // Only show error if this is still the current operation
-      if (reorderOperationRef.current?.id === operationId) {
-        setStatusWithTimeout(
-          `Error moving ${direction}`,
-          <IconCircleX className="text-red-700" />,
-          true,
-          3000,
-        );
-        console.error(`Error moving note ${direction}:`, error);
-      }
-    } finally {
-      // Only update reordering state for the current operation
-      if (reorderOperationRef.current?.id === operationId) {
-        setIsReordering(false);
-        reorderOperationRef.current = null;
-      }
+      setTimeout(() => {
+        if (reorderOperationRef.current?.id === operationId) {
+          setStatusWithTimeout(
+            `Error moving ${direction}`,
+            <IconCircleX className="text-red-700" />,
+            true,
+            3000,
+          );
+          console.error(`Error moving note ${direction}:`, error);
+
+          setIsReordering(false);
+          reorderOperationRef.current = null;
+        }
+      }, 500);
     }
   };
 
@@ -472,10 +484,10 @@ export default function NoteBlock({
   const handleTogglePin = async () => {
     const newPinStatus = !isPinned;
 
-    // Update local state immediately for responsive UI
-    setIsPinned(newPinStatus);
+    // Start with loading state BEFORE changing visual state
     setIsPinUpdating(true);
 
+    // Show loading status immediately
     setStatusWithTimeout(
       newPinStatus ? "Pinning..." : "Unpinning...",
       <IconLoader className="animate-spin" />,
@@ -483,114 +495,69 @@ export default function NoteBlock({
       10000,
     );
 
+    // Short delay before applying optimistic UI update
+    setTimeout(() => {
+      setIsPinned(newPinStatus);
+    }, 300);
+
     try {
-      const result = await updateNotePinStatusAction(
-        userId,
-        details.id,
-        newPinStatus,
-      );
+      if (onPinStatusChange) {
+        // Call the callback but don't assume it returns a Promise
+        onPinStatusChange(details.id, newPinStatus);
 
-      if (result.success) {
-        // Create a unique message ID for this status update to handle race conditions
-        const messageId = Date.now();
-        statusMessageIdRef.current = messageId;
-
-        // Clear previous status first to force UI update
-        clearStatusTimeout();
-        setSaveStatus("");
-        setSaveIcon(null);
-
-        // Then set the new status with a slight delay to ensure it's seen as a new message
+        // Since we can't await completion, show success after a reasonable delay
         setTimeout(() => {
-          // Only update if this is still the active message
-          if (statusMessageIdRef.current === messageId) {
-            setStatusWithTimeout(
-              newPinStatus ? "Pinned" : "Unpinned",
-              <IconCircleCheck className="text-mercedes-primary" />,
-              false,
-              2000,
-            );
-          }
-        }, 50);
+          const messageId = Date.now();
+          statusMessageIdRef.current = messageId;
 
-        // Notify parent component about the pin status change
-        if (onPinStatusChange && result.notes) {
-          // Find the updated note in the result
-          const updatedNote = result.notes.find(
-            (note) => note.id === details.id,
-          );
-          if (updatedNote) {
-            onPinStatusChange(details.id, updatedNote.pinned || false);
-          }
-        }
+          clearStatusTimeout();
+          setSaveStatus("");
+          setSaveIcon(null);
+
+          setTimeout(() => {
+            if (statusMessageIdRef.current === messageId) {
+              setStatusWithTimeout(
+                newPinStatus ? "Pinned" : "Unpinned",
+                <IconCircleCheck className="text-mercedes-primary" />,
+                false,
+                2000,
+              );
+            }
+          }, 50);
+
+          setIsPinUpdating(false);
+        }, 800);
       } else {
-        // Revert local state if API call fails
-        setIsPinned(!newPinStatus);
+        // No callback provided
+        setTimeout(() => {
+          setIsPinned(!newPinStatus); // Revert optimistic update
+          setStatusWithTimeout(
+            `Cannot ${newPinStatus ? "pin" : "unpin"} note`,
+            <IconCircleX className="text-red-700" />,
+            true,
+            3000,
+          );
+          console.error("No onPinStatusChange callback provided");
+          setIsPinUpdating(false);
+        }, 500);
+      }
+    } catch (error) {
+      // Error occurred
+      setTimeout(() => {
+        setIsPinned(!newPinStatus); // Revert optimistic update
         setStatusWithTimeout(
-          `Failed to ${newPinStatus ? "pin" : "unpin"}`,
+          `Error ${newPinStatus ? "pinning" : "unpinning"}`,
           <IconCircleX className="text-red-700" />,
           true,
           3000,
         );
         console.error(
-          `Failed to ${newPinStatus ? "pin" : "unpin"} note:`,
-          result.error,
+          `Error ${newPinStatus ? "pinning" : "unpinning"} note:`,
+          error,
         );
-      }
-    } catch (error) {
-      // Revert local state if API call throws an error
-      setIsPinned(!newPinStatus);
-      setStatusWithTimeout(
-        `Error ${newPinStatus ? "pinning" : "unpinning"}`,
-        <IconCircleX className="text-red-700" />,
-        true,
-        3000,
-      );
-      console.error(
-        `Error ${newPinStatus ? "pinning" : "unpinning"} note:`,
-        error,
-      );
-    } finally {
-      setIsPinUpdating(false);
+        setIsPinUpdating(false);
+      }, 500);
     }
-  };
-
-  // The rest of your code remains largely unchanged
-  const handleDelete = () => {
-    // Instead of window.confirm, set a state to show our own confirmation UI
-    setShowDeleteConfirm(true);
-  };
-
-  // Add this new function to actually perform the deletion:
-  const confirmDelete = () => {
-    setIsDeleting(true);
-    setShowDeleteConfirm(false);
-
-    // Use Promise pattern
-    const deletePromise =
-      noteSource === "redis"
-        ? deleteNoteAction(userId, details.id)
-        : deleteSupabaseNote(userId, details.id);
-
-    deletePromise
-      .then((result) => {
-        if (onDelete && typeof onDelete === "function" && result.success) {
-          onDelete(details.id);
-        } else {
-          setTimeout(() => {
-            setIsDeleting(false);
-          }, 3000);
-        }
-      })
-      .catch((error) => {
-        console.error("Error deleting note:", error);
-        setIsDeleting(false);
-      });
-  };
-
-  // Add this function to cancel deletion
-  const cancelDelete = () => {
-    setShowDeleteConfirm(false);
   };
 
   const handleEditTitle = () => {
@@ -691,9 +658,10 @@ export default function NoteBlock({
   const handleTogglePrivacy = () => {
     const newPrivacyStatus = !isPrivate;
 
-    setIsPrivate(newPrivacyStatus);
+    // Start with loading state
     setIsPrivacyUpdating(true);
 
+    // Show loading status immediately
     setStatusWithTimeout(
       newPrivacyStatus ? "Setting to private..." : "Setting to public...",
       <IconLoader className="animate-spin" />,
@@ -701,27 +669,26 @@ export default function NoteBlock({
       10000,
     );
 
-    // Define the promise based on source
-    const updatePromise =
-      noteSource === "redis"
-        ? updateNotePrivacyStatusAction(userId, details.id, newPrivacyStatus)
-        : updateSupabaseNotePrivacyStatus(userId, details.id, newPrivacyStatus);
+    // Short delay before applying optimistic UI update
+    setTimeout(() => {
+      setIsPrivate(newPrivacyStatus);
+    }, 300);
 
-    updatePromise
-      .then((result) => {
-        if (result.success) {
-          // Create a unique message ID for this status update to handle race conditions
+    try {
+      if (onPrivacyStatusChange) {
+        // Call the callback but don't assume it returns a Promise
+        onPrivacyStatusChange(details.id, newPrivacyStatus);
+
+        // Since we can't wait for completion, show success after a reasonable delay
+        setTimeout(() => {
           const messageId = Date.now();
           statusMessageIdRef.current = messageId;
 
-          // Clear previous status first to force UI update
           clearStatusTimeout();
           setSaveStatus("");
           setSaveIcon(null);
 
-          // Then set the new status with a slight delay to ensure it's seen as a new message
           setTimeout(() => {
-            // Only update if this is still the active message
             if (statusMessageIdRef.current === messageId) {
               setStatusWithTimeout(
                 newPrivacyStatus ? "Set to private" : "Set to public",
@@ -732,42 +699,35 @@ export default function NoteBlock({
             }
           }, 50);
 
-          // Notify parent component about the privacy status change
-          if (onPrivacyStatusChange) {
-            onPrivacyStatusChange(details.id, newPrivacyStatus);
-          }
-        } else {
-          // Revert local state if API call fails
-          setIsPrivate(!newPrivacyStatus);
+          setIsPrivacyUpdating(false);
+        }, 800);
+      } else {
+        // No callback provided
+        setTimeout(() => {
+          setIsPrivate(!newPrivacyStatus); // Revert optimistic update
           setStatusWithTimeout(
-            `Failed to set ${newPrivacyStatus ? "private" : "public"}`,
+            `Cannot set ${newPrivacyStatus ? "private" : "public"}`,
             <IconCircleX className="text-red-700" />,
             true,
             3000,
           );
-          console.error(
-            `Failed to set note to ${newPrivacyStatus ? "private" : "public"}:`,
-            result.error,
-          );
-        }
-      })
-      .catch((error) => {
-        // Revert local state if API call throws an error
-        setIsPrivate(!newPrivacyStatus);
+          console.error("No onPrivacyStatusChange callback provided");
+          setIsPrivacyUpdating(false);
+        }, 500);
+      }
+    } catch (error) {
+      setTimeout(() => {
+        setIsPrivate(!newPrivacyStatus); // Revert optimistic update
         setStatusWithTimeout(
-          `Error setting ${newPrivacyStatus ? "private" : "public"}`,
+          `Error occurred`,
           <IconCircleX className="text-red-700" />,
           true,
           3000,
         );
-        console.error(
-          `Error setting note to ${newPrivacyStatus ? "private" : "public"}:`,
-          error,
-        );
-      })
-      .finally(() => {
+        console.error("Unexpected error:", error);
         setIsPrivacyUpdating(false);
-      });
+      }, 500);
+    }
   };
 
   // Effects
@@ -816,6 +776,28 @@ export default function NoteBlock({
     }
   }, [editingTitle]);
 
+  // Add an effect to handle completion animation
+  useEffect(() => {
+    if (isTransferring) {
+      // When transfer starts
+      setTransferComplete(false);
+    } else if (transferComplete) {
+      // Reset after animation completes
+      const timeout = setTimeout(() => {
+        setTransferComplete(false);
+      }, 1500);
+      return () => clearTimeout(timeout);
+    }
+  }, [isTransferring, transferComplete]);
+
+  // When isTransferring changes from true to false
+  useEffect(() => {
+    if (!isTransferring && prevIsTransferring.current) {
+      setTransferComplete(true);
+    }
+    prevIsTransferring.current = isTransferring;
+  }, [isTransferring]);
+
   if (isDeleting) {
     return (
       <section className={`col-span-12 flex items-center gap-2`}>
@@ -852,7 +834,7 @@ export default function NoteBlock({
   return (
     <section
       ref={containerRef}
-      className={`col-span-12 flex flex-col gap-3 ${
+      className={`relative col-span-12 flex flex-col gap-3 ${
         isPending ? "opacity-70" : ""
       }`}
     >
@@ -908,8 +890,10 @@ export default function NoteBlock({
                 onClick={handleEditTitle}
               >
                 <IconPencil
-                  className={`opacity-50 hover:opacity-100 ${
-                    isPrivate ? "text-violet-800" : "text-mercedes-primary"
+                  className={`opacity-50 hover:opacity-100 text-neutral-500 ${
+                    isPrivate
+                      ? "hover:text-violet-800"
+                      : "hover:text-mercedes-primary"
                   } transition-all duration-300 ease-in-out`}
                   size={20}
                   strokeWidth={2}
@@ -917,18 +901,78 @@ export default function NoteBlock({
               </div>
               <span className={`flex items-center gap-1 ml-2`}>
                 {noteSource === "supabase" ? (
-                  <span className="text-xs px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 border border-blue-300">
-                    CLOUD
+                  <span
+                    className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 border border-blue-300`}
+                  >
+                    <IconCloud size={20} /> CLOUD
                   </span>
                 ) : (
-                  <span className="text-xs px-2 py-0.5 rounded-md bg-orange-100 text-orange-800 border border-orange-300">
-                    LOCAL
+                  <span
+                    className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 border border-orange-300`}
+                  >
+                    <IconDeviceDesktop size={20} /> LOCAL
                   </span>
                 )}
               </span>
             </>
           )}
         </div>
+
+        {isTransferring && (
+          <div className="absolute inset-0 bg-neutral-900/50 bg-opacity-25 flex items-center justify-center rounded-xl z-10">
+            <div className="bg-white px-4 py-2 rounded-lg shadow-lg">
+              <span className="flex items-center gap-2">
+                <svg
+                  className={`animate-spin h-5 w-5 ${
+                    noteSource === "supabase"
+                      ? "text-orange-600"
+                      : "text-blue-600"
+                  }`}
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                Transferring...
+              </span>
+            </div>
+          </div>
+        )}
+
+        {transferComplete && (
+          <div className="absolute inset-0 bg-neutral-900/50 flex items-center justify-center rounded-xl z-10 animate-fadeOut">
+            <div className="bg-white px-4 py-2 rounded-lg shadow-lg">
+              <span className="flex items-center gap-2 text-mercedes-primary">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                Transfer Complete
+              </span>
+            </div>
+          </div>
+        )}
 
         <div
           className={`flex-grow h-0.5 ${
@@ -1039,10 +1083,12 @@ export default function NoteBlock({
                       isPinned
                         ? `${
                             isPrivate
-                              ? "border-violet-800 hover:border-violet-800 hover:text-violet-800"
-                              : "border-mercedes-primary hover:border-mercedes-primary hover:text-mercedes-primary"
-                          } bg-mercedes-primary text-neutral-100`
-                        : "border-neutral-400 text-neutral-500"
+                              ? "border-violet-800 hover:border-violet-800 bg-violet-800 hover:bg-violet-600" +
+                                " text-neutral-100 hover:text-neutral-100"
+                              : "border-mercedes-primary hover:border-mercedes-primary/60" +
+                                " hover:bg-mercedes-primary/60 hover:text-mercedes-primary"
+                          } bg-mercedes-primary text-neutral-100 hover:text-neutral-100`
+                        : "border-neutral-400 text-neutral-500 hover:bg-neutral-200"
                     } rounded-lg transition-all duration-300 ease-in-out ${
                       isPinUpdating
                         ? "opacity-50 cursor-not-allowed"
@@ -1061,23 +1107,15 @@ export default function NoteBlock({
                   <button
                     onClick={handleTogglePrivacy}
                     disabled={isPrivacyUpdating}
-                    className={`p-1 border ${
-                      isPrivate
-                        ? `${
-                            isPrivate
-                              ? "border-violet-800 bg-violet-800"
-                              : "border-mercedes-primary bg-mercedes-primary"
-                          } text-neutral-100`
-                        : `border-neutral-400 text-neutral-500 ${
-                            isPrivate
-                              ? "border-violet-800 text-violet-800"
-                              : "border-mercedes-primary" +
-                                " text-mercedes-primary"
-                          }`
-                    } rounded-lg transition-all duration-300 ease-in-out ${
+                    className={`p-1 border rounded-lg transition-all duration-300 ease-in-out ${
                       isPrivacyUpdating
                         ? "opacity-50 cursor-not-allowed"
                         : "cursor-pointer"
+                    } ${
+                      isPrivate
+                        ? "border-violet-800 hover:border-violet-600 bg-violet-800 hover:bg-violet-600" +
+                          " text-neutral-100" // Private state
+                        : "border-neutral-400 hover:bg-neutral-200 text-neutral-500" // Public state
                     }`}
                     title={
                       isPrivate
@@ -1127,10 +1165,10 @@ export default function NoteBlock({
                 disabled={isPending}
                 onClick={handleManualSave}
                 title={`Save note manually`}
-                className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg border-2 ${
+                className={`px-2 cursor-pointer flex items-center justify-center gap-1 w-10 h-10 rounded-lg border-1 ${
                   isPrivate
                     ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
-                    : "border-mercedes-primary hover:bg-mercedes-primary"
+                    : "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary"
                 } text-neutral-800 transition-all duration-300 ease-in-out ${
                   isPending ? "opacity-50 cursor-not-allowed" : ""
                 }`}
@@ -1142,10 +1180,10 @@ export default function NoteBlock({
                 type={`button`}
                 onClick={handleExportTxt}
                 title={`Export as text file`}
-                className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg border-2 ${
+                className={`px-2 cursor-pointer flex items-center justify-center gap-1 w-10 h-10 rounded-lg border-1 ${
                   isPrivate
                     ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
-                    : "border-mercedes-primary hover:bg-mercedes-primary"
+                    : "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary"
                 } text-neutral-800 transition-all duration-300 ease-in-out`}
               >
                 <IconFileTypeTxt size={20} strokeWidth={2} />
@@ -1172,46 +1210,34 @@ export default function NoteBlock({
                       ? "Transfer to Cloud"
                       : "Transfer to Local"
                   }
-                  className={`p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg border-2 ${
+                  className={`group/transfer px-2 cursor-pointer flex items-center justify-center gap-1 w-fit h-10 rounded-lg border-1 ${
                     isPrivate
                       ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
-                      : "border-mercedes-primary hover:bg-mercedes-primary hover:text-neutral-100"
-                  } text-neutral-800 transition-all duration-300 ease-in-out`}
+                      : "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary"
+                  } text-neutral-800 overflow-hidden transition-all duration-300 ease-in-out`}
                 >
                   {noteSource === "redis" ? (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                    <div
+                      className={`flex items-center gap-0 group-hover/transfer:gap-2 transition-all duration-400 ease-in-out`}
                     >
-                      <path d="M3 16.5L12 21l9-4.5" />
-                      <path d="M12 21v-12" />
-                      <path d="M3 12l9 4.5 9-4.5" />
-                      <path d="M3 7.5L12 12l9-4.5" />
-                      <path d="M12 3v4.5" />
-                    </svg>
+                      <IconCloudUpload size={20} strokeWidth={2} />
+                      <span
+                        className={`w-fit max-w-0 group-hover/transfer:max-w-52 opacity-0 group-hover/transfer:opacity-100 overflow-hidden transition-all duration-300 ease-in-out`}
+                      >
+                        Transfer to Cloud
+                      </span>
+                    </div>
                   ) : (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                    <div
+                      className={`flex items-center gap-0 group-hover/transfer:gap-2 transition-all duration-400 ease-in-out`}
                     >
-                      <path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" />
-                      <path d="M12 15l-3 -3h6l-3 3" />
-                      <path d="M12 9l-3 3h6l-3 -3" />
-                    </svg>
+                      <IconDeviceDesktopDown size={20} strokeWidth={2} />
+                      <span
+                        className={`w-fit max-w-0 group-hover/transfer:max-w-52 opacity-0 group-hover/transfer:opacity-100 overflow-hidden transition-all duration-300 ease-in-out`}
+                      >
+                        Move to Local
+                      </span>
+                    </div>
                   )}
                 </button>
               )}

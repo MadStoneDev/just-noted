@@ -64,6 +64,9 @@ export function useCombinedNotes() {
   const [isReorderingInProgress, setIsReorderingInProgress] = useState(false);
 
   const [creationError, setCreationError] = useState(false);
+  const [transferringNoteId, setTransferringNoteId] = useState<string | null>(
+    null,
+  );
 
   // Use Supabase auth to determine if user is authenticated
   const supabase = createClient();
@@ -859,50 +862,41 @@ export function useCombinedNotes() {
   );
 
   /**
-   * Reorder a note (move up/down) - Now properly swaps order numbers
+   * Reorder a note (move up/down) using the step-by-step approach that works reliably for both Redis and Supabase notes
    */
   const reorderNote = useCallback(
     async (noteId: string, direction: "up" | "down") => {
       if (!userId || isReorderingInProgress) return;
-
       setIsReorderingInProgress(true);
 
       try {
-        // Find the note to be reordered
+        // Step 1: Find the target note
         const targetNote = notes.find((note) => note.id === noteId);
         if (!targetNote) {
           setIsReorderingInProgress(false);
           return;
         }
 
-        // Get current position info
+        // Step 2: Get all notes with the same pin status
         const isPinned = targetNote.isPinned ?? false;
-
-        // Get all notes with the same pin status
         const sameStatusNotes = notes.filter(
           (note) => (note.isPinned ?? false) === isPinned,
         );
+        const sortedNotes = sortNotes(sameStatusNotes);
 
-        // Sort these notes according to our sorting rules
-        const sortedSameStatusNotes = sortNotes(sameStatusNotes);
-
-        // Find our target note in the sorted array
-        const targetIndex = sortedSameStatusNotes.findIndex(
-          (note) => note.id === noteId,
-        );
-
+        // Step 3: Find target index and compute swap index
+        const targetIndex = sortedNotes.findIndex((note) => note.id === noteId);
         if (targetIndex === -1) {
           setIsReorderingInProgress(false);
           return;
         }
 
-        // Calculate swap index
         let swapIndex = -1;
         if (direction === "up" && targetIndex > 0) {
           swapIndex = targetIndex - 1;
         } else if (
           direction === "down" &&
-          targetIndex < sortedSameStatusNotes.length - 1
+          targetIndex < sortedNotes.length - 1
         ) {
           swapIndex = targetIndex + 1;
         }
@@ -912,14 +906,14 @@ export function useCombinedNotes() {
           return;
         }
 
-        // Get the note to swap with
-        const swapNote = sortedSameStatusNotes[swapIndex];
+        // Step 4: Get the swap note
+        const swapNote = sortedNotes[swapIndex];
 
-        // Get their actual order numbers with safe fallbacks
-        const targetOrder = targetNote.order ?? 0; // Use null coalescing
-        const swapOrder = swapNote.order ?? 0; // Use null coalescing
+        // Step 5: Get the order values
+        const targetOrder = targetNote.order ?? 0;
+        const swapOrder = swapNote.order ?? 0;
 
-        // Optimistic UI update - swap the order numbers
+        // Step 6: Update UI optimistically
         setNotes((prevNotes) => {
           const updatedNotes = prevNotes.map((note) => {
             if (note.id === targetNote.id) {
@@ -933,45 +927,58 @@ export function useCombinedNotes() {
           return sortNotes(updatedNotes);
         });
 
-        // Update both notes in their respective backends
-        const updatePromises = [];
+        // Step 7: Create and assign temporary orders to avoid conflicts
+        const tempTargetOrder = -9999;
+        const tempSwapOrder = -8888;
 
-        // Update the target note in its backend
+        // For Supabase operations, use the auth user ID if available
+        const authUserId = user?.id;
+
+        // Step 8: Update with temporary orders first
+        // First update target note to temp order
         if (targetNote.source === "redis") {
-          updatePromises.push(
-            updateNoteOrderAction(userId, targetNote.id, swapOrder),
-          );
-        } else {
-          updatePromises.push(
-            updateSupabaseNoteOrder(userId, targetNote.id, swapOrder),
+          await updateNoteOrderAction(userId, targetNote.id, tempTargetOrder);
+        } else if (targetNote.source === "supabase" && authUserId) {
+          await updateSupabaseNoteOrder(
+            authUserId,
+            targetNote.id,
+            tempTargetOrder,
           );
         }
 
-        // Update the swap note in its backend
+        // Then update swap note to temp order
         if (swapNote.source === "redis") {
-          updatePromises.push(
-            updateNoteOrderAction(userId, swapNote.id, targetOrder),
-          );
-        } else {
-          updatePromises.push(
-            updateSupabaseNoteOrder(userId, swapNote.id, targetOrder),
-          );
+          await updateNoteOrderAction(userId, swapNote.id, tempSwapOrder);
+        } else if (swapNote.source === "supabase" && authUserId) {
+          await updateSupabaseNoteOrder(authUserId, swapNote.id, tempSwapOrder);
         }
 
-        // Wait for both updates to complete
-        await Promise.all(updatePromises);
+        // Step 9: Now update to final orders
+        // Update target note to final order
+        if (targetNote.source === "redis") {
+          await updateNoteOrderAction(userId, targetNote.id, swapOrder);
+        } else if (targetNote.source === "supabase" && authUserId) {
+          await updateSupabaseNoteOrder(authUserId, targetNote.id, swapOrder);
+        }
 
-        // Refresh notes to ensure correct order
+        // Update swap note to final order
+        if (swapNote.source === "redis") {
+          await updateNoteOrderAction(userId, swapNote.id, targetOrder);
+        } else if (swapNote.source === "supabase" && authUserId) {
+          await updateSupabaseNoteOrder(authUserId, swapNote.id, targetOrder);
+        }
+
+        // Step 10: Refresh notes to ensure consistency
         await refreshNotes();
       } catch (error) {
         console.error("Error reordering note:", error);
-        // Refresh from server to get correct order on failure
+        // Refresh to restore correct state
         await refreshNotes();
       } finally {
         setIsReorderingInProgress(false);
       }
     },
-    [userId, notes, sortNotes, refreshNotes, isReorderingInProgress],
+    [userId, notes, sortNotes, refreshNotes, isReorderingInProgress, user?.id],
   );
 
   /**
@@ -1004,30 +1011,45 @@ export function useCombinedNotes() {
   );
 
   /**
-   * Transfer a note between Redis and Supabase
+   * Transfer a note between Redis and Supabase with optimistic UI updates
+   * and improved visual feedback
    */
   const transferNote = useCallback(
     async (noteId: string, targetSource: NoteSource) => {
       if (!userId) return;
 
+      // Set the transferring state to show loading UI
+      setTransferringNoteId(noteId);
+
       // Find the note to be transferred
       const sourceNote = notes.find((note) => note.id === noteId);
-      if (!sourceNote) return;
+      if (!sourceNote) {
+        setTransferringNoteId(null);
+        return;
+      }
 
       // Can't transfer to the same source
-      if (sourceNote.source === targetSource) return;
+      if (sourceNote.source === targetSource) {
+        setTransferringNoteId(null);
+        return;
+      }
 
       // For Supabase transfers, user must be authenticated
       if (targetSource === "supabase" && !isAuthenticated) {
         alert("You must be signed in to save notes to the cloud.");
+        setTransferringNoteId(null);
         return;
       }
 
       try {
-        // Generate a new ID (don't pass targetSource parameter)
+        // Add an artificial delay at the beginning to ensure the
+        // transferring UI is visible to the user
+        await new Promise((resolve) => setTimeout(resolve, 800));
+
+        // Generate a new ID for the note in its new location
         const newNoteId = generateNoteId(notes.map((note) => note.id));
 
-        // Create a copy of the note with the new ID
+        // Create a copy of the note with the new ID and target source
         const noteToTransfer = {
           ...sourceNote,
           id: newNoteId,
@@ -1040,29 +1062,70 @@ export function useCombinedNotes() {
           targetSource,
         );
 
-        // Create note in the target storage
+        // For Supabase notes, make sure the author is set correctly
+        if (targetSource === "supabase") {
+          convertedNote.author = user?.id;
+        }
+
+        // Now perform the actual backend operations
+        // First create the note in the target storage
+        let createResult;
         if (targetSource === "redis") {
-          await addNoteAction(userId, convertedNote);
+          createResult = await addNoteAction(userId, convertedNote);
         } else {
-          // Make sure the author is set correctly for Supabase
-          if (targetSource === "supabase") {
-            convertedNote.author = user?.id;
+          createResult = await createSupabaseNote(convertedNote);
+        }
+
+        if (createResult.success) {
+          // If creation succeeded, delete from the source storage
+          let deleteResult;
+          if (sourceNote.source === "redis") {
+            deleteResult = await deleteNoteAction(userId, noteId);
+          } else {
+            deleteResult = await deleteSupabaseNote(userId, noteId);
           }
-          await createSupabaseNote(convertedNote);
-        }
 
-        // Delete note from the source storage
-        if (sourceNote.source === "redis") {
-          await deleteNoteAction(userId, noteId);
+          // Add a delay before completing the transfer UI
+          await new Promise((resolve) => setTimeout(resolve, 400));
+
+          // If both operations succeeded, update the UI
+          if (deleteResult.success) {
+            console.log(
+              `Note successfully transferred from ${sourceNote.source} to ${targetSource}`,
+            );
+
+            // Only after successful backend operations, update UI optimistically
+            setNotes((prevNotes) => {
+              const filteredNotes = prevNotes.filter(
+                (note) => note.id !== noteId,
+              );
+              return sortNotes([...filteredNotes, noteToTransfer]);
+            });
+
+            // Show completion UI for a meaningful duration
+            await new Promise((resolve) => setTimeout(resolve, 800));
+          } else {
+            // If delete failed, we need to refresh from server
+            console.error("Failed to delete source note:", deleteResult.error);
+            await refreshNotes();
+          }
         } else {
-          await deleteSupabaseNote(userId, noteId);
+          // If creation failed, don't update UI
+          console.error(
+            "Failed to create note in target storage:",
+            createResult.error,
+          );
+          await refreshNotes();
         }
-
-        // Refresh notes to get updated list
-        await refreshNotes();
       } catch (error) {
         console.error(`Failed to transfer note to ${targetSource}:`, error);
-        refreshNotes();
+        // In case of any error, refresh from server to get the correct state
+        await refreshNotes();
+      } finally {
+        // Keep the transferringNoteId state active for at least 800ms
+        // to ensure UI visibility
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        setTransferringNoteId(null);
       }
     },
     [
@@ -1072,6 +1135,7 @@ export function useCombinedNotes() {
       convertFromCombinedNote,
       refreshNotes,
       user?.id,
+      sortNotes,
     ],
   );
 
@@ -1225,6 +1289,7 @@ export function useCombinedNotes() {
     userId,
     isAuthenticated,
     isReorderingInProgress,
+    transferringNoteId,
 
     // Functions
     addNote,
