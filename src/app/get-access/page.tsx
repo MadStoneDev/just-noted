@@ -225,7 +225,7 @@ export default function GetAccessPage() {
                 <input
                   key={index}
                   ref={(el) => {
-                    inputRefs.current[index] = el as HTMLInputElement;
+                    inputRefs.current[index] = el;
                     return undefined;
                   }}
                   type="text"
@@ -247,7 +247,7 @@ export default function GetAccessPage() {
                 type="button"
                 disabled={isLoading || countdown > 0}
                 onClick={requestNewCode}
-                className="text-sm text-mercedes-primary hover:underline focus:outline-none"
+                className="cursor-pointer text-sm text-mercedes-primary hover:underline focus:outline-none"
               >
                 {countdown > 0
                   ? `Request new code (${countdown}s)`
@@ -263,7 +263,7 @@ export default function GetAccessPage() {
                   setOtp(["", "", "", "", "", ""]);
                   setError(null);
                 }}
-                className="text-mercedes-primary hover:underline focus:outline-none"
+                className="cursor-pointer text-mercedes-primary hover:underline focus:outline-none"
               >
                 Use a different email
               </button>

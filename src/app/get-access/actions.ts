@@ -1,7 +1,6 @@
 ﻿"use server";
 
 import { revalidatePath } from "next/cache";
-
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 
@@ -23,15 +22,33 @@ export async function handleAuth(formData: FormData): Promise<AuthResponse> {
 
   try {
     const supabase = await createClient();
-    const { error } = await supabase.auth.signInWithOtp({
+
+    // Try a different auth method first - see if it's more reliable
+    const { data, error } = await supabase.auth.signInWithOtp({
       email,
       options: {
         shouldCreateUser: true,
+        emailRedirectTo: `${
+          process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+        }/auth/callback`,
       },
     });
 
+    console.log("Auth attempt result:", {
+      success: !error,
+      errorMessage: error?.message,
+      errorStatus: error?.status,
+      errorCode: error?.code,
+    });
+
     if (error) {
-      console.error("Supabase auth error:", error);
+      console.error("Supabase auth error details:", {
+        message: error.message,
+        status: error.status,
+        code: error.code,
+        name: error.name,
+        stack: error.stack,
+      });
 
       if (error.message.includes("Invalid email")) {
         return {
@@ -47,6 +64,12 @@ export async function handleAuth(formData: FormData): Promise<AuthResponse> {
           success: false,
         };
       }
+
+      // For general auth errors, provide a more detailed message
+      return {
+        error: `Authentication error (${error.code}): ${error.message}. Please try again later.`,
+        success: false,
+      };
     }
 
     revalidatePath("/");
@@ -55,10 +78,12 @@ export async function handleAuth(formData: FormData): Promise<AuthResponse> {
       error: null,
       success: true,
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Unexpected error during authentication:", error);
     return {
-      error: "An unexpected error occurred. Please try again later.",
+      error: `Error sending login email: ${
+        error?.message || "Unknown error"
+      }. Please try again later.`,
       success: false,
     };
   }
@@ -85,7 +110,11 @@ export async function verifyOtp(formData: FormData): Promise<AuthResponse> {
     });
 
     if (error) {
-      console.error("OTP verification error:", error);
+      console.error("OTP verification error:", {
+        message: error.message,
+        status: error.status,
+        code: error.code,
+      });
 
       if (error.message.includes("Invalid OTP")) {
         return {
@@ -102,7 +131,7 @@ export async function verifyOtp(formData: FormData): Promise<AuthResponse> {
       }
 
       return {
-        error: "Verification failed. Please try again.",
+        error: `Verification failed (${error.code}): ${error.message}. Please try again.`,
         success: false,
       };
     }
@@ -115,10 +144,12 @@ export async function verifyOtp(formData: FormData): Promise<AuthResponse> {
       success: true,
       redirectTo: "/me",
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Unexpected error during OTP verification:", error);
     return {
-      error: "An unexpected error occurred. Please try again later.",
+      error: `Verification error: ${
+        error?.message || "Unknown error"
+      }. Please try again later.`,
       success: false,
     };
   }
