@@ -106,6 +106,8 @@ export type Database = {
           author: string | null
           content: string | null
           created_at: string
+          goal: number | null
+          goal_type: string | null
           id: string
           is_collapsed: boolean | null
           is_pinned: boolean | null
@@ -118,6 +120,8 @@ export type Database = {
           author?: string | null
           content?: string | null
           created_at?: string
+          goal?: number | null
+          goal_type?: string | null
           id?: string
           is_collapsed?: boolean | null
           is_pinned?: boolean | null
@@ -130,6 +134,8 @@ export type Database = {
           author?: string | null
           content?: string | null
           created_at?: string
+          goal?: number | null
+          goal_type?: string | null
           id?: string
           is_collapsed?: boolean | null
           is_pinned?: boolean | null
@@ -148,9 +154,9 @@ export type Database = {
           is_public: boolean | null
           note_id: string
           note_owner_id: string
-          reader_username: string | null
           shortcode: string
           storage: string
+          updated_at: string | null
           view_count: number | null
         }
         Insert: {
@@ -160,9 +166,9 @@ export type Database = {
           is_public?: boolean | null
           note_id: string
           note_owner_id: string
-          reader_username?: string | null
           shortcode: string
-          storage: string
+          storage?: string
+          updated_at?: string | null
           view_count?: number | null
         }
         Update: {
@@ -172,12 +178,82 @@ export type Database = {
           is_public?: boolean | null
           note_id?: string
           note_owner_id?: string
-          reader_username?: string | null
           shortcode?: string
           storage?: string
+          updated_at?: string | null
           view_count?: number | null
         }
         Relationships: []
+      }
+      shared_notes_analytics: {
+        Row: {
+          analytics: Json | null
+          created_at: string | null
+          id: string
+          shared_note: string
+        }
+        Insert: {
+          analytics?: Json | null
+          created_at?: string | null
+          id?: string
+          shared_note: string
+        }
+        Update: {
+          analytics?: Json | null
+          created_at?: string | null
+          id?: string
+          shared_note?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_notes_analytics_shared_note_fkey"
+            columns: ["shared_note"]
+            isOneToOne: false
+            referencedRelation: "shared_notes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shared_notes_readers: {
+        Row: {
+          created_at: string | null
+          first_viewed_at: string | null
+          id: string
+          last_viewed_at: string | null
+          reader_id: string | null
+          reader_username: string
+          shared_note: string
+          view_count: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          first_viewed_at?: string | null
+          id?: string
+          last_viewed_at?: string | null
+          reader_id?: string | null
+          reader_username: string
+          shared_note: string
+          view_count?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          first_viewed_at?: string | null
+          id?: string
+          last_viewed_at?: string | null
+          reader_id?: string | null
+          reader_username?: string
+          shared_note?: string
+          view_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_notes_readers_shared_note_fkey"
+            columns: ["shared_note"]
+            isOneToOne: false
+            referencedRelation: "shared_notes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

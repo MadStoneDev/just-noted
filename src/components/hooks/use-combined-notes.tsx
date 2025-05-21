@@ -212,7 +212,6 @@ export function useCombinedNotes() {
    */
   const convertToSupabaseNote = useCallback(
     (note: CombinedNote): Partial<SupabaseNote> => {
-      // Use Partial<SupabaseNote> to allow us to set only the fields we need
       return {
         id: note.id,
         author: user?.id || note.author || null,
@@ -224,6 +223,8 @@ export function useCombinedNotes() {
         order: note.order === undefined ? null : note.order,
         created_at: new Date(note.createdAt).toISOString(),
         updated_at: new Date(note.updatedAt).toISOString(),
+        goal: note.goal || 0,
+        goal_type: note.goal_type || "",
       };
     },
     [user?.id],
@@ -272,6 +273,8 @@ export function useCombinedNotes() {
           : Date.now(),
         order: note.order === null ? 0 : note.order,
         source: "supabase",
+        goal: note.goal || 0,
+        goal_type: note.goal_type || "",
       };
     },
     [],

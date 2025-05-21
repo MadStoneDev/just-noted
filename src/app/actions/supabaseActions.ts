@@ -46,6 +46,8 @@ export const updateNote = async (
   userId: string,
   noteId: string,
   content: string,
+  wordCountGoal: number,
+  wordCountGoalType: string,
 ) => {
   const supabase = await getSupabase();
 
@@ -67,6 +69,11 @@ export const updateNote = async (
       .from("notes")
       .update({
         content,
+        goal: wordCountGoal || 0,
+        goal_type:
+          wordCountGoalType === "words" || wordCountGoalType === "characters"
+            ? wordCountGoalType
+            : "",
         updated_at: new Date().toISOString(),
       })
       .eq("id", noteId)
@@ -166,6 +173,8 @@ export const getNotesByUserId = async (userId: string) => {
       author: (item.author as string) || "",
       title: (item.title as string) || "",
       content: (item.content as string) || "",
+      goal: item.goal || 0,
+      goal_type: item.goal_type || "",
       is_private: item.is_private || false,
       is_pinned: item.is_pinned || false,
       is_collapsed: item.is_collapsed || false,

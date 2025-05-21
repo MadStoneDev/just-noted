@@ -194,7 +194,7 @@ export default function ShareNoteButton({
         type="button"
         onClick={handleOpenShareModal}
         disabled={!canShare}
-        className={`group/share px-2 cursor-pointer flex items-center justify-center gap-0 md:hover:gap-2 w-fit min-w-10 h-10 rounded-lg border-1 ${
+        className={`group/share px-2 cursor-pointer flex-grow sm:flex-grow-0 flex items-center justify-center gap-0 md:hover:gap-2 w-fit min-w-10 h-10 rounded-lg border-1 ${
           isPrivate
             ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
             : canShare

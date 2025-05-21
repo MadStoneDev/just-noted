@@ -130,6 +130,8 @@ export async function updateNoteAction(
   userId: string,
   noteId: string,
   content: string,
+  wordCountGoal: number,
+  wordCountGoalType: string,
 ) {
   try {
     if (await isBotRequest("note update")) {
@@ -161,6 +163,11 @@ export async function updateNoteAction(
       const updatedNotes = await updateNoteProperty(userId, noteId, (note) => ({
         ...note,
         content,
+        goal: wordCountGoal || 0,
+        goal_type:
+          wordCountGoalType === "words" || wordCountGoalType === "characters"
+            ? wordCountGoalType
+            : "",
         updatedAt: Date.now(),
       }));
 

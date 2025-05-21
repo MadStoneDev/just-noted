@@ -1,6 +1,5 @@
-﻿"use client";
+﻿import React, { useState, useEffect, useRef, useCallback } from "react";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Note } from "@/types/notes";
 import TextBlock from "@/components/text-block";
 
@@ -25,6 +24,8 @@ import {
   IconCloudUpload,
   IconDeviceDesktopDown,
   IconDeviceDesktop,
+  IconBook,
+  IconChartBar,
 } from "@tabler/icons-react";
 
 import {
@@ -40,6 +41,8 @@ import {
 
 import DeleteButton from "@/components/delete-button";
 import ShareNoteButton from "@/components/share-note-button";
+import PageEstimateModal from "@/components/page-estimate-modal";
+import WordCountGoalModal from "@/components/word-count-goal-modal";
 
 const useDebounce = <T extends (...args: any[]) => any>(
   callback: T,
@@ -68,6 +71,17 @@ const useDebounce = <T extends (...args: any[]) => any>(
   );
 };
 
+interface TopWordCount {
+  word: string;
+  count: number;
+}
+
+// Type definition for the word count goal
+interface WordCountGoal {
+  target: number;
+  type: "" | "words" | "characters";
+}
+
 interface NoteBlockProps {
   details: Note;
   userId: string;
@@ -81,7 +95,6 @@ interface NoteBlockProps {
   isFirstUnpinned?: boolean;
   isLastUnpinned?: boolean;
   onReorder?: (noteId: string, direction: "up" | "down") => void;
-  // New props:
   noteSource?: NoteSource;
   onTransferNote?: (noteId: string, targetSource: NoteSource) => void;
   isTransferring?: boolean;
@@ -121,13 +134,40 @@ export default function NoteBlock({
   const [isContentExpanded, setIsContentExpanded] = useState(true);
   const [isCollapsedUpdating, setIsCollapsedUpdating] = useState(false);
 
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
   const [isPrivate, setIsPrivate] = useState(details.isPrivate || false);
   const [isPrivacyUpdating, setIsPrivacyUpdating] = useState(false);
 
+  // Basic statistics
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
+
+  // New statistics
+  const [readingTime, setReadingTime] = useState<string>("0 min");
+  const [topWords, setTopWords] = useState<TopWordCount[]>([]);
+  const [pageEstimate, setPageEstimate] = useState<string>("~0 pages");
+  const [currentPageFormat, setCurrentPageFormat] = useState<string>("novel"); // Default page format
+  const [showPageEstimateModal, setShowPageEstimateModal] = useState(false);
+
+  // Word count goal tracking
+  const [wordCountGoal, setWordCountGoal] = useState<WordCountGoal | null>(
+    () => {
+      // If we have a valid goal and goal type
+      if (
+        details.goal &&
+        details.goal_type &&
+        (details.goal_type === "words" || details.goal_type === "characters")
+      ) {
+        return {
+          target: details.goal || 0,
+          type: details.goal_type as "" | "words" | "characters",
+        };
+      }
+      // Otherwise return null
+      return null;
+    },
+  );
+  const [progressPercentage, setProgressPercentage] = useState(0);
+  const [showWordCountGoalModal, setShowWordCountGoalModal] = useState(false);
 
   const [saveStatus, setSaveStatus] = useState("");
   const [saveIcon, setSaveIcon] = useState<React.ReactNode | null>(null);
@@ -150,39 +190,299 @@ export default function NoteBlock({
   const collapseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const collapseSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Functions
-  const updateStats = useCallback((text: string) => {
+  // Calculate reading time based on word count
+  const calculateReadingTime = (words: number) => {
+    // Average reading speed (words per minute)
+    const wpm = 225;
+    const minutes = Math.ceil(words / wpm);
+
+    if (minutes < 1) {
+      return "< 1 min";
+    } else if (minutes === 1) {
+      return "1 min";
+    } else {
+      return `${minutes} mins`;
+    }
+  };
+
+  // Calculate page estimates based on word count and format
+  const calculatePageEstimate = (words: number, format: string = "novel") => {
+    let wordsPerPage: number;
+
+    switch (format) {
+      case "novel":
+        wordsPerPage = 250; // Standard for novels
+        break;
+      case "a4":
+        wordsPerPage = 500; // Double-spaced A4 page
+        break;
+      case "a5":
+        wordsPerPage = 300; // Typical for A5 format
+        break;
+      default:
+        wordsPerPage = 250;
+    }
+
+    const pages = words / wordsPerPage;
+
+    if (pages < 0.1) {
+      return "< 1 page";
+    } else if (pages < 1) {
+      return "~1 page";
+    } else {
+      return `~${Math.ceil(pages)} pages`;
+    }
+  };
+
+  // Calculate top 10 used words
+  const calculateTopWords = (text: string): TopWordCount[] => {
     // Create a temporary DOM element to parse HTML safely
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = text;
 
-    // Get text content which removes all HTML tags and preserves proper spacing
+    // Get text content which removes all HTML tags
     const plainText = tempDiv.textContent || tempDiv.innerText || "";
 
-    // For more accurate character counting, let's remove all whitespace first
-    const contentWithoutWhitespace = plainText.replace(/\s/g, "");
+    // Normalize text and convert to lowercase
+    const normalizedText = plainText.toLowerCase().replace(/[^\w\s]/g, "");
 
-    // For word counting, we still want normalized text (single spaces between words)
-    const normalizedText = plainText.replace(/\s+/g, " ").trim();
+    // Split by whitespace and filter out empty strings
+    const allWords = normalizedText.split(/\s+/).filter(Boolean);
 
-    // Count words (split by whitespace and filter out empty strings)
-    const words = normalizedText
-      ? normalizedText.split(/\s+/).filter(Boolean)
-      : [];
+    // Common words to exclude (stop words)
+    const stopWords = new Set([
+      "the",
+      "and",
+      "a",
+      "an",
+      "in",
+      "on",
+      "at",
+      "to",
+      "for",
+      "of",
+      "with",
+      "by",
+      "as",
+      "is",
+      "are",
+      "was",
+      "were",
+      "be",
+      "been",
+      "being",
+      "have",
+      "has",
+      "had",
+      "do",
+      "does",
+      "did",
+      "but",
+      "or",
+      "if",
+      "then",
+      "else",
+      "so",
+      "this",
+      "that",
+      "these",
+      "those",
+      "it",
+      "its",
+      "i",
+      "you",
+      "he",
+      "she",
+      "we",
+      "they",
+      "me",
+      "him",
+      "her",
+      "us",
+      "them",
+      "my",
+      "your",
+      "his",
+      "our",
+      "their",
+      "what",
+      "which",
+      "who",
+      "whom",
+      "whose",
+      "when",
+      "where",
+      "why",
+      "how",
+      "all",
+      "any",
+      "both",
+      "each",
+      "few",
+      "more",
+      "most",
+      "some",
+      "such",
+      "no",
+      "nor",
+      "not",
+      "only",
+      "own",
+      "same",
+      "than",
+      "too",
+      "very",
+      "can",
+      "will",
+      "just",
+      "should",
+      "now",
+    ]);
 
-    // Set word count
-    setWordCount(words.length);
+    // Count word frequencies, excluding stop words
+    const wordCounts: Record<string, number> = {};
+    for (const word of allWords) {
+      if (word.length > 1 && !stopWords.has(word)) {
+        if (wordCounts[word]) {
+          wordCounts[word]++;
+        } else {
+          wordCounts[word] = 1;
+        }
+      }
+    }
 
-    // For character count, we have two options:
-    // 1. Count only non-whitespace characters:
-    // setCharCount(contentWithoutWhitespace.length);
+    // Convert to array and sort by count
+    const sortedWords = Object.entries(wordCounts)
+      .map(([word, count]) => ({ word, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10); // Take top 10
 
-    // 2. Count all characters including whitespace, but handle empty case:
-    const isEmpty = contentWithoutWhitespace.length === 0;
-    setCharCount(isEmpty ? 0 : plainText.length);
+    return sortedWords;
+  };
 
-    // You can choose which approach makes most sense for your application
-  }, []);
+  // Calculate progress percentage
+  const calculateProgressPercentage = () => {
+    if (!wordCountGoal) return 0;
+
+    const currentValue = wordCountGoal.type === "words" ? wordCount : charCount;
+    const percentage = Math.min(
+      100,
+      Math.round((currentValue / wordCountGoal.target) * 100),
+    );
+
+    return percentage;
+  };
+
+  // Handle page format change
+  const handlePageFormatChange = (format: string) => {
+    setCurrentPageFormat(format);
+    setPageEstimate(calculatePageEstimate(wordCount, format));
+    setShowPageEstimateModal(false);
+  };
+
+  // Handle word count goal change
+  const handleWordCountGoalChange = (goal: WordCountGoal | null) => {
+    setWordCountGoal(goal);
+    setShowWordCountGoalModal(false);
+
+    // Add status feedback for goal setting
+    if (goal) {
+      setStatusWithTimeout(
+        "Saving goal...",
+        <IconLoader className="animate-spin" />,
+        false,
+        10000,
+      );
+
+      // After a short delay to allow background save to complete
+      setTimeout(() => {
+        setStatusWithTimeout(
+          "Goal saved",
+          <IconCircleCheck className="text-mercedes-primary" />,
+          false,
+          2000,
+        );
+      }, 2000);
+    } else {
+      setStatusWithTimeout(
+        "Goal cleared",
+        <IconCircleCheck className="text-mercedes-primary" />,
+        false,
+        2000,
+      );
+    }
+
+    if (goal) {
+      const percentage = calculateProgressPercentage();
+      setProgressPercentage(percentage);
+    } else {
+      setProgressPercentage(0);
+    }
+  };
+
+  // Functions
+  const updateStats = useCallback(
+    (text: string) => {
+      // Create a temporary DOM element to parse HTML safely
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = text;
+
+      // Get text content which removes all HTML tags and preserves proper spacing
+      const plainText = tempDiv.textContent || tempDiv.innerText || "";
+
+      // For more accurate character counting, let's remove all whitespace first
+      const contentWithoutWhitespace = plainText.replace(/\s/g, "");
+
+      // For word counting, we still want normalized text (single spaces between words)
+      const normalizedText = plainText.replace(/\s+/g, " ").trim();
+
+      // Count words (split by whitespace and filter out empty strings)
+      const words = normalizedText
+        ? normalizedText.split(/\s+/).filter(Boolean)
+        : [];
+
+      // Set word count
+      setWordCount(words.length);
+
+      // For character count, we have two options:
+      // 1. Count only non-whitespace characters:
+      // setCharCount(contentWithoutWhitespace.length);
+
+      // 2. Count all characters including whitespace, but handle empty case:
+      const isEmpty = contentWithoutWhitespace.length === 0;
+      setCharCount(isEmpty ? 0 : plainText.length);
+
+      // Update reading time
+      setReadingTime(calculateReadingTime(words.length));
+
+      // Update page estimate
+      setPageEstimate(calculatePageEstimate(words.length, currentPageFormat));
+
+      // Update top words (only if the content has a reasonable length to avoid unnecessary processing)
+      if (words.length > 20) {
+        setTopWords(calculateTopWords(plainText));
+      } else {
+        setTopWords([]);
+      }
+
+      // Update progress percentage if goal is set
+      if (wordCountGoal) {
+        const percentage =
+          wordCountGoal.type === "words"
+            ? Math.min(
+                100,
+                Math.round((words.length / wordCountGoal.target) * 100),
+              )
+            : Math.min(
+                100,
+                Math.round((plainText.length / wordCountGoal.target) * 100),
+              );
+
+        setProgressPercentage(percentage);
+      }
+    },
+    [currentPageFormat, wordCountGoal],
+  );
 
   // Toggle visibility of note content
   const toggleContentVisibility = () => {
@@ -381,9 +681,13 @@ export default function NoteBlock({
   };
 
   const saveContent = useCallback(
-    async (content: string, isManualSave = false) => {
+    async (content: string, isManualSave = false, forceUpdate = false) => {
       // Don't save if content hasn't changed
-      if (content === lastSavedContentRef.current && !isManualSave) {
+      if (
+        content === lastSavedContentRef.current &&
+        !isManualSave &&
+        !forceUpdate
+      ) {
         return;
       }
 
@@ -405,10 +709,22 @@ export default function NoteBlock({
 
         // Use the appropriate action based on note source
         if (noteSource === "redis") {
-          result = await updateNoteAction(userId, details.id, content);
+          result = await updateNoteAction(
+            userId,
+            details.id,
+            content,
+            wordCountGoal?.target || 0,
+            wordCountGoal?.type || "",
+          );
         } else {
           // For Supabase notes - use the updateNote function from supabaseActions
-          result = await updateSupabaseNote(userId, details.id, content);
+          result = await updateSupabaseNote(
+            userId,
+            details.id,
+            content,
+            wordCountGoal?.target || 0,
+            wordCountGoal?.type || "",
+          );
         }
 
         if (result.success) {
@@ -447,7 +763,7 @@ export default function NoteBlock({
         }
       }
     },
-    [userId, details.id, noteSource],
+    [userId, details.id, noteSource, wordCountGoal],
   );
 
   // Manual save function
@@ -730,11 +1046,22 @@ export default function NoteBlock({
     setNoteContent(details.content);
     setNoteTitle(details.title);
     lastSavedContentRef.current = details.content;
+
     // Set initial pin status from the details
     setIsPinned(details.pinned || false);
     setIsPrivate(details.isPrivate || false);
     setIsContentExpanded(!(details.isCollapsed || false));
     setIsContentVisible(!(details.isCollapsed || false));
+
+    if (details.goal || details.goal_type) {
+      setWordCountGoal({
+        target: details.goal || 0,
+        type:
+          details.goal_type === "words" || details.goal_type === "characters"
+            ? details.goal_type
+            : "",
+      });
+    }
 
     // Update stats with the more robust HTML stripping method
     updateStats(details.content);
@@ -748,7 +1075,6 @@ export default function NoteBlock({
         clearTimeout(collapseSaveTimeoutRef.current);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -822,13 +1148,30 @@ export default function NoteBlock({
   }, [details.isCollapsed]);
 
   useEffect(() => {
-    setIsPrivate(details.isPrivate || false);
-  }, [details.isPrivate]);
+    if (wordCountGoal && wordCountGoal.target > 0) {
+      if (wordCountGoal.type === "words") {
+        setProgressPercentage(
+          Math.min(100, Math.round((wordCount / wordCountGoal.target) * 100)),
+        );
+      } else {
+        setProgressPercentage(
+          Math.min(100, Math.round((charCount / wordCountGoal.target) * 100)),
+        );
+      }
+    }
+  }, [wordCountGoal, wordCount, charCount]);
+
+  useEffect(() => {
+    // Only save if there's actual content and if not the initial render
+    if (noteContent) {
+      saveContent(noteContent, false, true);
+    }
+  }, [wordCountGoal]);
 
   return (
     <section
       ref={containerRef}
-      className={`relative col-span-12 flex flex-col gap-3 ${
+      className={`py-2 px-4 relative col-span-12 flex flex-col gap-3 ${
         isPending ? "opacity-70" : ""
       }`}
     >
@@ -1005,6 +1348,7 @@ export default function NoteBlock({
           >
             <IconArrowUp size={18} strokeWidth={1.5} />
           </button>
+
           <button
             type="button"
             onClick={() => handleMoveNote("down")}
@@ -1018,6 +1362,60 @@ export default function NoteBlock({
           >
             <IconArrowDown size={18} strokeWidth={1.5} />
           </button>
+
+          <article className={`flex justify-end gap-2 w-full`}>
+            {/* Pin button - show either pinned or unpinned based on state */}
+            <button
+              onClick={handleTogglePin}
+              disabled={isPinUpdating}
+              className={`p-1 border ${
+                isPinned
+                  ? `text-neutral-100 hover:text-neutral-100 ${
+                      isPrivate
+                        ? "border-violet-800 hover:border-violet-800 bg-violet-800 hover:bg-violet-600"
+                        : "border-mercedes-primary hover:border-mercedes-primary/60 bg-mercedes-primary" +
+                          " hover:bg-mercedes-primary/70"
+                    }`
+                  : "border-neutral-400 text-neutral-500 hover:bg-neutral-50"
+              } rounded-lg transition-all duration-300 ease-in-out ${
+                isPinUpdating
+                  ? "opacity-50 cursor-not-allowed"
+                  : "cursor-pointer"
+              }`}
+              title={isPinned ? "Unpin this note" : "Pin this note"}
+            >
+              {isPinned ? (
+                <IconPinnedFilled size={18} strokeWidth={2} />
+              ) : (
+                <IconPin size={18} strokeWidth={2} />
+              )}
+            </button>
+
+            {/* Privacy toggle button */}
+            <button
+              onClick={handleTogglePrivacy}
+              disabled={isPrivacyUpdating}
+              className={`p-1 border rounded-lg transition-all duration-300 ease-in-out ${
+                isPrivacyUpdating
+                  ? "opacity-50 cursor-not-allowed"
+                  : "cursor-pointer"
+              } ${
+                isPrivate
+                  ? "border-violet-800 hover:border-violet-600 bg-violet-800 hover:bg-violet-600" +
+                    " text-neutral-100" // Private state
+                  : "border-neutral-400 hover:bg-neutral-200 text-neutral-500" // Public state
+              }`}
+              title={
+                isPrivate ? "Make this note public" : "Make this note private"
+              }
+            >
+              {isPrivate ? (
+                <IconLock size={18} strokeWidth={2} />
+              ) : (
+                <IconLockOpen size={18} strokeWidth={2} />
+              )}
+            </button>
+          </article>
         </div>
 
         {saveStatus && (
@@ -1065,89 +1463,128 @@ export default function NoteBlock({
               </div>
 
               <div
-                className={`p-4 col-span-12 sm:col-span-4 md:col-span-3 3xl:col-span-2 grid grid-cols-3 sm:flex sm:flex-col justify-start gap-2 bg-neutral-300 rounded-xl text-sm xs:text-lg sm:text-xl text-neutral-500/70 font-light capitalize`}
+                className={`p-4 col-span-12 sm:col-span-4 md:col-span-3 3xl:col-span-2 grid grid-cols-4 sm:flex sm:flex-col justify-start gap-2 bg-neutral-300 rounded-xl text-sm xs:text-lg sm:text-xl text-neutral-500/70 font-light capitalize`}
               >
-                <article className={`flex justify-end gap-2 w-full`}>
-                  {/* Pin button - show either pinned or unpinned based on state */}
-                  <button
-                    onClick={handleTogglePin}
-                    disabled={isPinUpdating}
-                    className={`p-1 border ${
-                      isPinned
-                        ? `${
-                            isPrivate
-                              ? "border-violet-800 hover:border-violet-800 bg-violet-800 hover:bg-violet-600" +
-                                " text-neutral-100 hover:text-neutral-100"
-                              : "border-mercedes-primary hover:border-mercedes-primary/60" +
-                                " hover:bg-mercedes-primary/60 hover:text-mercedes-primary"
-                          } bg-mercedes-primary text-neutral-100 hover:text-neutral-100`
-                        : "border-neutral-400 text-neutral-500 hover:bg-neutral-200"
-                    } rounded-lg transition-all duration-300 ease-in-out ${
-                      isPinUpdating
-                        ? "opacity-50 cursor-not-allowed"
-                        : "cursor-pointer"
-                    }`}
-                    title={isPinned ? "Unpin this note" : "Pin this note"}
-                  >
-                    {isPinned ? (
-                      <IconPinnedFilled size={20} strokeWidth={2} />
-                    ) : (
-                      <IconPin size={20} strokeWidth={2} />
-                    )}
-                  </button>
-
-                  {/* Privacy toggle button */}
-                  <button
-                    onClick={handleTogglePrivacy}
-                    disabled={isPrivacyUpdating}
-                    className={`p-1 border rounded-lg transition-all duration-300 ease-in-out ${
-                      isPrivacyUpdating
-                        ? "opacity-50 cursor-not-allowed"
-                        : "cursor-pointer"
-                    } ${
-                      isPrivate
-                        ? "border-violet-800 hover:border-violet-600 bg-violet-800 hover:bg-violet-600" +
-                          " text-neutral-100" // Private state
-                        : "border-neutral-400 hover:bg-neutral-200 text-neutral-500" // Public state
-                    }`}
-                    title={
-                      isPrivate
-                        ? "Make this note public"
-                        : "Make this note private"
-                    }
-                  >
-                    {isPrivate ? (
-                      <IconLock size={20} strokeWidth={2} />
-                    ) : (
-                      <IconLockOpen size={20} strokeWidth={2} />
-                    )}
-                  </button>
-                </article>
+                {/* Word Count */}
                 <p
-                  className={`p-1 xs:p-2 col-span-3 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-1 xs:gap-0 lg:gap-1 rounded-xl border border-neutral-400`}
+                  className={`col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-1 sm:gap-1 xs:gap-0 rounded-xl border border-neutral-400 text-base`}
                 >
                   <span
                     className={`${
                       isPrivate ? "text-violet-800" : "text-mercedes-primary"
-                    } text-lg xs:text-xl sm:text-2xl font-medium`}
+                    } text-lg xs:text-xl font-medium`}
                   >
                     {wordCount}
                   </span>
                   <span>words</span>
                 </p>
 
+                {/* Character Count */}
                 <p
-                  className={`p-1 xs:p-2 col-span-3 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-1 xs:gap-0 lg:gap-1 rounded-xl border border-neutral-400`}
+                  className={`col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-1 sm:gap-1 xs:gap-0 rounded-xl border border-neutral-400 text-base`}
                 >
                   <span
                     className={`${
                       isPrivate ? "text-violet-800" : "text-mercedes-primary"
-                    } text-lg xs:text-xl sm:text-2xl font-medium`}
+                    } text-lg xs:text-xl font-medium`}
                   >
                     {charCount}
                   </span>
                   <span>characters</span>
                 </p>
+
+                {/* Reading Time */}
+                <p
+                  className={`col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-1 sm:gap-1 xs:gap-0 rounded-xl border border-neutral-400 text-base`}
+                >
+                  <span
+                    className={`${
+                      isPrivate ? "text-violet-800" : "text-mercedes-primary"
+                    } text-lg xs:text-xl font-medium`}
+                  >
+                    {readingTime}
+                  </span>
+                  <span>read time</span>
+                </p>
+
+                {/* Page Estimate - clickable to open modal */}
+                <p
+                  className={`cursor-pointer col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-1 sm:gap-1 xs:gap-0 rounded-xl border border-neutral-400 hover:bg-neutral-200 text-base transition-all duration-300 ease-in-out`}
+                  onClick={() => setShowPageEstimateModal(true)}
+                  title="Click to change page format"
+                >
+                  <span
+                    className={`flex items-center gap-1 ${
+                      isPrivate ? "text-violet-800" : "text-mercedes-primary"
+                    } text-lg xs:text-xl font-medium`}
+                  >
+                    {pageEstimate}
+                  </span>
+                  <span>{currentPageFormat}</span>
+                </p>
+
+                {/* Word Count Goal - Progress Bar */}
+                <div
+                  className="col-span-4 p-1 xs:p-2 rounded-xl border border-neutral-400 cursor-pointer hover:bg-neutral-200 transition-all duration-300 ease-in-out"
+                  onClick={() => setShowWordCountGoalModal(true)}
+                >
+                  {wordCountGoal &&
+                  wordCountGoal.target > 0 &&
+                  wordCountGoal.type !== "" ? (
+                    <div className="flex flex-col items-center w-full">
+                      <div className="w-full bg-neutral-50 rounded-full h-4 mb-1">
+                        <div
+                          className={`h-4 rounded-full ${
+                            isPrivate ? "bg-violet-600" : "bg-mercedes-primary"
+                          } transition-all duration-300 ease-in-out`}
+                          style={{ width: `${progressPercentage}%` }}
+                        ></div>
+                      </div>
+                      <div className="text-center text-sm">
+                        {progressPercentage}% of {wordCountGoal.target}{" "}
+                        {wordCountGoal.type === "words"
+                          ? "words"
+                          : "characters"}
+                        {progressPercentage >= 100 && (
+                          <span className="text-green-600 ml-1">
+                            ✓ Completed!
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <span className="text-center text-base">
+                        Set Word Goal
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Top Words */}
+                {/*{topWords.length > 0 && (*/}
+                {/*  <div className="col-span-3 p-2 rounded-xl border border-neutral-400">*/}
+                {/*    <h4 className="text-center text-sm font-medium mb-2">*/}
+                {/*      Top Words*/}
+                {/*    </h4>*/}
+                {/*    <div className="grid grid-cols-2 gap-1 text-sm">*/}
+                {/*      {topWords.slice(0, 10).map((wordObj, index) => (*/}
+                {/*        <div key={index} className="flex justify-between">*/}
+                {/*          <span>{wordObj.word}</span>*/}
+                {/*          <span*/}
+                {/*            className={`${*/}
+                {/*              isPrivate*/}
+                {/*                ? "text-violet-800"*/}
+                {/*                : "text-mercedes-primary"*/}
+                {/*            } font-medium`}*/}
+                {/*          >*/}
+                {/*            {wordObj.count}*/}
+                {/*          </span>*/}
+                {/*        </div>*/}
+                {/*      ))}*/}
+                {/*    </div>*/}
+                {/*  </div>*/}
+                {/*)}*/}
               </div>
             </article>
 
@@ -1159,7 +1596,7 @@ export default function NoteBlock({
                 type={`button`}
                 onClick={handleExportTxt}
                 title={`Export as text file`}
-                className={`group/export px-2 cursor-pointer flex items-center justify-center gap-1 w-fit min-w-10 h-10 rounded-lg border-1 ${
+                className={`group/export px-2 cursor-pointer flex-grow sm:flex-grow-0 flex items-center justify-center gap-1 w-fit min-w-10 h-10 rounded-lg border-1 ${
                   isPrivate
                     ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
                     : "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary"
@@ -1196,7 +1633,7 @@ export default function NoteBlock({
                           ? "Transfer to Cloud"
                           : "Transfer to Local"
                       }
-                      className={`group/transfer px-2 cursor-pointer flex items-center justify-center gap-1 w-fit min-w-10 h-10 rounded-lg border-1 ${
+                      className={`group/transfer px-2 cursor-pointer flex-grow sm:flex-grow-0 flex items-center justify-center gap-1 w-fit min-w-10 h-10 rounded-lg border-1 ${
                         isPrivate
                           ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
                           : "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary"
@@ -1254,7 +1691,7 @@ export default function NoteBlock({
                 disabled={isPending}
                 onClick={handleManualSave}
                 title={`Save note manually`}
-                className={`group/transfer px-2 cursor-pointer flex flex-row-reverse items-center justify-center gap-0 md:hover:gap-2 w-fit min-w-10 h-10 rounded-lg border sm:border-0 ${
+                className={`group/save flex-grow sm:flex-grow-0 px-2 cursor-pointer flex flex-row-reverse items-center justify-center gap-0 md:hover:gap-2 w-fit min-w-10 h-10 rounded-lg border sm:border-0 ${
                   isPrivate
                     ? "hover:bg-violet-800 hover:text-neutral-100"
                     : "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary"
@@ -1264,7 +1701,7 @@ export default function NoteBlock({
               >
                 <IconDeviceFloppy size={20} strokeWidth={2} />
                 <span
-                  className={`w-fit max-w-0 md:group-hover/transfer:max-w-52 opacity-0 md:group-hover/transfer:opacity-100 overflow-hidden transition-all duration-300 ease-in-out`}
+                  className={`w-fit max-w-0 md:group-hover/save:max-w-52 opacity-0 md:group-hover/save:opacity-100 overflow-hidden transition-all duration-300 ease-in-out`}
                 >
                   Force Save Note
                 </span>
@@ -1283,6 +1720,26 @@ export default function NoteBlock({
           </>
         )}
       </div>
+
+      {/* Page Estimate Modal */}
+      {showPageEstimateModal && (
+        <PageEstimateModal
+          currentFormat={currentPageFormat}
+          onFormatChange={handlePageFormatChange}
+          onClose={() => setShowPageEstimateModal(false)}
+        />
+      )}
+
+      {/* Word Count Goal Modal */}
+      {showWordCountGoalModal && (
+        <WordCountGoalModal
+          currentGoal={wordCountGoal || { target: 0, type: "" }}
+          onGoalChange={handleWordCountGoalChange}
+          onClose={() => setShowWordCountGoalModal(false)}
+          currentWordCount={wordCount}
+          currentCharCount={charCount}
+        />
+      )}
     </section>
   );
 }

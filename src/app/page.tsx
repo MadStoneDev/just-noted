@@ -22,7 +22,7 @@ export default async function Home() {
     <>
       <GlobalHeader user={user} />
 
-      <main className={`mt-2 flex-grow px-4 sm:px-8 w-full overflow-hidden`}>
+      <main className={`mt-2 flex-grow w-full overflow-hidden`}>
         <JustNotes />
 
         <h1

@@ -12,4 +12,6 @@ export interface CombinedNote {
   isCollapsed?: boolean;
   order?: number;
   source: NoteSource;
+  goal?: number;
+  goal_type?: string;
 }
