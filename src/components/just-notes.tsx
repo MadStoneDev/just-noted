@@ -109,6 +109,12 @@ export default function JustNotes() {
                   pinned: note.isPinned,
                   isPrivate: note.isPrivate,
                   isCollapsed: note.isCollapsed,
+                  goal: note.goal,
+                  goal_type:
+                    note.goal_type === "words" ||
+                    note.goal_type === "characters"
+                      ? note.goal_type
+                      : ("" as "" | "words" | "characters"),
                 }}
                 userId={userId || ""}
                 showDelete={notes.length > 1}
