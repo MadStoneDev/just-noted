@@ -119,7 +119,7 @@ export default function FaqBlock() {
           <FAQItem key={index} question={faq.question} answer={faq.answer} />
         ))}
 
-        <div className="mt-8 pt-4 border-t border-gray-200 font-light text-center">
+        <div className="mt-8 pt-4 border-t border-neutral-200 font-light text-center">
           <p>
             For all other information, please visit{" "}
             <Link

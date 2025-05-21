@@ -70,14 +70,14 @@ export default function DeleteButton({
         type="button"
         onClick={handleClick}
         title="Delete this note"
-        className="p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg hover:bg-red-700 text-neutral-800 hover:text-neutral-100 transition-all duration-300 ease-in-out"
+        className="p-2 cursor-pointer flex items-center justify-center gap-1 rounded-lg border border-red-700 sm:border-0 hover:bg-red-700 text-red-700 hover:text-neutral-100 transition-all duration-300 ease-in-out"
       >
         <IconTrash size={20} strokeWidth={2} />
       </button>
 
       {showConfirm && (
         <div
-          className={`fixed top-0 left-0 right-0 bottom-0 flex items-center justify-center z-50`}
+          className={`absolute top-0 left-0 right-0 bottom-0 flex items-center justify-center z-50`}
         >
           <div
             className={`absolute top-0 left-0 bottom-0 right-0 bg-neutral-900 opacity-50`}

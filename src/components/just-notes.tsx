@@ -47,12 +47,22 @@ export default function JustNotes() {
             }`}
           >
             <IconRefresh size={24} strokeWidth={1.5} />
-            <span>Sync Notes</span>
+            <span className={`hidden md:flex`}>Sync Notes</span>
           </button>
           {isReorderingInProgress && (
-            <span className="text-sm text-neutral-500 italic animate-pulse">
-              Syncing and renumbering...
-            </span>
+            <>
+              <span
+                className={`hidden md:flex text-sm text-neutral-500 italic animate-pulse`}
+              >
+                Syncing and renumbering...
+              </span>
+
+              <span
+                className={`flex md:hidden text-sm text-neutral-500 italic animate-pulse`}
+              >
+                Syncing...
+              </span>
+            </>
           )}
         </div>
 
@@ -65,7 +75,9 @@ export default function JustNotes() {
           }`}
         >
           <IconSquareRoundedPlus size={30} strokeWidth={1.5} />
-          <span>Add a new {isAuthenticated ? "cloud" : "local"} note</span>
+          <span className={`hidden md:flex`}>
+            Add a new {isAuthenticated ? "cloud" : "local"} note
+          </span>
         </button>
       </section>
 

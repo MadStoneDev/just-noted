@@ -832,9 +832,65 @@ export default function NoteBlock({
         isPending ? "opacity-70" : ""
       }`}
     >
-      <article className={`flex gap-2 items-center`}>
+      {isTransferring && (
+        <div className="absolute inset-0 bg-neutral-900/50 bg-opacity-25 flex items-center justify-center rounded-xl z-10">
+          <div className="bg-white px-4 py-2 rounded-lg shadow-lg">
+            <span className="flex items-center gap-2">
+              <svg
+                className={`animate-spin h-5 w-5 ${
+                  noteSource === "supabase"
+                    ? "text-orange-600"
+                    : "text-blue-600"
+                }`}
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              Transferring...
+            </span>
+          </div>
+        </div>
+      )}
+
+      {transferComplete && (
+        <div className="absolute inset-0 bg-neutral-900/50 flex items-center justify-center rounded-xl z-10 animate-fadeOut">
+          <div className="bg-white px-4 py-2 rounded-lg shadow-lg">
+            <span className="flex items-center gap-2 text-mercedes-primary">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Transfer Complete
+            </span>
+          </div>
+        </div>
+      )}
+
+      <article className={`flex flex-col md:flex-row gap-2 md:items-center`}>
         <div
-          className={`group flex gap-2 items-center h-6 font-semibold uppercase`}
+          className={`group flex gap-2 items-center justify-between md:justify-start h-6 font-semibold uppercase`}
         >
           {editingTitle ? (
             <div className="flex items-center gap-2">
@@ -912,62 +968,6 @@ export default function NoteBlock({
           )}
         </div>
 
-        {isTransferring && (
-          <div className="absolute inset-0 bg-neutral-900/50 bg-opacity-25 flex items-center justify-center rounded-xl z-10">
-            <div className="bg-white px-4 py-2 rounded-lg shadow-lg">
-              <span className="flex items-center gap-2">
-                <svg
-                  className={`animate-spin h-5 w-5 ${
-                    noteSource === "supabase"
-                      ? "text-orange-600"
-                      : "text-blue-600"
-                  }`}
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                Transferring...
-              </span>
-            </div>
-          </div>
-        )}
-
-        {transferComplete && (
-          <div className="absolute inset-0 bg-neutral-900/50 flex items-center justify-center rounded-xl z-10 animate-fadeOut">
-            <div className="bg-white px-4 py-2 rounded-lg shadow-lg">
-              <span className="flex items-center gap-2 text-mercedes-primary">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                Transfer Complete
-              </span>
-            </div>
-          </div>
-        )}
-
         <div
           className={`flex-grow h-0.5 ${
             isPrivate
@@ -978,21 +978,20 @@ export default function NoteBlock({
           } transition-all duration-300 ease-in-out`}
         ></div>
 
-        <button
-          type={`button`}
-          onClick={toggleContentVisibility}
-          className={`p-1 cursor-pointer rounded-lg border border-neutral-300 hover:bg-neutral-100 opacity-60 hover:opacity-100 transition-all duration-300 ease-in-out`}
-          title={isContentVisible ? "Hide note content" : "Show note content"}
-        >
-          {isContentVisible ? (
-            <IconEye size={18} strokeWidth={1.5} />
-          ) : (
-            <IconEyeClosed size={18} strokeWidth={1.5} />
-          )}
-        </button>
+        <div className="flex justify-end items-center gap-1">
+          <button
+            type={`button`}
+            onClick={toggleContentVisibility}
+            className={`p-1 cursor-pointer rounded-lg border border-neutral-300 hover:bg-neutral-100 opacity-60 hover:opacity-100 transition-all duration-300 ease-in-out`}
+            title={isContentVisible ? "Hide note content" : "Show note content"}
+          >
+            {isContentVisible ? (
+              <IconEye size={18} strokeWidth={1.5} />
+            ) : (
+              <IconEyeClosed size={18} strokeWidth={1.5} />
+            )}
+          </button>
 
-        {/* Order Controls */}
-        <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => handleMoveNote("up")}
@@ -1049,7 +1048,7 @@ export default function NoteBlock({
       {/* Note Content */}
       <div
         className={`note-content-wrapper overflow-hidden transition-all duration-300 ease-in-out ${
-          isContentExpanded ? "max-h-[600px]" : "max-h-0"
+          isContentExpanded ? "max-h-[900px] md:max-h-[600px]" : "max-h-0"
         }`}
       >
         {isContentVisible && (
@@ -1153,34 +1152,25 @@ export default function NoteBlock({
             </article>
 
             {/* Actions */}
-            <article className={`mt-2 flex gap-2 items-center`}>
-              <button
-                type={`button`}
-                disabled={isPending}
-                onClick={handleManualSave}
-                title={`Save note manually`}
-                className={`px-2 cursor-pointer flex items-center justify-center gap-1 w-10 h-10 rounded-lg border-1 ${
-                  isPrivate
-                    ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
-                    : "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary"
-                } text-neutral-800 transition-all duration-300 ease-in-out ${
-                  isPending ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-              >
-                <IconDeviceFloppy size={20} strokeWidth={2} />
-              </button>
-
+            <article
+              className={`mt-2 flex gap-2 items-center justify-between sm:justify-start`}
+            >
               <button
                 type={`button`}
                 onClick={handleExportTxt}
                 title={`Export as text file`}
-                className={`px-2 cursor-pointer flex items-center justify-center gap-1 w-10 h-10 rounded-lg border-1 ${
+                className={`group/export px-2 cursor-pointer flex items-center justify-center gap-1 w-fit min-w-10 h-10 rounded-lg border-1 ${
                   isPrivate
                     ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
                     : "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary"
-                } text-neutral-800 transition-all duration-300 ease-in-out`}
+                } text-neutral-800 overflow-hidden transition-all duration-300 ease-in-out`}
               >
                 <IconFileTypeTxt size={20} strokeWidth={2} />
+                <span
+                  className={`w-fit max-w-0 sm:group-hover/export:max-w-52 opacity-0 md:group-hover/export:opacity-100 overflow-hidden transition-all duration-300 ease-in-out`}
+                >
+                  Export as .txt File
+                </span>
               </button>
 
               {isAuthenticated && (
@@ -1206,7 +1196,7 @@ export default function NoteBlock({
                           ? "Transfer to Cloud"
                           : "Transfer to Local"
                       }
-                      className={`group/transfer px-2 cursor-pointer flex items-center justify-center gap-1 w-fit h-10 rounded-lg border-1 ${
+                      className={`group/transfer px-2 cursor-pointer flex items-center justify-center gap-1 w-fit min-w-10 h-10 rounded-lg border-1 ${
                         isPrivate
                           ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
                           : "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary"
@@ -1214,22 +1204,22 @@ export default function NoteBlock({
                     >
                       {noteSource === "redis" ? (
                         <div
-                          className={`flex items-center gap-0 group-hover/transfer:gap-2 transition-all duration-400 ease-in-out`}
+                          className={`flex items-center gap-0 md:group-hover/transfer:gap-2 transition-all duration-400 ease-in-out`}
                         >
                           <IconCloudUpload size={20} strokeWidth={2} />
                           <span
-                            className={`w-fit max-w-0 group-hover/transfer:max-w-52 opacity-0 group-hover/transfer:opacity-100 overflow-hidden transition-all duration-300 ease-in-out`}
+                            className={`w-fit max-w-0 md:group-hover/transfer:max-w-52 opacity-0 md:group-hover/transfer:opacity-100 overflow-hidden transition-all duration-300 ease-in-out`}
                           >
                             Transfer to Cloud
                           </span>
                         </div>
                       ) : (
                         <div
-                          className={`flex items-center gap-0 group-hover/transfer:gap-2 transition-all duration-400 ease-in-out`}
+                          className={`flex items-center gap-0 md:group-hover/transfer:gap-2 transition-all duration-400 ease-in-out`}
                         >
                           <IconDeviceDesktopDown size={20} strokeWidth={2} />
                           <span
-                            className={`w-fit max-w-0 group-hover/transfer:max-w-52 opacity-0 group-hover/transfer:opacity-100 overflow-hidden transition-all duration-300 ease-in-out`}
+                            className={`w-fit max-w-0 md:group-hover/transfer:max-w-52 opacity-0 md:group-hover/transfer:opacity-100 overflow-hidden transition-all duration-300 ease-in-out`}
                           >
                             Move to Local
                           </span>
@@ -1242,6 +1232,7 @@ export default function NoteBlock({
                     noteId={details.id}
                     noteTitle={details.title}
                     noteSource={noteSource}
+                    isPrivate={isPrivate}
                     isAuthenticated={isAuthenticated}
                     userId={userId}
                   />
@@ -1249,7 +1240,7 @@ export default function NoteBlock({
               )}
 
               <div
-                className={`flex-grow h-0.5 ${
+                className={`hidden sm:block flex-grow h-0.5 ${
                   isPrivate
                     ? "bg-violet-800"
                     : isPinned
@@ -1257,6 +1248,27 @@ export default function NoteBlock({
                       : "bg-neutral-300"
                 } transition-all duration-300 ease-in-out`}
               ></div>
+
+              <button
+                type={`button`}
+                disabled={isPending}
+                onClick={handleManualSave}
+                title={`Save note manually`}
+                className={`group/transfer px-2 cursor-pointer flex flex-row-reverse items-center justify-center gap-0 md:hover:gap-2 w-fit min-w-10 h-10 rounded-lg border sm:border-0 ${
+                  isPrivate
+                    ? "hover:bg-violet-800 hover:text-neutral-100"
+                    : "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary"
+                } ${
+                  isPending ? "opacity-50 cursor-not-allowed" : ""
+                } text-neutral-800 overflow-hidden transition-all duration-300 ease-in-out`}
+              >
+                <IconDeviceFloppy size={20} strokeWidth={2} />
+                <span
+                  className={`w-fit max-w-0 md:group-hover/transfer:max-w-52 opacity-0 md:group-hover/transfer:opacity-100 overflow-hidden transition-all duration-300 ease-in-out`}
+                >
+                  Force Save Note
+                </span>
+              </button>
 
               {showDelete && (
                 <DeleteButton

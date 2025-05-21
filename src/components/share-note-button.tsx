@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   IconShare2,
   IconUsers,
@@ -12,6 +12,7 @@ import {
   IconCheck,
   IconAlertCircle,
   IconLink,
+  IconDeviceDesktopDown,
 } from "@tabler/icons-react";
 import {
   shareNoteAction,
@@ -23,6 +24,7 @@ interface ShareNoteButtonProps {
   noteId: string;
   noteTitle: string;
   noteSource: "redis" | "supabase";
+  isPrivate: boolean;
   isAuthenticated: boolean;
   userId: string;
 }
@@ -32,6 +34,7 @@ export default function ShareNoteButton({
   noteTitle,
   noteSource,
   isAuthenticated,
+  isPrivate = false,
   userId,
 }: ShareNoteButtonProps) {
   // States
@@ -191,19 +194,21 @@ export default function ShareNoteButton({
         type="button"
         onClick={handleOpenShareModal}
         disabled={!canShare}
-        className={`
-          p-1 cursor-pointer flex items-center justify-center gap-1 
-          w-10 h-10 rounded-lg border-1
-          ${
-            canShare
-              ? "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary hover:text-neutral-100"
+        className={`group/share px-2 cursor-pointer flex items-center justify-center gap-0 md:hover:gap-2 w-fit min-w-10 h-10 rounded-lg border-1 ${
+          isPrivate
+            ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
+            : canShare
+              ? "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary"
               : "opacity-50 cursor-not-allowed border-neutral-300"
-          }
-          text-neutral-800 transition-all duration-300 ease-in-out
-        `}
+        } text-neutral-800 overflow-hidden transition-all duration-300 ease-in-out`}
         title={!canShare ? "Sign in to share notes" : "Share this note"}
       >
         <IconShare2 size={20} strokeWidth={2} />
+        <span
+          className={`w-fit max-w-0 md:group-hover/share:max-w-52 opacity-0 md:group-hover/share:opacity-100 overflow-hidden transition-all duration-300 ease-in-out`}
+        >
+          Share Note
+        </span>
       </button>
 
       {/* Share Modal */}

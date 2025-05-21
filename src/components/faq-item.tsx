@@ -12,7 +12,7 @@ export const FAQItem = ({
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="border-b border-gray-200 py-2">
+    <div className="border-b border-neutral-200 py-2">
       <button
         className={`p-2 flex w-full justify-between items-center ${
           isOpen && "bg-mercedes-primary"
