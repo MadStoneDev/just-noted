@@ -12,7 +12,6 @@ import {
   IconCheck,
   IconAlertCircle,
   IconLink,
-  IconDeviceDesktopDown,
 } from "@tabler/icons-react";
 import {
   shareNoteAction,
