@@ -109,22 +109,15 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
           setUsername(existingAuthor.username || "");
           setOriginalUsername(existingAuthor.username || "");
           setAvatarUrl(existingAuthor.avatar_url || "");
-          console.log("Found existing author:", existingAuthor);
         } else if (checkError?.code === "PGRST116") {
-          // No author found, create one using the database function
-          console.log("No author found, creating one...");
-
           const { data: newAuthor, error: createError } = await supabase.rpc(
             "create_author_with_random_username",
             { user_id: user.id },
           );
 
           if (createError) {
-            console.error("Error creating author:", createError);
             setError("Failed to create user profile. Please refresh the page.");
           } else {
-            console.log("Created new author:", newAuthor);
-            // Update state with new author data
             setUsername(newAuthor.username || "");
             setOriginalUsername(newAuthor.username || "");
             setAvatarUrl(newAuthor.avatar_url || "");
