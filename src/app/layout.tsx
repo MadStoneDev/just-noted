@@ -59,9 +59,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`bg-neutral-200 min-h-dvh flex flex-col ${outfit.variable} ${playfair.variable} antialiased`}
+        className={`bg-neutral-200 min-h-dvh print:min-h-0 flex flex-col ${outfit.variable} ${playfair.variable} antialiased`}
       >
-        <div className={`h-18`}></div>
+        <div className={`h-18 print:hidden`}></div>
 
         {children}
       </body>

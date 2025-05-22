@@ -6,12 +6,6 @@ import { createClient } from "@/utils/supabase/server";
 import GlobalHeader from "@/components/global-header";
 import GlobalFooter from "@/components/global-footer";
 
-export const metadata = {
-  title: "Just Noted - Distraction-Free Note Taking",
-  description:
-    "Just Noted: Where ideas flow freely. No formatting distractions, just pure writing with offline/online saving and word tools.",
-};
-
 export default async function Home() {
   const supabase = await createClient();
   const {
