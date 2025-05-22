@@ -8,7 +8,10 @@ import {
   IconUser,
   IconCalendarEvent,
   IconLoader,
+  IconPrinter,
 } from "@tabler/icons-react";
+import ReactMarkdown from "react-markdown";
+import type { Components } from "react-markdown";
 
 import { createClient } from "@/utils/supabase/client";
 import { getNoteByShortcodeAction } from "@/app/actions/shareNoteActions";
@@ -46,6 +49,48 @@ export default function SharedNotePage({
 
   // Get Supabase client
   const supabase = createClient();
+
+  // Print function
+  const handlePrint = () => {
+    window.print();
+  };
+
+  // Format date to match your style
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  // Custom components for ReactMarkdown
+  const markdownComponents: Components = {
+    // Custom list item renderer for checkboxes
+    li: ({ children, ...props }) => {
+      const text = children?.toString() || "";
+
+      // Check if this is a checkbox item
+      if (
+        text.startsWith("[ ]") ||
+        text.startsWith("[x]") ||
+        text.startsWith("[X]")
+      ) {
+        const isChecked = text.startsWith("[x]") || text.startsWith("[X]");
+        const content = text.slice(3).trim(); // Remove the checkbox syntax
+
+        return (
+          <li role="checkbox" aria-checked={isChecked}>
+            <span>{content}</span>
+          </li>
+        );
+      }
+
+      // Regular list item
+      return <li {...props}>{children}</li>;
+    },
+  };
 
   useEffect(() => {
     // Get current user info
@@ -93,16 +138,6 @@ export default function SharedNotePage({
       setIsLoading(false);
     }
   }, [shortcode, supabase]);
-
-  // Format date to match your style
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
 
   if (isLoading) {
     return (
@@ -191,8 +226,47 @@ export default function SharedNotePage({
 
   return (
     <main className="mt-2 flex-grow w-full overflow-hidden">
+      {/* Add print styles */}
+      <style jsx global>{`
+        @media print {
+          /* Hide navigation and non-essential elements when printing */
+          .print-hide {
+            display: none !important;
+          }
+
+          /* Ensure proper spacing for print */
+          .print-content {
+            margin: 0 !important;
+            padding: 20px !important;
+          }
+
+          /* Make sure checkboxes print correctly */
+          .mdx-editor-custom li[role="checkbox"]::before {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          /* Ensure headings break properly */
+          .mdx-editor-custom h1,
+          .mdx-editor-custom h2,
+          .mdx-editor-custom h3,
+          .mdx-editor-custom h4,
+          .mdx-editor-custom h5,
+          .mdx-editor-custom h6 {
+            page-break-after: avoid !important;
+            break-after: avoid !important;
+          }
+
+          /* Keep list items together */
+          .mdx-editor-custom li {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+        }
+      `}</style>
+
       {/* Header section with navigation */}
-      <section className="px-3 col-span-12 flex items-center justify-between mb-4">
+      <section className="px-3 col-span-12 flex items-center justify-between mb-4 print-hide">
         <Link
           href="/"
           className="px-2 py-1 cursor-pointer inline-flex items-center gap-2 rounded-xl border border-neutral-400 hover:border-mercedes-primary hover:bg-mercedes-primary hover:text-white transition-all duration-300 ease-in-out"
@@ -201,28 +275,38 @@ export default function SharedNotePage({
           <span className="hidden md:flex">Back to Home</span>
         </Link>
 
-        {currentUsername ? (
-          <div className="flex items-center gap-2 text-sm text-neutral-500">
-            <IconUser size={16} strokeWidth={1.5} />
-            <span>
-              Viewing as{" "}
-              <span className="font-medium text-neutral-700">
-                {currentUsername}
-              </span>
-            </span>
-          </div>
-        ) : (
-          <Link
-            href="/get-access"
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handlePrint}
             className="px-2 py-1 cursor-pointer inline-flex items-center gap-2 rounded-xl border border-neutral-400 hover:border-mercedes-primary hover:bg-mercedes-primary hover:text-white transition-all duration-300 ease-in-out"
           >
-            Sign in
-          </Link>
-        )}
+            <IconPrinter size={20} strokeWidth={1.5} />
+            <span className="hidden md:flex">Print</span>
+          </button>
+
+          {currentUsername ? (
+            <div className="flex items-center gap-2 text-sm text-neutral-500">
+              <IconUser size={16} strokeWidth={1.5} />
+              <span>
+                Viewing as{" "}
+                <span className="font-medium text-neutral-700">
+                  {currentUsername}
+                </span>
+              </span>
+            </div>
+          ) : (
+            <Link
+              href="/get-access"
+              className="px-2 py-1 cursor-pointer inline-flex items-center gap-2 rounded-xl border border-neutral-400 hover:border-mercedes-primary hover:bg-mercedes-primary hover:text-white transition-all duration-300 ease-in-out"
+            >
+              Sign in
+            </Link>
+          )}
+        </div>
       </section>
 
       {/* Note content */}
-      <div className="px-3 grid grid-cols-12 gap-3">
+      <div className="px-3 grid grid-cols-12 gap-3 print-content">
         <div className="col-span-12">
           {/* Note header matching your NoteBlock style */}
           <article className="flex flex-col md:flex-row gap-2 md:items-center mb-4">
@@ -230,7 +314,7 @@ export default function SharedNotePage({
               <span className="flex items-center gap-1 text-neutral-800">
                 {note.title}
               </span>
-              <span className="flex items-center gap-1 ml-2">
+              <span className="flex items-center gap-1 ml-2 print-hide">
                 {note.is_private ? (
                   <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-md bg-violet-100 text-violet-700 border border-violet-300">
                     PRIVATE
@@ -252,10 +336,10 @@ export default function SharedNotePage({
                   <img
                     src={note.authorAvatar}
                     alt={note.authorUsername}
-                    className="w-5 h-5 rounded-full"
+                    className="w-5 h-5 rounded-full print-hide"
                   />
                 ) : (
-                  <div className="w-5 h-5 bg-neutral-300 rounded-full flex items-center justify-center text-xs font-medium text-neutral-600">
+                  <div className="w-5 h-5 bg-neutral-300 rounded-full flex items-center justify-center text-xs font-medium text-neutral-600 print-hide">
                     {note.authorUsername.charAt(0).toUpperCase()}
                   </div>
                 )}
@@ -265,7 +349,11 @@ export default function SharedNotePage({
               </div>
 
               <div className="flex items-center gap-1">
-                <IconCalendarEvent size={14} strokeWidth={1.5} />
+                <IconCalendarEvent
+                  size={14}
+                  strokeWidth={1.5}
+                  className="print-hide"
+                />
                 <span>{formatDate(note.updated_at)}</span>
               </div>
             </div>
@@ -275,10 +363,11 @@ export default function SharedNotePage({
           <article className="grid grid-cols-12 gap-4">
             <div className="col-span-12">
               <div className="bg-white rounded-xl border border-neutral-300 p-6">
-                <div
-                  className="mdx-editor-custom custom-editor-content focus:outline-none"
-                  dangerouslySetInnerHTML={{ __html: note.content }}
-                />
+                <div className="mdx-editor-custom custom-editor-content focus:outline-none">
+                  <ReactMarkdown components={markdownComponents}>
+                    {note.content}
+                  </ReactMarkdown>
+                </div>
               </div>
             </div>
           </article>

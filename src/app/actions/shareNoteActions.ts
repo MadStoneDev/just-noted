@@ -1,28 +1,37 @@
 ﻿"use server";
 
-import { createClient } from "@/utils/supabase/server";
 import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
+import { createClient } from "@/utils/supabase/server";
 
 /**
  * Generate a unique shortcode for sharing
  */
-function generateShortcode(length = 8) {
-  return randomBytes(Math.ceil(length / 2))
-    .toString("hex")
-    .slice(0, length);
+function generateShortcode(length = 9) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  let result = "";
+
+  // Use crypto.getRandomValues for better randomness
+  const randomArray = new Uint8Array(length);
+  crypto.getRandomValues(randomArray);
+
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(randomArray[i] % chars.length);
+  }
+
+  return result;
 }
 
 /**
  * Share a note with a specific user or make it public
- * ALL shares are stored in Supabase shared_notes table regardless of note storage location
+ * Authorization is handled in application code since RLS is disabled
  */
 export async function shareNoteAction({
   noteId,
   isPublic,
   username = null,
   currentUserId,
-  storage = "supabase", // 'redis' or 'supabase' - where the NOTE is stored
+  storage = "supabase",
 }: {
   noteId: string;
   isPublic: boolean;
@@ -33,11 +42,10 @@ export async function shareNoteAction({
   const supabase = await createClient();
 
   try {
-    // Verify note ownership based on storage type
+    // AUTHORIZATION CHECK: Verify note ownership based on storage type
     let noteExists = false;
 
     if (storage === "supabase") {
-      // For Supabase notes, check database
       const { data: noteData, error: noteError } = await supabase
         .from("notes")
         .select("id, author")
@@ -48,7 +56,6 @@ export async function shareNoteAction({
         noteExists = true;
       }
     } else if (storage === "redis") {
-      // For Redis notes, verify ownership
       const redis = (await import("@/utils/redis")).default;
       try {
         const notes = await redis.get(`notes:${currentUserId}`);
@@ -69,12 +76,12 @@ export async function shareNoteAction({
       };
     }
 
-    // Check if the note is already shared in Supabase (regardless of original storage)
+    // Check if the note is already shared
     const { data: existingShares, error: shareError } = await supabase
       .from("shared_notes")
       .select("id, shortcode, is_public, storage")
       .eq("note_id", noteId)
-      .eq("note_owner_id", currentUserId);
+      .eq("note_owner_id", currentUserId); // AUTHORIZATION: Only get shares owned by current user
 
     if (shareError) {
       console.error("Error checking for existing share:", shareError);
@@ -88,33 +95,23 @@ export async function shareNoteAction({
     let shareId;
 
     if (!existingShares || existingShares.length === 0) {
-      // No share exists yet, create a new one in Supabase
+      // Create new share
       shortcode = generateShortcode();
 
-      // Always create the share record in Supabase
       const { data: newShare, error: insertError } = await supabase
         .from("shared_notes")
         .insert({
           note_id: noteId,
-          note_owner_id: currentUserId, // Now TEXT, so works with any user ID format
+          note_owner_id: currentUserId, // AUTHORIZATION: Always use current user
           shortcode: shortcode,
           is_public: isPublic,
-          storage: storage, // Remember where the actual note is stored
+          storage: storage,
         })
         .select("id")
         .single();
 
       if (insertError || !newShare) {
         console.error("Error creating share:", insertError);
-        console.error("Insert error details:", {
-          message: insertError?.message,
-          details: insertError?.details,
-          hint: insertError?.hint,
-          code: insertError?.code,
-          note_id: noteId,
-          note_owner_id: currentUserId,
-          storage: storage,
-        });
         return {
           success: false,
           error: `Failed to create share: ${
@@ -125,19 +122,19 @@ export async function shareNoteAction({
 
       shareId = newShare.id;
     } else {
-      // Share already exists - take the first one
       const existingShare = existingShares[0];
       shortcode = existingShare.shortcode;
       shareId = existingShare.id;
 
-      // Update the share status
+      // AUTHORIZATION CHECK: Verify ownership before updating
       const { error: updateError } = await supabase
         .from("shared_notes")
         .update({
           is_public: isPublic,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", shareId);
+        .eq("id", shareId)
+        .eq("note_owner_id", currentUserId); // AUTHORIZATION: Only update if owned by current user
 
       if (updateError) {
         console.error("Error updating share:", updateError);
@@ -148,9 +145,8 @@ export async function shareNoteAction({
       }
     }
 
-    // If sharing with a specific user (not public)
+    // Handle specific user sharing
     if (!isPublic && username) {
-      // Verify the username exists
       const { data: userData, error: userError } = await supabase
         .from("authors")
         .select("id, username")
@@ -165,7 +161,7 @@ export async function shareNoteAction({
 
       const user = userData[0];
 
-      // Check if this user already has access
+      // Check existing access
       const { data: existingReaders, error: readerError } = await supabase
         .from("shared_notes_readers")
         .select("id")
@@ -181,7 +177,20 @@ export async function shareNoteAction({
       }
 
       if (!existingReaders || existingReaders.length === 0) {
-        // Add the reader
+        // AUTHORIZATION CHECK: Verify the share belongs to current user before adding readers
+        const { data: shareCheck } = await supabase
+          .from("shared_notes")
+          .select("note_owner_id")
+          .eq("id", shareId)
+          .single();
+
+        if (!shareCheck || shareCheck.note_owner_id !== currentUserId) {
+          return {
+            success: false,
+            error: "Unauthorized to add readers to this share",
+          };
+        }
+
         const { error: insertReaderError } = await supabase
           .from("shared_notes_readers")
           .insert({
@@ -198,7 +207,6 @@ export async function shareNoteAction({
           };
         }
       } else {
-        // User already has access
         return {
           success: true,
           shortcode,

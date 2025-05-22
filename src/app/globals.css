@@ -224,8 +224,8 @@ body {
 .mdxeditor-block-type-select,
 .mdx-editor-custom [role="tooltip"],
 .mdx-editor-custom [data-tooltip] {
-position: absolute;
-z-index: 1000;
+    position: absolute;
+    z-index: 1000;
 }
 
 /* Remove borders around the editor */
@@ -254,11 +254,143 @@ z-index: 1000;
     outline-offset: 2px;
 }
 
-.mdx-editor-custom li[role="checkbox"] {
-    left: 15px !important;
+/* ============================================
+   LIST STYLING - UNORDERED LISTS (UL)
+   ============================================ */
+
+/* Base unordered list styling */
+.mdx-editor-custom ul {
+    margin: 1rem 0 !important;
+    padding-left: 0 !important;
+    list-style: none !important;
 }
 
-.mdx-editor-custom li[role="checkbox"][aria-checked="false"]::before {
+/* Level 1 - Bullet points */
+.mdx-editor-custom ul > li {
+    position: relative !important;
+    padding-left: 1.5rem !important;
+    margin-bottom: 0.25rem !important;
+    line-height: 1.6 !important;
+}
+
+.mdx-editor-custom ul > li::before {
+    content: "•" !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: -10px !important;
+    color: var(--color-mercedes-primary) !important;
+    font-weight: bold !important;
+    font-size: 1.75em !important;
+}
+
+/* Level 2 - Hollow circles */
+.mdx-editor-custom ul ul > li {
+    padding-left: 1.5rem !important;
+    margin-left: 1rem !important;
+}
+
+.mdx-editor-custom ul ul > li::before {
+    content: "-" !important;
+    color: var(--color-neutral-800) !important;
+    font-size: 1.1em !important;
+    top: 0 !important;
+}
+
+/* Level 3 - Squares */
+.mdx-editor-custom ul ul ul > li {
+    padding-left: 1.5rem !important;
+    margin-left: 1rem !important;
+}
+
+.mdx-editor-custom ul ul ul > li::before {
+    content: "+" !important;
+    color: var(--color-mercedes-tertiary) !important;
+    font-size: 1em !important;
+}
+
+/* ============================================
+   LIST STYLING - ORDERED LISTS (OL)
+   ============================================ */
+
+/* Base ordered list styling */
+.mdx-editor-custom ol {
+    margin: 1rem 0 !important;
+    padding-left: 0 !important;
+    list-style: none !important;
+    counter-reset: list-counter !important;
+}
+
+/* Level 1 - Numbers */
+.mdx-editor-custom ol > li {
+    position: relative !important;
+    padding-left: 2rem !important;
+    margin-bottom: 0.5rem !important;
+    line-height: 1.6 !important;
+    counter-increment: list-counter !important;
+}
+
+.mdx-editor-custom ol > li::before {
+    content: counter(list-counter) "." !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    color: var(--color-mercedes-primary) !important;
+    font-weight: 600 !important;
+    min-width: 1.5rem !important;
+}
+
+/* Level 2 - Letters */
+.mdx-editor-custom ol ol {
+    counter-reset: list-counter-alpha !important;
+}
+
+.mdx-editor-custom ol ol > li {
+    padding-left: 2rem !important;
+    margin-left: 1rem !important;
+    counter-increment: list-counter-alpha !important;
+}
+
+.mdx-editor-custom ol ol > li::before {
+    content: counter(list-counter-alpha, lower-alpha) ")" !important;
+    color: var(--color-mercedes-secondary) !important;
+    font-weight: 500 !important;
+}
+
+/* Level 3 - Roman numerals */
+.mdx-editor-custom ol ol ol {
+    counter-reset: list-counter-roman !important;
+}
+
+.mdx-editor-custom ol ol ol > li {
+    padding-left: 2rem !important;
+    margin-left: 1rem !important;
+    counter-increment: list-counter-roman !important;
+}
+
+.mdx-editor-custom ol ol ol > li::before {
+    content: counter(list-counter-roman, lower-roman) "." !important;
+    color: var(--color-mercedes-tertiary) !important;
+    font-weight: 400 !important;
+}
+
+/* ============================================
+   CHECKBOX STYLING (SPECIAL LIST ITEMS)
+   ============================================ */
+
+.mdx-editor-custom li[role="checkbox"] {
+    position: relative !important;
+    padding-left: 2rem !important;
+    margin-bottom: 0.5rem !important;
+    line-height: 1.6 !important;
+}
+
+/* Hide default list markers for checkboxes */
+.mdx-editor-custom li[role="checkbox"]::before {
+    display: none !important;
+}
+
+/* Unchecked checkbox */
+.mdx-editor-custom li[role="checkbox"][aria-checked="false"]::after {
     content: "" !important;
     position: absolute !important;
     left: 0 !important;
@@ -271,22 +403,22 @@ z-index: 1000;
     box-sizing: border-box !important;
 }
 
-/* Checked checkbox style */
-.mdx-editor-custom li[role="checkbox"][aria-checked="true"]::before {
+/* Checked checkbox */
+.mdx-editor-custom li[role="checkbox"][aria-checked="true"]::after {
     content: "" !important;
     position: absolute !important;
     left: 0 !important;
     top: 0.25rem !important;
     width: 1.25rem !important;
     height: 1.25rem !important;
-    border: 2px solid var(--color-mercedes-primary) !important; /* mercedes-primary */
-    border-radius: 0.25rem !important;
+    border: 2px solid var(--color-mercedes-primary) !important;
+    border-radius: 0.5rem !important;
     background-color: var(--color-mercedes-primary) !important;
     box-sizing: border-box !important;
 }
 
 /* Checkmark for checked items */
-.mdx-editor-custom li[role="checkbox"][aria-checked="true"]::after {
+.mdx-editor-custom li[role="checkbox"][aria-checked="true"]::before {
     content: "" !important;
     position: absolute !important;
     left: 0.45rem !important;
@@ -297,6 +429,7 @@ z-index: 1000;
     border-width: 0 3px 3px 0 !important;
     transform: rotate(45deg) !important;
     box-sizing: border-box !important;
+    z-index: 1 !important;
 }
 
 /* Text styling for checked items */
@@ -306,5 +439,44 @@ z-index: 1000;
 }
 
 .mdx-editor-custom li[role="checkbox"] span {
-    margin-left: 5px;
+    margin-left: 0.5rem !important;
+}
+
+/* ============================================
+   MIXED LISTS - UL/OL COMBINATIONS
+   ============================================ */
+
+/* Reset margins for nested mixed lists */
+.mdx-editor-custom ul ol,
+.mdx-editor-custom ol ul {
+    margin-top: 0.5rem !important;
+    margin-bottom: 0.5rem !important;
+}
+
+/* ============================================
+   PRINT OPTIMIZATIONS FOR LISTS
+   ============================================ */
+
+@media print {
+    /* Ensure list items don't break across pages */
+    .mdx-editor-custom li {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    /* Ensure nested lists stay together */
+    .mdx-editor-custom ul ul,
+    .mdx-editor-custom ol ol,
+    .mdx-editor-custom ul ol,
+    .mdx-editor-custom ol ul {
+        page-break-before: avoid !important;
+        break-before: avoid !important;
+    }
+
+    /* Make sure checkbox styling prints correctly */
+    .mdx-editor-custom li[role="checkbox"]::after,
+    .mdx-editor-custom li[role="checkbox"]::before {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
 }

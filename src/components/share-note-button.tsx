@@ -19,13 +19,15 @@ import {
   removeSharedUserAction,
 } from "@/app/actions/shareNoteActions";
 
+import { createClient } from "@/utils/supabase/client";
+
 interface ShareNoteButtonProps {
   noteId: string;
   noteTitle: string;
   noteSource: "redis" | "supabase";
   isPrivate: boolean;
   isAuthenticated: boolean;
-  userId: string;
+  userId: string; // This is the localStorage userId
 }
 
 export default function ShareNoteButton({
@@ -34,7 +36,7 @@ export default function ShareNoteButton({
   noteSource,
   isAuthenticated,
   isPrivate = false,
-  userId,
+  userId, // localStorage userId
 }: ShareNoteButtonProps) {
   // States
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -52,6 +54,31 @@ export default function ShareNoteButton({
   );
   const [isLoadingSharedInfo, setIsLoadingSharedInfo] = useState(false);
 
+  // Add state for the correct user ID
+  const [currentUserId, setCurrentUserId] = useState<string>(userId);
+
+  const supabase = createClient();
+
+  // Get the correct user ID based on note source
+  useEffect(() => {
+    const getCurrentUserId = async () => {
+      if (noteSource === "supabase" && isAuthenticated) {
+        // For Supabase notes, get the authenticated user ID
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user?.id) {
+          setCurrentUserId(user.id);
+        }
+      } else {
+        // For Redis notes, use the localStorage userId
+        setCurrentUserId(userId);
+      }
+    };
+
+    getCurrentUserId();
+  }, [noteSource, isAuthenticated, userId, supabase]);
+
   // Handle opening share modal
   const handleOpenShareModal = async () => {
     // Reset states
@@ -67,7 +94,7 @@ export default function ShareNoteButton({
     // Fetch existing shared users for this note
     if (isAuthenticated) {
       try {
-        const result = await getSharedUsersAction(noteId, userId);
+        const result = await getSharedUsersAction(noteId, currentUserId);
 
         if (result.success) {
           setIsPublic(result.isPublic || false);
@@ -103,12 +130,19 @@ export default function ShareNoteButton({
     setShareError(null);
     setShareSuccess(null);
 
+    console.log("Sharing note with:", {
+      noteId,
+      currentUserId,
+      noteSource,
+      isAuthenticated,
+    });
+
     try {
       const result = await shareNoteAction({
         noteId,
         isPublic,
         username: isPublic ? null : shareUsername,
-        currentUserId: userId,
+        currentUserId: currentUserId, // Use the correct user ID
         storage: noteSource,
       });
 
@@ -144,7 +178,7 @@ export default function ShareNoteButton({
 
   // Handle remove user
   const handleRemoveUser = async (username: string) => {
-    if (!isAuthenticated || !userId) {
+    if (!isAuthenticated || !currentUserId) {
       setShareError("You must be signed in to manage shared notes");
       return;
     }
@@ -156,7 +190,7 @@ export default function ShareNoteButton({
       const result = await removeSharedUserAction({
         noteId,
         username,
-        currentUserId: userId,
+        currentUserId: currentUserId, // Use the correct user ID
       });
 
       if (result.success) {
