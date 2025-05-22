@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -17,7 +17,7 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
     authorData?.username || "",
   );
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(!authorData); // Loading if no authorData provided
   const [isSaving, setIsSaving] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +35,117 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
   const supabase = createClient();
   const router = useRouter();
 
+  // Username validation function
+  const validateUsername = (username: string): string | null => {
+    const trimmed = username.trim();
+
+    if (!trimmed) {
+      return "Username cannot be empty";
+    }
+
+    if (trimmed.length < 3) {
+      return "Username must be at least 3 characters long";
+    }
+
+    if (trimmed.length > 30) {
+      return "Username must be no more than 30 characters long";
+    }
+
+    // Check if username starts with underscore
+    if (trimmed.startsWith("_")) {
+      return "Username cannot start with an underscore";
+    }
+
+    // Check for valid characters (alphanumeric and underscores only)
+    const validUsernameRegex = /^[a-zA-Z0-9_]+$/;
+    if (!validUsernameRegex.test(trimmed)) {
+      return "Username can only contain letters, numbers, and underscores";
+    }
+
+    return null; // Valid username
+  };
+
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value;
+
+    // Remove spaces and special characters except underscores
+    value = value.replace(/[^a-zA-Z0-9_]/g, "");
+
+    // Prevent starting with underscore
+    if (value.startsWith("_")) {
+      value = value.substring(1);
+    }
+
+    if (value.endsWith("_")) {
+      value = value.substring(0, value.length - 1);
+    }
+
+    setUsername(value);
+  };
+
+  // Ensure author row exists on component load
+  useEffect(() => {
+    const ensureAuthorExists = async () => {
+      if (!user?.id) return;
+
+      // If we already have authorData, we're good
+      if (authorData?.id) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+
+        // Check if author row exists
+        const { data: existingAuthor, error: checkError } = await supabase
+          .from("authors")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+
+        if (existingAuthor) {
+          // Author exists, update state
+          setUsername(existingAuthor.username || "");
+          setOriginalUsername(existingAuthor.username || "");
+          setAvatarUrl(existingAuthor.avatar_url || "");
+          console.log("Found existing author:", existingAuthor);
+        } else if (checkError?.code === "PGRST116") {
+          // No author found, create one using the database function
+          console.log("No author found, creating one...");
+
+          const { data: newAuthor, error: createError } = await supabase.rpc(
+            "create_author_with_random_username",
+            { user_id: user.id },
+          );
+
+          if (createError) {
+            console.error("Error creating author:", createError);
+            setError("Failed to create user profile. Please refresh the page.");
+          } else {
+            console.log("Created new author:", newAuthor);
+            // Update state with new author data
+            setUsername(newAuthor.username || "");
+            setOriginalUsername(newAuthor.username || "");
+            setAvatarUrl(newAuthor.avatar_url || "");
+            setSuccess("Profile created successfully!");
+          }
+        } else {
+          // Some other error occurred
+          console.error("Error checking for author:", checkError);
+          setError("Failed to load profile. Please refresh the page.");
+        }
+      } catch (err) {
+        console.error("Error ensuring author exists:", err);
+        setError("An unexpected error occurred. Please refresh the page.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    ensureAuthorExists();
+  }, [user?.id, authorData, supabase]);
+
   // Functions
   const handleSave = async () => {
     if (!user) return;
@@ -44,22 +155,35 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
     setSuccess(null);
 
     try {
-      // Check if username is being changed
-      if (username !== originalUsername) {
-        // Check if username is already taken
+      // Strip whitespace from username
+      const trimmedUsername = username.trim();
+
+      // Validate username format
+      const validationError = validateUsername(trimmedUsername);
+      if (validationError) {
+        setError(validationError);
+        setIsSaving(false);
+        return;
+      }
+
+      // Check if username is being changed (case-insensitive comparison)
+      if (trimmedUsername.toLowerCase() !== originalUsername.toLowerCase()) {
+        // Check if username is already taken (case-insensitive)
         const { data: existingUser, error: checkError } = await supabase
           .from("authors")
           .select("id")
-          .eq("username", username);
+          .ilike("username", trimmedUsername); // Case-insensitive search
 
         if (checkError) {
-          setError("Something went wrong");
+          setError("Something went wrong checking username availability");
           setIsSaving(false);
           return;
         }
 
         if (existingUser && existingUser.length > 0) {
-          setError("This username is already taken");
+          setError(
+            "This username is already taken (usernames are case-insensitive)",
+          );
           setIsSaving(false);
           return;
         }
@@ -91,11 +215,11 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
         newAvatarUrl = publicUrl.publicUrl;
       }
 
-      // Update profile in database
+      // Update profile in database (use trimmed username)
       const { error: updateError } = await supabase
         .from("authors")
         .update({
-          username: username,
+          username: trimmedUsername,
           avatar_url: newAvatarUrl,
         })
         .eq("id", user.id);
@@ -104,7 +228,8 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
         console.error("Error updating profile:", updateError);
         setError("Failed to update profile");
       } else {
-        setOriginalUsername(username);
+        setOriginalUsername(trimmedUsername);
+        setUsername(trimmedUsername); // Update state with trimmed version
         setAvatarUrl(newAvatarUrl);
         setAvatarFile(null);
         setAvatarPreview(null);
@@ -141,6 +266,24 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
     await supabase.auth.signOut();
     router.push("/");
   };
+
+  // Show loading state while checking/creating author
+  if (isLoading) {
+    return (
+      <main className="flex-grow py-8 px-4">
+        <div className="mx-auto max-w-4xl">
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-mercedes-primary mx-auto mb-4"></div>
+                <p className="text-gray-600">Setting up your profile...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="flex-grow py-8 px-4">
@@ -196,12 +339,14 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
               <input
                 type="text"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={handleUsernameChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 placeholder="Enter username"
+                maxLength={30}
               />
               <p className="mt-1 text-sm text-gray-500">
-                This is how other users will see you when you share notes.
+                Username can only contain letters, numbers, and underscores.
+                Cannot start with underscore. (3-30 characters)
               </p>
             </div>
 
