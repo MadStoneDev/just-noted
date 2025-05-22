@@ -47,13 +47,18 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
       // Check if username is being changed
       if (username !== originalUsername) {
         // Check if username is already taken
-        const { data: existingUser } = await supabase
+        const { data: existingUser, error: checkError } = await supabase
           .from("authors")
           .select("id")
-          .eq("username", username)
-          .single();
+          .eq("username", username);
 
-        if (existingUser) {
+        if (checkError) {
+          setError("Something went wrong");
+          setIsSaving(false);
+          return;
+        }
+
+        if (existingUser && existingUser.length > 0) {
           setError("This username is already taken");
           setIsSaving(false);
           return;

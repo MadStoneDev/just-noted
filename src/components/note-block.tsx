@@ -144,7 +144,7 @@ export default function NoteBlock({
   // New statistics
   const [readingTime, setReadingTime] = useState<string>("0 min");
   const [topWords, setTopWords] = useState<TopWordCount[]>([]);
-  const [pageEstimate, setPageEstimate] = useState<string>("~0 pages");
+  const [pageEstimate, setPageEstimate] = useState<string>("0 pages");
   const [currentPageFormat, setCurrentPageFormat] = useState<string>("novel"); // Default page format
   const [showPageEstimateModal, setShowPageEstimateModal] = useState(false);
 
@@ -226,11 +226,11 @@ export default function NoteBlock({
     const pages = words / wordsPerPage;
 
     if (pages < 0.1) {
-      return "< 1 page";
+      return "1 page";
     } else if (pages < 1) {
-      return "~1 page";
+      return "1 page";
     } else {
-      return `~${Math.ceil(pages)} pages`;
+      return `${Math.ceil(pages)} pages`;
     }
   };
 
@@ -1500,7 +1500,7 @@ export default function NoteBlock({
                   <span
                     className={`${
                       isPrivate ? "text-violet-800" : "text-mercedes-primary"
-                    } text-lg xs:text-xl font-medium`}
+                    } text-lg font-medium`}
                   >
                     {readingTime}
                   </span>
@@ -1516,7 +1516,7 @@ export default function NoteBlock({
                   <span
                     className={`flex items-center gap-1 ${
                       isPrivate ? "text-violet-800" : "text-mercedes-primary"
-                    } text-lg xs:text-xl font-medium`}
+                    } text-lg font-medium`}
                   >
                     {pageEstimate}
                   </span>
