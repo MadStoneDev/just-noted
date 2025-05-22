@@ -15,13 +15,14 @@ function generateShortcode(length = 8) {
 
 /**
  * Share a note with a specific user or make it public
+ * ALL shares are stored in Supabase shared_notes table regardless of note storage location
  */
 export async function shareNoteAction({
   noteId,
   isPublic,
   username = null,
   currentUserId,
-  storage = "supabase", // 'redis' or 'supabase'
+  storage = "supabase", // 'redis' or 'supabase' - where the NOTE is stored
 }: {
   noteId: string;
   isPublic: boolean;
@@ -41,13 +42,13 @@ export async function shareNoteAction({
         .from("notes")
         .select("id, author")
         .eq("id", noteId)
-        .eq("author", currentUserId)
-        .single();
+        .eq("author", currentUserId);
 
-      noteExists = !noteError && !!noteData;
+      if (!noteError && noteData && noteData.length > 0) {
+        noteExists = true;
+      }
     } else if (storage === "redis") {
-      // For Redis notes, we'll need to verify if this user owns the note
-      // We'll need to import the redis client and check
+      // For Redis notes, verify ownership
       const redis = (await import("@/utils/redis")).default;
       try {
         const notes = await redis.get(`notes:${currentUserId}`);
@@ -68,52 +69,64 @@ export async function shareNoteAction({
       };
     }
 
-    // Check if the note is already shared
-    const { data: existingShare, error: shareError } = await supabase
+    // Check if the note is already shared in Supabase (regardless of original storage)
+    const { data: existingShares, error: shareError } = await supabase
       .from("shared_notes")
       .select("id, shortcode, is_public, storage")
       .eq("note_id", noteId)
-      .eq("note_owner_id", currentUserId)
-      .single();
+      .eq("note_owner_id", currentUserId);
+
+    if (shareError) {
+      console.error("Error checking for existing share:", shareError);
+      return {
+        success: false,
+        error: "Failed to check existing shares",
+      };
+    }
 
     let shortcode;
     let shareId;
 
-    if (shareError?.code === "PGRST116") {
-      // No share exists yet, create a new one
+    if (!existingShares || existingShares.length === 0) {
+      // No share exists yet, create a new one in Supabase
       shortcode = generateShortcode();
 
-      // Create the share record
+      // Always create the share record in Supabase
       const { data: newShare, error: insertError } = await supabase
         .from("shared_notes")
         .insert({
           note_id: noteId,
-          note_owner_id: currentUserId,
+          note_owner_id: currentUserId, // Now TEXT, so works with any user ID format
           shortcode: shortcode,
           is_public: isPublic,
-          storage: storage,
+          storage: storage, // Remember where the actual note is stored
         })
         .select("id")
         .single();
 
       if (insertError || !newShare) {
         console.error("Error creating share:", insertError);
+        console.error("Insert error details:", {
+          message: insertError?.message,
+          details: insertError?.details,
+          hint: insertError?.hint,
+          code: insertError?.code,
+          note_id: noteId,
+          note_owner_id: currentUserId,
+          storage: storage,
+        });
         return {
           success: false,
-          error: "Failed to create share",
+          error: `Failed to create share: ${
+            insertError?.message || "Unknown error"
+          }`,
         };
       }
 
       shareId = newShare.id;
-    } else if (shareError) {
-      // A real error occurred
-      console.error("Error checking for existing share:", shareError);
-      return {
-        success: false,
-        error: "Failed to check existing shares",
-      };
     } else {
-      // Share already exists
+      // Share already exists - take the first one
+      const existingShare = existingShares[0];
       shortcode = existingShare.shortcode;
       shareId = existingShare.id;
 
@@ -141,32 +154,40 @@ export async function shareNoteAction({
       const { data: userData, error: userError } = await supabase
         .from("authors")
         .select("id, username")
-        .eq("username", username)
-        .single();
+        .eq("username", username);
 
-      if (userError || !userData) {
+      if (userError || !userData || userData.length === 0) {
         return {
           success: false,
           error: "Username not found",
         };
       }
 
+      const user = userData[0];
+
       // Check if this user already has access
-      const { data: existingReader, error: readerError } = await supabase
+      const { data: existingReaders, error: readerError } = await supabase
         .from("shared_notes_readers")
         .select("id")
         .eq("shared_note", shareId)
-        .eq("reader_username", username)
-        .single();
+        .eq("reader_username", username);
 
-      if (!existingReader) {
+      if (readerError) {
+        console.error("Error checking existing reader:", readerError);
+        return {
+          success: false,
+          error: "Failed to check existing access",
+        };
+      }
+
+      if (!existingReaders || existingReaders.length === 0) {
         // Add the reader
         const { error: insertReaderError } = await supabase
           .from("shared_notes_readers")
           .insert({
             shared_note: shareId,
             reader_username: username,
-            reader_id: userData.id,
+            reader_id: user.id,
           });
 
         if (insertReaderError) {
@@ -203,6 +224,7 @@ export async function shareNoteAction({
 
 /**
  * Get all users a note is shared with
+ * Authorization handled in application code
  */
 export async function getSharedUsersAction(
   noteId: string,
@@ -211,17 +233,23 @@ export async function getSharedUsersAction(
   const supabase = await createClient();
 
   try {
-    // Get the shared note information
+    // AUTHORIZATION CHECK: Only get shares owned by current user
     const { data: shareData, error: shareError } = await supabase
       .from("shared_notes")
       .select("id, shortcode, is_public, storage")
       .eq("note_id", noteId)
-      .eq("note_owner_id", currentUserId)
-      .single();
+      .eq("note_owner_id", currentUserId); // AUTHORIZATION: Filter by current user
 
-    // If no record found, just return empty results (not an error)
-    if (shareError?.code === "PGRST116") {
-      // This is the "no rows found" error code
+    if (shareError) {
+      console.error("Error getting shared note:", shareError);
+      return {
+        success: false,
+        error: "Failed to get shared note information",
+      };
+    }
+
+    // If no records found, return empty results
+    if (!shareData || shareData.length === 0) {
       return {
         success: true,
         isPublic: false,
@@ -231,20 +259,13 @@ export async function getSharedUsersAction(
       };
     }
 
-    // Handle actual errors
-    if (shareError) {
-      console.error("Error getting shared note:", shareError);
-      return {
-        success: false,
-        error: "Failed to get shared note information",
-      };
-    }
+    const shareRecord = shareData[0];
 
     // Get reader usernames for this shared note
     const { data: readersData, error: readersError } = await supabase
       .from("shared_notes_readers")
       .select("reader_username")
-      .eq("shared_note", shareData.id);
+      .eq("shared_note", shareRecord.id);
 
     if (readersError) {
       console.error("Error getting readers:", readersError);
@@ -254,14 +275,13 @@ export async function getSharedUsersAction(
       };
     }
 
-    // Extract usernames
     const users = readersData.map((reader) => reader.reader_username);
 
     return {
       success: true,
-      isPublic: shareData.is_public,
-      shortcode: shareData.shortcode,
-      storage: shareData.storage,
+      isPublic: shareRecord.is_public,
+      shortcode: shareRecord.shortcode,
+      storage: shareRecord.storage,
       users,
     };
   } catch (error) {
@@ -274,7 +294,8 @@ export async function getSharedUsersAction(
 }
 
 /**
- * Get a note by its shortcode
+ * Get a note by its shortcode - note can be in Redis or Supabase
+ * Share info is ALWAYS in Supabase shared_notes table
  */
 export async function getNoteByShortcodeAction(
   shortcode: string,
@@ -283,10 +304,10 @@ export async function getNoteByShortcodeAction(
   const supabase = await createClient();
 
   try {
-    // First find the shared note entry
+    // Find the shared note entry in Supabase (always stored here)
     const { data: shareData, error: shareError } = await supabase
       .from("shared_notes")
-      .select()
+      .select("*") // Get all fields including storage type
       .eq("shortcode", shortcode);
 
     if (shareError || !shareData || shareData.length === 0) {
@@ -296,8 +317,11 @@ export async function getNoteByShortcodeAction(
       };
     }
 
+    // Take the first record (shortcode should be unique)
+    const shareRecord = shareData[0];
+
     // Check access permissions
-    const isPublic = shareData[0].is_public;
+    const isPublic = shareRecord.is_public;
 
     // If not public, check if the user has access
     if (!isPublic && currentUsername) {
@@ -305,7 +329,7 @@ export async function getNoteByShortcodeAction(
       const { data: readerData, error: readerError } = await supabase
         .from("shared_notes_readers")
         .select("id")
-        .eq("shared_note", shareData[0].id)
+        .eq("shared_note", shareRecord.id)
         .eq("reader_username", currentUsername);
 
       if (readerError || !readerData || readerData.length === 0) {
@@ -321,10 +345,10 @@ export async function getNoteByShortcodeAction(
       };
     }
 
-    // Get the note based on storage type
-    const noteId = shareData[0].note_id;
-    const noteOwnerId = shareData[0].note_owner_id;
-    const storage = shareData[0].storage || "supabase";
+    // Get the note based on storage type (from the share record)
+    const noteId = shareRecord.note_id;
+    const noteOwnerId = shareRecord.note_owner_id;
+    const storage = shareRecord.storage || "supabase"; // Default to supabase if not specified
 
     let note;
     let authorData;
@@ -336,28 +360,26 @@ export async function getNoteByShortcodeAction(
         .select(
           "id, title, content, author, is_private, is_pinned, created_at, updated_at",
         )
-        .eq("id", noteId)
-        .single();
+        .eq("id", noteId);
 
-      if (noteError || !noteData) {
-        console.log(noteId);
+      if (noteError || !noteData || noteData.length === 0) {
+        console.log("Supabase note not found. Note ID:", noteId);
         return {
           success: false,
-          error: "Note not found",
+          error: "Note not found in database",
         };
       }
 
-      note = noteData;
+      note = noteData[0];
 
       // Get author info
-      const { data: author, error: authorError } = await supabase
+      const { data: authors, error: authorError } = await supabase
         .from("authors")
         .select("username, avatar_url")
-        .eq("id", note.author)
-        .single();
+        .eq("id", note.author);
 
-      authorData = author;
-    } else {
+      authorData = authors && authors.length > 0 ? authors[0] : null;
+    } else if (storage === "redis") {
       // Get Redis note
       const redis = (await import("@/utils/redis")).default;
       try {
@@ -367,9 +389,15 @@ export async function getNoteByShortcodeAction(
           const redisNote = parsedNotes.find((n) => n.id === noteId);
 
           if (!redisNote) {
+            console.log(
+              "Redis note not found. Note ID:",
+              noteId,
+              "Owner:",
+              noteOwnerId,
+            );
             return {
               success: false,
-              error: "Note not found",
+              error: "Note not found in local storage",
             };
           }
 
@@ -389,30 +417,35 @@ export async function getNoteByShortcodeAction(
             ).toISOString(),
           };
 
-          // Get author info
-          const { data: author, error: authorError } = await supabase
+          // Get author info from Supabase (user info is always in Supabase)
+          const { data: authors, error: authorError } = await supabase
             .from("authors")
             .select("username, avatar_url")
-            .eq("id", noteOwnerId)
-            .single();
+            .eq("id", noteOwnerId);
 
-          authorData = author;
+          authorData = authors && authors.length > 0 ? authors[0] : null;
         } else {
+          console.log("No Redis notes found for user:", noteOwnerId);
           return {
             success: false,
-            error: "Note not found",
+            error: "Note not found in local storage",
           };
         }
       } catch (error) {
         console.error("Error fetching Redis note:", error);
         return {
           success: false,
-          error: "Failed to retrieve note",
+          error: "Failed to retrieve note from local storage",
         };
       }
+    } else {
+      return {
+        success: false,
+        error: "Unknown storage type",
+      };
     }
 
-    // Increment view count
+    // Increment view count (always in Supabase)
     try {
       await supabase.rpc("increment_view_count", {
         shortcode_param: shortcode,
@@ -428,6 +461,13 @@ export async function getNoteByShortcodeAction(
         ...note,
         authorUsername: authorData?.username || "Unknown",
         authorAvatar: authorData?.avatar_url || null,
+        shareInfo: {
+          shortcode: shareRecord.shortcode,
+          isPublic: shareRecord.is_public,
+          storage: shareRecord.storage,
+          createdAt: shareRecord.created_at,
+          viewCount: shareRecord.view_count || 0,
+        },
       },
     };
   } catch (error) {
@@ -441,6 +481,7 @@ export async function getNoteByShortcodeAction(
 
 /**
  * Remove sharing access for a specific user
+ * Authorization handled in application code
  */
 export async function removeSharedUserAction({
   noteId,
@@ -454,26 +495,27 @@ export async function removeSharedUserAction({
   const supabase = await createClient();
 
   try {
-    // Get the shared note id first
+    // AUTHORIZATION CHECK: Get the shared note and verify ownership
     const { data: shareData, error: shareError } = await supabase
       .from("shared_notes")
       .select("id, note_id, note_owner_id")
       .eq("note_id", noteId)
-      .eq("note_owner_id", currentUserId)
-      .single();
+      .eq("note_owner_id", currentUserId); // AUTHORIZATION: Only get shares owned by current user
 
-    if (shareError) {
+    if (shareError || !shareData || shareData.length === 0) {
       return {
         success: false,
-        error: "Shared note not found",
+        error: "Shared note not found or you don't have permission",
       };
     }
 
-    // Remove the reader from shared_notes_readers
+    const shareRecord = shareData[0];
+
+    // Remove the reader
     const { error } = await supabase
       .from("shared_notes_readers")
       .delete()
-      .eq("shared_note", shareData.id)
+      .eq("shared_note", shareRecord.id)
       .eq("reader_username", username);
 
     if (error) {

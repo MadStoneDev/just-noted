@@ -3,6 +3,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import {
+  IconArrowLeft,
+  IconUser,
+  IconCalendarEvent,
+  IconLoader,
+} from "@tabler/icons-react";
 
 import { createClient } from "@/utils/supabase/client";
 import { getNoteByShortcodeAction } from "@/app/actions/shareNoteActions";
@@ -32,8 +38,6 @@ export default function SharedNotePage({
   const params = useParams();
   const routerShortcode = params?.shortcode as string;
   const shortcode = propShortcode || routerShortcode;
-
-  console.log("SharedNotePage rendered with shortcode:", shortcode);
 
   const [note, setNote] = useState<SharedNote | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,11 +70,8 @@ export default function SharedNotePage({
           }
         }
 
-        console.log("Fetching shared note with shortcode:", shortcode);
-
         // Fetch the shared note
         const result = await getNoteByShortcodeAction(shortcode, username);
-        console.log("Result from getNoteByShortcodeAction:", result);
 
         if (result.success && result.note) {
           setNote(result.note as SharedNote);
@@ -93,146 +94,196 @@ export default function SharedNotePage({
     }
   }, [shortcode, supabase]);
 
-  // Format date
+  // Format date to match your style
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
       year: "numeric",
-      month: "long",
+      month: "short",
       day: "numeric",
     });
   };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col bg-gray-50">
-        <main className="flex-grow container mx-auto max-w-4xl p-6">
-          <div className="h-full flex items-center justify-center">
-            <div className="animate-pulse text-gray-500">
-              Loading shared note...
-            </div>
+      <main className="mt-2 flex-grow w-full overflow-hidden">
+        <div className="px-3 col-span-12 flex items-center justify-center min-h-96">
+          <div className="flex items-center gap-2 text-neutral-500">
+            <IconLoader className="animate-spin" size={24} strokeWidth={1.5} />
+            <span className="text-lg">Loading shared note...</span>
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex flex-col bg-gray-50">
-        <header className="bg-white shadow-sm py-4">
-          <div className="container mx-auto max-w-4xl px-6">
-            <Link href="/" className="text-mercedes-primary hover:underline">
-              ← Back to Home
+      <main className="mt-2 flex-grow w-full overflow-hidden">
+        <section className="px-3 col-span-12 flex items-center justify-between mb-4">
+          <Link
+            href="/"
+            className="px-2 py-1 cursor-pointer inline-flex items-center gap-2 rounded-xl border border-neutral-400 hover:border-mercedes-primary hover:bg-mercedes-primary hover:text-white transition-all duration-300 ease-in-out"
+          >
+            <IconArrowLeft size={20} strokeWidth={1.5} />
+            <span>Back to Home</span>
+          </Link>
+        </section>
+
+        <div className="px-3 grid grid-cols-12 gap-3">
+          <div className="col-span-12 bg-white rounded-xl border border-neutral-300 p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1 h-8 bg-red-500 rounded-full"></div>
+              <h1 className="text-2xl font-semibold text-neutral-800">
+                Access Error
+              </h1>
+            </div>
+            <p className="text-neutral-600 mb-6">{error}</p>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-mercedes-primary text-white rounded-lg hover:bg-mercedes-primary/80 transition-all duration-300 ease-in-out"
+            >
+              <IconArrowLeft size={18} strokeWidth={1.5} />
+              Return to Home
             </Link>
           </div>
-        </header>
-
-        <main className="flex-grow container mx-auto max-w-4xl p-6">
-          <div className="bg-white shadow-md rounded-lg p-8 border-t-4 border-red-500">
-            <h1 className="text-2xl font-bold text-red-600 mb-4">
-              Access Error
-            </h1>
-            <p className="text-gray-700">{error}</p>
-            <div className="mt-6">
-              <Link href="/" className="text-mercedes-primary hover:underline">
-                Return to Home
-              </Link>
-            </div>
-          </div>
-        </main>
-      </div>
+        </div>
+      </main>
     );
   }
 
   if (!note) {
     return (
-      <div className="min-h-screen flex flex-col bg-gray-50">
-        <header className="bg-white shadow-sm py-4">
-          <div className="container mx-auto max-w-4xl px-6">
-            <Link href="/" className="text-mercedes-primary hover:underline">
-              ← Back to Home
-            </Link>
-          </div>
-        </header>
+      <main className="mt-2 flex-grow w-full overflow-hidden">
+        <section className="px-3 col-span-12 flex items-center justify-between mb-4">
+          <Link
+            href="/"
+            className="px-2 py-1 cursor-pointer inline-flex items-center gap-2 rounded-xl border border-neutral-400 hover:border-mercedes-primary hover:bg-mercedes-primary hover:text-white transition-all duration-300 ease-in-out"
+          >
+            <IconArrowLeft size={20} strokeWidth={1.5} />
+            <span>Back to Home</span>
+          </Link>
+        </section>
 
-        <main className="flex-grow container mx-auto max-w-4xl p-6">
-          <div className="bg-white shadow-md rounded-lg p-8 border-t-4 border-yellow-500">
-            <h1 className="text-2xl font-bold text-yellow-600 mb-4">
-              Note Not Found
-            </h1>
-            <p className="text-gray-700">
+        <div className="px-3 grid grid-cols-12 gap-3">
+          <div className="col-span-12 bg-white rounded-xl border border-neutral-300 p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1 h-8 bg-yellow-500 rounded-full"></div>
+              <h1 className="text-2xl font-semibold text-neutral-800">
+                Note Not Found
+              </h1>
+            </div>
+            <p className="text-neutral-600 mb-6">
               The requested note could not be found.
             </p>
-            <div className="mt-6">
-              <Link href="/" className="text-mercedes-primary hover:underline">
-                Return to Home
-              </Link>
-            </div>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-mercedes-primary text-white rounded-lg hover:bg-mercedes-primary/80 transition-all duration-300 ease-in-out"
+            >
+              <IconArrowLeft size={18} strokeWidth={1.5} />
+              Return to Home
+            </Link>
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <header className="bg-white shadow-sm py-4">
-        <div className="container mx-auto max-w-4xl px-6 flex justify-between items-center">
-          <Link href="/" className="text-mercedes-primary hover:underline">
-            ← Back to Home
+    <main className="mt-2 flex-grow w-full overflow-hidden">
+      {/* Header section with navigation */}
+      <section className="px-3 col-span-12 flex items-center justify-between mb-4">
+        <Link
+          href="/"
+          className="px-2 py-1 cursor-pointer inline-flex items-center gap-2 rounded-xl border border-neutral-400 hover:border-mercedes-primary hover:bg-mercedes-primary hover:text-white transition-all duration-300 ease-in-out"
+        >
+          <IconArrowLeft size={20} strokeWidth={1.5} />
+          <span className="hidden md:flex">Back to Home</span>
+        </Link>
+
+        {currentUsername ? (
+          <div className="flex items-center gap-2 text-sm text-neutral-500">
+            <IconUser size={16} strokeWidth={1.5} />
+            <span>
+              Viewing as{" "}
+              <span className="font-medium text-neutral-700">
+                {currentUsername}
+              </span>
+            </span>
+          </div>
+        ) : (
+          <Link
+            href="/get-access"
+            className="px-2 py-1 cursor-pointer inline-flex items-center gap-2 rounded-xl border border-neutral-400 hover:border-mercedes-primary hover:bg-mercedes-primary hover:text-white transition-all duration-300 ease-in-out"
+          >
+            Sign in
           </Link>
+        )}
+      </section>
 
-          {currentUsername ? (
-            <div className="text-sm text-gray-500">
-              Viewing as <span className="font-medium">{currentUsername}</span>
+      {/* Note content */}
+      <div className="px-3 grid grid-cols-12 gap-3">
+        <div className="col-span-12">
+          {/* Note header matching your NoteBlock style */}
+          <article className="flex flex-col md:flex-row gap-2 md:items-center mb-4">
+            <div className="group flex gap-2 items-center justify-between md:justify-start h-6 font-semibold uppercase">
+              <span className="flex items-center gap-1 text-neutral-800">
+                {note.title}
+              </span>
+              <span className="flex items-center gap-1 ml-2">
+                {note.is_private ? (
+                  <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-md bg-violet-100 text-violet-700 border border-violet-300">
+                    PRIVATE
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-md bg-green-100 text-green-700 border border-green-300">
+                    PUBLIC
+                  </span>
+                )}
+              </span>
             </div>
-          ) : (
-            <Link
-              href="/get-access"
-              className="text-mercedes-primary hover:underline"
-            >
-              Sign in
-            </Link>
-          )}
-        </div>
-      </header>
 
-      <main className="flex-grow container mx-auto max-w-4xl p-6">
-        <div className="bg-white shadow-md rounded-lg overflow-hidden">
-          {/* Note Header */}
-          <div className="bg-gray-50 p-6 border-b">
-            <h1 className="text-2xl font-bold mb-2">{note.title}</h1>
+            <div className="flex-grow h-0.5 bg-mercedes-primary transition-all duration-300 ease-in-out"></div>
 
-            <div className="flex items-center text-sm text-gray-500 mb-4">
-              <div className="flex items-center mr-4">
+            {/* Author and date info */}
+            <div className="flex items-center gap-4 text-sm text-neutral-500">
+              <div className="flex items-center gap-2">
                 {note.authorAvatar ? (
                   <img
                     src={note.authorAvatar}
                     alt={note.authorUsername}
-                    className="w-5 h-5 rounded-full mr-2"
+                    className="w-5 h-5 rounded-full"
                   />
                 ) : (
-                  <div className="w-5 h-5 bg-gray-200 rounded-full mr-2 flex items-center justify-center text-xs">
+                  <div className="w-5 h-5 bg-neutral-300 rounded-full flex items-center justify-center text-xs font-medium text-neutral-600">
                     {note.authorUsername.charAt(0).toUpperCase()}
                   </div>
                 )}
-                <span>{note.authorUsername}</span>
+                <span className="font-medium text-neutral-700">
+                  {note.authorUsername}
+                </span>
               </div>
 
-              <div>Last updated {formatDate(note.updated_at)}</div>
+              <div className="flex items-center gap-1">
+                <IconCalendarEvent size={14} strokeWidth={1.5} />
+                <span>{formatDate(note.updated_at)}</span>
+              </div>
             </div>
-          </div>
+          </article>
 
-          {/* Note Content */}
-          <div className="p-6">
-            <div
-              className="prose max-w-none"
-              dangerouslySetInnerHTML={{ __html: note.content }}
-            />
-          </div>
+          {/* Note content area matching your TextBlock styling */}
+          <article className="grid grid-cols-12 gap-4">
+            <div className="col-span-12">
+              <div className="bg-white rounded-xl border border-neutral-300 p-6">
+                <div
+                  className="mdx-editor-custom custom-editor-content focus:outline-none"
+                  dangerouslySetInnerHTML={{ __html: note.content }}
+                />
+              </div>
+            </div>
+          </article>
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }
