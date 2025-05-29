@@ -9,15 +9,17 @@ import { getUserId, generateNoteId } from "@/utils/general/notes";
 type SupabaseNote = Tables<`notes`>;
 type RedisNote = {
   id: string;
+  createdAt?: number;
+  updatedAt?: number;
   author?: string;
   title: string;
   content: string;
-  pinned?: boolean;
-  isPrivate?: boolean;
-  isCollapsed?: boolean;
+  is_private?: boolean;
+  is_pinned?: boolean;
+  is_collapsed?: boolean;
   order?: number;
-  createdAt?: number;
-  updatedAt?: number;
+  goal?: number;
+  goal_type?: string;
 };
 
 import {
@@ -268,9 +270,9 @@ export function useCombinedNotes() {
         author: note.author || "",
         title: note.title || "",
         content: note.content || "",
-        isPinned: note.pinned || false,
-        isPrivate: note.isPrivate || false,
-        isCollapsed: note.isCollapsed || false,
+        isPinned: note.is_pinned || false,
+        isPrivate: note.is_private || false,
+        isCollapsed: note.is_collapsed || false,
         createdAt: note.createdAt || Date.now(),
         updatedAt: note.updatedAt || Date.now(),
         order: note.order || 0,
