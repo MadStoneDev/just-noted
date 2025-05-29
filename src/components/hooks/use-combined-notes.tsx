@@ -191,11 +191,17 @@ export function useCombinedNotes() {
    */
   const convertToRedisNote = useCallback(
     (note: CombinedNote): RedisNote => {
-      return {
+      console.log("🔄 Converting to Redis format:", {
+        inputContent: note.content,
+        inputContentLength: note.content?.length,
+        inputContentType: typeof note.content,
+      });
+
+      const result = {
         id: note.id,
         author: note.author || redisUserId || "",
-        title: note.title || "",
-        content: note.content || "",
+        title: note.title ?? "", // Use nullish coalescing
+        content: note.content ?? "", // Use nullish coalescing
         pinned: note.isPinned,
         isPrivate: note.isPrivate,
         isCollapsed: note.isCollapsed,
@@ -203,6 +209,14 @@ export function useCombinedNotes() {
         createdAt: note.createdAt,
         updatedAt: note.updatedAt,
       };
+
+      console.log("✅ Converted to Redis format:", {
+        outputContent: result.content,
+        outputContentLength: result.content?.length,
+        outputContentType: typeof result.content,
+      });
+
+      return result;
     },
     [redisUserId],
   );
@@ -212,11 +226,17 @@ export function useCombinedNotes() {
    */
   const convertToSupabaseNote = useCallback(
     (note: CombinedNote): Partial<SupabaseNote> => {
-      return {
+      console.log("🔄 Converting to Supabase format:", {
+        inputContent: note.content,
+        inputContentLength: note.content?.length,
+        inputContentType: typeof note.content,
+      });
+
+      const result = {
         id: note.id,
-        author: user?.id || note.author || null,
-        title: note.title || null,
-        content: note.content || null,
+        author: user?.id || note.author || "",
+        title: note.title ?? "", // Use nullish coalescing
+        content: note.content ?? "", // Use nullish coalescing
         is_pinned: note.isPinned === undefined ? null : note.isPinned,
         is_private: note.isPrivate === undefined ? null : note.isPrivate,
         is_collapsed: note.isCollapsed === undefined ? null : note.isCollapsed,
@@ -226,6 +246,14 @@ export function useCombinedNotes() {
         goal: note.goal || 0,
         goal_type: note.goal_type || "",
       };
+
+      console.log("✅ Converted to Supabase format:", {
+        outputContent: result.content,
+        outputContentLength: result.content?.length,
+        outputContentType: typeof result.content,
+      });
+
+      return result;
     },
     [user?.id],
   );
@@ -1094,23 +1122,31 @@ export function useCombinedNotes() {
     async (noteId: string, targetSource: NoteSource) => {
       if (!redisUserId) return;
 
-      // Set the transferring state to show loading UI
       setTransferringNoteId(noteId);
 
-      // Find the note to be transferred
       const sourceNote = notes.find((note) => note.id === noteId);
       if (!sourceNote) {
         setTransferringNoteId(null);
         return;
       }
 
-      // Can't transfer to the same source
+      // DEBUG: Log the source note with detailed content info
+      console.log("🔍 SOURCE NOTE:", {
+        id: sourceNote.id,
+        title: sourceNote.title,
+        content: sourceNote.content,
+        contentLength: sourceNote.content?.length,
+        contentType: typeof sourceNote.content,
+        isContentEmpty: !sourceNote.content,
+        source: sourceNote.source,
+        fullNote: sourceNote,
+      });
+
       if (sourceNote.source === targetSource) {
         setTransferringNoteId(null);
         return;
       }
 
-      // For Supabase transfers, user must be authenticated
       if (targetSource === "supabase" && !isAuthenticated) {
         alert("You must be signed in to save notes to the cloud.");
         setTransferringNoteId(null);
@@ -1118,19 +1154,28 @@ export function useCombinedNotes() {
       }
 
       try {
-        // Add an artificial delay at the beginning to ensure the
-        // transferring UI is visible to the user
         await new Promise((resolve) => setTimeout(resolve, 400));
 
-        // Generate a new ID for the note in its new location
         const newNoteId = generateNoteId(notes.map((note) => note.id));
 
-        // Create a copy of the note with the new ID and target source
+        // Create a copy of the note with explicit content preservation
         const noteToTransfer = {
           ...sourceNote,
           id: newNoteId,
           source: targetSource,
+          // Explicitly ensure content is preserved
+          content: sourceNote.content || "", // Use nullish coalescing
         };
+
+        // DEBUG: Log after copying
+        console.log("📋 AFTER COPYING:", {
+          id: noteToTransfer.id,
+          title: noteToTransfer.title,
+          content: noteToTransfer.content,
+          contentLength: noteToTransfer.content?.length,
+          contentType: typeof noteToTransfer.content,
+          source: noteToTransfer.source,
+        });
 
         // Convert note to the target format
         const convertedNote = convertFromCombinedNote(
@@ -1138,24 +1183,46 @@ export function useCombinedNotes() {
           targetSource,
         );
 
-        // For Supabase notes, make sure the author is set correctly
+        // DEBUG: Log converted note
+        console.log("🔄 CONVERTED NOTE:", {
+          id: convertedNote.id,
+          title: convertedNote.title,
+          content: convertedNote.content,
+          contentLength: convertedNote.content?.length,
+          contentType: typeof convertedNote.content,
+          fullConvertedNote: convertedNote,
+        });
+
+        // For Supabase notes, ensure author is set correctly
         if (targetSource === "supabase" && user?.id) {
           convertedNote.author = user.id;
+
+          // DEBUG: Log after setting author
+          console.log("👤 AFTER SETTING AUTHOR:", {
+            id: convertedNote.id,
+            title: convertedNote.title,
+            content: convertedNote.content,
+            contentLength: convertedNote.content?.length,
+            author: convertedNote.author,
+          });
         }
 
         // Now perform the actual backend operations
-        // First create the note in the target storage
         let createResult;
         if (targetSource === "redis") {
+          console.log("💾 SAVING TO REDIS:", convertedNote);
           createResult = await addNoteAction(redisUserId, convertedNote);
         } else if (user?.id) {
+          console.log("☁️ SAVING TO SUPABASE:", convertedNote);
           createResult = await createSupabaseNote(convertedNote);
         } else {
           throw new Error("Cannot transfer to Supabase - not authenticated");
         }
 
+        console.log("✅ CREATE RESULT:", createResult);
+
         if (createResult?.success) {
-          // If creation succeeded, delete from the source storage
+          // Delete from source storage
           let deleteResult;
           if (sourceNote.source === "redis") {
             deleteResult = await deleteNoteAction(redisUserId, noteId);
@@ -1165,13 +1232,14 @@ export function useCombinedNotes() {
             throw new Error("Cannot delete from source storage");
           }
 
-          // If both operations succeeded, update the UI
+          console.log("🗑️ DELETE RESULT:", deleteResult);
+
           if (deleteResult?.success) {
             console.log(
-              `Note successfully transferred from ${sourceNote.source} to ${targetSource}`,
+              `✅ Note successfully transferred from ${sourceNote.source} to ${targetSource}`,
             );
 
-            // Only after successful backend operations, update UI optimistically
+            // Update UI optimistically
             setNotes((prevNotes) => {
               const filteredNotes = prevNotes.filter(
                 (note) => note.id !== noteId,
@@ -1179,26 +1247,25 @@ export function useCombinedNotes() {
               return sortNotes([...filteredNotes, noteToTransfer]);
             });
 
-            // Mark that we've updated state
             markUpdated();
           } else {
-            // If delete failed, we need to refresh from server
-            console.error("Failed to delete source note:", deleteResult?.error);
+            console.error(
+              "❌ Failed to delete source note:",
+              deleteResult?.error,
+            );
             await refreshNotes();
           }
         } else {
-          // If creation failed, don't update UI
           console.error(
-            "Failed to create note in target storage:",
+            "❌ Failed to create note in target storage:",
             createResult?.error,
           );
           await refreshNotes();
         }
       } catch (error) {
+        console.error("💥 Transfer error:", error);
         handleOperationError("transfer note", error);
       } finally {
-        // Keep the transferringNoteId state active for at least 400ms
-        // to ensure UI visibility
         await new Promise((resolve) => setTimeout(resolve, 400));
         setTransferringNoteId(null);
       }
