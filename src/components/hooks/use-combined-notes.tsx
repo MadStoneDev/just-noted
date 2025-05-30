@@ -167,13 +167,13 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
     [],
   );
 
-  const normalizeOrdering = useCallback(
-    (notesToNormalize: CombinedNote[]): CombinedNote[] => {
+  const normaliseOrdering = useCallback(
+    (notesToNormalise: CombinedNote[]): CombinedNote[] => {
       // Separate order 0 notes (these are new notes that need proper placement)
-      const orderZeroNotes = notesToNormalize.filter(
+      const orderZeroNotes = notesToNormalise.filter(
         (note) => note.order === 0,
       );
-      const regularNotes = notesToNormalize.filter((note) => note.order > 0);
+      const regularNotes = notesToNormalise.filter((note) => note.order > 0);
 
       // Sort regular notes by existing order and creation date
       const sortedRegular = [...regularNotes].sort((a, b) => {
@@ -187,12 +187,12 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
       const pinnedOrderZero = orderZeroNotes.filter((note) => note.isPinned);
       const unpinnedOrderZero = orderZeroNotes.filter((note) => !note.isPinned);
 
-      // Combine in logical order: pinned regular, pinned new, unpinned regular, unpinned new
+      // 🔧 FIXED: New unpinned notes should come BEFORE existing unpinned notes
       const finalOrder = [
         ...pinnedRegular,
         ...pinnedOrderZero.sort((a, b) => b.createdAt - a.createdAt), // Latest first
-        ...unpinnedRegular,
-        ...unpinnedOrderZero.sort((a, b) => b.createdAt - a.createdAt), // Latest first
+        ...unpinnedOrderZero.sort((a, b) => b.createdAt - a.createdAt), // Latest first ← MOVED UP
+        ...unpinnedRegular, // ← MOVED DOWN
       ];
 
       // Assign sequential order numbers starting from 1
@@ -246,7 +246,7 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
       ]);
 
       const allNotes = [...redisNotes, ...supabaseNotes];
-      const normalizedNotes = normalizeOrdering(allNotes);
+      const normalizedNotes = normaliseOrdering(allNotes);
       const sortedNotes = sortNotes(normalizedNotes);
 
       if (isMounted.current) {
@@ -260,7 +260,7 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
     redisUserId,
     loadNotesFromRedis,
     loadNotesFromSupabase,
-    normalizeOrdering,
+    normaliseOrdering,
     sortNotes,
     markUpdated,
   ]);
@@ -670,7 +670,7 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
     setIsReorderingInProgress(true);
 
     try {
-      const renumberedNotes = normalizeOrdering(notes);
+      const renumberedNotes = normaliseOrdering(notes);
       setNotes(sortNotes(renumberedNotes));
 
       // Batch update backends
@@ -707,7 +707,7 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
   }, [
     redisUserId,
     notes,
-    normalizeOrdering,
+    normaliseOrdering,
     sortNotes,
     markUpdated,
     refreshNotes,
@@ -811,7 +811,7 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
           allNotes = [newNote];
         }
 
-        setNotes(sortNotes(normalizeOrdering(allNotes)));
+        setNotes(sortNotes(normaliseOrdering(allNotes)));
       } catch (error) {
         console.error("Failed to initialize notes:", error);
       } finally {
@@ -821,7 +821,7 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
     };
 
     initializeNotes();
-  }, [isAuthenticated, sortNotes, normalizeOrdering]);
+  }, [isAuthenticated, sortNotes, normaliseOrdering]);
 
   // Setup refresh interval
   useEffect(() => {
