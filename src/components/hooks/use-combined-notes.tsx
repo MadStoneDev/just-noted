@@ -794,9 +794,12 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
             ? "supabase"
             : "redis";
 
+          // 🔧 FIXED: Use incrementGlobalNoteCount() instead of hardcoding
+          const noteNumber = await incrementGlobalNoteCount();
+
           const newNoteInput: CreateNoteInput = {
             id: generateNoteId([]),
-            title: "Just Noted #1",
+            title: `Just Noted #${noteNumber}`, // ✅ Now uses global counter
             content: "",
           };
 
@@ -811,7 +814,7 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
           allNotes = [newNote];
         }
 
-        setNotes(sortNotes(normaliseOrdering(allNotes)));
+        setNotes(sortNotes(normalizeOrdering(allNotes)));
       } catch (error) {
         console.error("Failed to initialize notes:", error);
       } finally {
@@ -821,7 +824,7 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
     };
 
     initializeNotes();
-  }, [isAuthenticated, sortNotes, normaliseOrdering]);
+  }, [isAuthenticated, sortNotes, normalizeOrdering]);
 
   // Setup refresh interval
   useEffect(() => {
