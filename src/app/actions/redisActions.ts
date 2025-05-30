@@ -1,103 +1,174 @@
 ﻿"use server";
 
 import redis from "@/utils/redis";
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-
-import { Note } from "@/types/notes";
+import { RedisNote, CreateNoteInput } from "@/types/combined-notes";
 import { incrementGlobalNoteCount } from "./counterActions";
 
+// Constants
+const NOTES_KEY_PREFIX = "notes:";
+const MAX_RETRIES = 3;
+const TWO_MONTHS_IN_SECONDS = 2 * 30 * 24 * 60 * 60; // 2 months expiration
+
+// Utility functions
 async function isBotRequest(action: string): Promise<boolean> {
   try {
-    const { headers } = require("next/headers");
+    const headersList = await headers();
+    const isBotHeader = headersList?.get("x-is-bot");
+    const isBot = isBotHeader === "true";
 
-    try {
-      const headersList = await headers();
-      const isBotHeader = headersList?.get("x-is-bot");
-      const isBot = isBotHeader === "true";
-
-      if (isBot) {
-        console.log(`Bot detected, skipping ${action}`);
-      }
-
-      return isBot;
-    } catch (headerError) {
-      console.log(
-        `Headers not available during ${action}, assuming not a bot request`,
-      );
-
-      return false;
+    if (isBot) {
+      console.log(`Bot detected, skipping ${action}`);
     }
-  } catch (error) {
-    console.error(`Error in isBotRequest for ${action}:`, error);
+
+    return isBot;
+  } catch (headerError) {
+    console.log(
+      `Headers not available during ${action}, assuming not a bot request`,
+    );
     return false;
   }
+}
+
+function validateUserId(userId: string): void {
+  if (!userId?.trim()) {
+    throw new Error("Invalid user ID: User ID cannot be empty");
+  }
+}
+
+async function getNotesWithRetry(
+  userId: string,
+  retries = MAX_RETRIES,
+): Promise<RedisNote[]> {
+  try {
+    const notes = (await redis.get(`${NOTES_KEY_PREFIX}${userId}`)) as
+      | RedisNote[]
+      | null;
+    return notes || [];
+  } catch (error) {
+    if (retries > 0) {
+      console.warn(
+        `Failed to get notes, retrying... (${retries} attempts left)`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      return getNotesWithRetry(userId, retries - 1);
+    }
+    throw error;
+  }
+}
+
+async function setNotesWithRetry(
+  userId: string,
+  notes: RedisNote[],
+  retries = MAX_RETRIES,
+): Promise<void> {
+  try {
+    await redis.setex(
+      `${NOTES_KEY_PREFIX}${userId}`,
+      TWO_MONTHS_IN_SECONDS,
+      notes,
+    );
+  } catch (error) {
+    if (retries > 0) {
+      console.warn(
+        `Failed to set notes, retrying... (${retries} attempts left)`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      return setNotesWithRetry(userId, notes, retries - 1);
+    }
+    throw error;
+  }
+}
+
+function sortNotesByPinStatus(notes: RedisNote[]): RedisNote[] {
+  return [...notes].sort((a, b) => {
+    // First sort by pin status (pinned notes first)
+    if ((a.pinned ?? false) && !(b.pinned ?? false)) return -1;
+    if (!(a.pinned ?? false) && (b.pinned ?? false)) return 1;
+
+    // If both notes have order values, use them for sorting
+    if (a.order !== undefined && b.order !== undefined) {
+      return a.order - b.order;
+    }
+
+    // For pinned notes without order, sort by updatedAt (most recent first)
+    if (a.pinned && b.pinned) {
+      return (b.updatedAt ?? 0) - (a.updatedAt ?? 0);
+    }
+
+    // For unpinned notes without order, sort by createdAt (most recent first)
+    return (b.createdAt ?? 0) - (a.createdAt ?? 0);
+  });
 }
 
 async function updateNoteProperty(
   userId: string,
   noteId: string,
-  updateFn: (note: Note) => Note,
-) {
-  const transaction = redis.multi();
-
-  transaction.get(`notes:${userId}`);
-  const results = await transaction.exec();
-
-  if (!results || !results[0]) {
-    throw new Error(`Failed to get notes for user ${userId}`);
-  }
-
-  const currentNotes = (results[0] as Note[]) || [];
+  updateFn: (note: RedisNote) => RedisNote,
+): Promise<RedisNote[]> {
+  const currentNotes = await getNotesWithRetry(userId);
   const noteIndex = currentNotes.findIndex((note) => note.id === noteId);
 
   if (noteIndex === -1) {
     throw new Error(`Note ${noteId} not found for user ${userId}`);
   }
 
+  const updatedNote = updateFn(currentNotes[noteIndex]);
+
+  // Basic validation for updated note
+  if (
+    !updatedNote.id ||
+    !updatedNote.title ||
+    typeof updatedNote.content !== "string"
+  ) {
+    throw new Error("Invalid note data after update");
+  }
+
   const updatedNotes = [
     ...currentNotes.slice(0, noteIndex),
-
-    updateFn(currentNotes[noteIndex]),
+    updatedNote,
     ...currentNotes.slice(noteIndex + 1),
   ];
 
-  await redis.set(`notes:${userId}`, updatedNotes);
+  await setNotesWithRetry(userId, updatedNotes);
   return updatedNotes;
 }
 
+// Convert CreateNoteInput to RedisNote
+function createNoteInputToRedisNote(
+  input: CreateNoteInput,
+  userId: string,
+): RedisNote {
+  const now = Date.now();
+  return {
+    id: input.id,
+    author: userId,
+    title: input.title,
+    content: input.content,
+    pinned: input.pinned ?? false,
+    isPrivate: input.isPrivate ?? false,
+    isCollapsed: input.isCollapsed ?? false,
+    order: input.order ?? 0,
+    createdAt: now,
+    updatedAt: now,
+    goal: input.goal || 0,
+    goal_type: input.goal_type || "",
+  };
+}
+
+// Main action functions
 export async function deleteNoteAction(userId: string, noteId: string) {
   try {
     if (await isBotRequest("note delete")) {
-      return {
-        success: true,
-      };
+      return { success: true };
     }
 
-    const { isUserIdActive, registerUserId, refreshUserActivity } =
-      await import("@/utils/userIdManagement");
+    validateUserId(userId);
 
-    const isActive = await isUserIdActive(userId);
-
-    if (!isActive) {
-      await registerUserId(userId);
-    } else {
-      await refreshUserActivity(userId);
-    }
-
-    const transaction = redis.multi();
-    transaction.get(`notes:${userId}`);
-    const results = await transaction.exec();
-
-    if (!results || !results[0]) {
-      return {
-        success: false,
-        error: `Failed to get notes for user ${userId}`,
-      };
-    }
-
-    const currentNotes = (results[0] as Note[]) || [];
-
+    const currentNotes = await getNotesWithRetry(userId);
     const noteToDelete = currentNotes.find((note) => note.id === noteId);
+
     if (!noteToDelete) {
       return {
         success: false,
@@ -106,11 +177,9 @@ export async function deleteNoteAction(userId: string, noteId: string) {
     }
 
     const updatedNotes = currentNotes.filter((note) => note.id !== noteId);
-
-    await redis.set(`notes:${userId}`, updatedNotes);
+    await setNotesWithRetry(userId, updatedNotes);
 
     revalidatePath("/");
-
     return {
       success: true,
       notes: updatedNotes,
@@ -130,44 +199,35 @@ export async function updateNoteAction(
   userId: string,
   noteId: string,
   content: string,
-  wordCountGoal: number,
-  wordCountGoalType: string,
+  wordCountGoal: number = 0,
+  wordCountGoalType: string = "",
 ) {
   try {
     if (await isBotRequest("note update")) {
-      return {
-        success: true,
-      };
+      return { success: true };
     }
 
-    if (!userId) {
+    validateUserId(userId);
+
+    // Validate inputs
+    if (typeof content !== "string") {
       return {
         success: false,
-        error: "Invalid user ID: User ID cannot be empty",
+        error: "Invalid content: Content must be a string",
       };
     }
 
-    // Validate the user ID and ensure it's registered
-    const { isUserIdActive, registerUserId, refreshUserActivity } =
-      await import("@/utils/userIdManagement");
-
-    const isActive = await isUserIdActive(userId);
-    if (!isActive) {
-      await registerUserId(userId);
-    } else {
-      await refreshUserActivity(userId);
-    }
+    const validGoalTypes = ["words", "characters", ""];
+    const goalType = validGoalTypes.includes(wordCountGoalType)
+      ? wordCountGoalType
+      : "";
 
     try {
-      // Try to update the note property
       const updatedNotes = await updateNoteProperty(userId, noteId, (note) => ({
         ...note,
         content,
         goal: wordCountGoal || 0,
-        goal_type:
-          wordCountGoalType === "words" || wordCountGoalType === "characters"
-            ? wordCountGoalType
-            : "",
+        goal_type: goalType as "words" | "characters" | "",
         updatedAt: Date.now(),
       }));
 
@@ -177,40 +237,27 @@ export async function updateNoteAction(
         notes: updatedNotes,
       };
     } catch (error) {
-      // If the update fails, it might be because the note doesn't exist
-      // Let's check if it's because the note wasn't found
+      // If note doesn't exist, create a new one
       if (error instanceof Error && error.message.includes("not found")) {
-        // Create a new note with this ID
         console.log(
           `Note ${noteId} not found for user ${userId}, creating new note`,
         );
 
-        // Get existing notes to add the new note
-        let currentNotes: Note[] = [];
-        try {
-          currentNotes = ((await redis.get(`notes:${userId}`)) as Note[]) || [];
-        } catch (e) {
-          // If no notes exist yet, use an empty array
-          console.log(
-            `No existing notes for user ${userId}, creating new record`,
-          );
-        }
-
-        // Create a new note
+        const currentNotes = await getNotesWithRetry(userId);
         const noteNumber = await incrementGlobalNoteCount();
-        const newNote: Note = {
+
+        const newNoteInput: CreateNoteInput = {
           id: noteId,
           title: `Just Noted #${noteNumber}`,
           content,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
+          goal: wordCountGoal || 0,
+          goal_type: goalType as "words" | "characters" | "",
         };
 
-        // Add to beginning of notes array
+        const newNote = createNoteInputToRedisNote(newNoteInput, userId);
         const updatedNotes = [newNote, ...currentNotes];
 
-        // Save to Redis
-        await redis.set(`notes:${userId}`, updatedNotes);
+        await setNotesWithRetry(userId, updatedNotes);
 
         revalidatePath("/");
         return {
@@ -218,8 +265,6 @@ export async function updateNoteAction(
           notes: updatedNotes,
         };
       }
-
-      // Re-throw for other types of errors
       throw error;
     }
   } catch (error) {
@@ -234,14 +279,9 @@ export async function updateNoteAction(
 
 export async function getNotesByUserIdAction(userId: string) {
   try {
-    if (!userId) {
-      return {
-        success: false,
-        error: "Invalid user ID: User ID cannot be empty",
-      };
-    }
+    validateUserId(userId);
 
-    const notes = ((await redis.get(`notes:${userId}`)) as Note[]) || [];
+    const notes = await getNotesWithRetry(userId);
     return { success: true, notes };
   } catch (error) {
     console.error("Failed to get notes:", error);
@@ -253,66 +293,50 @@ export async function getNotesByUserIdAction(userId: string) {
   }
 }
 
-export async function addNoteAction(userId: string, newNote: Note) {
+export async function addNoteAction(
+  userId: string,
+  newNoteInput: CreateNoteInput | RedisNote,
+) {
   try {
     if (await isBotRequest("note add")) {
-      return {
-        success: true,
-      };
+      return { success: true };
     }
 
-    if (!userId) {
-      return {
-        success: false,
-        error: "Invalid user ID: User ID cannot be empty",
-      };
-    }
+    validateUserId(userId);
 
-    if (!newNote || !newNote.id) {
+    if (!newNoteInput?.id?.trim()) {
       return {
         success: false,
         error: "Invalid note data: Note must have an ID",
       };
     }
 
-    const { isUserIdActive, registerUserId, refreshUserActivity } =
-      await import("@/utils/userIdManagement");
-
-    const isActive = await isUserIdActive(userId);
-
-    if (!isActive) {
-      await registerUserId(userId);
+    // Convert to RedisNote if it's CreateNoteInput
+    let newNote: RedisNote;
+    if ("createdAt" in newNoteInput && "updatedAt" in newNoteInput) {
+      // It's already a RedisNote
+      newNote = newNoteInput;
     } else {
-      await refreshUserActivity(userId);
+      // Convert CreateNoteInput to RedisNote
+      const noteNumber = await incrementGlobalNoteCount();
+      const input = newNoteInput as CreateNoteInput;
+
+      newNote = createNoteInputToRedisNote(
+        {
+          ...input,
+          title:
+            input.title === "Just Noted"
+              ? `Just Noted #${noteNumber}`
+              : input.title,
+        },
+        userId,
+      );
     }
 
-    const noteNumber = await incrementGlobalNoteCount();
+    const currentNotes = await getNotesWithRetry(userId);
+    const updatedNotes = [newNote, ...currentNotes];
 
-    const now = Date.now();
-    const noteWithTimestamps = {
-      ...newNote,
-      title:
-        newNote.title === "Just Noted"
-          ? `Just Noted #${noteNumber}`
-          : newNote.title,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    const transaction = redis.multi();
-    transaction.get(`notes:${userId}`);
-    const results = await transaction.exec();
-
-    let currentNotes: Note[] = [];
-    if (results && results[0]) {
-      currentNotes = (results[0] as Note[]) || [];
-    } else {
-      console.log(`No existing notes for user ${userId}, creating new record`);
-    }
-
-    const updatedNotes = [noteWithTimestamps, ...currentNotes];
-
-    await redis.set(`notes:${userId}`, updatedNotes);
+    await setNotesWithRetry(userId, updatedNotes);
 
     revalidatePath("/");
     return { success: true, notes: updatedNotes };
@@ -333,33 +357,21 @@ export async function updateNoteTitleAction(
 ) {
   try {
     if (await isBotRequest("note title update")) {
-      return {
-        success: true,
-      };
+      return { success: true };
     }
 
-    if (!title.trim()) {
+    if (!title?.trim()) {
       return {
         success: false,
         error: "Invalid title: Title cannot be empty",
       };
     }
 
-    const { isUserIdActive, registerUserId, refreshUserActivity } =
-      await import("@/utils/userIdManagement");
+    validateUserId(userId);
 
-    const isActive = await isUserIdActive(userId);
-
-    if (!isActive) {
-      await registerUserId(userId);
-    } else {
-      await refreshUserActivity(userId);
-    }
-
-    // Update the note title
     const updatedNotes = await updateNoteProperty(userId, noteId, (note) => ({
       ...note,
-      title,
+      title: title.trim(),
       updatedAt: Date.now(),
     }));
 
@@ -385,40 +397,21 @@ export async function updateNotePinStatusAction(
 ) {
   try {
     if (await isBotRequest("note pin status update")) {
-      return {
-        success: true,
-      };
+      return { success: true };
     }
 
-    const { isUserIdActive, registerUserId, refreshUserActivity } =
-      await import("@/utils/userIdManagement");
+    validateUserId(userId);
 
-    const isActive = await isUserIdActive(userId);
-
-    if (!isActive) {
-      await registerUserId(userId);
-    } else {
-      await refreshUserActivity(userId);
-    }
-
-    // Update the note with the new pin status
     const updatedNotes = await updateNoteProperty(userId, noteId, (note) => ({
       ...note,
       pinned,
       updatedAt: Date.now(),
-      // Preserve original createdAt or use updatedAt as fallback
-      createdAt: note.createdAt || note.updatedAt || Date.now(),
     }));
 
-    // Sort notes by pin status and order for consistent order
     const sortedNotes = sortNotesByPinStatus(updatedNotes);
+    await setNotesWithRetry(userId, sortedNotes);
 
-    // Save sorted notes back to Redis
-    await redis.set(`notes:${userId}`, sortedNotes);
-
-    // Force revalidation
     revalidatePath("/");
-
     return {
       success: true,
       notes: sortedNotes,
@@ -433,157 +426,6 @@ export async function updateNotePinStatusAction(
   }
 }
 
-export async function reorderNoteAction(
-  userId: string,
-  noteId: string,
-  direction: "up" | "down",
-) {
-  try {
-    if (await isBotRequest("note reorder")) {
-      return {
-        success: true,
-      };
-    }
-
-    const { isUserIdActive, registerUserId, refreshUserActivity } =
-      await import("@/utils/userIdManagement");
-
-    const isActive = await isUserIdActive(userId);
-
-    if (!isActive) {
-      await registerUserId(userId);
-    } else {
-      await refreshUserActivity(userId);
-    }
-
-    const transaction = redis.multi();
-    transaction.get(`notes:${userId}`);
-    const results = await transaction.exec();
-
-    if (!results || !results[0]) {
-      return {
-        success: false,
-        error: `Failed to get notes for user ${userId}`,
-      };
-    }
-
-    const currentNotes = (results[0] as Note[]) || [];
-
-    const noteIndex = currentNotes.findIndex((note) => note.id === noteId);
-
-    if (noteIndex === -1) {
-      return {
-        success: false,
-        error: `Note with ID ${noteId} not found for user ${userId}`,
-      };
-    }
-
-    const currentNote = currentNotes[noteIndex];
-
-    const pinnedNotes = currentNotes.filter((note) => note.pinned);
-    const unpinnedNotes = currentNotes.filter((note) => !note.pinned);
-
-    let updatedPinnedNotes: Note[] = [...pinnedNotes];
-    let updatedUnpinnedNotes: Note[] = [...unpinnedNotes];
-
-    if (currentNote.pinned) {
-      const pinnedIndex = pinnedNotes.findIndex((note) => note.id === noteId);
-
-      if (direction === "up" && pinnedIndex > 0) {
-        updatedPinnedNotes = [
-          ...pinnedNotes.slice(0, pinnedIndex - 1),
-          pinnedNotes[pinnedIndex],
-          pinnedNotes[pinnedIndex - 1],
-          ...pinnedNotes.slice(pinnedIndex + 1),
-        ];
-      } else if (direction === "down" && pinnedIndex < pinnedNotes.length - 1) {
-        updatedPinnedNotes = [
-          ...pinnedNotes.slice(0, pinnedIndex),
-          pinnedNotes[pinnedIndex + 1],
-          pinnedNotes[pinnedIndex],
-          ...pinnedNotes.slice(pinnedIndex + 2),
-        ];
-      }
-
-      updatedPinnedNotes = updatedPinnedNotes.map((note, index) => ({
-        ...note,
-        order: index,
-      }));
-    } else {
-      const unpinnedIndex = unpinnedNotes.findIndex(
-        (note) => note.id === noteId,
-      );
-
-      if (direction === "up" && unpinnedIndex > 0) {
-        updatedUnpinnedNotes = [
-          ...unpinnedNotes.slice(0, unpinnedIndex - 1),
-          unpinnedNotes[unpinnedIndex],
-          unpinnedNotes[unpinnedIndex - 1],
-          ...unpinnedNotes.slice(unpinnedIndex + 1),
-        ];
-      } else if (
-        direction === "down" &&
-        unpinnedIndex < unpinnedNotes.length - 1
-      ) {
-        updatedUnpinnedNotes = [
-          ...unpinnedNotes.slice(0, unpinnedIndex),
-          unpinnedNotes[unpinnedIndex + 1],
-          unpinnedNotes[unpinnedIndex],
-          ...unpinnedNotes.slice(unpinnedIndex + 2),
-        ];
-      }
-
-      const pinnedCount = updatedPinnedNotes.length;
-      updatedUnpinnedNotes = updatedUnpinnedNotes.map((note, index) => ({
-        ...note,
-        order: pinnedCount + index,
-      }));
-    }
-
-    const finalUpdatedNotes = [...updatedPinnedNotes, ...updatedUnpinnedNotes];
-
-    await redis.set(`notes:${userId}`, finalUpdatedNotes);
-
-    revalidatePath("/");
-    return {
-      success: true,
-      notes: finalUpdatedNotes,
-    };
-  } catch (error) {
-    console.error("Failed to reorder note:", error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return {
-      success: false,
-      error: `Failed to reorder note: ${errorMessage}`,
-    };
-  }
-}
-
-function sortNotesByPinStatus(notes: Note[]): Note[] {
-  return [...notes].sort((a, b) => {
-    // First sort by pin status (pinned notes first)
-    if (a.pinned && !b.pinned) return -1;
-    if (!a.pinned && b.pinned) return 1;
-
-    // If both notes have order values, use them for sorting
-    if (a.order !== undefined && b.order !== undefined) {
-      return a.order - b.order;
-    }
-
-    // For pinned notes without order, sort by updatedAt (most recent first)
-    if (a.pinned && b.pinned) {
-      const aTime = a.updatedAt || 0;
-      const bTime = b.updatedAt || 0;
-      return bTime - aTime;
-    }
-
-    // For unpinned notes without order, sort by createdAt (most recent first)
-    const aCreate = a.createdAt || 0;
-    const bCreate = b.createdAt || 0;
-    return bCreate - aCreate;
-  });
-}
-
 export async function updateNotePrivacyStatusAction(
   userId: string,
   noteId: string,
@@ -591,32 +433,18 @@ export async function updateNotePrivacyStatusAction(
 ) {
   try {
     if (await isBotRequest("note privacy update")) {
-      return {
-        success: true,
-      };
+      return { success: true };
     }
 
-    const { isUserIdActive, registerUserId, refreshUserActivity } =
-      await import("@/utils/userIdManagement");
+    validateUserId(userId);
 
-    const isActive = await isUserIdActive(userId);
-
-    if (!isActive) {
-      await registerUserId(userId);
-    } else {
-      await refreshUserActivity(userId);
-    }
-
-    // Update the note with the new privacy status
     const updatedNotes = await updateNoteProperty(userId, noteId, (note) => ({
       ...note,
       isPrivate,
       updatedAt: Date.now(),
     }));
 
-    // Force revalidation
     revalidatePath("/");
-
     return {
       success: true,
       notes: updatedNotes,
@@ -638,32 +466,18 @@ export async function updateNoteCollapsedStatusAction(
 ) {
   try {
     if (await isBotRequest("note collapse status update")) {
-      return {
-        success: true,
-      };
+      return { success: true };
     }
 
-    const { isUserIdActive, registerUserId, refreshUserActivity } =
-      await import("@/utils/userIdManagement");
+    validateUserId(userId);
 
-    const isActive = await isUserIdActive(userId);
-
-    if (!isActive) {
-      await registerUserId(userId);
-    } else {
-      await refreshUserActivity(userId);
-    }
-
-    // Update the note with the new collapsed status
     const updatedNotes = await updateNoteProperty(userId, noteId, (note) => ({
       ...note,
       isCollapsed,
       updatedAt: Date.now(),
     }));
 
-    // Force revalidation
     revalidatePath("/");
-
     return {
       success: true,
       notes: updatedNotes,
@@ -679,45 +493,24 @@ export async function updateNoteCollapsedStatusAction(
 }
 
 export async function updateNoteOrderAction(
-  userId: string | null,
+  userId: string,
   noteId: string,
   newOrder: number,
 ) {
   try {
     if (await isBotRequest("note order update")) {
-      return {
-        success: true,
-      };
+      return { success: true };
     }
 
-    if (!userId) {
-      return {
-        success: false,
-        error: "Invalid user ID: User ID cannot be empty",
-      };
-    }
+    validateUserId(userId);
 
-    const { isUserIdActive, registerUserId, refreshUserActivity } =
-      await import("@/utils/userIdManagement");
-
-    const isActive = await isUserIdActive(userId);
-
-    if (!isActive) {
-      await registerUserId(userId);
-    } else {
-      await refreshUserActivity(userId);
-    }
-
-    // Update the note with the new order
     const updatedNotes = await updateNoteProperty(userId, noteId, (note) => ({
       ...note,
       order: newOrder,
       updatedAt: Date.now(),
     }));
 
-    // Force revalidation
     revalidatePath("/");
-
     return {
       success: true,
       notes: updatedNotes,

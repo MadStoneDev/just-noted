@@ -27,6 +27,27 @@ export async function registerUserId(userId: string): Promise<boolean> {
 }
 
 /**
+ * Refresh the activity timestamp for a user ID
+ * This will extend the TTL for another 2 months
+ */
+export async function refreshUserActivity(userId: string): Promise<boolean> {
+  try {
+    // Set the current timestamp as the activity value with a 2-month TTL
+    const now = Date.now();
+    await redis.setex(
+      `${USER_ACTIVITY_PREFIX}${userId}`,
+      TWO_MONTHS_SECONDS,
+      now.toString(),
+    );
+
+    return true;
+  } catch (error) {
+    console.error("Failed to refresh user activity:", error);
+    return false;
+  }
+}
+
+/**
  * Check if a user ID is active (has an activity record that hasn't expired)
  */
 export async function isUserIdActive(userId: string): Promise<boolean> {
@@ -36,36 +57,6 @@ export async function isUserIdActive(userId: string): Promise<boolean> {
   } catch (error) {
     console.error("Failed to check user ID:", error);
     return true;
-  }
-}
-
-/**
- * Remove a user ID from active tracking
- */
-export async function removeUserId(userId: string): Promise<boolean> {
-  try {
-    await redis.del(`${USER_ACTIVITY_PREFIX}${userId}`);
-
-    return true;
-  } catch (error) {
-    console.error("Failed to remove user ID:", error);
-    return false;
-  }
-}
-
-/**
- * Get the timestamp of the last activity for a user
- * Returns null if the user is not active
- */
-export async function getUserLastActivity(
-  userId: string,
-): Promise<number | null> {
-  try {
-    const timestamp = await redis.get(`${USER_ACTIVITY_PREFIX}${userId}`);
-    return timestamp ? parseInt(timestamp as string, 10) : null;
-  } catch (error) {
-    console.error("Failed to get user last activity:", error);
-    return null;
   }
 }
 
@@ -99,25 +90,4 @@ async function scanAllKeys(pattern: string): Promise<string[]> {
   } while (cursor !== 0);
 
   return allKeys;
-}
-
-/**
- * Refresh the activity timestamp for a user ID
- * This will extend the TTL for another 2 months
- */
-export async function refreshUserActivity(userId: string): Promise<boolean> {
-  try {
-    // Set the current timestamp as the activity value with a 2-month TTL
-    const now = Date.now();
-    await redis.setex(
-      `${USER_ACTIVITY_PREFIX}${userId}`,
-      TWO_MONTHS_SECONDS,
-      now.toString(),
-    );
-
-    return true;
-  } catch (error) {
-    console.error("Failed to refresh user activity:", error);
-    return false;
-  }
 }

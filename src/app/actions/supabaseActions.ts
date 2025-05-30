@@ -2,35 +2,109 @@
 
 import { Tables } from "../../../database.types";
 import { createClient } from "@/utils/supabase/server";
+import { CombinedNote } from "@/types/combined-notes";
 
-type SupabaseNote = Tables<`notes`>;
+type SupabaseNote = Tables<"notes">;
+
+// Cache the Supabase client creation
 const getSupabase = async () => await createClient();
 
-// Create Note
-export const createNote = async (newNote: Partial<SupabaseNote>) => {
+// Helper function to get authenticated user consistently
+async function getAuthenticatedUser() {
   const supabase = await getSupabase();
+  const { data: authData, error } = await supabase.auth.getUser();
 
+  if (error || !authData.user?.id) {
+    throw new Error("User not authenticated");
+  }
+
+  return { supabase, userId: authData.user.id };
+}
+
+// Convert CombinedNote to Supabase format
+function toSupabaseNote(note: Partial<CombinedNote>): Partial<SupabaseNote> {
+  // Validate goal_type before conversion
+  const validGoalTypes = ["words", "characters", ""];
+  const goalType = validGoalTypes.includes(note.goal_type as any)
+    ? note.goal_type
+    : "";
+
+  return {
+    id: note.id,
+    author: note.author,
+    title: note.title || "",
+    content: note.content || "",
+    goal: note.goal || 0,
+    goal_type: goalType, // ← Fixed: validated goal_type
+    is_pinned: note.isPinned ?? false,
+    is_private: note.isPrivate ?? false,
+    is_collapsed: note.isCollapsed ?? false,
+    order: note.order || 0,
+    created_at: note.createdAt
+      ? new Date(note.createdAt).toISOString()
+      : new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+}
+
+// Convert Supabase note to CombinedNote format
+function fromSupabaseNote(note: SupabaseNote): CombinedNote {
+  // Validate goal_type from database
+  const validGoalTypes = ["words", "characters", ""];
+  const goalType = validGoalTypes.includes(note.goal_type as any)
+    ? (note.goal_type as "words" | "characters" | "")
+    : "";
+
+  return {
+    id: note.id,
+    author: note.author || "",
+    title: note.title || "",
+    content: note.content || "",
+    goal: note.goal || 0,
+    goal_type: goalType, // ← Fixed: validated goal_type
+    isPinned: note.is_pinned ?? false,
+    isPrivate: note.is_private ?? false,
+    isCollapsed: note.is_collapsed ?? false,
+    order: note.order || 0,
+    createdAt: note.created_at
+      ? new Date(note.created_at).getTime()
+      : Date.now(),
+    updatedAt: note.updated_at
+      ? new Date(note.updated_at).getTime()
+      : Date.now(),
+    source: "supabase",
+  };
+}
+
+// Create Note
+export const createNote = async (newNote: Partial<CombinedNote>) => {
   try {
-    // Explicitly perform an INSERT operation, not an UPSERT
+    const { supabase, userId } = await getAuthenticatedUser();
+
+    // Convert to Supabase format
+    const supabaseNote = toSupabaseNote(newNote);
+
+    // Ensure author is set
+    supabaseNote.author = userId;
+
     const { data, error } = await supabase
       .from("notes")
-      .insert(newNote)
+      .insert(supabaseNote)
       .select()
       .single();
 
     if (error) {
-      console.error("Supabase insert error:", {
-        message: error.message,
-        details: error.details,
-        code: error.code,
-      });
+      console.error("Supabase insert error:", error);
       return {
         success: false,
         error: `Database error: ${error.message}`,
       };
     }
 
-    return { success: true, note: data };
+    return {
+      success: true,
+      note: fromSupabaseNote(data),
+    };
   } catch (error) {
     console.error("Exception creating Supabase note:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -43,48 +117,32 @@ export const createNote = async (newNote: Partial<SupabaseNote>) => {
 
 // Update Note
 export const updateNote = async (
-  userId: string,
   noteId: string,
   content: string,
-  wordCountGoal: number,
-  wordCountGoalType: string,
+  wordCountGoal: number = 0,
+  wordCountGoalType: string = "",
 ) => {
-  const supabase = await getSupabase();
-
   try {
-    // Get current auth user to ensure correct ID
-    const { data: authData } = await supabase.auth.getUser();
-    const authUserId = authData.user?.id;
+    const { supabase, userId } = await getAuthenticatedUser();
 
-    // Extra validation - make sure we have a valid user
-    if (!authUserId) {
-      console.error("Auth user ID missing when updating note");
-      return {
-        success: false,
-        error: "User not authenticated",
-      };
-    }
+    const validGoalTypes = ["words", "characters", ""];
+    const goalType = validGoalTypes.includes(wordCountGoalType)
+      ? wordCountGoalType
+      : "";
 
     const { error } = await supabase
       .from("notes")
       .update({
         content,
         goal: wordCountGoal || 0,
-        goal_type:
-          wordCountGoalType === "words" || wordCountGoalType === "characters"
-            ? wordCountGoalType
-            : "",
+        goal_type: goalType,
         updated_at: new Date().toISOString(),
       })
       .eq("id", noteId)
-      .eq("author", authUserId); // Use the authUserId, not the passed userId
+      .eq("author", userId);
 
     if (error) {
-      console.error("Supabase update error:", {
-        message: error.message,
-        details: error.details,
-        code: error.code,
-      });
+      console.error("Supabase update error:", error);
       throw error;
     }
 
@@ -100,34 +158,25 @@ export const updateNote = async (
 };
 
 // Update Note Title
-export const updateNoteTitle = async (
-  userId: string,
-  noteId: string,
-  title: string,
-) => {
-  const supabase = await getSupabase();
-
+export const updateNoteTitle = async (noteId: string, title: string) => {
   try {
-    // Get current auth user to ensure correct ID
-    const { data: authData } = await supabase.auth.getUser();
-    const authUserId = authData.user?.id;
-
-    // Extra validation - make sure we have a valid user
-    if (!authUserId) {
+    if (!title?.trim()) {
       return {
         success: false,
-        error: "User not authenticated",
+        error: "Invalid title: Title cannot be empty",
       };
     }
+
+    const { supabase, userId } = await getAuthenticatedUser();
 
     const { error } = await supabase
       .from("notes")
       .update({
-        title,
+        title: title.trim(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", noteId)
-      .eq("author", authUserId); // Use authUserId instead of passed userId
+      .eq("author", userId);
 
     if (error) {
       throw error;
@@ -145,19 +194,14 @@ export const updateNoteTitle = async (
 };
 
 // Get Notes By User Id
-export const getNotesByUserId = async (userId: string) => {
-  const supabase = await getSupabase();
-
+export const getNotesByUserId = async () => {
   try {
-    // Get auth user to ensure correct type
-    const { data: authData } = await supabase.auth.getUser();
-    const authUserId = authData.user?.id;
+    const { supabase, userId } = await getAuthenticatedUser();
 
-    // Use the auth user ID directly (it's already a UUID)
     const { data, error } = await supabase
       .from("notes")
       .select("*")
-      .eq("author", authUserId) // Use authUserId instead of userId
+      .eq("author", userId)
       .order("is_pinned", { ascending: false })
       .order("order", { ascending: true })
       .order("created_at", { ascending: false });
@@ -167,19 +211,8 @@ export const getNotesByUserId = async (userId: string) => {
       throw error;
     }
 
-    // Map the database column names to our Note type
-    const notes = data.map((item) => ({
-      id: item.id as string,
-      author: (item.author as string) || "",
-      title: (item.title as string) || "",
-      content: (item.content as string) || "",
-      goal: item.goal || 0,
-      goal_type: item.goal_type || "",
-      is_private: item.is_private || false,
-      is_pinned: item.is_pinned || false,
-      is_collapsed: item.is_collapsed || false,
-      order: item.order || 0,
-    }));
+    // Convert to CombinedNote format
+    const notes = data.map(fromSupabaseNote);
 
     return { success: true, notes };
   } catch (error) {
@@ -192,63 +225,14 @@ export const getNotesByUserId = async (userId: string) => {
   }
 };
 
-// Get Note By Note Id
-export const getNoteByNoteId = async (userId: string, noteId: string) => {
-  const supabase = await getSupabase();
-
-  try {
-    const { data, error } = await supabase
-      .from("notes")
-      .select("*")
-      .eq("id", noteId)
-      .eq("author", userId);
-
-    if (error) {
-      throw error;
-    }
-
-    // Map the database column names to our Note type
-    const note = data[0];
-
-    if (!note) {
-      return {
-        success: false,
-        error: `Note ${noteId} not found for user ${userId}`,
-      };
-    }
-
-    return {
-      success: true,
-      note: {
-        id: note.id as string,
-        author: (note.author as string) || "",
-        title: (note.title as string) || "",
-        content: (note.content as string) || "",
-        isPrivate: note.is_private || false,
-        isPinned: note.is_pinned || false,
-        isCollapsed: note.is_collapsed || false,
-        order: note.order || 0,
-      },
-    };
-  } catch (error) {
-    console.error("Failed to get note from Supabase:", error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return {
-      success: false,
-      error: `Failed to retrieve note: ${errorMessage}`,
-    };
-  }
-};
-
 // Update Note Pin Status
 export const updateNotePinStatus = async (
-  userId: string,
   noteId: string,
   isPinned: boolean,
 ) => {
-  const supabase = await getSupabase();
-
   try {
+    const { supabase, userId } = await getAuthenticatedUser();
+
     const { error } = await supabase
       .from("notes")
       .update({
@@ -275,13 +259,12 @@ export const updateNotePinStatus = async (
 
 // Update Note Privacy Status
 export const updateNotePrivacyStatus = async (
-  userId: string,
   noteId: string,
   isPrivate: boolean,
 ) => {
-  const supabase = await getSupabase();
-
   try {
+    const { supabase, userId } = await getAuthenticatedUser();
+
     const { error } = await supabase
       .from("notes")
       .update({
@@ -307,15 +290,13 @@ export const updateNotePrivacyStatus = async (
 };
 
 // Update Note Collapsed Status
-
 export const updateNoteCollapsedStatus = async (
-  userId: string,
   noteId: string,
   isCollapsed: boolean,
 ) => {
-  const supabase = await getSupabase();
-
   try {
+    const { supabase, userId } = await getAuthenticatedUser();
+
     const { error } = await supabase
       .from("notes")
       .update({
@@ -340,24 +321,19 @@ export const updateNoteCollapsedStatus = async (
   }
 };
 
-// Reorder Note
-
-export const reorderNote = async (
-  userId: string,
+// Update Note Order
+export const updateSupabaseNoteOrder = async (
   noteId: string,
-  direction: "up" | "down",
+  newOrder: number,
 ) => {
-  const supabase = await getSupabase();
-
   try {
+    const { supabase, userId } = await getAuthenticatedUser();
+
     const { error } = await supabase
       .from("notes")
       .update({
-        order: supabase.rpc("swap_note_orders", {
-          note_id_1: noteId,
-          note_id_2: noteId,
-          user_id: userId,
-        }),
+        order: newOrder,
+        updated_at: new Date().toISOString(),
       })
       .eq("id", noteId)
       .eq("author", userId);
@@ -368,37 +344,25 @@ export const reorderNote = async (
 
     return { success: true };
   } catch (error) {
-    console.error("Failed to reorder note:", error);
+    console.error("Failed to update note order:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
-      error: `Failed to reorder note: ${errorMessage}`,
+      error: `Failed to update note order: ${errorMessage}`,
     };
   }
 };
 
 // Delete Note
-export const deleteNote = async (userId: string, noteId: string) => {
-  const supabase = await getSupabase();
-
+export const deleteNote = async (noteId: string) => {
   try {
-    // Get current auth user to ensure correct ID
-    const { data: authData } = await supabase.auth.getUser();
-    const authUserId = authData.user?.id;
-
-    // Extra validation - make sure we have a valid user
-    if (!authUserId) {
-      return {
-        success: false,
-        error: "User not authenticated",
-      };
-    }
+    const { supabase, userId } = await getAuthenticatedUser();
 
     const { error } = await supabase
       .from("notes")
       .delete()
       .eq("id", noteId)
-      .eq("author", authUserId); // Use authUserId instead of passed userId
+      .eq("author", userId);
 
     if (error) {
       throw error;
@@ -415,46 +379,45 @@ export const deleteNote = async (userId: string, noteId: string) => {
   }
 };
 
-export const updateSupabaseNoteOrder = async (
-  userId: string | null,
-  noteId: string,
-  newOrder: number,
+// Batch update note orders for better performance
+export const batchUpdateNoteOrders = async (
+  updates: { id: string; order: number }[],
 ) => {
-  const supabase = await getSupabase();
-
   try {
-    // Get current auth user to ensure correct ID
-    const { data: authData } = await supabase.auth.getUser();
-    const authUserId = authData.user?.id;
+    const { supabase, userId } = await getAuthenticatedUser();
 
-    // Extra validation - make sure we have a valid user
-    if (!authUserId) {
+    // Use a transaction-like approach with Promise.allSettled
+    const updatePromises = updates.map(({ id, order }) =>
+      supabase
+        .from("notes")
+        .update({
+          order,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .eq("author", userId),
+    );
+
+    const results = await Promise.allSettled(updatePromises);
+
+    // Check if any failed
+    const failures = results.filter((result) => result.status === "rejected");
+
+    if (failures.length > 0) {
+      console.error("Some order updates failed:", failures);
       return {
         success: false,
-        error: "User not authenticated",
+        error: `${failures.length} order updates failed`,
       };
-    }
-
-    const { error } = await supabase
-      .from("notes")
-      .update({
-        order: newOrder,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", noteId)
-      .eq("author", authUserId); // Use authUserId instead of passed userId
-
-    if (error) {
-      throw error;
     }
 
     return { success: true };
   } catch (error) {
-    console.error("Failed to update note order:", error);
+    console.error("Failed to batch update note orders:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
-      error: `Failed to update note order: ${errorMessage}`,
+      error: `Failed to update note orders: ${errorMessage}`,
     };
   }
 };
