@@ -419,6 +419,11 @@ export default function NoteBlock({
   };
 
   // Functions
+  const getActiveEditorContent = useCallback((): string => {
+    // Return the current noteContent state which should be the most recent
+    return noteContent;
+  }, [noteContent]);
+
   const updateStats = useCallback(
     (text: string) => {
       // Create a temporary DOM element to parse HTML safely
@@ -1037,6 +1042,67 @@ export default function NoteBlock({
     }
   };
 
+  const handleTransferNote = async (targetSource: NoteSource) => {
+    if (!onTransferNote) {
+      setStatusWithTimeout(
+        "Transfer not available",
+        <IconCircleX className="text-red-700" />,
+        true,
+        3000,
+      );
+      return;
+    }
+
+    if (targetSource === "supabase" && !isAuthenticated) {
+      alert("You need to be signed in to save notes to the cloud.");
+      return;
+    }
+
+    try {
+      // Step 1: Save current content if it has changed
+      const currentContent = getActiveEditorContent();
+
+      if (currentContent !== lastSavedContentRef.current) {
+        setStatusWithTimeout(
+          "Saving latest changes...",
+          <IconLoader className="animate-spin" />,
+          false,
+          5000,
+        );
+
+        await saveContent(currentContent, true);
+
+        // Wait for save to complete
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+
+      // Step 2: Transfer with fresh data
+      setStatusWithTimeout(
+        "Transferring...",
+        <IconLoader className="animate-spin" />,
+        false,
+        10000,
+      );
+
+      await onTransferNote(details.id, targetSource);
+
+      setStatusWithTimeout(
+        "Transfer complete!",
+        <IconCircleCheck className="text-mercedes-primary" />,
+        false,
+        2000,
+      );
+    } catch (error) {
+      console.error("Transfer error:", error);
+      setStatusWithTimeout(
+        "Transfer failed",
+        <IconCircleX className="text-red-700" />,
+        true,
+        3000,
+      );
+    }
+  };
+
   // Effects
   // IMPORTANT: Only run this effect once on mount, not on every render
   useEffect(() => {
@@ -1612,19 +1678,11 @@ export default function NoteBlock({
                   {onTransferNote && noteSource && (
                     <button
                       type={`button`}
-                      onClick={() => {
-                        if (noteSource === "redis") {
-                          if (!isAuthenticated) {
-                            alert(
-                              "You need to be signed in to save notes to the cloud.",
-                            );
-                            return;
-                          }
-                          onTransferNote(details.id, "supabase");
-                        } else {
-                          onTransferNote(details.id, "redis");
-                        }
-                      }}
+                      onClick={() =>
+                        handleTransferNote(
+                          noteSource === "redis" ? "supabase" : "redis",
+                        )
+                      }
                       title={
                         noteSource === "redis"
                           ? "Transfer to Cloud"

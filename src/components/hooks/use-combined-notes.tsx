@@ -540,13 +540,13 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
     [redisUserId, notes, markUpdated, handleError],
   );
 
-  // Fixed transfer function with content preservation
   const transferNote = useCallback(
     async (noteId: string, targetSource: NoteSource) => {
       if (!redisUserId) return;
 
-      const sourceNote = notes.find((note) => note.id === noteId);
-      if (!sourceNote || sourceNote.source === targetSource) return;
+      // Step 1: Get the note from local state to determine source
+      const localNote = notes.find((note) => note.id === noteId);
+      if (!localNote || localNote.source === targetSource) return;
 
       if (targetSource === "supabase" && !isAuthenticated) {
         alert("You must be signed in to save notes to the cloud.");
@@ -556,7 +556,34 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
       setTransferringNoteId(noteId);
 
       try {
-        // Create a deep clone with explicit content preservation
+        // Step 2: Fetch the LATEST version from storage before transferring
+        let sourceNote: CombinedNote | null = null;
+
+        if (localNote.source === "redis") {
+          const result = await getNotesByUserIdAction(redisUserId);
+          if (result.success && result.notes) {
+            const redisNote = result.notes.find((note) => note.id === noteId);
+            if (redisNote) {
+              sourceNote = redisToCombi(redisNote);
+            }
+          }
+        } else {
+          const result = await getSupabaseNotesByUserId();
+          if (result.success && result.notes) {
+            sourceNote =
+              result.notes.find((note) => note.id === noteId) || null;
+          }
+        }
+
+        // Fallback to local state if storage fetch fails
+        if (!sourceNote) {
+          console.warn(
+            "Could not fetch latest version from storage, using local state",
+          );
+          sourceNote = localNote;
+        }
+
+        // Step 3: Create a deep clone with explicit content preservation
         const noteToTransfer = cloneNote(sourceNote);
         noteToTransfer.id = generateNoteId(notes.map((n) => n.id));
         noteToTransfer.source = targetSource;
@@ -575,9 +602,10 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
           targetId: noteToTransfer.id,
           source: sourceNote.source,
           target: targetSource,
+          freshFromStorage: sourceNote !== localNote,
         });
 
-        // Save to target storage
+        // Step 4: Save to target storage
         let createResult;
         if (targetSource === "redis") {
           const redisNote = combiToRedis(noteToTransfer);
@@ -592,7 +620,7 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
           );
         }
 
-        // Delete from source storage
+        // Step 5: Delete from source storage
         let deleteResult;
         if (sourceNote.source === "redis") {
           deleteResult = await deleteNoteAction(redisUserId, noteId);
@@ -605,11 +633,14 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
           // Don't throw here - note was created successfully
         }
 
-        // Update UI
+        // Step 6: Update UI with fresh data
         setNotes((prevNotes) => {
           const filtered = prevNotes.filter((note) => note.id !== noteId);
           return sortNotes([...filtered, noteToTransfer]);
         });
+
+        // Step 7: Refresh all notes to ensure consistency
+        await refreshNotes();
 
         markUpdated();
         console.log(
@@ -622,7 +653,15 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
         setTransferringNoteId(null);
       }
     },
-    [redisUserId, notes, isAuthenticated, sortNotes, markUpdated, handleError],
+    [
+      redisUserId,
+      notes,
+      isAuthenticated,
+      sortNotes,
+      markUpdated,
+      handleError,
+      refreshNotes,
+    ],
   );
 
   const syncAndRenumberNotes = useCallback(async () => {

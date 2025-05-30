@@ -11,14 +11,16 @@ const MDEditorComponent = dynamic(() => import("./md-editor-initialiser"), {
 interface Props {
   value: string;
   onChange?: (value: string) => void;
+  onContentCapture?: () => string;
   placeholder?: string;
   className?: string;
-  [key: string]: any; // Allow for additional props to be passed
+  [key: string]: any;
 }
 
 export default function TextBlock({
   value,
   onChange,
+  onContentCapture,
   placeholder = "Start typing...",
   className = "",
   ...props
@@ -26,11 +28,13 @@ export default function TextBlock({
   // States
   const [showTips] = useState(true); // Always show tips
 
-  // Create a ref to the editor
+  // Refs
+  const currentContentRef = useRef(value);
   const editorRef = useRef(null);
 
   // Handle onChange event
   const handleChange = (newContent: string) => {
+    currentContentRef.current = newContent;
     if (onChange) {
       onChange(newContent);
     }
@@ -38,6 +42,13 @@ export default function TextBlock({
 
   // Check if content is empty to handle placeholder correctly
   const isEmpty = !value || value.trim() === "";
+
+  useEffect(() => {
+    if (onContentCapture) {
+      // This allows parent to get the most recent content
+      onContentCapture = () => currentContentRef.current;
+    }
+  }, [onContentCapture]);
 
   return (
     <div className="text-editor-container">
