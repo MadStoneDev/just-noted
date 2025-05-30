@@ -106,7 +106,7 @@ export default function JustNotes() {
                 details={{
                   ...note,
                   // Map the CombinedNote properties to what NoteBlock expects
-                  pinned: note.isPinned,
+                  isPinned: note.isPinned,
                   isPrivate: note.isPrivate,
                   isCollapsed: note.isCollapsed,
                   goal: note.goal,

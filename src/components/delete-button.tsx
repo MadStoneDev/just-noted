@@ -39,7 +39,7 @@ export default function DeleteButton({
     const deletePromise =
       noteSource === "redis"
         ? deleteNoteAction(userId, noteId)
-        : deleteSupabaseNote(userId, noteId);
+        : deleteSupabaseNote(noteId);
 
     deletePromise
       .then((result) => {

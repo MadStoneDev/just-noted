@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useRef, useCallback } from "react";
 
-import { Note } from "@/types/notes";
+import { CombinedNote } from "@/types/notes";
 import TextBlock from "@/components/text-block";
 
 import {
@@ -24,8 +24,6 @@ import {
   IconCloudUpload,
   IconDeviceDesktopDown,
   IconDeviceDesktop,
-  IconBook,
-  IconChartBar,
 } from "@tabler/icons-react";
 
 import {
@@ -83,7 +81,7 @@ interface WordCountGoal {
 }
 
 interface NoteBlockProps {
-  details: Note;
+  details: CombinedNote;
   userId: string;
   showDelete?: boolean;
   onDelete?: (noteId: string) => void;
@@ -124,7 +122,7 @@ export default function NoteBlock({
   const [noteTitle, setNoteTitle] = useState(details.title);
   const [noteContent, setNoteContent] = useState(details.content);
   const [editingTitle, setEditingTitle] = useState(false);
-  const [isPinned, setIsPinned] = useState(details.pinned || false);
+  const [isPinned, setIsPinned] = useState(details.isPinned || false);
   const [isPinUpdating, setIsPinUpdating] = useState(false);
   const [isReordering, setIsReordering] = useState(false);
 
@@ -719,7 +717,6 @@ export default function NoteBlock({
         } else {
           // For Supabase notes - use the updateNote function from supabaseActions
           result = await updateSupabaseNote(
-            userId,
             details.id,
             content,
             wordCountGoal?.target || 0,
@@ -897,7 +894,7 @@ export default function NoteBlock({
         result = await updateNoteTitleAction(userId, details.id, noteTitle);
       } else {
         // For Supabase notes
-        result = await updateSupabaseNoteTitle(userId, details.id, noteTitle);
+        result = await updateSupabaseNoteTitle(details.id, noteTitle);
       }
 
       if (result.success) {
@@ -1048,7 +1045,7 @@ export default function NoteBlock({
     lastSavedContentRef.current = details.content;
 
     // Set initial pin status from the details
-    setIsPinned(details.pinned || false);
+    setIsPinned(details.isPinned || false);
     setIsPrivate(details.isPrivate || false);
     setIsContentExpanded(!(details.isCollapsed || false));
     setIsContentVisible(!(details.isCollapsed || false));
@@ -1087,8 +1084,8 @@ export default function NoteBlock({
 
   // Update pin status if the details change
   useEffect(() => {
-    setIsPinned(details.pinned || false);
-  }, [details.pinned]);
+    setIsPinned(details.isPinned || false);
+  }, [details.isPinned]);
 
   useEffect(() => {
     if (editingTitle && titleInputRef.current) {
