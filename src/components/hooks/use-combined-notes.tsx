@@ -814,7 +814,7 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
           allNotes = [newNote];
         }
 
-        setNotes(sortNotes(normalizeOrdering(allNotes)));
+        setNotes(sortNotes(normaliseOrdering(allNotes)));
       } catch (error) {
         console.error("Failed to initialize notes:", error);
       } finally {
@@ -824,7 +824,7 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
     };
 
     initializeNotes();
-  }, [isAuthenticated, sortNotes, normalizeOrdering]);
+  }, [isAuthenticated, sortNotes, normaliseOrdering]);
 
   // Setup refresh interval
   useEffect(() => {
