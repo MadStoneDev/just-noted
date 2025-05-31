@@ -141,7 +141,8 @@ export default function TextBlock({
         onChange={handleChange}
         onReady={handleEditorReady}
         config={editorConfig}
-        // Prevent unnecessary re-renders
+        placeholder={placeholder}
+        className={`editor-content relative p-3 min-h-[400px] max-h-[500px] bg-white rounded-xl shadow-lg shadow-transparent hover:shadow-neutral-300 focus:shadow-neutral-300 outline-2 outline-transparent focus:outline-mercedes-primary font-light overflow-y-auto whitespace-pre-wrap ${className} transition-all duration-300 ease-in-out`}
         key="markdown-editor"
         {...props}
       />

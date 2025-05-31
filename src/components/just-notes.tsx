@@ -39,7 +39,7 @@ export default function JustNotes() {
   return (
     <main className={`relative grid grid-cols-12 gap-3`}>
       <section className={`px-3 col-span-12 flex items-center justify-between`}>
-        <div className="flex itenothms-center gap-2">
+        <div className="flex items-center gap-2">
           <button
             type={`button`}
             onClick={syncAndRenumberNotes}

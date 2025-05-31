@@ -1319,7 +1319,6 @@ export default function NoteBlock({
           </div>
         </div>
       )}
-
       <article className={`flex flex-col md:flex-row gap-2 md:items-center`}>
         <div
           className={`group flex gap-2 items-center justify-between md:justify-start h-6 font-semibold uppercase`}
@@ -1553,7 +1552,7 @@ export default function NoteBlock({
           <>
             <article className={`grid grid-cols-12 gap-4`}>
               <div
-                className={`col-span-12 sm:col-span-8 md:col-span-9 3xl:col-span-10`}
+                className={`p-2 col-span-12 sm:col-span-8 md:col-span-9 3xl:col-span-10`}
               >
                 <TextBlock
                   value={noteContent}
@@ -1812,7 +1811,6 @@ export default function NoteBlock({
           </>
         )}
       </div>
-
       {/* Page Estimate Modal */}
       {showPageEstimateModal && (
         <PageEstimateModal
@@ -1821,7 +1819,6 @@ export default function NoteBlock({
           onClose={() => setShowPageEstimateModal(false)}
         />
       )}
-
       {/* Word Count Goal Modal */}
       {showWordCountGoalModal && (
         <WordCountGoalModal

@@ -14,13 +14,13 @@ import {
   type MDXEditorMethods,
 } from "@mdxeditor/editor";
 import "@mdxeditor/editor/style.css";
-import { ForwardedRef } from "react";
+import { ForwardedRef, useEffect } from "react";
 
-// Creating a component that initializes MDXEditor with the necessary plugins
 export default function MDEditorInitializer({
   editorRef,
   markdown,
   onChange,
+  onReady, // Extract onReady prop
   placeholder,
   className,
   ...props
@@ -28,11 +28,21 @@ export default function MDEditorInitializer({
   editorRef: ForwardedRef<MDXEditorMethods> | null;
   markdown: string;
   onChange?: (markdown: string) => void;
+  onReady?: () => void; // Add onReady to type definition
   placeholder?: string;
   className?: string;
   [key: string]: any;
 }) {
-  // Tailwind classes for editor styling
+  // Call onReady after component mounts
+  useEffect(() => {
+    if (onReady) {
+      // Small delay to ensure editor is fully initialized
+      setTimeout(() => {
+        onReady();
+      }, 100);
+    }
+  }, [onReady]);
+
   const editorClasses = `${className} mdx-editor-custom`;
 
   return (

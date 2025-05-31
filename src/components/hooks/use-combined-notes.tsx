@@ -12,8 +12,9 @@ import {
   cloneNote,
   validateContentPreservation,
 } from "@/types/combined-notes";
-import { getUserId, generateNoteId } from "@/utils/general/notes";
+
 import { createClient } from "@/utils/supabase/client";
+import { getUserId, generateNoteId } from "@/utils/general/notes";
 import { incrementGlobalNoteCount } from "@/app/actions/counterActions";
 
 // Redis actions
