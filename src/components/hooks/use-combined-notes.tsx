@@ -72,6 +72,9 @@ interface UseCombinedNotesReturn {
   refreshNotes: () => Promise<void>;
   transferNote: (noteId: string, targetSource: NoteSource) => Promise<void>;
   syncAndRenumberNotes: () => Promise<void>;
+
+  registerNoteFlush: (noteId: string, flushFn: () => void) => void;
+  unregisterNoteFlush: (noteId: string) => void;
 }
 
 export function useCombinedNotes(): UseCombinedNotesReturn {
@@ -101,8 +104,20 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
   const isInitialLoad = useRef(true);
   const animationTimeout = useRef<NodeJS.Timeout | null>(null);
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const noteFlushFunctionsRef = useRef<Map<string, () => void>>(new Map());
 
   // Helper Functions
+  const registerNoteFlush = useCallback(
+    (noteId: string, flushFn: () => void) => {
+      noteFlushFunctionsRef.current.set(noteId, flushFn);
+    },
+    [],
+  );
+
+  const unregisterNoteFlush = useCallback((noteId: string) => {
+    noteFlushFunctionsRef.current.delete(noteId);
+  }, []);
+
   const markUpdated = useCallback(() => {
     setLastUpdateTimestamp(Date.now());
   }, []);
@@ -670,6 +685,22 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
     setIsReorderingInProgress(true);
 
     try {
+      // Flush all pending saves before syncing
+      const flushPromises: Promise<void>[] = [];
+      noteFlushFunctionsRef.current.forEach((flushFn) => {
+        flushPromises.push(
+          new Promise<void>((resolve) => {
+            flushFn();
+            setTimeout(resolve, 100); // Give saves time to complete
+          }),
+        );
+      });
+
+      if (flushPromises.length > 0) {
+        await Promise.all(flushPromises);
+        await new Promise((resolve) => setTimeout(resolve, 500)); // Extra buffer
+      }
+
       const renumberedNotes = normaliseOrdering(notes);
       setNotes(sortNotes(renumberedNotes));
 
@@ -712,6 +743,8 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
     markUpdated,
     refreshNotes,
     handleError,
+    registerNoteFlush,
+    unregisterNoteFlush,
   ]);
 
   const getNotePositionInfo = useCallback(
@@ -865,5 +898,7 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
     refreshNotes,
     transferNote,
     syncAndRenumberNotes,
+    registerNoteFlush,
+    unregisterNoteFlush,
   };
 }

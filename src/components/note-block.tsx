@@ -2,6 +2,7 @@
 
 import { CombinedNote } from "@/types/notes";
 import TextBlock from "@/components/text-block";
+import { useOptimisedDebounce } from "@/components/hooks/use-optimised-debounce";
 
 import {
   IconFileTypeTxt,
@@ -42,33 +43,6 @@ import ShareNoteButton from "@/components/share-note-button";
 import PageEstimateModal from "@/components/page-estimate-modal";
 import WordCountGoalModal from "@/components/word-count-goal-modal";
 
-const useDebounce = <T extends (...args: any[]) => any>(
-  callback: T,
-  delay: number,
-): ((...args: Parameters<T>) => void) => {
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  return useCallback(
-    (...args: Parameters<T>) => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-
-      timeoutRef.current = setTimeout(() => {
-        callback(...args);
-      }, delay);
-
-      // Return cleanup function
-      return () => {
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-        }
-      };
-    },
-    [callback, delay],
-  );
-};
-
 interface TopWordCount {
   word: string;
   count: number;
@@ -98,6 +72,8 @@ interface NoteBlockProps {
   isTransferring?: boolean;
   shareableNote?: boolean;
   isAuthenticated?: boolean;
+  onRegisterFlush?: (noteId: string, flushFn: () => void) => void;
+  onUnregisterFlush?: (noteId: string) => void;
 }
 
 export default function NoteBlock({
@@ -117,6 +93,8 @@ export default function NoteBlock({
   onTransferNote,
   isTransferring = false,
   isAuthenticated = false,
+  onRegisterFlush,
+  onUnregisterFlush,
 }: NoteBlockProps) {
   // States
   const [noteTitle, setNoteTitle] = useState(details.title);
@@ -424,6 +402,7 @@ export default function NoteBlock({
     return noteContent;
   }, [noteContent]);
 
+  // Updated updateStats function that preserves empty lines
   const updateStats = useCallback(
     (text: string) => {
       // Create a temporary DOM element to parse HTML safely
@@ -433,13 +412,15 @@ export default function NoteBlock({
       // Get text content which removes all HTML tags and preserves proper spacing
       const plainText = tempDiv.textContent || tempDiv.innerText || "";
 
-      // For more accurate character counting, let's remove all whitespace first
-      const contentWithoutWhitespace = plainText.replace(/\s/g, "");
+      // For word counting, preserve line breaks but normalize multiple spaces
+      // This regex only replaces multiple spaces (not newlines) with single space
+      const normalizedText = plainText
+        .split("\n")
+        .map((line) => line.replace(/[ \t]+/g, " ").trim())
+        .join("\n")
+        .trim();
 
-      // For word counting, we still want normalized text (single spaces between words)
-      const normalizedText = plainText.replace(/\s+/g, " ").trim();
-
-      // Count words (split by whitespace and filter out empty strings)
+      // Count words (split by whitespace including newlines and filter out empty strings)
       const words = normalizedText
         ? normalizedText.split(/\s+/).filter(Boolean)
         : [];
@@ -447,12 +428,8 @@ export default function NoteBlock({
       // Set word count
       setWordCount(words.length);
 
-      // For character count, we have two options:
-      // 1. Count only non-whitespace characters:
-      // setCharCount(contentWithoutWhitespace.length);
-
-      // 2. Count all characters including whitespace, but handle empty case:
-      const isEmpty = contentWithoutWhitespace.length === 0;
+      // For character count, count all characters including whitespace
+      const isEmpty = plainText.replace(/\s/g, "").length === 0;
       setCharCount(isEmpty ? 0 : plainText.length);
 
       // Update reading time
@@ -461,7 +438,7 @@ export default function NoteBlock({
       // Update page estimate
       setPageEstimate(calculatePageEstimate(words.length, currentPageFormat));
 
-      // Update top words (only if the content has a reasonable length to avoid unnecessary processing)
+      // Update top words (only if the content has a reasonable length)
       if (words.length > 20) {
         setTopWords(calculateTopWords(plainText));
       } else {
@@ -596,6 +573,8 @@ export default function NoteBlock({
   const handleMoveNote = (direction: "up" | "down") => {
     if (isReordering) return;
 
+    flushAutoSave();
+
     // Start with loading state
     setIsReordering(true);
 
@@ -685,9 +664,13 @@ export default function NoteBlock({
 
   const saveContent = useCallback(
     async (content: string, isManualSave = false, forceUpdate = false) => {
+      const safeContent = content
+        .replace(/<p><br\s*\/?><\/p>/gi, "<p>&nbsp;</p>")
+        .replace(/<p>\s*<\/p>/gi, "<p>&nbsp;</p>");
+
       // Don't save if content hasn't changed
       if (
-        content === lastSavedContentRef.current &&
+        safeContent === lastSavedContentRef.current &&
         !isManualSave &&
         !forceUpdate
       ) {
@@ -715,7 +698,7 @@ export default function NoteBlock({
           result = await updateNoteAction(
             userId,
             details.id,
-            content,
+            safeContent,
             wordCountGoal?.target || 0,
             wordCountGoal?.type || "",
           );
@@ -723,7 +706,8 @@ export default function NoteBlock({
           // For Supabase notes - use the updateNote function from supabaseActions
           result = await updateSupabaseNote(
             details.id,
-            content,
+            safeContent,
+
             wordCountGoal?.target || 0,
             wordCountGoal?.type || "",
           );
@@ -731,7 +715,7 @@ export default function NoteBlock({
 
         if (result.success) {
           // Only update the lastSavedContent after successful save
-          lastSavedContentRef.current = content;
+          lastSavedContentRef.current = safeContent;
 
           // Show success for both manual and background saves
           setStatusWithTimeout(
@@ -774,19 +758,26 @@ export default function NoteBlock({
   };
 
   // Debounced auto-save - this will NOT update any UI state
-  const debouncedAutoSave = useDebounce((content: string) => {
-    saveContent(content, false);
-  }, 2000);
+  const {
+    debouncedFn: debouncedAutoSave,
+    isPending: isSavePending,
+    cancel: cancelAutoSave,
+    flush: flushAutoSave,
+  } = useOptimisedDebounce(
+    (content: string) => saveContent(content, false),
+    2000,
+    [saveContent],
+  );
 
   const handleChange = useCallback(
     (value: string) => {
       // Update local state first for responsive UI
       setNoteContent(value);
 
-      // Update stats using the more robust HTML stripping function
+      // Update stats with preserved empty lines
       updateStats(value);
 
-      // Queue auto-save without affecting the UI
+      // Queue auto-save
       debouncedAutoSave(value);
     },
     [updateStats, debouncedAutoSave],
@@ -970,6 +961,8 @@ export default function NoteBlock({
   const handleTogglePrivacy = () => {
     const newPrivacyStatus = !isPrivate;
 
+    flushAutoSave();
+
     // Start with loading state
     setIsPrivacyUpdating(true);
 
@@ -1059,6 +1052,8 @@ export default function NoteBlock({
     }
 
     try {
+      flushAutoSave();
+
       // Step 1: Save current content if it has changed
       const currentContent = getActiveEditorContent();
 
@@ -1130,7 +1125,9 @@ export default function NoteBlock({
     updateStats(details.content);
 
     return () => {
+      flushAutoSave();
       clearStatusTimeout();
+      cancelAutoSave();
       if (collapseTimeoutRef.current) {
         clearTimeout(collapseTimeoutRef.current);
       }
@@ -1181,6 +1178,18 @@ export default function NoteBlock({
     prevIsTransferring.current = isTransferring;
   }, [isTransferring]);
 
+  useEffect(() => {
+    if (onRegisterFlush && flushAutoSave) {
+      onRegisterFlush(details.id, flushAutoSave);
+    }
+
+    return () => {
+      if (onUnregisterFlush) {
+        onUnregisterFlush(details.id);
+      }
+    };
+  }, [details.id, flushAutoSave, onRegisterFlush, onUnregisterFlush]);
+
   if (isDeleting) {
     return (
       <section className={`col-span-12 flex items-center gap-2`}>
@@ -1230,6 +1239,23 @@ export default function NoteBlock({
       saveContent(noteContent, false, true);
     }
   }, [wordCountGoal]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isSavePending) {
+        flushAutoSave();
+        // Most browsers will show a generic message
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [isSavePending, flushAutoSave]);
 
   return (
     <section
@@ -1481,27 +1507,38 @@ export default function NoteBlock({
           </article>
         </div>
 
-        {saveStatus && (
+        {(saveStatus || isSavePending) && (
           <div className="flex items-center gap-1 text-sm text-neutral-500 italic">
-            {saveIcon}
-            <span
-              className={
-                saveStatus === "Saved" ||
-                saveStatus === "Pinned" ||
-                saveStatus === "Unpinned" ||
-                saveStatus === "Title saved" ||
-                saveStatus === "Moved up" ||
-                saveStatus === "Moved down"
-                  ? isPrivate
-                    ? "text-violet-800"
-                    : "text-mercedes-primary"
-                  : saveStatus.includes("fail") || saveStatus.includes("Error")
-                    ? "text-red-700"
-                    : ""
-              }
-            >
-              {saveStatus}
-            </span>
+            {isSavePending && !saveStatus ? (
+              <>
+                <IconLoader className="animate-spin opacity-50" size={16} />
+                <span className="opacity-50">Changes pending...</span>
+              </>
+            ) : (
+              <>
+                {saveIcon}
+                <span
+                  className={
+                    saveStatus === "Saved" ||
+                    saveStatus === "Pinned" ||
+                    saveStatus === "Unpinned" ||
+                    saveStatus === "Title saved" ||
+                    saveStatus === "Moved up" ||
+                    saveStatus === "Moved down" ||
+                    saveStatus === "Goal saved"
+                      ? isPrivate
+                        ? "text-violet-800"
+                        : "text-mercedes-primary"
+                      : saveStatus.includes("fail") ||
+                          saveStatus.includes("Error")
+                        ? "text-red-700"
+                        : ""
+                  }
+                >
+                  {saveStatus}
+                </span>
+              </>
+            )}
           </div>
         )}
       </article>

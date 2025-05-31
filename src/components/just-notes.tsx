@@ -26,6 +26,8 @@ export default function JustNotes() {
     getNotePositionInfo,
     transferNote,
     syncAndRenumberNotes,
+    registerNoteFlush,
+    unregisterNoteFlush,
   } = useCombinedNotes();
 
   if (isLoading) {
@@ -131,6 +133,8 @@ export default function JustNotes() {
                 onTransferNote={transferNote}
                 isTransferring={transferringNoteId === note.id}
                 isAuthenticated={isAuthenticated}
+                onRegisterFlush={registerNoteFlush}
+                onUnregisterFlush={unregisterNoteFlush}
               />
             </div>
           );
