@@ -156,6 +156,7 @@ body {
 
 .ProseMirror strong {
     font-weight: 800 !important;
+    color: var(--color-neutral-900) !important;
 }
 
 .ProseMirror em {
