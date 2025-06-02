@@ -152,11 +152,12 @@ body {
 .ProseMirror p {
     margin: 0.75rem 0 !important;
     line-height: 1.6 !important;
+    color: var(--color-neutral-700) !important;
 }
 
 .ProseMirror strong {
     font-weight: 800 !important;
-    color: var(--color-neutral-900) !important;
+    color: var(--color-neutral-800) !important;
 }
 
 .ProseMirror em {
