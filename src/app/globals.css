@@ -155,8 +155,7 @@ body {
 }
 
 .ProseMirror strong {
-    font-weight: 700 !important;
-    color: var(--color-mercedes-secondary) !important;
+    font-weight: 800 !important;
 }
 
 .ProseMirror em {
@@ -189,7 +188,7 @@ body {
 }
 
 .ProseMirror a:hover {
-    color: var(--color-mercedes-secondary) !important;
+    color: var(--color-mercedes-primary) !important;
 }
 
 /* ============================================
@@ -412,7 +411,7 @@ body {
     margin: 1.5rem 0 !important;
     background-color: #f8fafc !important;
     font-style: italic !important;
-    color: var(--color-mercedes-secondary) !important;
+    color: var(--color-mercedes-primary) !important;
 }
 
 /* ============================================
@@ -425,7 +424,7 @@ body {
     border-radius: 0.25rem !important;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
     font-size: 0.875em !important;
-    color: var(--color-mercedes-secondary) !important;
+    color: var(--color-mercedes-primary) !important;
 }
 
 .ProseMirror pre {
