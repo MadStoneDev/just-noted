@@ -1,13 +1,9 @@
 import "./globals.css";
-import "@mdxeditor/editor/style.css";
 
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { Outfit, Playfair_Display } from "next/font/google";
 
 import React, { ReactNode } from "react";
-
-import GlobalHeader from "@/components/global-header";
-import GlobalFooter from "@/components/global-footer";
 
 const outfit = Outfit({
   variable: "--font-outfit",
