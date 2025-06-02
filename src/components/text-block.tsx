@@ -7,18 +7,7 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
-import dynamic from "next/dynamic";
-
-// Dynamic import to prevent SSR issues
-const MDEditorComponent = dynamic(() => import("./md-editor-initialiser"), {
-  ssr: false,
-  loading: () => (
-    <div className="editor-loading p-3 min-h-[400px] bg-white rounded-xl shadow-lg animate-pulse">
-      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-      <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-    </div>
-  ),
-});
+import TipTapEditor from "./tip-tap-editor";
 
 interface Props {
   value: string;
@@ -27,6 +16,12 @@ interface Props {
   placeholder?: string;
   className?: string;
   [key: string]: any;
+}
+
+interface TipTapEditorMethods {
+  getMarkdown: () => string;
+  setMarkdown: (markdown: string) => void;
+  focus: () => void;
 }
 
 export default function TextBlock({
@@ -43,35 +38,9 @@ export default function TextBlock({
 
   // Refs
   const currentContentRef = useRef(value);
-  const editorRef = useRef(null);
+  const editorRef = useRef<TipTapEditorMethods>(null);
   const changeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastPropsValueRef = useRef(value);
-
-  // Memoize the editor configuration to prevent re-renders
-  const editorConfig = useMemo(
-    () => ({
-      placeholder,
-      className: `editor-content relative p-3 min-h-[400px] max-h-[500px] bg-white rounded-xl shadow-lg shadow-transparent hover:shadow-neutral-300 focus:shadow-neutral-300 outline-2 outline-transparent focus:outline-mercedes-primary font-light overflow-y-auto whitespace-pre-wrap ${className} transition-all duration-300 ease-in-out`,
-      // Add performance optimizations
-      options: {
-        lineNumbers: false,
-        lineWrapping: true,
-        // Reduce re-parsing frequency
-        viewportMargin: 100,
-        // Optimize for long documents
-        maxHighlightLength: 10000,
-        // Reduce syntax highlighting overhead
-        mode: "markdown",
-        // Enable native spellcheck
-        spellcheck: true,
-        // Optimize input handling
-        inputStyle: "contenteditable",
-        // Reduce re-render frequency
-        pollInterval: 100,
-      },
-    }),
-    [placeholder, className],
-  );
 
   // Optimized change handler with local state update
   const handleChange = useCallback(
@@ -110,6 +79,11 @@ export default function TextBlock({
       setLocalValue(value);
       currentContentRef.current = value;
       lastPropsValueRef.current = value;
+
+      // Update editor content if it's ready
+      if (editorRef.current) {
+        editorRef.current.setMarkdown(value);
+      }
     }
   }, [value]);
 
@@ -133,21 +107,27 @@ export default function TextBlock({
   // Check if content is empty
   const isEmpty = !localValue || localValue.trim() === "";
 
+  // Custom styling for the editor container
+  const editorContainerClass = useMemo(() => {
+    return `tiptap-editor-container relative min-h-[400px] max-h-[500px] bg-white rounded-xl shadow-lg shadow-transparent hover:shadow-neutral-300 focus-within:shadow-neutral-300 outline-2 outline-transparent focus-within:outline-mercedes-primary font-light overflow-hidden transition-all duration-300 ease-in-out ${className}`;
+  }, [className]);
+
   return (
-    <div className="text-editor-container">
-      <MDEditorComponent
-        editorRef={editorRef}
+    <div className={editorContainerClass + `overflow-y-auto`}>
+      <TipTapEditor
+        ref={editorRef}
         markdown={isEmpty ? "" : localValue}
         onChange={handleChange}
         onReady={handleEditorReady}
-        config={editorConfig}
         placeholder={placeholder}
-        className={`editor-content relative p-3 min-h-[400px] max-h-[500px] bg-white rounded-xl shadow-lg shadow-transparent hover:shadow-neutral-300 focus:shadow-neutral-300 outline-2 outline-transparent focus:outline-mercedes-primary font-light overflow-y-auto whitespace-pre-wrap ${className} transition-all duration-300 ease-in-out`}
-        key="markdown-editor"
         {...props}
       />
       {!isEditorReady && (
-        <div className="editor-overlay absolute inset-0 bg-white/50 pointer-events-none" />
+        <div className="absolute inset-0 bg-white/50 pointer-events-none flex items-center justify-center">
+          <div className="animate-pulse text-neutral-500">
+            Loading editor...
+          </div>
+        </div>
       )}
     </div>
   );
