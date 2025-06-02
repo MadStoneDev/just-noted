@@ -86,7 +86,9 @@ body {
 
 /* TipTap editor content area (ProseMirror) */
 .ProseMirror {
+    min-height: 325px !important;
     outline: none !important;
+    
     font-family: var(--font-primary), sans-serif !important;
     line-height: 1.6 !important;
     color: #374151 !important;
