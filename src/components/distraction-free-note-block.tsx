@@ -7,8 +7,10 @@ import { CombinedNote } from "@/types/combined-notes";
 
 export default function DistractionFreeNoteBlock({
   note,
+  fullWidth,
 }: {
   note?: CombinedNote | null;
+  fullWidth?: boolean;
 }) {
   // Use our combined notes hook
   const {
@@ -81,7 +83,9 @@ export default function DistractionFreeNoteBlock({
   return (
     <div
       key={`${latestNote.source}-${latestNote.id}`}
-      className="col-span-12 h-full"
+      className={`mx-auto col-span-12 ${
+        fullWidth ? "max-w-full" : "max-w-[750px]"
+      } h-full transition-all duration-300 ease-in-out`}
     >
       <NoteBlock
         details={{

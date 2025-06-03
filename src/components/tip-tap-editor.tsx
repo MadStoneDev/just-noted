@@ -312,7 +312,7 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
         </div>
 
         {/* Editor */}
-        <EditorContent editor={editor} className={`px-1`} />
+        <EditorContent editor={editor} className={`px-4`} />
       </div>
     );
   },

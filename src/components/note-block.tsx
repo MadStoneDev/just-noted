@@ -1430,7 +1430,9 @@ export default function NoteBlock({
                 </div>
               </article>
               {saveStatus && (
-                <div className="flex items-center gap-1 text-xs text-neutral-500 italic">
+                <div
+                  className={`flex md:hidden items-center gap-1 text-xs text-neutral-500 italic`}
+                >
                   {saveIcon}
                   <span
                     className={
@@ -1483,6 +1485,33 @@ export default function NoteBlock({
                 : "bg-neutral-300"
           } transition-all duration-300 ease-in-out`}
         ></div>
+
+        {saveStatus && (
+          <div
+            className={`hidden md:flex items-center gap-1 text-xs text-neutral-500 italic`}
+          >
+            {saveIcon}
+            <span
+              className={
+                saveStatus === "Saved" ||
+                saveStatus === "Pinned" ||
+                saveStatus === "Unpinned" ||
+                saveStatus === "Title saved" ||
+                saveStatus === "Moved up" ||
+                saveStatus === "Moved down" ||
+                saveStatus === "Goal saved"
+                  ? isPrivate
+                    ? "text-violet-800"
+                    : "text-mercedes-primary"
+                  : saveStatus.includes("fail") || saveStatus.includes("Error")
+                    ? "text-red-700"
+                    : ""
+              }
+            >
+              {saveStatus}
+            </span>
+          </div>
+        )}
 
         {!distractionFreeMode && (
           <div className="flex justify-end items-center gap-1">

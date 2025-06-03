@@ -34,7 +34,7 @@ export default function JustNotes({
     syncAndRenumberNotes,
     registerNoteFlush,
     unregisterNoteFlush,
-    refreshSingleNote,
+    refreshNotes,
   } = useCombinedNotes();
 
   const [refreshNoteId, setRefreshNoteId] = useState<string | null>(null);
@@ -60,14 +60,14 @@ export default function JustNotes({
       if (!openDistractionFreeNote) return;
 
       const refreshCallback = async () => {
-        await refreshSingleNote(note.id);
+        await refreshNotes();
         setRefreshNoteId(note.id);
         setTimeout(() => setRefreshNoteId(null), 1000);
       };
 
       openDistractionFreeNote(note, refreshCallback);
     },
-    [openDistractionFreeNote, refreshSingleNote],
+    [openDistractionFreeNote, refreshNotes],
   );
 
   if (isLoading) {
