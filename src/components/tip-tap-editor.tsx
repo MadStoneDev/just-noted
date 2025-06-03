@@ -157,7 +157,7 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
     }
 
     return (
-      <div className="rounded-lg">
+      <div className="rounded-lg h-full">
         {/* Toolbar */}
         <div className="m-2 sticky top-2 left-0 right-0 border-b border-neutral-200 p-2 bg-neutral-100 rounded-xl flex flex-wrap gap-1 items-center z-50">
           {/* Undo/Redo */}
@@ -312,7 +312,7 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
         </div>
 
         {/* Editor */}
-        <EditorContent editor={editor} className={`px-4`} />
+        <EditorContent editor={editor} className={`px-1`} />
       </div>
     );
   },

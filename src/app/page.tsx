@@ -1,10 +1,10 @@
 import React from "react";
-import JustNotes from "@/components/just-notes";
 import FaqBlock from "@/components/faq-block";
 
 import { createClient } from "@/utils/supabase/server";
 import GlobalHeader from "@/components/global-header";
 import GlobalFooter from "@/components/global-footer";
+import NoteWrapper from "@/components/note-wrapper";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -16,8 +16,8 @@ export default async function Home() {
     <>
       <GlobalHeader user={user} />
 
-      <main className={`mt-2 flex-grow w-full overflow-hidden`}>
-        <JustNotes />
+      <div className={`relative mt-2 flex-grow w-full`}>
+        <NoteWrapper />
 
         <h1
           className={`px-3 md:px-0 mt-6 mx-auto max-w-60 md:max-w-full font-secondary text-xl font-semibold text-center`}
@@ -25,7 +25,7 @@ export default async function Home() {
           The Distraction-Free Note Taking Platform
         </h1>
         <FaqBlock />
-      </main>
+      </div>
 
       <GlobalFooter />
     </>

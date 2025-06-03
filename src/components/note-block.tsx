@@ -1,8 +1,7 @@
 ﻿import React, { useState, useEffect, useRef, useCallback } from "react";
 
-import { CombinedNote } from "@/types/notes";
+import type { CombinedNote } from "@/types/notes";
 import TextBlock from "@/components/text-block";
-import { useOptimisedDebounce } from "@/components/hooks/use-optimised-debounce";
 
 import {
   IconFileTypeTxt,
@@ -25,6 +24,7 @@ import {
   IconCloudUpload,
   IconDeviceDesktopDown,
   IconDeviceDesktop,
+  IconArrowsMaximize,
 } from "@tabler/icons-react";
 
 import {
@@ -32,7 +32,7 @@ import {
   updateNoteTitleAction,
 } from "@/app/actions/redisActions";
 
-import { NoteSource } from "@/types/combined-notes";
+import type { NoteSource } from "@/types/combined-notes";
 import {
   updateNote as updateSupabaseNote,
   updateNoteTitle as updateSupabaseNoteTitle,
@@ -42,6 +42,9 @@ import DeleteButton from "@/components/delete-button";
 import ShareNoteButton from "@/components/share-note-button";
 import PageEstimateModal from "@/components/page-estimate-modal";
 import WordCountGoalModal from "@/components/word-count-goal-modal";
+import { useAutoSave } from "@/components/hooks/use-auto-save";
+
+let globalTimers = new Map<string, NodeJS.Timeout>();
 
 interface TopWordCount {
   word: string;
@@ -74,6 +77,9 @@ interface NoteBlockProps {
   isAuthenticated?: boolean;
   onRegisterFlush?: (noteId: string, flushFn: () => void) => void;
   onUnregisterFlush?: (noteId: string) => void;
+  setActiveNote?: (note: CombinedNote | null) => void;
+  openDistractionFreeNote?: () => void;
+  distractionFreeMode?: boolean;
 }
 
 export default function NoteBlock({
@@ -95,6 +101,9 @@ export default function NoteBlock({
   isAuthenticated = false,
   onRegisterFlush,
   onUnregisterFlush,
+  setActiveNote,
+  openDistractionFreeNote,
+  distractionFreeMode = false,
 }: NoteBlockProps) {
   // States
   const [noteTitle, setNoteTitle] = useState(details.title);
@@ -161,6 +170,11 @@ export default function NoteBlock({
     null,
   );
 
+  const saveCounterRef = useRef(0);
+  const pendingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timerKey = useRef(`note-timer-${details.id}`).current;
+
+  const wordCountGoalRef = useRef(wordCountGoal);
   const prevIsTransferring = useRef(false);
 
   const collapseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -444,24 +458,8 @@ export default function NoteBlock({
       } else {
         setTopWords([]);
       }
-
-      // Update progress percentage if goal is set
-      if (wordCountGoal) {
-        const percentage =
-          wordCountGoal.type === "words"
-            ? Math.min(
-                100,
-                Math.round((words.length / wordCountGoal.target) * 100),
-              )
-            : Math.min(
-                100,
-                Math.round((plainText.length / wordCountGoal.target) * 100),
-              );
-
-        setProgressPercentage(percentage);
-      }
     },
-    [currentPageFormat, wordCountGoal],
+    [currentPageFormat],
   );
 
   // Toggle visibility of note content
@@ -662,62 +660,71 @@ export default function NoteBlock({
     }
   };
 
+  // Create a stable save function using refs
+  const saveContentRef =
+    useRef<
+      (
+        content: string,
+        isManualSave?: boolean,
+        forceUpdate?: boolean,
+      ) => Promise<void> | undefined
+    >(undefined);
+
   const saveContent = useCallback(
-    async (content: string, isManualSave = false, forceUpdate = false) => {
+    async (content: string, isManual = false) => {
       const safeContent = content
         .replace(/<p><br\s*\/?><\/p>/gi, "<p>&nbsp;</p>")
         .replace(/<p>\s*<\/p>/gi, "<p>&nbsp;</p>");
 
-      // Don't save if content hasn't changed
-      if (
-        safeContent === lastSavedContentRef.current &&
-        !isManualSave &&
-        !forceUpdate
-      ) {
+      // Don't save if content hasn't changed (unless manual)
+      if (safeContent === lastSavedContentRef.current && !isManual) {
         return;
       }
 
-      // Show status for both manual and background saves
+      const saveId = ++saveCounterRef.current;
+      console.log(`🔵 Starting save #${saveId} (manual: ${isManual})`);
+
       setStatusWithTimeout(
         "Saving...",
         <IconLoader className="animate-spin" />,
         false,
         10000,
       );
+      setIsPending(true);
 
-      // Only update loading opacity for manual saves
-      if (isManualSave) {
-        setIsPending(true);
-      }
+      const startTime = Date.now();
 
       try {
         let result;
-
-        // Use the appropriate action based on note source
         if (noteSource === "redis") {
           result = await updateNoteAction(
             userId,
             details.id,
             safeContent,
-            wordCountGoal?.target || 0,
-            wordCountGoal?.type || "",
+            wordCountGoalRef.current?.target || 0,
+            wordCountGoalRef.current?.type || "",
           );
         } else {
-          // For Supabase notes - use the updateNote function from supabaseActions
           result = await updateSupabaseNote(
             details.id,
             safeContent,
-
-            wordCountGoal?.target || 0,
-            wordCountGoal?.type || "",
+            wordCountGoalRef.current?.target || 0,
+            wordCountGoalRef.current?.type || "",
           );
         }
 
-        if (result.success) {
-          // Only update the lastSavedContent after successful save
-          lastSavedContentRef.current = safeContent;
+        // Minimum delay to show "Saving..." feedback
+        const elapsed = Date.now() - startTime;
+        const remainingDelay = Math.max(0, 1000 - elapsed);
 
-          // Show success for both manual and background saves
+        if (remainingDelay > 0) {
+          await new Promise((resolve) => setTimeout(resolve, remainingDelay));
+        }
+
+        if (result.success) {
+          lastSavedContentRef.current = safeContent;
+          console.log(`✅ Save #${saveId} completed successfully`);
+
           setStatusWithTimeout(
             "Saved",
             <IconCircleCheck className="text-mercedes-primary" />,
@@ -725,63 +732,97 @@ export default function NoteBlock({
             2000,
           );
         } else {
-          // Show failure for both manual and background saves
+          console.log(`❌ Save #${saveId} failed:`, result.error);
           setStatusWithTimeout(
             "Failed to save",
             <IconCircleX className="text-red-700" />,
             true,
             3000,
           );
-          console.error("Failed to save note:", result.error);
         }
       } catch (error) {
-        // Show error for both manual and background saves
+        console.log(`❌ Save #${saveId} error:`, error);
         setStatusWithTimeout(
           "Error saving",
           <IconCircleX className="text-red-700" />,
           true,
           3000,
         );
-        console.error("Error saving note:", error);
       } finally {
-        if (isManualSave) {
-          setIsPending(false);
-        }
+        setIsPending(false);
       }
     },
-    [userId, details.id, noteSource, wordCountGoal],
+    [userId, details.id, noteSource],
   );
 
-  // Manual save function
-  const handleManualSave = () => {
-    saveContent(noteContent, true);
-  };
-
-  // Debounced auto-save - this will NOT update any UI state
-  const {
-    debouncedFn: debouncedAutoSave,
-    isPending: isSavePending,
-    cancel: cancelAutoSave,
-    flush: flushAutoSave,
-  } = useOptimisedDebounce(
-    (content: string) => saveContent(content, false),
+  const { debouncedSave, flushSave, cancelSave } = useAutoSave(
+    noteContent,
+    saveContent,
     2000,
-    [saveContent],
   );
+
+  const debouncedAutoSave = useCallback((content: string) => {
+    // Clear any existing timeout
+    if (pendingTimeoutRef.current) {
+      console.log("🟡 Cancelling previous save timer");
+      clearTimeout(pendingTimeoutRef.current);
+      pendingTimeoutRef.current = null;
+    }
+
+    // Set a new timeout
+    console.log("⏱️ Starting new 2-second save timer");
+    pendingTimeoutRef.current = setTimeout(() => {
+      console.log("⏰ 2-second timer completed - initiating auto-save");
+      pendingTimeoutRef.current = null;
+      saveContentRef.current?.(content, false);
+    }, 2000);
+  }, []);
+
+  const flushAutoSave = useCallback(() => {
+    if (pendingTimeoutRef.current) {
+      console.log("🚀 Flushing pending auto-save");
+      clearTimeout(pendingTimeoutRef.current);
+      pendingTimeoutRef.current = null;
+      // Get the current content and save it immediately
+      const currentContent = noteContent;
+      saveContentRef.current?.(currentContent, false);
+    }
+  }, [noteContent]);
+
+  const cancelAutoSave = useCallback(() => {
+    if (pendingTimeoutRef.current) {
+      console.log("🛑 Cancelling pending auto-save");
+      clearTimeout(pendingTimeoutRef.current);
+      pendingTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Update the ref whenever saveContent changes
+  useEffect(() => {
+    saveContentRef.current = saveContent;
+  }, [saveContent]);
 
   const handleChange = useCallback(
     (value: string) => {
+      console.log(`📝 Content changed (length: ${value.length})`);
+
       // Update local state first for responsive UI
       setNoteContent(value);
 
       // Update stats with preserved empty lines
       updateStats(value);
 
-      // Queue auto-save
-      debouncedAutoSave(value);
+      // Trigger auto-save
+      debouncedSave();
     },
-    [updateStats, debouncedAutoSave],
+    [updateStats, debouncedSave],
   );
+
+  // Manual save function
+  // Manual save function
+  const handleManualSave = useCallback(async () => {
+    await saveContent(noteContent, true);
+  }, [saveContent, noteContent]);
 
   // Pin/Unpin functionality
   const handleTogglePin = async () => {
@@ -1125,9 +1166,13 @@ export default function NoteBlock({
     updateStats(details.content);
 
     return () => {
+      console.log("🧹 Component unmounting - cleaning up timers");
+      if (pendingTimeoutRef.current) {
+        clearTimeout(pendingTimeoutRef.current);
+      }
       flushAutoSave();
       clearStatusTimeout();
-      cancelAutoSave();
+      cancelAutoSave(); // This now calls our new cancelAutoSave
       if (collapseTimeoutRef.current) {
         clearTimeout(collapseTimeoutRef.current);
       }
@@ -1179,16 +1224,15 @@ export default function NoteBlock({
   }, [isTransferring]);
 
   useEffect(() => {
-    if (onRegisterFlush && flushAutoSave) {
-      onRegisterFlush(details.id, flushAutoSave);
+    if (onRegisterFlush) {
+      onRegisterFlush(details.id, flushSave);
     }
-
     return () => {
       if (onUnregisterFlush) {
         onUnregisterFlush(details.id);
       }
     };
-  }, [details.id, flushAutoSave, onRegisterFlush, onUnregisterFlush]);
+  }, [details.id, flushSave, onRegisterFlush, onUnregisterFlush]);
 
   if (isDeleting) {
     return (
@@ -1234,15 +1278,8 @@ export default function NoteBlock({
   }, [wordCountGoal, wordCount, charCount]);
 
   useEffect(() => {
-    // Only save if there's actual content and if not the initial render
-    if (noteContent) {
-      saveContent(noteContent, false, true);
-    }
-  }, [wordCountGoal]);
-
-  useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isSavePending) {
+      if (isPending) {
         flushAutoSave();
         // Most browsers will show a generic message
         e.preventDefault();
@@ -1255,13 +1292,21 @@ export default function NoteBlock({
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [isSavePending, flushAutoSave]);
+  }, [isPending, flushAutoSave]);
+
+  useEffect(() => {
+    wordCountGoalRef.current = wordCountGoal;
+  }, [wordCountGoal]);
+
+  if (!details) {
+    return null;
+  }
 
   return (
     <section
       ref={containerRef}
       className={`py-2 px-4 relative col-span-12 flex flex-col gap-3 ${
-        isPending ? "opacity-70" : ""
+        distractionFreeMode ? "h-full" : ""
       }`}
     >
       {isTransferring && (
@@ -1321,7 +1366,7 @@ export default function NoteBlock({
       )}
       <article className={`flex flex-col md:flex-row gap-2 md:items-center`}>
         <div
-          className={`group flex gap-2 items-center justify-between md:justify-start h-6 font-semibold uppercase`}
+          className={`group flex gap-2 items-center justify-between md:justify-start min-h-6 font-semibold uppercase`}
         >
           {editingTitle ? (
             <div className="flex items-center gap-2">
@@ -1355,31 +1400,61 @@ export default function NoteBlock({
             </div>
           ) : (
             <>
-              <span className={`flex items-center gap-1`}>
-                {isPrivate && (
-                  <IconLock
-                    size={16}
+              <article className={`flex-grow flex items-center gap-1`}>
+                <span
+                  className={`flex items-center gap-1 min-w-fit max-w-[90%]`}
+                >
+                  {isPrivate && (
+                    <IconLock
+                      size={16}
+                      strokeWidth={2}
+                      className="text-neutral-500"
+                      title="Private note"
+                    />
+                  )}
+                  {noteTitle}
+                </span>
+                <div
+                  className={`w-fit max-w-0 group-hover:max-w-[999px] overflow-hidden transition-all duration-500 ease-in-out cursor-pointer`}
+                  onClick={handleEditTitle}
+                >
+                  <IconPencil
+                    className={`opacity-50 hover:opacity-100 text-neutral-500 ${
+                      isPrivate
+                        ? "hover:text-violet-800"
+                        : "hover:text-mercedes-primary"
+                    } transition-all duration-300 ease-in-out`}
+                    size={20}
                     strokeWidth={2}
-                    className="text-neutral-500"
-                    title="Private note"
                   />
-                )}
-                {noteTitle}
-              </span>
-              <div
-                className={`w-fit max-w-0 group-hover:max-w-[999px] overflow-hidden transition-all duration-500 ease-in-out cursor-pointer`}
-                onClick={handleEditTitle}
-              >
-                <IconPencil
-                  className={`opacity-50 hover:opacity-100 text-neutral-500 ${
-                    isPrivate
-                      ? "hover:text-violet-800"
-                      : "hover:text-mercedes-primary"
-                  } transition-all duration-300 ease-in-out`}
-                  size={20}
-                  strokeWidth={2}
-                />
-              </div>
+                </div>
+              </article>
+              {saveStatus && (
+                <div className="flex items-center gap-1 text-xs text-neutral-500 italic">
+                  {saveIcon}
+                  <span
+                    className={
+                      saveStatus === "Saved" ||
+                      saveStatus === "Pinned" ||
+                      saveStatus === "Unpinned" ||
+                      saveStatus === "Title saved" ||
+                      saveStatus === "Moved up" ||
+                      saveStatus === "Moved down" ||
+                      saveStatus === "Goal saved"
+                        ? isPrivate
+                          ? "text-violet-800"
+                          : "text-mercedes-primary"
+                        : saveStatus.includes("fail") ||
+                            saveStatus.includes("Error")
+                          ? "text-red-700"
+                          : ""
+                    }
+                  >
+                    {saveStatus}
+                  </span>
+                </div>
+              )}
+
               <span className={`flex items-center gap-1 ml-2`}>
                 {noteSource === "supabase" ? (
                   <span
@@ -1409,135 +1484,112 @@ export default function NoteBlock({
           } transition-all duration-300 ease-in-out`}
         ></div>
 
-        <div className="flex justify-end items-center gap-1">
-          <button
-            type={`button`}
-            onClick={toggleContentVisibility}
-            className={`p-1 cursor-pointer rounded-lg border border-neutral-300 hover:bg-neutral-100 opacity-60 hover:opacity-100 transition-all duration-300 ease-in-out`}
-            title={isContentVisible ? "Hide note content" : "Show note content"}
-          >
-            {isContentVisible ? (
-              <IconEye size={18} strokeWidth={1.5} />
-            ) : (
-              <IconEyeClosed size={18} strokeWidth={1.5} />
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleMoveNote("up")}
-            disabled={!canMoveUp() || isReordering}
-            className={`p-1 cursor-pointer rounded-lg border border-neutral-300 ${
-              !canMoveUp() || isReordering
-                ? "opacity-30 cursor-not-allowed"
-                : "hover:bg-neutral-100 opacity-60 hover:opacity-100"
-            } transition-all duration-300 ease-in-out`}
-            title="Move note up"
-          >
-            <IconArrowUp size={18} strokeWidth={1.5} />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleMoveNote("down")}
-            disabled={!canMoveDown() || isReordering}
-            className={`p-1 cursor-pointer rounded-lg border border-neutral-300 ${
-              !canMoveDown() || isReordering
-                ? "opacity-30 cursor-not-allowed"
-                : "hover:bg-neutral-100 opacity-60 hover:opacity-100"
-            } transition-all duration-300 ease-in-out`}
-            title="Move note down"
-          >
-            <IconArrowDown size={18} strokeWidth={1.5} />
-          </button>
-
-          <article className={`flex justify-end gap-2 w-full`}>
-            {/* Pin button - show either pinned or unpinned based on state */}
+        {!distractionFreeMode && (
+          <div className="flex justify-end items-center gap-1">
             <button
-              onClick={handleTogglePin}
-              disabled={isPinUpdating}
-              className={`p-1 border ${
-                isPinned
-                  ? `text-neutral-100 hover:text-neutral-100 ${
-                      isPrivate
-                        ? "border-violet-800 hover:border-violet-800 bg-violet-800 hover:bg-violet-600"
-                        : "border-mercedes-primary hover:border-mercedes-primary/60 bg-mercedes-primary" +
-                          " hover:bg-mercedes-primary/70"
-                    }`
-                  : "border-neutral-400 text-neutral-500 hover:bg-neutral-50"
-              } rounded-lg transition-all duration-300 ease-in-out ${
-                isPinUpdating
-                  ? "opacity-50 cursor-not-allowed"
-                  : "cursor-pointer"
-              }`}
-              title={isPinned ? "Unpin this note" : "Pin this note"}
-            >
-              {isPinned ? (
-                <IconPinnedFilled size={18} strokeWidth={2} />
-              ) : (
-                <IconPin size={18} strokeWidth={2} />
-              )}
-            </button>
-
-            {/* Privacy toggle button */}
-            <button
-              onClick={handleTogglePrivacy}
-              disabled={isPrivacyUpdating}
-              className={`p-1 border rounded-lg transition-all duration-300 ease-in-out ${
-                isPrivacyUpdating
-                  ? "opacity-50 cursor-not-allowed"
-                  : "cursor-pointer"
-              } ${
-                isPrivate
-                  ? "border-violet-800 hover:border-violet-600 bg-violet-800 hover:bg-violet-600" +
-                    " text-neutral-100" // Private state
-                  : "border-neutral-400 hover:bg-neutral-200 text-neutral-500" // Public state
-              }`}
+              type={`button`}
+              onClick={toggleContentVisibility}
+              className={`p-1 cursor-pointer rounded-lg border border-neutral-300 hover:bg-neutral-100 opacity-60 hover:opacity-100 transition-all duration-300 ease-in-out`}
               title={
-                isPrivate ? "Make this note public" : "Make this note private"
+                isContentVisible ? "Hide note content" : "Show note content"
               }
             >
-              {isPrivate ? (
-                <IconLock size={18} strokeWidth={2} />
+              {isContentVisible ? (
+                <IconEye size={18} strokeWidth={1.5} />
               ) : (
-                <IconLockOpen size={18} strokeWidth={2} />
+                <IconEyeClosed size={18} strokeWidth={1.5} />
               )}
             </button>
-          </article>
-        </div>
-
-        {(saveStatus || isSavePending) && (
-          <div className="flex items-center gap-1 text-sm text-neutral-500 italic">
-            {isSavePending && !saveStatus ? (
-              <>
-                <IconLoader className="animate-spin opacity-50" size={16} />
-                <span className="opacity-50">Changes pending...</span>
-              </>
-            ) : (
-              <>
-                {saveIcon}
-                <span
-                  className={
-                    saveStatus === "Saved" ||
-                    saveStatus === "Pinned" ||
-                    saveStatus === "Unpinned" ||
-                    saveStatus === "Title saved" ||
-                    saveStatus === "Moved up" ||
-                    saveStatus === "Moved down" ||
-                    saveStatus === "Goal saved"
-                      ? isPrivate
-                        ? "text-violet-800"
-                        : "text-mercedes-primary"
-                      : saveStatus.includes("fail") ||
-                          saveStatus.includes("Error")
-                        ? "text-red-700"
-                        : ""
-                  }
-                >
-                  {saveStatus}
-                </span>
-              </>
+            {openDistractionFreeNote && (
+              <button
+                type={`button`}
+                onClick={openDistractionFreeNote}
+                className={`p-1 cursor-pointer rounded-lg border border-neutral-300 hover:bg-neutral-100 opacity-60 hover:opacity-100 transition-all duration-300 ease-in-out`}
+                title={"Open Distraction-Free Mode"}
+              >
+                <IconArrowsMaximize size={18} strokeWidth={1.5} />
+              </button>
             )}
+
+            <button
+              type="button"
+              onClick={() => handleMoveNote("up")}
+              disabled={!canMoveUp() || isReordering}
+              className={`p-1 cursor-pointer rounded-lg border border-neutral-300 ${
+                !canMoveUp() || isReordering
+                  ? "opacity-30 cursor-not-allowed"
+                  : "hover:bg-neutral-100 opacity-60 hover:opacity-100"
+              } transition-all duration-300 ease-in-out`}
+              title="Move note up"
+            >
+              <IconArrowUp size={18} strokeWidth={1.5} />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleMoveNote("down")}
+              disabled={!canMoveDown() || isReordering}
+              className={`p-1 cursor-pointer rounded-lg border border-neutral-300 ${
+                !canMoveDown() || isReordering
+                  ? "opacity-30 cursor-not-allowed"
+                  : "hover:bg-neutral-100 opacity-60 hover:opacity-100"
+              } transition-all duration-300 ease-in-out`}
+              title="Move note down"
+            >
+              <IconArrowDown size={18} strokeWidth={1.5} />
+            </button>
+            <article className={`flex justify-end gap-2 w-full`}>
+              {/* Pin button - show either pinned or unpinned based on state */}
+              <button
+                onClick={handleTogglePin}
+                disabled={isPinUpdating}
+                className={`p-1 border ${
+                  isPinned
+                    ? `text-neutral-100 hover:text-neutral-100 ${
+                        isPrivate
+                          ? "border-violet-800 hover:border-violet-800 bg-violet-800 hover:bg-violet-600"
+                          : "border-mercedes-primary hover:border-mercedes-primary/60 bg-mercedes-primary" +
+                            " hover:bg-mercedes-primary/70"
+                      }`
+                    : "border-neutral-400 text-neutral-500 hover:bg-neutral-50"
+                } rounded-lg transition-all duration-300 ease-in-out ${
+                  isPinUpdating
+                    ? "opacity-50 cursor-not-allowed"
+                    : "cursor-pointer"
+                }`}
+                title={isPinned ? "Unpin this note" : "Pin this note"}
+              >
+                {isPinned ? (
+                  <IconPinnedFilled size={18} strokeWidth={2} />
+                ) : (
+                  <IconPin size={18} strokeWidth={2} />
+                )}
+              </button>
+
+              {/* Privacy toggle button */}
+              <button
+                onClick={handleTogglePrivacy}
+                disabled={isPrivacyUpdating}
+                className={`p-1 border rounded-lg transition-all duration-300 ease-in-out ${
+                  isPrivacyUpdating
+                    ? "opacity-50 cursor-not-allowed"
+                    : "cursor-pointer"
+                } ${
+                  isPrivate
+                    ? "border-violet-800 hover:border-violet-600 bg-violet-800 hover:bg-violet-600" +
+                      " text-neutral-100" // Private state
+                    : "border-neutral-400 hover:bg-neutral-200 text-neutral-500" // Public state
+                }`}
+                title={
+                  isPrivate ? "Make this note public" : "Make this note private"
+                }
+              >
+                {isPrivate ? (
+                  <IconLock size={18} strokeWidth={2} />
+                ) : (
+                  <IconLockOpen size={18} strokeWidth={2} />
+                )}
+              </button>
+            </article>
           </div>
         )}
       </article>
@@ -1545,151 +1597,168 @@ export default function NoteBlock({
       {/* Note Content */}
       <div
         className={`note-content-wrapper overflow-hidden transition-all duration-300 ease-in-out ${
-          isContentExpanded ? "max-h-[900px] md:max-h-[600px]" : "max-h-0"
+          distractionFreeMode
+            ? "flex-grow"
+            : isContentExpanded
+              ? "max-h-[900px] md:max-h-[600px]"
+              : "max-h-0"
         }`}
       >
         {isContentVisible && (
           <>
-            <article className={`grid grid-cols-12 gap-4`}>
+            <article
+              className={`grid grid-cols-12 gap-4 ${
+                distractionFreeMode ? "h-full" : ""
+              }`}
+            >
               <div
-                className={`p-2 col-span-12 sm:col-span-8 md:col-span-9 3xl:col-span-10`}
+                className={`col-span-12 ${
+                  distractionFreeMode
+                    ? ""
+                    : "sm:col-span-8 md:col-span-9 3xl:col-span-10"
+                } rounded-xl overflow-hidden`}
               >
                 <TextBlock
                   value={noteContent}
                   onChange={handleChange}
+                  distractionFreeMode={distractionFreeMode}
                   placeholder="Just start typing..."
                 />
               </div>
 
-              <div
-                className={`p-4 col-span-12 sm:col-span-4 md:col-span-3 3xl:col-span-2 grid grid-cols-4 sm:flex sm:flex-col justify-start gap-2 bg-neutral-300 rounded-xl text-sm xs:text-lg sm:text-xl text-neutral-500/70 font-light capitalize`}
-              >
-                {/* Word Count */}
-                <p
-                  className={`col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-1 sm:gap-1 xs:gap-0 rounded-xl border border-neutral-400 text-base`}
-                >
-                  <span
-                    className={`${
-                      isPrivate ? "text-violet-800" : "text-mercedes-primary"
-                    } text-lg xs:text-xl font-medium`}
-                  >
-                    {wordCount}
-                  </span>
-                  <span>words</span>
-                </p>
-
-                {/* Character Count */}
-                <p
-                  className={`col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-1 sm:gap-1 xs:gap-0 rounded-xl border border-neutral-400 text-base`}
-                >
-                  <span
-                    className={`${
-                      isPrivate ? "text-violet-800" : "text-mercedes-primary"
-                    } text-lg xs:text-xl font-medium`}
-                  >
-                    {charCount}
-                  </span>
-                  <span>characters</span>
-                </p>
-
-                {/* Reading Time */}
-                <p
-                  className={`col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-1 sm:gap-1 xs:gap-0 rounded-xl border border-neutral-400 text-base`}
-                >
-                  <span
-                    className={`${
-                      isPrivate ? "text-violet-800" : "text-mercedes-primary"
-                    } text-lg font-medium`}
-                  >
-                    {readingTime}
-                  </span>
-                  <span>read time</span>
-                </p>
-
-                {/* Page Estimate - clickable to open modal */}
-                <p
-                  className={`cursor-pointer col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-1 sm:gap-1 xs:gap-0 rounded-xl border border-neutral-400 hover:bg-neutral-200 text-base transition-all duration-300 ease-in-out`}
-                  onClick={() => setShowPageEstimateModal(true)}
-                  title="Click to change page format"
-                >
-                  <span
-                    className={`flex items-center gap-1 ${
-                      isPrivate ? "text-violet-800" : "text-mercedes-primary"
-                    } text-lg font-medium`}
-                  >
-                    {pageEstimate}
-                  </span>
-                  <span>{currentPageFormat}</span>
-                </p>
-
-                {/* Word Count Goal - Progress Bar */}
+              {!distractionFreeMode && (
                 <div
-                  className="col-span-4 p-1 xs:p-2 rounded-xl border border-neutral-400 cursor-pointer hover:bg-neutral-200 transition-all duration-300 ease-in-out"
-                  onClick={() => setShowWordCountGoalModal(true)}
+                  className={`p-4 col-span-12 sm:col-span-4 md:col-span-3 3xl:col-span-2 grid grid-cols-4 sm:flex sm:flex-col justify-start gap-2 bg-neutral-300 rounded-xl text-sm xs:text-lg sm:text-xl text-neutral-500/70 font-light capitalize`}
                 >
-                  {wordCountGoal &&
-                  wordCountGoal.target > 0 &&
-                  wordCountGoal.type !== "" ? (
-                    <div className="flex flex-col items-center w-full">
-                      <div className="w-full bg-neutral-50 rounded-full h-4 mb-1">
-                        <div
-                          className={`h-4 rounded-full ${
-                            isPrivate ? "bg-violet-600" : "bg-mercedes-primary"
-                          } transition-all duration-300 ease-in-out`}
-                          style={{ width: `${progressPercentage}%` }}
-                        ></div>
-                      </div>
-                      <div className="text-center text-sm">
-                        {progressPercentage}% of {wordCountGoal.target}{" "}
-                        {wordCountGoal.type === "words"
-                          ? "words"
-                          : "characters"}
-                        {progressPercentage >= 100 && (
-                          <span className="text-green-600 ml-1">
-                            ✓ Completed!
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center h-full">
-                      <span className="text-center text-base">
-                        Set Word Goal
-                      </span>
-                    </div>
-                  )}
-                </div>
+                  {/* Word Count */}
+                  <p
+                    className={`col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-1 sm:gap-1 xs:gap-0 rounded-xl border border-neutral-400 text-base`}
+                  >
+                    <span
+                      className={`${
+                        isPrivate ? "text-violet-800" : "text-mercedes-primary"
+                      } text-lg xs:text-xl font-medium`}
+                    >
+                      {wordCount}
+                    </span>
+                    <span>words</span>
+                  </p>
 
-                {/* Top Words */}
-                {/*{topWords.length > 0 && (*/}
-                {/*  <div className="col-span-3 p-2 rounded-xl border border-neutral-400">*/}
-                {/*    <h4 className="text-center text-sm font-medium mb-2">*/}
-                {/*      Top Words*/}
-                {/*    </h4>*/}
-                {/*    <div className="grid grid-cols-2 gap-1 text-sm">*/}
-                {/*      {topWords.slice(0, 10).map((wordObj, index) => (*/}
-                {/*        <div key={index} className="flex justify-between">*/}
-                {/*          <span>{wordObj.word}</span>*/}
-                {/*          <span*/}
-                {/*            className={`${*/}
-                {/*              isPrivate*/}
-                {/*                ? "text-violet-800"*/}
-                {/*                : "text-mercedes-primary"*/}
-                {/*            } font-medium`}*/}
-                {/*          >*/}
-                {/*            {wordObj.count}*/}
-                {/*          </span>*/}
-                {/*        </div>*/}
-                {/*      ))}*/}
-                {/*    </div>*/}
-                {/*  </div>*/}
-                {/*)}*/}
-              </div>
+                  {/* Character Count */}
+                  <p
+                    className={`col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-1 sm:gap-1 xs:gap-0 rounded-xl border border-neutral-400 text-base`}
+                  >
+                    <span
+                      className={`${
+                        isPrivate ? "text-violet-800" : "text-mercedes-primary"
+                      } text-lg xs:text-xl font-medium`}
+                    >
+                      {charCount}
+                    </span>
+                    <span>characters</span>
+                  </p>
+
+                  {/* Reading Time */}
+                  <p
+                    className={`col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-1 sm:gap-1 xs:gap-0 rounded-xl border border-neutral-400 text-base`}
+                  >
+                    <span
+                      className={`${
+                        isPrivate ? "text-violet-800" : "text-mercedes-primary"
+                      } text-lg font-medium`}
+                    >
+                      {readingTime}
+                    </span>
+                    <span>read time</span>
+                  </p>
+
+                  {/* Page Estimate - clickable to open modal */}
+                  <p
+                    className={`cursor-pointer col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-1 sm:gap-1 xs:gap-0 rounded-xl border border-neutral-400 hover:bg-neutral-200 text-base transition-all duration-300 ease-in-out`}
+                    onClick={() => setShowPageEstimateModal(true)}
+                    title="Click to change page format"
+                  >
+                    <span
+                      className={`flex items-center gap-1 ${
+                        isPrivate ? "text-violet-800" : "text-mercedes-primary"
+                      } text-lg font-medium`}
+                    >
+                      {pageEstimate}
+                    </span>
+                    <span>{currentPageFormat}</span>
+                  </p>
+
+                  {/* Word Count Goal - Progress Bar */}
+                  <div
+                    className="col-span-4 p-1 xs:p-2 rounded-xl border border-neutral-400 cursor-pointer hover:bg-neutral-200 transition-all duration-300 ease-in-out"
+                    onClick={() => setShowWordCountGoalModal(true)}
+                  >
+                    {wordCountGoal &&
+                    wordCountGoal.target > 0 &&
+                    wordCountGoal.type !== "" ? (
+                      <div className="flex flex-col items-center w-full">
+                        <div className="w-full bg-neutral-50 rounded-full h-4 mb-1">
+                          <div
+                            className={`h-4 rounded-full ${
+                              isPrivate
+                                ? "bg-violet-600"
+                                : "bg-mercedes-primary"
+                            } transition-all duration-300 ease-in-out`}
+                            style={{ width: `${progressPercentage}%` }}
+                          ></div>
+                        </div>
+                        <div className="text-center text-sm">
+                          {progressPercentage}% of {wordCountGoal.target}{" "}
+                          {wordCountGoal.type === "words"
+                            ? "words"
+                            : "characters"}
+                          {progressPercentage >= 100 && (
+                            <span className="text-green-600 ml-1">
+                              ✓ Completed!
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <span className="text-center text-base">
+                          Set Word Goal
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Top Words */}
+                  {/*{topWords.length > 0 && (*/}
+                  {/*  <div className="col-span-3 p-2 rounded-xl border border-neutral-400">*/}
+                  {/*    <h4 className="text-center text-sm font-medium mb-2">*/}
+                  {/*      Top Words*/}
+                  {/*    </h4>*/}
+                  {/*    <div className="grid grid-cols-2 gap-1 text-sm">*/}
+                  {/*      {topWords.slice(0, 10).map((wordObj, index) => (*/}
+                  {/*        <div key={index} className="flex justify-between">*/}
+                  {/*          <span>{wordObj.word}</span>*/}
+                  {/*          <span*/}
+                  {/*            className={`${*/}
+                  {/*              isPrivate*/}
+                  {/*                ? "text-violet-800"*/}
+                  {/*                : "text-mercedes-primary"*/}
+                  {/*            } font-medium`}*/}
+                  {/*          >*/}
+                  {/*            {wordObj.count}*/}
+                  {/*          </span>*/}
+                  {/*        </div>*/}
+                  {/*      ))}*/}
+                  {/*    </div>*/}
+                  {/*  </div>*/}
+                  {/*)}*/}
+                </div>
+              )}
             </article>
 
             {/* Actions */}
             <article
-              className={`mt-2 flex gap-2 items-center justify-between sm:justify-start`}
+              className={`mt-3 flex gap-2 items-center justify-between sm:justify-start`}
             >
               <button
                 type={`button`}

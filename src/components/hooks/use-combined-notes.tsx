@@ -7,7 +7,6 @@ import {
   CreateNoteInput,
   redisToCombi,
   combiToRedis,
-  combiToSupabase,
   createNote,
   cloneNote,
   validateContentPreservation,
@@ -76,6 +75,8 @@ interface UseCombinedNotesReturn {
 
   registerNoteFlush: (noteId: string, flushFn: () => void) => void;
   unregisterNoteFlush: (noteId: string) => void;
+
+  refreshSingleNote: (noteId: string) => Promise<CombinedNote | null>;
 }
 
 export function useCombinedNotes(): UseCombinedNotesReturn {
@@ -875,6 +876,58 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
     return () => clearInterval(interval);
   }, [redisUserId, refreshNotes, lastUpdateTimestamp]);
 
+  // In useCombinedNotes hook, add this new function:
+  const refreshSingleNote = useCallback(
+    async (noteId: string): Promise<CombinedNote | null> => {
+      if (!redisUserId) return null;
+
+      try {
+        let updatedNote: CombinedNote | null = null;
+
+        // Get the latest note data without depending on current notes state
+        const targetNoteFromCurrentState = notes.find(
+          (note) => note.id === noteId,
+        );
+        if (!targetNoteFromCurrentState) return null;
+
+        // Fetch the latest version from the appropriate source
+        if (targetNoteFromCurrentState.source === "redis") {
+          const result = await getNotesByUserIdAction(redisUserId);
+          if (result.success && result.notes) {
+            const redisNote = result.notes.find((note) => note.id === noteId);
+            if (redisNote) {
+              updatedNote = redisToCombi(redisNote);
+            }
+          }
+        } else if (targetNoteFromCurrentState.source === "supabase") {
+          const result = await getSupabaseNotesByUserId();
+          if (result.success && result.notes) {
+            updatedNote =
+              result.notes.find((note) => note.id === noteId) || null;
+          }
+        }
+
+        if (updatedNote) {
+          // Update just this note in the state using functional setState to avoid dependency on notes
+          setNotes((prevNotes) => {
+            const updatedNotes = prevNotes.map((note) =>
+              note.id === noteId ? updatedNote : note,
+            );
+            return sortNotes(updatedNotes);
+          });
+
+          markUpdated();
+          return updatedNote;
+        }
+      } catch (error) {
+        console.error("Failed to refresh single note:", error);
+      }
+
+      return null;
+    },
+    [redisUserId, sortNotes, markUpdated], // Remove 'notes' dependency
+  );
+
   return {
     // State
     notes,
@@ -901,5 +954,6 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
     syncAndRenumberNotes,
     registerNoteFlush,
     unregisterNoteFlush,
+    refreshSingleNote,
   };
 }
