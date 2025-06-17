@@ -110,7 +110,7 @@ body {
     font-weight: 900 !important;
     line-height: 1.2 !important;
     margin: 1.5rem 0 0.75rem 0 !important;
-    color: var(--color-mercedes-primary) !important;
+    /*color: var(--color-mercedes-primary) !important;*/
 }
 
 .ProseMirror h2 {
@@ -118,7 +118,7 @@ body {
     font-weight: 800 !important;
     line-height: 1.3 !important;
     margin: 1.25rem 0 0.5rem 0 !important;
-    color: var(--color-mercedes-primary) !important;
+    /*color: var(--color-mercedes-primary) !important;*/
 }
 
 .ProseMirror h3 {
@@ -126,7 +126,7 @@ body {
     font-weight: 700 !important;
     line-height: 1.4 !important;
     margin: 1rem 0 0.5rem 0 !important;
-    color: var(--color-mercedes-primary) !important;
+    /*color: var(--color-mercedes-primary) !important;*/
 }
 
 .ProseMirror h4 {
@@ -134,7 +134,7 @@ body {
     font-weight: 600 !important;
     line-height: 1.4 !important;
     margin: 0.75rem 0 0.25rem 0 !important;
-    color: var(--color-mercedes-primary) !important;
+    /*color: var(--color-mercedes-primary) !important;*/
 }
 
 .ProseMirror h5 {
@@ -142,8 +142,8 @@ body {
     font-weight: 600 !important;
     line-height: 1.5 !important;
     margin: 0.75rem 0 0.25rem 0 !important;
-    color: var(--color-mercedes-primary) !important;
-}
+/*    color: var(--color-mercedes-primary) !important;*/
+/*}*/
 
 /* ============================================
    PARAGRAPH AND TEXT STYLES
@@ -152,12 +152,12 @@ body {
 .ProseMirror p {
     margin: 0.75rem 0 !important;
     line-height: 1.6 !important;
-    color: var(--color-neutral-700) !important;
+    /*color: var(--color-neutral-700) !important;*/
 }
 
 .ProseMirror strong {
     font-weight: 800 !important;
-    color: var(--color-neutral-800) !important;
+    /*color: var(--color-neutral-800) !important;*/
 }
 
 .ProseMirror em {
@@ -183,6 +183,8 @@ body {
    ============================================ */
 
 .ProseMirror a {
+    padding: 0.1rem 0.2rem !important;
+    
     color: var(--color-mercedes-primary) !important;
     text-decoration: underline !important;
     cursor: pointer !important;
@@ -190,7 +192,8 @@ body {
 }
 
 .ProseMirror a:hover {
-    color: var(--color-mercedes-primary) !important;
+    color: white !important;
+    background-color: var(--color-mercedes-primary) !important;
 }
 
 /* ============================================

@@ -8,7 +8,6 @@ type AuthResponse = {
   success: boolean;
   redirectTo?: string;
 };
-
 export async function handleAuth(formData: FormData): Promise<AuthResponse> {
   const email = formData.get("email") as string;
 
