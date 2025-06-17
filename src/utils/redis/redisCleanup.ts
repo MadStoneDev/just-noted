@@ -1,5 +1,5 @@
 ﻿import redis from "@/utils/redis";
-import { getAllActiveUserIds } from "@/utils/userIdManagement";
+// import { getAllActiveUserIds } from "@/utils/userIdManagement";
 
 /**
  * Runs a cleanup operation to remove notes for users who have been inactive
@@ -11,8 +11,8 @@ export async function cleanupOldNotes() {
     const userNoteKeys = await scanAllKeys("notes:*");
 
     // Get all active user IDs (these have valid activity timestamps)
-    const activeUserIds = await getAllActiveUserIds();
-    const activeUserIdSet = new Set(activeUserIds);
+    // const activeUserIds = await getAllActiveUserIds();
+    // const activeUserIdSet = new Set(activeUserIds);
 
     // Track statistics for reporting
     let totalUsersRemoved = 0;
@@ -24,11 +24,11 @@ export async function cleanupOldNotes() {
       const userId = noteKey.substring(6); // "notes:".length = 6
 
       // If user is not in the active set, delete their notes
-      if (!activeUserIdSet.has(userId)) {
-        await redis.del(noteKey);
-        removedUserIds.push(userId);
-        totalUsersRemoved++;
-      }
+      // if (!activeUserIdSet.has(userId)) {
+      //   await redis.del(noteKey);
+      //   removedUserIds.push(userId);
+      //   totalUsersRemoved++;
+      // }
     }
 
     console.log(
