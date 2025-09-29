@@ -1471,7 +1471,7 @@ export default function NoteBlock({
                 >
                   {/* Word Count */}
                   <p
-                    className={`py-1 col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-0 bg-neutral-200 rounded-xl border border-neutral-400 text-base`}
+                    className={`py-1 col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center xl:gap-2 bg-neutral-200 rounded-xl border border-neutral-400 text-base`}
                   >
                     <span
                       className={`${
@@ -1485,7 +1485,7 @@ export default function NoteBlock({
 
                   {/* Character Count */}
                   <p
-                    className={`py-1 col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center gap-0 bg-neutral-200 rounded-xl border border-neutral-400 text-base`}
+                    className={`py-1 col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center xl:gap-2 bg-neutral-200 rounded-xl border border-neutral-400 text-base`}
                   >
                     <span
                       className={`${
@@ -1499,7 +1499,7 @@ export default function NoteBlock({
 
                   {/* Reading Time */}
                   <p
-                    className={`py-1 col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center bg-neutral-200 rounded-xl border border-neutral-400 text-base`}
+                    className={`py-1 col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center xl:gap-2 bg-neutral-200 rounded-xl border border-neutral-400 text-base`}
                   >
                     <span
                       className={`${
