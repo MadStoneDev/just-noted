@@ -3,6 +3,7 @@
 import React, { useState, useRef, useCallback, useMemo } from "react";
 import JustNotes from "@/components/just-notes";
 import DistractionFreeNoteBlock from "@/components/distraction-free-note-block";
+import { NotesErrorBoundary } from "@/components/error-boundary";
 import {
   IconArrowsMinimize,
   IconViewportNarrow,
@@ -13,7 +14,7 @@ import { AutoBackupProvider } from "@/components/providers/auto-backup-provider"
 import { useCombinedNotes } from "@/components/hooks/use-combined-notes";
 
 export default function NoteWrapper() {
-  const { notes, refreshNotes } = useCombinedNotes(); // Get refreshNotes too
+  const { notes, refreshNotes } = useCombinedNotes();
 
   const [activeNote, setActiveNote] = useState<CombinedNote | null>(null);
   const [fullWidth, setFullWidth] = useState(true);
@@ -23,7 +24,6 @@ export default function NoteWrapper() {
 
   const refreshCallbackRef = useRef<(() => Promise<void>) | null>(null);
 
-  // Memoize the handleShow callback to prevent recreation
   const handleShow = useCallback(
     (note: CombinedNote, onRefresh: () => Promise<void>) => {
       setActiveNote(note);
@@ -37,18 +37,15 @@ export default function NoteWrapper() {
     [],
   );
 
-  // Enhanced handleHide with better error handling and user feedback
   const handleHide = useCallback(async () => {
     setIsRefreshing(true);
 
     try {
-      // Refresh before closing
       if (refreshCallbackRef.current) {
         await refreshCallbackRef.current();
       }
     } catch (error) {
       console.error("Failed to refresh note on close:", error);
-      // Fallback to full refresh if single note refresh fails
       await refreshNotes();
     } finally {
       setIsRefreshing(false);
@@ -63,12 +60,10 @@ export default function NoteWrapper() {
     }, 300);
   }, [refreshNotes]);
 
-  // Memoize the toggle function
   const handleToggleWidth = useCallback(() => {
     setFullWidth((prev) => !prev);
   }, []);
 
-  // Memoize the button text to prevent re-renders
   const widthButtonText = useMemo(
     () => (fullWidth ? "Compact" : "Expanded"),
     [fullWidth],
@@ -85,58 +80,63 @@ export default function NoteWrapper() {
   );
 
   return (
-    <AutoBackupProvider notes={notes}>
-      <JustNotes openDistractionFreeNote={handleShow} />
+    <NotesErrorBoundary>
+      <AutoBackupProvider notes={notes}>
+        <JustNotes openDistractionFreeNote={handleShow} />
 
-      {showDistractionFree && (
-        <section
-          className={`fixed inset-0 z-50 transition-opacity duration-300 ease-in-out ${
-            isAnimating ? "opacity-100" : "opacity-0"
-          }`}
-        >
-          <div
-            className="absolute inset-0 bg-neutral-900/30"
-            onClick={handleHide}
-          />
+        {showDistractionFree && (
+          <section
+            className={`fixed inset-0 z-50 transition-opacity duration-300 ease-in-out ${
+              isAnimating ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            <div
+              className="absolute inset-0 bg-neutral-900/30"
+              onClick={handleHide}
+            />
 
-          <article className="absolute inset-6 sm:inset-8 p-2 pb-16 rounded-xl bg-neutral-200 overflow-hidden">
-            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex justify-center items-center gap-2 w-full z-10">
-              <button
-                className="cursor-pointer px-4 py-2 flex items-center gap-2 rounded-full bg-white/90 hover:bg-white shadow-lg opacity-80 hover:opacity-100 transition-all duration-200 ease-in-out"
-                onClick={handleToggleWidth}
-                disabled={isRefreshing}
-              >
-                {widthButtonIcon}
-                <span className="hidden sm:block">{widthButtonText}</span>
-              </button>
+            <article className="absolute inset-6 sm:inset-8 p-2 pb-16 rounded-xl bg-neutral-200 overflow-hidden">
+              <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex justify-center items-center gap-2 w-full z-10">
+                <button
+                  className="cursor-pointer px-4 py-2 flex items-center gap-2 rounded-full bg-white/90 hover:bg-white shadow-lg opacity-80 hover:opacity-100 transition-all duration-200 ease-in-out"
+                  onClick={handleToggleWidth}
+                  disabled={isRefreshing}
+                >
+                  {widthButtonIcon}
+                  <span className="hidden sm:block">{widthButtonText}</span>
+                </button>
 
-              <button
-                className={`cursor-pointer px-4 py-2 flex items-center gap-2 rounded-full bg-white/90 hover:bg-white shadow-lg transition-all duration-200 ease-in-out ${
-                  isRefreshing ? "opacity-50" : "opacity-80 hover:opacity-100"
-                }`}
-                onClick={handleHide}
-                disabled={isRefreshing}
-              >
-                {isRefreshing ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-mercedes-primary border-t-transparent"></div>
-                    <span className="hidden sm:block">Saving...</span>
-                  </>
-                ) : (
-                  <>
-                    <IconArrowsMinimize size={18} strokeWidth={2} />
-                    <span className="hidden sm:block">
-                      Close Distraction-Free Mode
-                    </span>
-                  </>
-                )}
-              </button>
-            </div>
+                <button
+                  className={`cursor-pointer px-4 py-2 flex items-center gap-2 rounded-full bg-white/90 hover:bg-white shadow-lg transition-all duration-200 ease-in-out ${
+                    isRefreshing ? "opacity-50" : "opacity-80 hover:opacity-100"
+                  }`}
+                  onClick={handleHide}
+                  disabled={isRefreshing}
+                >
+                  {isRefreshing ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-mercedes-primary border-t-transparent"></div>
+                      <span className="hidden sm:block">Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <IconArrowsMinimize size={18} strokeWidth={2} />
+                      <span className="hidden sm:block">
+                        Close Distraction-Free Mode
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
 
-            <DistractionFreeNoteBlock note={activeNote} fullWidth={fullWidth} />
-          </article>
-        </section>
-      )}
-    </AutoBackupProvider>
+              <DistractionFreeNoteBlock
+                note={activeNote}
+                fullWidth={fullWidth}
+              />
+            </article>
+          </section>
+        )}
+      </AutoBackupProvider>
+    </NotesErrorBoundary>
   );
 }

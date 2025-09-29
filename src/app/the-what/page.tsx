@@ -1,4 +1,5 @@
-﻿import Link from "next/link";
+﻿// src/app/the-what/page.tsx
+import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
 import GlobalHeader from "@/components/global-header";
 import React from "react";

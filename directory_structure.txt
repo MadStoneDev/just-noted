@@ -1,0 +1,325 @@
+|   .env.local
+|   .gitignore
+|   database.types.ts
+|   directory_structure.txt
+|   Folder.DotSettings.user
+|   middleware.ts
+|   next-env.d.ts
+|   next.config.ts
+|   package-lock.json
+|   package.json
+|   postcss.config.mjs
+|   README.md
+|   tsconfig.json
+|   
++---public
+|       b42700a6fee94ff19faba920604d9f39.txt
+|       file.svg
+|       globe.svg
+|       JustNoted_OG.jpg
+|       next.svg
+|       robots.txt
+|       sitemap.xml
+|       vercel.svg
+|       window.svg
+|       
++---src
+|   +---app
+|   |   |   favicon.ico
+|   |   |   globals.css
+|   |   |   layout.tsx
+|   |   |   page.tsx
+|   |   |   
+|   |   +---actions
+|   |   |       contactActions.ts
+|   |   |       counterActions.ts
+|   |   |       redisActions.ts
+|   |   |       shareNoteActions.ts
+|   |   |       supabaseActions.ts
+|   |   |       
+|   |   +---api
+|   |   |   \---admin
+|   |   |       \---cleanup
+|   |   |               route.ts
+|   |   |               
+|   |   +---auth
+|   |   |   \---confirm
+|   |   |           route.ts
+|   |   |           
+|   |   +---backup-manager
+|   |   |       page.tsx
+|   |   |       
+|   |   +---contact
+|   |   |       page.tsx
+|   |   |       
+|   |   +---get-access
+|   |   |       actions.ts
+|   |   |       page.tsx
+|   |   |       
+|   |   +---privacy-policy
+|   |   |       page.tsx
+|   |   |       
+|   |   +---profile
+|   |   |       page.tsx
+|   |   |       
+|   |   +---the-how
+|   |   |       page.tsx
+|   |   |       
+|   |   +---the-what
+|   |   |       page.tsx
+|   |   |       
+|   |   \---[shortcode]
+|   |           page.tsx
+|   |           
+|   +---components
+|   |   |   backup-manager.tsx
+|   |   |   contact-form.tsx
+|   |   |   delete-button.tsx
+|   |   |   distraction-free-note-block.tsx
+|   |   |   faq-block.tsx
+|   |   |   faq-item.tsx
+|   |   |   global-footer.tsx
+|   |   |   global-header.tsx
+|   |   |   just-notes.tsx
+|   |   |   manage-shared-notes.tsx
+|   |   |   note-block.tsx
+|   |   |   note-wrapper.tsx
+|   |   |   page-estimate-modal.tsx
+|   |   |   profile-block.tsx
+|   |   |   share-note-button.tsx
+|   |   |   shared-note-page.tsx
+|   |   |   text-block.tsx
+|   |   |   tip-tap-editor.tsx
+|   |   |   word-count-goal-modal.tsx
+|   |   |   
+|   |   +---hooks
+|   |   |       use-auto-save.tsx
+|   |   |       use-combined-notes-with-backup.ts
+|   |   |       use-combined-notes.tsx
+|   |   |       
+|   |   +---providers
+|   |   |       auto-backup-provider.tsx
+|   |   |       
+|   |   +---tiptap-extension
+|   |   |       link-extension.ts
+|   |   |       selection-extension.ts
+|   |   |       trailing-node-extension.ts
+|   |   |       
+|   |   +---tiptap-icons
+|   |   |       align-center-icon.tsx
+|   |   |       align-justify-icon.tsx
+|   |   |       align-left-icon.tsx
+|   |   |       align-right-icon.tsx
+|   |   |       arrow-left-icon.tsx
+|   |   |       ban-icon.tsx
+|   |   |       block-quote-icon.tsx
+|   |   |       bold-icon.tsx
+|   |   |       chevron-down-icon.tsx
+|   |   |       close-icon.tsx
+|   |   |       code-block-icon.tsx
+|   |   |       code2-icon.tsx
+|   |   |       corner-down-left-icon.tsx
+|   |   |       external-link-icon.tsx
+|   |   |       heading-five-icon.tsx
+|   |   |       heading-four-icon.tsx
+|   |   |       heading-icon.tsx
+|   |   |       heading-one-icon.tsx
+|   |   |       heading-six-icon.tsx
+|   |   |       heading-three-icon.tsx
+|   |   |       heading-two-icon.tsx
+|   |   |       highlighter-icon.tsx
+|   |   |       image-plus-icon.tsx
+|   |   |       italic-icon.tsx
+|   |   |       link-icon.tsx
+|   |   |       list-icon.tsx
+|   |   |       list-ordered-icon.tsx
+|   |   |       list-todo-icon.tsx
+|   |   |       moon-star-icon.tsx
+|   |   |       redo2-icon.tsx
+|   |   |       strike-icon.tsx
+|   |   |       subscript-icon.tsx
+|   |   |       sun-icon.tsx
+|   |   |       superscript-icon.tsx
+|   |   |       trash-icon.tsx
+|   |   |       underline-icon.tsx
+|   |   |       undo2-icon.tsx
+|   |   |       
+|   |   +---tiptap-node
+|   |   |   +---code-block-node
+|   |   |   |       code-block-node.scss
+|   |   |   |       
+|   |   |   +---image-node
+|   |   |   |       image-node.scss
+|   |   |   |       
+|   |   |   +---image-upload-node
+|   |   |   |       image-upload-node-extension.ts
+|   |   |   |       image-upload-node.scss
+|   |   |   |       image-upload-node.tsx
+|   |   |   |       index.tsx
+|   |   |   |       
+|   |   |   +---list-node
+|   |   |   |       list-node.scss
+|   |   |   |       
+|   |   |   \---paragraph-node
+|   |   |           paragraph-node.scss
+|   |   |           
+|   |   +---tiptap-templates
+|   |   |   \---simple
+|   |   |       |   simple-editor.scss
+|   |   |       |   simple-editor.tsx
+|   |   |       |   theme-toggle.tsx
+|   |   |       |   
+|   |   |       \---data
+|   |   |               content.json
+|   |   |               
+|   |   +---tiptap-ui
+|   |   |   +---blockquote-button
+|   |   |   |       blockquote-button.tsx
+|   |   |   |       index.tsx
+|   |   |   |       
+|   |   |   +---code-block-button
+|   |   |   |       code-block-button.tsx
+|   |   |   |       index.tsx
+|   |   |   |       
+|   |   |   +---color-highlight-button
+|   |   |   |       color-highlight-button.scss
+|   |   |   |       color-highlight-button.tsx
+|   |   |   |       index.tsx
+|   |   |   |       
+|   |   |   +---color-highlight-popover
+|   |   |   |       color-highlight-popover.scss
+|   |   |   |       color-highlight-popover.tsx
+|   |   |   |       index.tsx
+|   |   |   |       
+|   |   |   +---heading-button
+|   |   |   |       heading-button.tsx
+|   |   |   |       index.tsx
+|   |   |   |       
+|   |   |   +---heading-dropdown-menu
+|   |   |   |       heading-dropdown-menu.tsx
+|   |   |   |       index.tsx
+|   |   |   |       
+|   |   |   +---image-upload-button
+|   |   |   |       image-upload-button.tsx
+|   |   |   |       index.tsx
+|   |   |   |       
+|   |   |   +---link-popover
+|   |   |   |       index.tsx
+|   |   |   |       link-popover.scss
+|   |   |   |       link-popover.tsx
+|   |   |   |       
+|   |   |   +---list-button
+|   |   |   |       index.tsx
+|   |   |   |       list-button.tsx
+|   |   |   |       
+|   |   |   +---list-dropdown-menu
+|   |   |   |       index.tsx
+|   |   |   |       list-dropdown-menu.tsx
+|   |   |   |       
+|   |   |   +---mark-button
+|   |   |   |       index.tsx
+|   |   |   |       mark-button.tsx
+|   |   |   |       
+|   |   |   +---text-align-button
+|   |   |   |       index.tsx
+|   |   |   |       text-align-button.tsx
+|   |   |   |       
+|   |   |   \---undo-redo-button
+|   |   |           index.tsx
+|   |   |           undo-redo-button.tsx
+|   |   |           
+|   |   +---tiptap-ui-primitive
+|   |   |   +---button
+|   |   |   |       button-colors.scss
+|   |   |   |       button-group.scss
+|   |   |   |       button.scss
+|   |   |   |       button.tsx
+|   |   |   |       index.tsx
+|   |   |   |       
+|   |   |   +---dropdown-menu
+|   |   |   |       dropdown-menu.scss
+|   |   |   |       dropdown-menu.tsx
+|   |   |   |       index.tsx
+|   |   |   |       
+|   |   |   +---popover
+|   |   |   |       index.tsx
+|   |   |   |       popover.scss
+|   |   |   |       popover.tsx
+|   |   |   |       
+|   |   |   +---separator
+|   |   |   |       index.tsx
+|   |   |   |       separator.scss
+|   |   |   |       separator.tsx
+|   |   |   |       
+|   |   |   +---spacer
+|   |   |   |       index.tsx
+|   |   |   |       spacer.tsx
+|   |   |   |       
+|   |   |   +---toolbar
+|   |   |   |       index.tsx
+|   |   |   |       toolbar.scss
+|   |   |   |       toolbar.tsx
+|   |   |   |       
+|   |   |   \---tooltip
+|   |   |           index.tsx
+|   |   |           tooltip.scss
+|   |   |           tooltip.tsx
+|   |   |           
+|   |   \---ui
+|   |           badge.tsx
+|   |           button.tsx
+|   |           card.tsx
+|   |           scroll-area.tsx
+|   |           tabs.tsx
+|   |           
+|   +---data
+|   |   \---defaults
+|   |           default-note.ts
+|   |           
+|   +---hooks
+|   |       use-cursor-visibility.ts
+|   |       use-menu-navigation.ts
+|   |       use-mobile.ts
+|   |       use-tiptap-editor.ts
+|   |       use-window-size.ts
+|   |       
+|   +---lib
+|   |       indexnow.js
+|   |       tiptap-utils.ts
+|   |       utils.ts
+|   |       
+|   +---scripts
+|   |       setupCleanupSchedule.ts
+|   |       
+|   +---styles
+|   |       _keyframe-animations.scss
+|   |       _variables.scss
+|   |       
+|   +---types
+|   |       combined-notes.ts
+|   |       notes.ts
+|   |       
+|   \---utils
+|       |   justNotedUtils.ts
+|       |   notes-backup.ts
+|       |   redis.ts
+|       |   redisUserManagement.ts
+|       |   
+|       +---general
+|       |       notes.ts
+|       |       
+|       +---redis
+|       |       redisCleanup.ts
+|       |       
+|       \---supabase
+|               client.ts
+|               middleware.ts
+|               server.ts
+|               
+\---supabase
+    |   .gitignore
+    |   config.toml
+    |   
+    \---.temp
+            cli-latest
+            

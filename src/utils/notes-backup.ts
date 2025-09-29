@@ -1,29 +1,28 @@
 ﻿"use client";
 
 import React from "react";
+import {
+  DB_NAME,
+  DB_VERSION,
+  STORE_NAME,
+  MAX_BACKUPS,
+  ENCRYPTION_KEY_NAME,
+  DEFAULT_WORD_COUNT_WPM,
+} from "@/constants/app";
 
 // Encryption utilities
-const ENCRYPTION_KEY_NAME = "notes-backup-key";
-
-// Generate or retrieve encryption key
 async function getOrCreateEncryptionKey(): Promise<CryptoKey> {
-  // Try to get existing key from IndexedDB
   const existingKey = await getStoredKey();
   if (existingKey) {
     return existingKey;
   }
 
-  // Generate new key
   const key = await crypto.subtle.generateKey(
-    {
-      name: "AES-GCM",
-      length: 256,
-    },
-    true, // extractable
+    { name: "AES-GCM", length: 256 },
+    true,
     ["encrypt", "decrypt"],
   );
 
-  // Store the key
   await storeKey(key);
   return key;
 }
@@ -59,7 +58,6 @@ async function getStoredKey(): Promise<CryptoKey | null> {
   }
 }
 
-// Encrypt data
 async function encryptData(
   data: string,
 ): Promise<{ encrypted: string; iv: string }> {
@@ -79,7 +77,6 @@ async function encryptData(
   };
 }
 
-// Decrypt data
 async function decryptData(
   encryptedData: string,
   ivString: string,
@@ -104,12 +101,6 @@ async function decryptData(
 
   return new TextDecoder().decode(decrypted);
 }
-
-// IndexedDB setup
-const DB_NAME = "NotesBackupDB";
-const DB_VERSION = 1;
-const STORE_NAME = "backups";
-const MAX_BACKUPS = 50;
 
 interface BackupEntry {
   id: string;
@@ -140,18 +131,14 @@ interface CombinedNote {
   isCollapsed?: boolean;
   created_at?: string;
   updated_at?: string;
-  // Add any other properties that exist in your actual CombinedNote type
 }
 
-// Add this interface for the restore callback
 type RestoreCallback = (restoredNote: any) => Promise<void> | void;
 
-// Update the NotesBackupManager class
 class NotesBackupManager {
   private db: IDBDatabase | null = null;
   private restoreCallback: RestoreCallback | null = null;
 
-  // Add method to set restore callback
   setRestoreCallback(callback: RestoreCallback) {
     this.restoreCallback = callback;
   }
@@ -186,7 +173,6 @@ class NotesBackupManager {
     if (!this.db) await this.init();
 
     try {
-      // Encrypt the note content
       const { encrypted, iv } = await encryptData(
         JSON.stringify({
           content: note.content,
@@ -213,7 +199,6 @@ class NotesBackupManager {
         },
       };
 
-      // Store the backup
       const transaction = this.db!.transaction([STORE_NAME], "readwrite");
       const store = transaction.objectStore(STORE_NAME);
 
@@ -223,7 +208,6 @@ class NotesBackupManager {
         request.onerror = () => reject(request.error);
       });
 
-      // Clean up old backups (keep only last 50 per note)
       await this.cleanupOldBackups(note.id);
 
       console.log(`✅ Backup created for note: ${note.title} (${changeType})`);
@@ -262,7 +246,6 @@ class NotesBackupManager {
     });
   }
 
-  // Update the restore method to actually restore the note
   async restoreNoteFromBackup(
     backupId: string,
   ): Promise<{ success: boolean; note?: CombinedNote; error?: string }> {
@@ -272,7 +255,6 @@ class NotesBackupManager {
       const backup = await this.getBackupById(backupId);
       if (!backup) return { success: false, error: "Backup not found" };
 
-      // Decrypt the content
       const decryptedData = await decryptData(
         backup.encryptedContent,
         backup.iv,
@@ -281,7 +263,6 @@ class NotesBackupManager {
 
       const restoredNote = fullNote as CombinedNote;
 
-      // If we have a restore callback, use it to actually restore the note
       if (this.restoreCallback) {
         await this.restoreCallback(restoredNote);
         return { success: true, note: restoredNote };
@@ -357,11 +338,9 @@ class NotesBackupManager {
     });
   }
 
-  // Update export to decrypt notes for readability
   async exportBackups(): Promise<string> {
     const backups = await this.getAllBackups();
 
-    // Decrypt all backups for export
     const decryptedBackups = await Promise.all(
       backups.map(async (backup) => {
         try {
@@ -379,7 +358,6 @@ class NotesBackupManager {
             title: backup.title,
             changeType: backup.changeType,
             metadata: backup.metadata,
-            // Include readable content
             content: content,
             fullNote: fullNote,
             exportDate: new Date().toISOString(),
@@ -409,7 +387,6 @@ class NotesBackupManager {
     );
   }
 
-  // Add method to get readable backup content
   async getReadableBackupContent(
     backupId: string,
   ): Promise<{ content: string; fullNote: CombinedNote } | null> {
@@ -440,11 +417,10 @@ class NotesBackupManager {
   }
 
   private async cleanupOldBackups(noteId: string): Promise<void> {
-    const backups = await this.getBackupsForNote(noteId, 1000); // Get all backups for this note
+    const backups = await this.getBackupsForNote(noteId, 1000);
 
     if (backups.length <= MAX_BACKUPS) return;
 
-    // Keep only the newest MAX_BACKUPS
     const backupsToDelete = backups.slice(MAX_BACKUPS);
 
     const transaction = this.db!.transaction([STORE_NAME], "readwrite");
@@ -460,12 +436,10 @@ class NotesBackupManager {
   }
 
   private calculateWordCount(content: string): number {
-    // Create a temporary DOM element to parse HTML safely
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = content;
     const plainText = tempDiv.textContent || tempDiv.innerText || "";
 
-    // Count words
     const words = plainText.trim()
       ? plainText.split(/\s+/).filter(Boolean)
       : [];
@@ -473,10 +447,8 @@ class NotesBackupManager {
   }
 }
 
-// Create singleton instance
 export const notesBackupManager = new NotesBackupManager();
 
-// Auto-backup hook for React components
 export function useNotesBackup(
   onRestoreNote?: (note: any) => Promise<void> | void,
 ) {
@@ -527,7 +499,6 @@ export function useNotesBackup(
   }, []);
 
   React.useEffect(() => {
-    // Initialize the backup manager and set restore callback
     notesBackupManager.init().catch(console.error);
     if (onRestoreNote) {
       notesBackupManager.setRestoreCallback(onRestoreNote);

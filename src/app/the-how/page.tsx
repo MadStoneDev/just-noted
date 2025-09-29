@@ -1,4 +1,5 @@
-﻿import Link from "next/link";
+﻿// src/app/the-how/page.tsx
+import Link from "next/link";
 import {
   IconCheck,
   IconCircleCheck,

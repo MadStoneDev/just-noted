@@ -1,9 +1,7 @@
 ﻿"use server";
 
 import redis from "@/utils/redis";
-
-// Redis key for the global note counter
-const GLOBAL_NOTE_COUNTER_KEY = "global:note:counter";
+import { GLOBAL_NOTE_COUNTER_KEY } from "@/constants/app";
 
 // Function to get the current note count
 export async function getGlobalNoteCount(): Promise<number> {

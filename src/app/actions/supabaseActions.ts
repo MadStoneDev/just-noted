@@ -1,10 +1,12 @@
 ﻿"use server";
 
-import { Tables } from "../../../database.types";
 import { createClient } from "@/utils/supabase/server";
-import { CombinedNote } from "@/types/combined-notes";
-
-type SupabaseNote = Tables<"notes">;
+import {
+  CombinedNote,
+  combiToSupabase,
+  supabaseToCombi,
+} from "@/types/combined-notes";
+import { validateGoalType, validateNoteTitle } from "@/utils/validation";
 
 // Cache the Supabase client creation
 const getSupabase = async () => await createClient();
@@ -21,71 +23,17 @@ async function getAuthenticatedUser() {
   return { supabase, userId: authData.user.id };
 }
 
-// Convert CombinedNote to Supabase format
-function toSupabaseNote(note: Partial<CombinedNote>): Partial<SupabaseNote> {
-  // Validate goal_type before conversion
-  const validGoalTypes = ["words", "characters", ""];
-  const goalType = validGoalTypes.includes(note.goal_type as any)
-    ? note.goal_type
-    : "";
-
-  return {
-    id: note.id,
-    author: note.author,
-    title: note.title || "",
-    content: note.content || "",
-    goal: note.goal || 0,
-    goal_type: goalType, // ← Fixed: validated goal_type
-    is_pinned: note.isPinned ?? false,
-    is_private: note.isPrivate ?? false,
-    is_collapsed: note.isCollapsed ?? false,
-    order: note.order || 0,
-    created_at: note.createdAt
-      ? new Date(note.createdAt).toISOString()
-      : new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
-}
-
-// Convert Supabase note to CombinedNote format
-function fromSupabaseNote(note: SupabaseNote): CombinedNote {
-  // Validate goal_type from database
-  const validGoalTypes = ["words", "characters", ""];
-  const goalType = validGoalTypes.includes(note.goal_type as any)
-    ? (note.goal_type as "words" | "characters" | "")
-    : "";
-
-  return {
-    id: note.id,
-    author: note.author || "",
-    title: note.title || "",
-    content: note.content || "",
-    goal: note.goal || 0,
-    goal_type: goalType, // ← Fixed: validated goal_type
-    isPinned: note.is_pinned ?? false,
-    isPrivate: note.is_private ?? false,
-    isCollapsed: note.is_collapsed ?? false,
-    order: note.order || 0,
-    createdAt: note.created_at
-      ? new Date(note.created_at).getTime()
-      : Date.now(),
-    updatedAt: note.updated_at
-      ? new Date(note.updated_at).getTime()
-      : Date.now(),
-    source: "supabase",
-  };
-}
-
 // Create Note
 export const createNote = async (newNote: Partial<CombinedNote>) => {
   try {
     const { supabase, userId } = await getAuthenticatedUser();
 
-    // Convert to Supabase format
-    const supabaseNote = toSupabaseNote(newNote);
-
-    // Ensure author is set
-    supabaseNote.author = userId;
+    // Convert to Supabase format using centralized converter
+    const supabaseNote = combiToSupabase({
+      ...newNote,
+      author: userId,
+      goal_type: validateGoalType(newNote.goal_type),
+    } as CombinedNote);
 
     const { data, error } = await supabase
       .from("notes")
@@ -103,7 +51,7 @@ export const createNote = async (newNote: Partial<CombinedNote>) => {
 
     return {
       success: true,
-      note: fromSupabaseNote(data),
+      note: supabaseToCombi(data),
     };
   } catch (error) {
     console.error("Exception creating Supabase note:", error);
@@ -125,17 +73,12 @@ export const updateNote = async (
   try {
     const { supabase, userId } = await getAuthenticatedUser();
 
-    const validGoalTypes = ["words", "characters", ""];
-    const goalType = validGoalTypes.includes(wordCountGoalType)
-      ? wordCountGoalType
-      : "";
-
     const { error } = await supabase
       .from("notes")
       .update({
         content,
         goal: wordCountGoal || 0,
-        goal_type: goalType,
+        goal_type: validateGoalType(wordCountGoalType),
         updated_at: new Date().toISOString(),
       })
       .eq("id", noteId)
@@ -160,7 +103,7 @@ export const updateNote = async (
 // Update Note Title
 export const updateNoteTitle = async (noteId: string, title: string) => {
   try {
-    if (!title?.trim()) {
+    if (!validateNoteTitle(title)) {
       return {
         success: false,
         error: "Invalid title: Title cannot be empty",
@@ -211,8 +154,8 @@ export const getNotesByUserId = async () => {
       throw error;
     }
 
-    // Convert to CombinedNote format
-    const notes = data.map(fromSupabaseNote);
+    // Convert to CombinedNote format using centralized converter
+    const notes = data.map(supabaseToCombi);
 
     return { success: true, notes };
   } catch (error) {

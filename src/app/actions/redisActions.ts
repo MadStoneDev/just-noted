@@ -5,11 +5,17 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { RedisNote, CreateNoteInput } from "@/types/combined-notes";
 import { incrementGlobalNoteCount } from "./counterActions";
-
-// Constants
-const NOTES_KEY_PREFIX = "notes:";
-const MAX_RETRIES = 3;
-const TWO_MONTHS_IN_SECONDS = 2 * 30 * 24 * 60 * 60; // 2 months expiration
+import {
+  validateUserId,
+  validateGoalType,
+  validateNoteContent,
+  validateNoteTitle,
+} from "@/utils/validation";
+import {
+  NOTES_KEY_PREFIX,
+  MAX_RETRIES,
+  TWO_MONTHS_IN_SECONDS,
+} from "@/constants/app";
 
 // Utility functions
 async function isBotRequest(action: string): Promise<boolean> {
@@ -28,12 +34,6 @@ async function isBotRequest(action: string): Promise<boolean> {
       `Headers not available during ${action}, assuming not a bot request`,
     );
     return false;
-  }
-}
-
-function validateUserId(userId: string): void {
-  if (!userId?.trim()) {
-    throw new Error("Invalid user ID: User ID cannot be empty");
   }
 }
 
@@ -153,7 +153,7 @@ function createNoteInputToRedisNote(
     createdAt: now,
     updatedAt: now,
     goal: input.goal || 0,
-    goal_type: input.goal_type || "",
+    goal_type: validateGoalType(input.goal_type),
   };
 }
 
@@ -210,24 +210,21 @@ export async function updateNoteAction(
     validateUserId(userId);
 
     // Validate inputs
-    if (typeof content !== "string") {
+    if (!validateNoteContent(content)) {
       return {
         success: false,
         error: "Invalid content: Content must be a string",
       };
     }
 
-    const validGoalTypes = ["words", "characters", ""];
-    const goalType = validGoalTypes.includes(wordCountGoalType)
-      ? wordCountGoalType
-      : "";
+    const goalType = validateGoalType(wordCountGoalType);
 
     try {
       const updatedNotes = await updateNoteProperty(userId, noteId, (note) => ({
         ...note,
         content,
         goal: wordCountGoal || 0,
-        goal_type: goalType as "words" | "characters" | "",
+        goal_type: goalType,
         updatedAt: Date.now(),
       }));
 
@@ -251,7 +248,7 @@ export async function updateNoteAction(
           title: `Just Noted #${noteNumber}`,
           content,
           goal: wordCountGoal || 0,
-          goal_type: goalType as "words" | "characters" | "",
+          goal_type: goalType,
         };
 
         const newNote = createNoteInputToRedisNote(newNoteInput, userId);
@@ -360,7 +357,7 @@ export async function updateNoteTitleAction(
       return { success: true };
     }
 
-    if (!title?.trim()) {
+    if (!validateNoteTitle(title)) {
       return {
         success: false,
         error: "Invalid title: Title cannot be empty",
@@ -521,6 +518,46 @@ export async function updateNoteOrderAction(
     return {
       success: false,
       error: `Failed to update note order: ${errorMessage}`,
+    };
+  }
+}
+
+// Create batch update for Redis (to match Supabase)
+export async function batchUpdateRedisNoteOrders(
+  userId: string,
+  updates: { id: string; order: number }[],
+) {
+  try {
+    if (await isBotRequest("batch note order update")) {
+      return { success: true };
+    }
+
+    validateUserId(userId);
+
+    const currentNotes = await getNotesWithRetry(userId);
+
+    // Create a map for quick lookups
+    const updateMap = new Map(updates.map((u) => [u.id, u.order]));
+
+    // Update notes with new orders
+    const updatedNotes = currentNotes.map((note) => {
+      const newOrder = updateMap.get(note.id);
+      if (newOrder !== undefined) {
+        return { ...note, order: newOrder, updatedAt: Date.now() };
+      }
+      return note;
+    });
+
+    await setNotesWithRetry(userId, updatedNotes);
+
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to batch update note orders:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      error: `Failed to batch update note orders: ${errorMessage}`,
     };
   }
 }
