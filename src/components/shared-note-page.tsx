@@ -11,8 +11,8 @@ import {
   IconUser,
 } from "@tabler/icons-react";
 
+import { sharingOperation } from "@/app/actions/sharing";
 import { createClient } from "@/utils/supabase/client";
-import { getNoteByShortcodeAction } from "@/app/actions/shareNoteActions";
 
 // Define types for note and params
 interface SharedNote {
@@ -198,7 +198,11 @@ export default function SharedNotePage({
         }
 
         // Fetch the shared note
-        const result = await getNoteByShortcodeAction(shortcode, username);
+        const result = await sharingOperation({
+          operation: "getByShortcode",
+          shortcode,
+          currentUsername: username,
+        });
 
         if (result.success && result.note) {
           setNote(result.note as SharedNote);

@@ -11,10 +11,11 @@ import {
 } from "@tabler/icons-react";
 import { CombinedNote } from "@/types/combined-notes";
 import { AutoBackupProvider } from "@/components/providers/auto-backup-provider";
-import { useCombinedNotes } from "@/components/hooks/use-combined-notes";
+// REMOVED: Don't call useCombinedNotes here - JustNotes already does it
 
 export default function NoteWrapper() {
-  const { notes, refreshNotes } = useCombinedNotes();
+  // REMOVED: const { notes, refreshNotes } = useCombinedNotes();
+  // JustNotes will handle this internally
 
   const [activeNote, setActiveNote] = useState<CombinedNote | null>(null);
   const [fullWidth, setFullWidth] = useState(true);
@@ -38,19 +39,6 @@ export default function NoteWrapper() {
   );
 
   const handleHide = useCallback(async () => {
-    setIsRefreshing(true);
-
-    try {
-      if (refreshCallbackRef.current) {
-        await refreshCallbackRef.current();
-      }
-    } catch (error) {
-      console.error("Failed to refresh note on close:", error);
-      await refreshNotes();
-    } finally {
-      setIsRefreshing(false);
-    }
-
     setIsAnimating(false);
 
     setTimeout(() => {
@@ -58,7 +46,19 @@ export default function NoteWrapper() {
       setActiveNote(null);
       refreshCallbackRef.current = null;
     }, 300);
-  }, [refreshNotes]);
+
+    // Trigger refresh after closing
+    setIsRefreshing(true);
+    try {
+      if (refreshCallbackRef.current) {
+        await refreshCallbackRef.current();
+      }
+    } catch (error) {
+      console.error("Failed to refresh note on close:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, []);
 
   const handleToggleWidth = useCallback(() => {
     setFullWidth((prev) => !prev);
@@ -81,62 +81,58 @@ export default function NoteWrapper() {
 
   return (
     <NotesErrorBoundary>
-      <AutoBackupProvider notes={notes}>
-        <JustNotes openDistractionFreeNote={handleShow} />
+      {/* REMOVED AutoBackupProvider - causing double hook instances */}
+      <JustNotes openDistractionFreeNote={handleShow} />
 
-        {showDistractionFree && (
-          <section
-            className={`fixed inset-0 z-50 transition-opacity duration-300 ease-in-out ${
-              isAnimating ? "opacity-100" : "opacity-0"
-            }`}
-          >
-            <div
-              className="absolute inset-0 bg-neutral-900/30"
-              onClick={handleHide}
-            />
+      {showDistractionFree && (
+        <section
+          className={`fixed inset-0 z-50 transition-opacity duration-300 ease-in-out ${
+            isAnimating ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          <div
+            className="absolute inset-0 bg-neutral-900/30"
+            onClick={handleHide}
+          />
 
-            <article className="absolute inset-6 sm:inset-8 p-2 pb-16 rounded-xl bg-neutral-200 overflow-hidden">
-              <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex justify-center items-center gap-2 w-full z-10">
-                <button
-                  className="cursor-pointer px-4 py-2 flex items-center gap-2 rounded-full bg-white/90 hover:bg-white shadow-lg opacity-80 hover:opacity-100 transition-all duration-200 ease-in-out"
-                  onClick={handleToggleWidth}
-                  disabled={isRefreshing}
-                >
-                  {widthButtonIcon}
-                  <span className="hidden sm:block">{widthButtonText}</span>
-                </button>
+          <article className="absolute inset-6 sm:inset-8 p-2 pb-16 rounded-xl bg-neutral-200 overflow-hidden">
+            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex justify-center items-center gap-2 w-full z-10">
+              <button
+                className="cursor-pointer px-4 py-2 flex items-center gap-2 rounded-full bg-white/90 hover:bg-white shadow-lg opacity-80 hover:opacity-100 transition-all duration-200 ease-in-out"
+                onClick={handleToggleWidth}
+                disabled={isRefreshing}
+              >
+                {widthButtonIcon}
+                <span className="hidden sm:block">{widthButtonText}</span>
+              </button>
 
-                <button
-                  className={`cursor-pointer px-4 py-2 flex items-center gap-2 rounded-full bg-white/90 hover:bg-white shadow-lg transition-all duration-200 ease-in-out ${
-                    isRefreshing ? "opacity-50" : "opacity-80 hover:opacity-100"
-                  }`}
-                  onClick={handleHide}
-                  disabled={isRefreshing}
-                >
-                  {isRefreshing ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-mercedes-primary border-t-transparent"></div>
-                      <span className="hidden sm:block">Saving...</span>
-                    </>
-                  ) : (
-                    <>
-                      <IconArrowsMinimize size={18} strokeWidth={2} />
-                      <span className="hidden sm:block">
-                        Close Distraction-Free Mode
-                      </span>
-                    </>
-                  )}
-                </button>
-              </div>
+              <button
+                className={`cursor-pointer px-4 py-2 flex items-center gap-2 rounded-full bg-white/90 hover:bg-white shadow-lg transition-all duration-200 ease-in-out ${
+                  isRefreshing ? "opacity-50" : "opacity-80 hover:opacity-100"
+                }`}
+                onClick={handleHide}
+                disabled={isRefreshing}
+              >
+                {isRefreshing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-mercedes-primary border-t-transparent"></div>
+                    <span className="hidden sm:block">Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <IconArrowsMinimize size={18} strokeWidth={2} />
+                    <span className="hidden sm:block">
+                      Close Distraction-Free Mode
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
 
-              <DistractionFreeNoteBlock
-                note={activeNote}
-                fullWidth={fullWidth}
-              />
-            </article>
-          </section>
-        )}
-      </AutoBackupProvider>
+            <DistractionFreeNoteBlock note={activeNote} fullWidth={fullWidth} />
+          </article>
+        </section>
+      )}
     </NotesErrorBoundary>
   );
 }

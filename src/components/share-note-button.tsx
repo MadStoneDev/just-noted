@@ -13,11 +13,8 @@ import {
   IconAlertCircle,
   IconLink,
 } from "@tabler/icons-react";
-import {
-  shareNoteAction,
-  getSharedUsersAction,
-  removeSharedUserAction,
-} from "@/app/actions/shareNoteActions";
+
+import { sharingOperation } from "@/app/actions/sharing";
 
 import { createClient } from "@/utils/supabase/client";
 
@@ -79,6 +76,28 @@ export default function ShareNoteButton({
     getCurrentUserId();
   }, [noteSource, isAuthenticated, userId, supabase]);
 
+  useEffect(() => {
+    const fetchInitialShareStatus = async () => {
+      if (isAuthenticated && noteId && currentUserId) {
+        try {
+          const result = await sharingOperation({
+            operation: "getUsers",
+            noteId,
+            currentUserId,
+          });
+
+          if (result.success && result.shortcode) {
+            setShortcode(result.shortcode);
+          }
+        } catch (error) {
+          console.error("Error fetching initial share status:", error);
+        }
+      }
+    };
+
+    fetchInitialShareStatus();
+  }, [isAuthenticated, noteId, currentUserId]);
+
   // Handle opening share modal
   const handleOpenShareModal = async () => {
     // Reset states
@@ -94,7 +113,11 @@ export default function ShareNoteButton({
     // Fetch existing shared users for this note
     if (isAuthenticated) {
       try {
-        const result = await getSharedUsersAction(noteId, currentUserId);
+        const result = await sharingOperation({
+          operation: "getUsers",
+          noteId,
+          currentUserId,
+        });
 
         if (result.success) {
           setIsPublic(result.isPublic || false);
@@ -130,15 +153,9 @@ export default function ShareNoteButton({
     setShareError(null);
     setShareSuccess(null);
 
-    console.log("Sharing note with:", {
-      noteId,
-      currentUserId,
-      noteSource,
-      isAuthenticated,
-    });
-
     try {
-      const result = await shareNoteAction({
+      const result = await sharingOperation({
+        operation: "share",
         noteId,
         isPublic,
         username: isPublic ? null : shareUsername,
@@ -187,10 +204,11 @@ export default function ShareNoteButton({
     setShareError(null);
 
     try {
-      const result = await removeSharedUserAction({
+      const result = await sharingOperation({
+        operation: "removeUser",
         noteId,
         username,
-        currentUserId: currentUserId, // Use the correct user ID
+        currentUserId: currentUserId,
       });
 
       if (result.success) {
@@ -231,9 +249,11 @@ export default function ShareNoteButton({
           isPrivate
             ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
             : canShare
-              ? "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary"
+              ? shortcode
+                ? "bg-white border-mercedes-primary text-mercedes-primary hover:bg-mercedes-primary hover:text-white"
+                : "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary text-neutral-800"
               : "opacity-50 cursor-not-allowed border-neutral-300"
-        } text-neutral-800 overflow-hidden transition-all duration-300 ease-in-out`}
+        } overflow-hidden transition-all duration-300 ease-in-out`}
         title={!canShare ? "Sign in to share notes" : "Share this note"}
       >
         <IconShare2 size={20} strokeWidth={2} />

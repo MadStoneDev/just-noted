@@ -1,8 +1,9 @@
 ﻿import React, { useState } from "react";
-import { IconTrash } from "@tabler/icons-react";
-import { deleteNoteAction } from "@/app/actions/redisActions";
 import { deleteNote as deleteSupabaseNote } from "@/app/actions/supabaseActions";
+import { noteOperation } from "@/app/actions/notes";
 import { NoteSource } from "@/types/combined-notes";
+
+import { IconTrash } from "@tabler/icons-react";
 
 interface DeleteButtonProps {
   noteId: string;
@@ -38,7 +39,11 @@ export default function DeleteButton({
 
     const deletePromise =
       noteSource === "redis"
-        ? deleteNoteAction(userId, noteId)
+        ? noteOperation("redis", {
+            operation: "delete",
+            userId,
+            noteId,
+          })
         : deleteSupabaseNote(noteId);
 
     deletePromise

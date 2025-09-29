@@ -1,9 +1,10 @@
 ﻿import { Suspense } from "react";
 import { Metadata } from "next";
 import { createClient } from "@/utils/supabase/server";
-import { getNoteByShortcodeAction } from "@/app/actions/shareNoteActions";
+
 import GlobalHeader from "@/components/global-header";
 import GlobalFooter from "@/components/global-footer";
+import { sharingOperation } from "@/app/actions/sharing";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -18,7 +19,11 @@ export async function generateMetadata({
 
   try {
     // Fetch the note to get its title
-    const result = await getNoteByShortcodeAction(shortcode, null);
+    const result = await sharingOperation({
+      operation: "getByShortcode",
+      shortcode,
+      currentUsername: null,
+    });
 
     if (result.success && result.note) {
       const noteTitle = result.note.title || "Shared Note";

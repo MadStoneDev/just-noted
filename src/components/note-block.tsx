@@ -30,11 +30,6 @@ import {
 } from "@tabler/icons-react";
 
 import {
-  updateNoteAction,
-  updateNoteTitleAction,
-} from "@/app/actions/redisActions";
-
-import {
   updateNote as updateSupabaseNote,
   updateNoteTitle as updateSupabaseNoteTitle,
 } from "@/app/actions/supabaseActions";
@@ -44,6 +39,7 @@ import ShareNoteButton from "@/components/share-note-button";
 import { useAutoSave } from "@/components/hooks/use-auto-save";
 import PageEstimateModal from "@/components/page-estimate-modal";
 import WordCountGoalModal from "@/components/word-count-goal-modal";
+import { noteOperation } from "@/app/actions/notes";
 
 // Type definition for the word count goal
 interface WordCountGoal {
@@ -539,13 +535,14 @@ export default function NoteBlock({
       try {
         let result;
         if (noteSource === "redis") {
-          result = await updateNoteAction(
+          result = await noteOperation("redis", {
+            operation: "update",
             userId,
-            details.id,
-            safeContent,
-            wordCountGoalRef.current?.target || 0,
-            wordCountGoalRef.current?.type || "",
-          );
+            noteId: details.id,
+            content: safeContent,
+            goal: wordCountGoalRef.current?.target || 0,
+            goalType: wordCountGoalRef.current?.type || "",
+          });
         } else {
           result = await updateSupabaseNote(
             details.id,
@@ -752,7 +749,12 @@ export default function NoteBlock({
 
       // Use the appropriate action based on note source
       if (noteSource === "redis") {
-        result = await updateNoteTitleAction(userId, details.id, noteTitle);
+        result = await noteOperation("redis", {
+          operation: "updateTitle",
+          userId,
+          noteId: details.id,
+          title: noteTitle,
+        });
       } else {
         // For Supabase notes
         result = await updateSupabaseNoteTitle(details.id, noteTitle);
@@ -1471,7 +1473,7 @@ export default function NoteBlock({
                 >
                   {/* Word Count */}
                   <p
-                    className={`py-1 col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center xl:gap-2 bg-neutral-200 rounded-xl border border-neutral-400 text-base`}
+                    className={`py-1 col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center xl:gap-1 bg-neutral-200 rounded-xl border border-neutral-400 text-base`}
                   >
                     <span
                       className={`${
@@ -1485,7 +1487,7 @@ export default function NoteBlock({
 
                   {/* Character Count */}
                   <p
-                    className={`py-1 col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center xl:gap-2 bg-neutral-200 rounded-xl border border-neutral-400 text-base`}
+                    className={`py-1 col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center xl:gap-1 bg-neutral-200 rounded-xl border border-neutral-400 text-base`}
                   >
                     <span
                       className={`${
@@ -1499,7 +1501,7 @@ export default function NoteBlock({
 
                   {/* Reading Time */}
                   <p
-                    className={`py-1 col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center xl:gap-2 bg-neutral-200 rounded-xl border border-neutral-400 text-base`}
+                    className={`py-1 col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center xl:gap-1 bg-neutral-200 rounded-xl border border-neutral-400 text-base`}
                   >
                     <span
                       className={`${

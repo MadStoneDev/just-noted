@@ -303,7 +303,6 @@
 |       |   justNotedUtils.ts
 |       |   notes-backup.ts
 |       |   redis.ts
-|       |   redisUserManagement.ts
 |       |   
 |       +---general
 |       |       notes.ts

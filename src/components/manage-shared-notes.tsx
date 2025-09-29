@@ -9,14 +9,10 @@ import {
   IconCheck,
   IconEye,
   IconTrash,
-  IconX,
   IconAlertCircle,
 } from "@tabler/icons-react";
-import {
-  getSharedUsersAction,
-  removeSharedUserAction,
-  stopSharingNoteAction,
-} from "@/app/actions/shareNoteActions";
+
+import { sharingOperation } from "@/app/actions/sharing";
 
 interface SharedNote {
   id: string;
@@ -111,7 +107,11 @@ export default function ManageSharedNotes({ userId }: { userId: string }) {
 
         // For each note, get shared users if not public
         for (const noteId of noteIds) {
-          const result = await getSharedUsersAction(noteId, userId);
+          const result = await sharingOperation({
+            operation: "getUsers",
+            noteId,
+            currentUserId: userId,
+          });
 
           if (result.success) {
             const noteData = notesMap.get(noteId);
@@ -146,7 +146,8 @@ export default function ManageSharedNotes({ userId }: { userId: string }) {
     setIsProcessing(true);
 
     try {
-      const result = await removeSharedUserAction({
+      const result = await sharingOperation({
+        operation: "removeUser",
         noteId,
         username,
         currentUserId: userId,
@@ -184,7 +185,11 @@ export default function ManageSharedNotes({ userId }: { userId: string }) {
     setIsProcessing(true);
 
     try {
-      const result = await stopSharingNoteAction(noteId, userId);
+      const result = await sharingOperation({
+        operation: "stopSharing",
+        noteId,
+        currentUserId: userId,
+      });
 
       if (result.success) {
         // Update the UI
