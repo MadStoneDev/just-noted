@@ -81,7 +81,6 @@ export default function NoteWrapper() {
 
   return (
     <NotesErrorBoundary>
-      {/* REMOVED AutoBackupProvider - causing double hook instances */}
       <JustNotes openDistractionFreeNote={handleShow} />
 
       {showDistractionFree && (

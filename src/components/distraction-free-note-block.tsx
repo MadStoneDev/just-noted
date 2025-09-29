@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useMemo } from "react";
 import NoteBlock from "@/components/note-block";
 import { useCombinedNotes } from "./hooks/use-combined-notes";
 import { CombinedNote } from "@/types/combined-notes";
