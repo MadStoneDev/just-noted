@@ -4,6 +4,7 @@ import { GoogleAnalytics } from "@next/third-parties/google";
 import { Outfit, Playfair_Display } from "next/font/google";
 
 import React, { ReactNode } from "react";
+import LogRocket from "@/components/providers/logrocket-provider"
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -57,9 +58,11 @@ export default function RootLayout({
       <body
         className={`bg-neutral-200 min-h-dvh print:min-h-0 flex flex-col ${outfit.variable} ${playfair.variable} antialiased`}
       >
+      <LogRocket>
         <div className={`h-18 print:hidden`}></div>
 
         {children}
+      </LogRocket>
       </body>
       <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID || ""} />
     </html>
