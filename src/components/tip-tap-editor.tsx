@@ -123,6 +123,7 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
           }`,
         },
       },
+      immediatelyRender: false,
     });
 
     // Expose methods via ref

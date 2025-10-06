@@ -10,13 +10,9 @@ import {
   IconViewportWide,
 } from "@tabler/icons-react";
 import { CombinedNote } from "@/types/combined-notes";
-import { AutoBackupProvider } from "@/components/providers/auto-backup-provider";
-// REMOVED: Don't call useCombinedNotes here - JustNotes already does it
 
 export default function NoteWrapper() {
-  // REMOVED: const { notes, refreshNotes } = useCombinedNotes();
-  // JustNotes will handle this internally
-
+    // States
   const [activeNote, setActiveNote] = useState<CombinedNote | null>(null);
   const [fullWidth, setFullWidth] = useState(true);
   const [showDistractionFree, setShowDistractionFree] = useState(false);
