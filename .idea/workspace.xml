@@ -6,6 +6,8 @@
   <component name="ChangeListManager">
     <list default="true" id="c964cf5b-c203-4783-b48d-35cd19ff7e4b" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -32,12 +34,13 @@
     "git-widget-placeholder": "main",
     "js.debugger.nextJs.config.created.client": "true",
     "js.debugger.nextJs.config.created.server": "true",
+    "last_opened_file_path": "/Users/richardhaddad/Development-Sandbox/just-noted",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
-    "ts.external.directory.path": "G:\\Development-Sandbox\\_Rumblebuffin\\justnoted\\node_modules\\typescript\\lib",
+    "ts.external.directory.path": "/Users/richardhaddad/Development-Sandbox/just-noted/node_modules/typescript/lib",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
@@ -65,6 +68,7 @@
       <updated>1749898994025</updated>
       <workItem from="1749898995146" duration="75000" />
       <workItem from="1750198604391" duration="1269000" />
+      <workItem from="1759232307556" duration="558000" />
     </task>
     <servers />
   </component>
