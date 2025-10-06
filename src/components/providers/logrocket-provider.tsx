@@ -10,7 +10,7 @@ export default function LogRocketProvider({
   const [supabase] = useState(() => createClient());
 
   useEffect(() => {
-    LogRocket.init("lbse3k/justnoted");
+    LogRocket.init(process.env.NEXT_PUBLIC_LOGROCKET_TOKEN!);
   }, []);
 
   useEffect(() => {

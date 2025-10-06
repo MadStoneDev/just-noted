@@ -11,7 +11,7 @@ import {
   combiToSupabase,
   supabaseToCombi,
 } from "@/types/combined-notes";
-import { incrementGlobalNoteCount } from "./counterActions";
+
 import {
   validateUserId,
   validateGoalType,
@@ -160,18 +160,7 @@ async function handleRedisOperation(params: NoteOperationParams) {
         if ("createdAt" in note && "updatedAt" in note) {
           newNote = note;
         } else {
-          const noteNumber = await incrementGlobalNoteCount();
-          const input = note as CreateNoteInput;
-          newNote = createNoteInputToRedisNote(
-            {
-              ...input,
-              title:
-                input.title === "Just Noted"
-                  ? `Just Noted #${noteNumber}`
-                  : input.title,
-            },
-            userId,
-          );
+          newNote = createNoteInputToRedisNote(note as CreateNoteInput, userId);
         }
 
         const currentNotes = await getNotesWithRetry(userId);
@@ -196,22 +185,10 @@ async function handleRedisOperation(params: NoteOperationParams) {
         const noteIndex = currentNotes.findIndex((note) => note.id === noteId);
 
         if (noteIndex === -1) {
-          // Create new note if not found
-          const noteNumber = await incrementGlobalNoteCount();
-          const newNote = createNoteInputToRedisNote(
-            {
-              id: noteId,
-              title: `Just Noted #${noteNumber}`,
-              content,
-              goal,
-              goal_type: validateGoalType(goalType),
-            },
-            userId,
-          );
-          const updatedNotes = [newNote, ...currentNotes];
-          await setNotesWithRetry(userId, updatedNotes);
-          revalidatePath("/");
-          return { success: true, notes: updatedNotes };
+          return {
+            success: false,
+            error: `Note ${noteId} not found. Please refresh and try again.`,
+          };
         }
 
         const updatedNote = {

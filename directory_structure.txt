@@ -32,9 +32,9 @@
 |   |   |   
 |   |   +---actions
 |   |   |       contactActions.ts
-|   |   |       counterActions.ts
-|   |   |       redisActions.ts
+|   |   |       notes.ts
 |   |   |       shareNoteActions.ts
+|   |   |       sharing.ts
 |   |   |       supabaseActions.ts
 |   |   |       
 |   |   +---api
@@ -76,6 +76,7 @@
 |   |   |   contact-form.tsx
 |   |   |   delete-button.tsx
 |   |   |   distraction-free-note-block.tsx
+|   |   |   error-boundary.tsx
 |   |   |   faq-block.tsx
 |   |   |   faq-item.tsx
 |   |   |   global-footer.tsx
@@ -92,13 +93,8 @@
 |   |   |   tip-tap-editor.tsx
 |   |   |   word-count-goal-modal.tsx
 |   |   |   
-|   |   +---hooks
-|   |   |       use-auto-save.tsx
-|   |   |       use-combined-notes-with-backup.ts
-|   |   |       use-combined-notes.tsx
-|   |   |       
 |   |   +---providers
-|   |   |       auto-backup-provider.tsx
+|   |   |       logrocket-provider.tsx
 |   |   |       
 |   |   +---tiptap-extension
 |   |   |       link-extension.ts
@@ -272,11 +268,16 @@
 |   |           scroll-area.tsx
 |   |           tabs.tsx
 |   |           
+|   +---constants
+|   |       app.ts
+|   |       
 |   +---data
 |   |   \---defaults
 |   |           default-note.ts
 |   |           
 |   +---hooks
+|   |       use-auto-save.tsx
+|   |       use-combined-notes.tsx
 |   |       use-cursor-visibility.ts
 |   |       use-menu-navigation.ts
 |   |       use-mobile.ts
@@ -297,12 +298,11 @@
 |   |       
 |   +---types
 |   |       combined-notes.ts
-|   |       notes.ts
 |   |       
 |   \---utils
-|       |   justNotedUtils.ts
 |       |   notes-backup.ts
 |       |   redis.ts
+|       |   validation.ts
 |       |   
 |       +---general
 |       |       notes.ts

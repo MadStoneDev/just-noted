@@ -9,6 +9,7 @@ export const TWO_MONTHS_IN_SECONDS = 2 * 30 * 24 * 60 * 60; // 5,184,000 seconds
 export const NOTES_KEY_PREFIX = "notes:";
 export const USER_ACTIVITY_PREFIX = "user:activity:";
 export const GLOBAL_NOTE_COUNTER_KEY = "global:note:counter";
+export const USER_NOTE_COUNT_KEY = "justNoted_user_note_count";
 
 // Backup Constants
 export const DB_NAME = "NotesBackupDB";

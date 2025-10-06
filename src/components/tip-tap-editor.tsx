@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import React, { useEffect, useImperativeHandle, forwardRef } from "react";
-import { useEditor, EditorContent, Editor } from "@tiptap/react";
+import { useEditor, EditorContent } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Highlight } from "@tiptap/extension-highlight";
 import { Image } from "@tiptap/extension-image";
@@ -27,13 +27,11 @@ import {
   Heading3,
   Undo,
   Redo,
-  Link as LinkIcon,
-  Image as ImageIcon,
+  CheckSquare,
+  HighlighterIcon,
   AlignLeft,
   AlignCenter,
   AlignRight,
-  CheckSquare,
-  HighlighterIcon,
 } from "lucide-react";
 
 interface TipTapEditorProps {
@@ -160,7 +158,7 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
     return (
       <div className="rounded-lg">
         {/* Toolbar */}
-        <div className="m-2 sticky top-2 left-0 right-0 border-b-4 border-neutral-200 p-2 bg-neutral-100 rounded-xl flex flex-wrap gap-1 items-center shadow-xl shadow-neutral-900/50 z-50">
+        <div className="m-2 sticky top-2 left-0 right-0 border-b-4 border-neutral-200 p-2 bg-neutral-100 rounded-xl flex gap-1 items-center shadow-lg shadow-neutral-900/20 overflow-x-auto z-50">
           {/* Undo/Redo */}
           <div className="flex gap-1 border-r border-neutral-300 pr-2 mr-2">
             <ToolbarButton
@@ -240,7 +238,7 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
           </div>
 
           {/* Lists */}
-          <div className="flex gap-1">
+          <div className="flex gap-1 border-r border-neutral-300 pr-2 mr-2">
             {/*<div className="flex gap-1 border-r border-neutral-300 pr-2 mr-2">*/}
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -263,28 +261,28 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
           </div>
 
           {/* Alignment */}
-          {/*<div className="flex gap-1 border-r border-neutral-300 pr-2 mr-2">*/}
-          {/*  <ToolbarButton*/}
-          {/*    onClick={() => editor.chain().focus().setTextAlign("left").run()}*/}
-          {/*    isActive={editor.isActive({ textAlign: "left" })}*/}
-          {/*    icon={<AlignLeft size={16} />}*/}
-          {/*    title="Align Left"*/}
-          {/*  />*/}
-          {/*  <ToolbarButton*/}
-          {/*    onClick={() =>*/}
-          {/*      editor.chain().focus().setTextAlign("center").run()*/}
-          {/*    }*/}
-          {/*    isActive={editor.isActive({ textAlign: "center" })}*/}
-          {/*    icon={<AlignCenter size={16} />}*/}
-          {/*    title="Align Center"*/}
-          {/*  />*/}
-          {/*  <ToolbarButton*/}
-          {/*    onClick={() => editor.chain().focus().setTextAlign("right").run()}*/}
-          {/*    isActive={editor.isActive({ textAlign: "right" })}*/}
-          {/*    icon={<AlignRight size={16} />}*/}
-          {/*    title="Align Right"*/}
-          {/*  />*/}
-          {/*</div>*/}
+          <div className="flex gap-1">
+            <ToolbarButton
+              onClick={() => editor.chain().focus().setTextAlign("left").run()}
+              isActive={editor.isActive({ textAlign: "left" })}
+              icon={<AlignLeft size={16} />}
+              title="Align Left"
+            />
+            <ToolbarButton
+              onClick={() =>
+                editor.chain().focus().setTextAlign("center").run()
+              }
+              isActive={editor.isActive({ textAlign: "center" })}
+              icon={<AlignCenter size={16} />}
+              title="Align Center"
+            />
+            <ToolbarButton
+              onClick={() => editor.chain().focus().setTextAlign("right").run()}
+              isActive={editor.isActive({ textAlign: "right" })}
+              icon={<AlignRight size={16} />}
+              title="Align Right"
+            />
+          </div>
 
           {/* Link and Image */}
           {/*<div className="flex gap-1">*/}

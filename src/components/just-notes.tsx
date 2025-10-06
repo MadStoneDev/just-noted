@@ -1,10 +1,12 @@
 ﻿"use client";
 
 import React, { useState, useCallback, useMemo } from "react";
-import { useCombinedNotes } from "./hooks/use-combined-notes";
+
 import NoteBlock from "@/components/note-block";
-import { IconSquareRoundedPlus, IconRefresh } from "@tabler/icons-react";
 import { CombinedNote } from "@/types/combined-notes";
+import { useCombinedNotes } from "@/hooks/use-combined-notes";
+
+import { IconSquareRoundedPlus, IconRefresh } from "@tabler/icons-react";
 
 export default function JustNotes({
   openDistractionFreeNote,
@@ -124,10 +126,7 @@ export default function JustNotes({
 
       <div className="col-span-12 grid grid-cols-12 gap-4 note-container">
         {notes.map((note) => {
-          const positionInfo = getNotePositionInfo(
-            note.id,
-            note.isPinned || false,
-          );
+          const positionInfo = getNotePositionInfo(note.id);
           const noteKey = `${note.source}-${note.id}${
             refreshNoteId === note.id ? "-refreshed" : ""
           }`;

@@ -1,9 +1,10 @@
 ﻿"use client";
 
 import React, { useMemo } from "react";
+
 import NoteBlock from "@/components/note-block";
-import { useCombinedNotes } from "./hooks/use-combined-notes";
 import { CombinedNote } from "@/types/combined-notes";
+import { useCombinedNotes } from "@/hooks/use-combined-notes";
 
 export default function DistractionFreeNoteBlock({
   note,
@@ -78,7 +79,7 @@ export default function DistractionFreeNoteBlock({
 
   // Get position information for the note
   const { isFirstPinned, isLastPinned, isFirstUnpinned, isLastUnpinned } =
-    getNotePositionInfo(latestNote.id, latestNote.isPinned || false);
+    getNotePositionInfo(latestNote.id);
 
   return (
     <div

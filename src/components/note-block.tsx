@@ -1,7 +1,7 @@
 ﻿import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import TextBlock from "@/components/text-block";
-import type { CombinedNote } from "@/types/notes";
+import type { CombinedNote } from "@/types/combined-notes";
 import type { NoteSource } from "@/types/combined-notes";
 
 import {
@@ -34,9 +34,9 @@ import {
   updateNoteTitle as updateSupabaseNoteTitle,
 } from "@/app/actions/supabaseActions";
 
+import { useAutoSave } from "@/hooks/use-auto-save";
 import DeleteButton from "@/components/delete-button";
 import ShareNoteButton from "@/components/share-note-button";
-import { useAutoSave } from "@/components/hooks/use-auto-save";
 import PageEstimateModal from "@/components/page-estimate-modal";
 import WordCountGoalModal from "@/components/word-count-goal-modal";
 import { noteOperation } from "@/app/actions/notes";
