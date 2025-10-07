@@ -11,7 +11,6 @@ import {
   combiToSupabase,
   supabaseToCombi,
 } from "@/types/combined-notes";
-
 import {
   validateUserId,
   validateGoalType,
@@ -24,7 +23,9 @@ import {
   TWO_MONTHS_IN_SECONDS,
 } from "@/constants/app";
 
-// Types for operation parameters
+// ===========================
+// TYPES
+// ===========================
 type NoteOperationParams =
   | { operation: "create"; userId: string; note: CreateNoteInput | RedisNote }
   | {
@@ -63,15 +64,17 @@ type NoteOperationParams =
       updates: { id: string; order: number }[];
     };
 
-// Utility functions
+// ===========================
+// UTILITY FUNCTIONS
+// ===========================
 async function isBotRequest(action: string): Promise<boolean> {
   try {
     const headersList = await headers();
     const isBotHeader = headersList?.get("x-is-bot");
     const isBot = isBotHeader === "true";
-    if (isBot) console.log(`Bot detected, skipping ${action}`);
+    if (isBot) console.log(`🤖 Bot detected, skipping ${action}`);
     return isBot;
-  } catch (headerError) {
+  } catch {
     return false;
   }
 }
@@ -135,7 +138,58 @@ function createNoteInputToRedisNote(
   };
 }
 
-// Redis operations
+// ===========================
+// REDIS HELPER: Update Single Field
+// ===========================
+
+/**
+ * Generic helper to update a single field in a Redis note
+ * Eliminates code duplication across pin/privacy/collapsed/order updates
+ */
+async function updateRedisNoteField<K extends keyof RedisNote>(
+  userId: string,
+  noteId: string,
+  field: K,
+  value: RedisNote[K],
+): Promise<{ success: boolean; notes?: RedisNote[]; error?: string }> {
+  try {
+    validateUserId(userId);
+
+    const currentNotes = await getNotesWithRetry(userId);
+    const noteIndex = currentNotes.findIndex((note) => note.id === noteId);
+
+    if (noteIndex === -1) {
+      return { success: false, error: "Note not found" };
+    }
+
+    const updatedNote = {
+      ...currentNotes[noteIndex],
+      [field]: value,
+      updatedAt: Date.now(),
+    };
+
+    const updatedNotes = [
+      ...currentNotes.slice(0, noteIndex),
+      updatedNote,
+      ...currentNotes.slice(noteIndex + 1),
+    ];
+
+    await setNotesWithRetry(userId, updatedNotes);
+    revalidatePath("/");
+
+    return { success: true, notes: updatedNotes };
+  } catch (error) {
+    console.error(`Failed to update ${String(field)}:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+// ===========================
+// REDIS OPERATIONS
+// ===========================
 async function handleRedisOperation(params: NoteOperationParams) {
   const { operation } = params;
 
@@ -167,6 +221,7 @@ async function handleRedisOperation(params: NoteOperationParams) {
         const updatedNotes = [newNote, ...currentNotes];
         await setNotesWithRetry(userId, updatedNotes);
         revalidatePath("/");
+
         return { success: true, notes: updatedNotes };
       }
 
@@ -204,140 +259,53 @@ async function handleRedisOperation(params: NoteOperationParams) {
           updatedNote,
           ...currentNotes.slice(noteIndex + 1),
         ];
+
         await setNotesWithRetry(userId, updatedNotes);
         revalidatePath("/");
+
         return { success: true, notes: updatedNotes };
       }
 
       case "updateTitle": {
         const { userId, noteId, title } = params;
+
         if (!validateNoteTitle(title)) {
           return {
             success: false,
             error: "Invalid title: Title cannot be empty",
           };
         }
-        validateUserId(userId);
 
-        const currentNotes = await getNotesWithRetry(userId);
-        const noteIndex = currentNotes.findIndex((note) => note.id === noteId);
-        if (noteIndex === -1) {
-          return { success: false, error: "Note not found" };
-        }
-
-        const updatedNote = {
-          ...currentNotes[noteIndex],
-          title: title.trim(),
-          updatedAt: Date.now(),
-        };
-        const updatedNotes = [
-          ...currentNotes.slice(0, noteIndex),
-          updatedNote,
-          ...currentNotes.slice(noteIndex + 1),
-        ];
-        await setNotesWithRetry(userId, updatedNotes);
-        revalidatePath("/");
-        return { success: true, notes: updatedNotes };
+        return updateRedisNoteField(userId, noteId, "title", title.trim());
       }
 
       case "updatePin": {
         const { userId, noteId, isPinned } = params;
-        validateUserId(userId);
-
-        const currentNotes = await getNotesWithRetry(userId);
-        const noteIndex = currentNotes.findIndex((note) => note.id === noteId);
-        if (noteIndex === -1) {
-          return { success: false, error: "Note not found" };
-        }
-
-        const updatedNote = {
-          ...currentNotes[noteIndex],
-          pinned: isPinned,
-          updatedAt: Date.now(),
-        };
-        const updatedNotes = [
-          ...currentNotes.slice(0, noteIndex),
-          updatedNote,
-          ...currentNotes.slice(noteIndex + 1),
-        ];
-        await setNotesWithRetry(userId, updatedNotes);
-        revalidatePath("/");
-        return { success: true, notes: updatedNotes };
+        return updateRedisNoteField(userId, noteId, "pinned", isPinned);
       }
 
       case "updatePrivacy": {
         const { userId, noteId, isPrivate } = params;
-        validateUserId(userId);
-
-        const currentNotes = await getNotesWithRetry(userId);
-        const noteIndex = currentNotes.findIndex((note) => note.id === noteId);
-        if (noteIndex === -1) {
-          return { success: false, error: "Note not found" };
-        }
-
-        const updatedNote = {
-          ...currentNotes[noteIndex],
-          isPrivate,
-          updatedAt: Date.now(),
-        };
-        const updatedNotes = [
-          ...currentNotes.slice(0, noteIndex),
-          updatedNote,
-          ...currentNotes.slice(noteIndex + 1),
-        ];
-        await setNotesWithRetry(userId, updatedNotes);
-        revalidatePath("/");
-        return { success: true, notes: updatedNotes };
+        return updateRedisNoteField(userId, noteId, "isPrivate", isPrivate);
       }
 
       case "updateCollapsed": {
         const { userId, noteId, isCollapsed } = params;
-        validateUserId(userId);
-
-        const currentNotes = await getNotesWithRetry(userId);
-        const noteIndex = currentNotes.findIndex((note) => note.id === noteId);
-        if (noteIndex === -1) {
-          return { success: false, error: "Note not found" };
-        }
-
-        const updatedNote = {
-          ...currentNotes[noteIndex],
-          isCollapsed,
-          updatedAt: Date.now(),
-        };
-        const updatedNotes = [
-          ...currentNotes.slice(0, noteIndex),
-          updatedNote,
-          ...currentNotes.slice(noteIndex + 1),
-        ];
-        await setNotesWithRetry(userId, updatedNotes);
-        revalidatePath("/");
-        return { success: true, notes: updatedNotes };
+        return updateRedisNoteField(userId, noteId, "isCollapsed", isCollapsed);
       }
 
       case "updateOrder": {
         const { userId, noteId, order } = params;
-        validateUserId(userId);
 
-        const currentNotes = await getNotesWithRetry(userId);
-        const noteIndex = currentNotes.findIndex((note) => note.id === noteId);
-        if (noteIndex === -1) {
-          return { success: false, error: "Note not found" };
+        // Validate order is a valid number
+        if (typeof order !== "number" || order < 0) {
+          return {
+            success: false,
+            error: "Invalid order: Order must be a non-negative number",
+          };
         }
 
-        const updatedNote = {
-          ...currentNotes[noteIndex],
-          order,
-          updatedAt: Date.now(),
-        };
-        const updatedNotes = [
-          ...currentNotes.slice(0, noteIndex),
-          updatedNote,
-          ...currentNotes.slice(noteIndex + 1),
-        ];
-        await setNotesWithRetry(userId, updatedNotes);
-        revalidatePath("/");
-        return { success: true, notes: updatedNotes };
+        return updateRedisNoteField(userId, noteId, "order", order);
       }
 
       case "delete": {
@@ -346,6 +314,7 @@ async function handleRedisOperation(params: NoteOperationParams) {
 
         const currentNotes = await getNotesWithRetry(userId);
         const noteToDelete = currentNotes.find((note) => note.id === noteId);
+
         if (!noteToDelete) {
           return { success: false, error: "Note not found" };
         }
@@ -353,6 +322,7 @@ async function handleRedisOperation(params: NoteOperationParams) {
         const updatedNotes = currentNotes.filter((note) => note.id !== noteId);
         await setNotesWithRetry(userId, updatedNotes);
         revalidatePath("/");
+
         return {
           success: true,
           notes: updatedNotes,
@@ -371,6 +341,18 @@ async function handleRedisOperation(params: NoteOperationParams) {
         const { userId, updates } = params;
         validateUserId(userId);
 
+        // Validate all orders first
+        const invalidOrder = updates.find(
+          (u) => typeof u.order !== "number" || u.order < 0,
+        );
+
+        if (invalidOrder) {
+          return {
+            success: false,
+            error: "Invalid order value in batch update",
+          };
+        }
+
         const currentNotes = await getNotesWithRetry(userId);
         const updateMap = new Map(updates.map((u) => [u.id, u.order]));
 
@@ -384,6 +366,7 @@ async function handleRedisOperation(params: NoteOperationParams) {
 
         await setNotesWithRetry(userId, updatedNotes);
         revalidatePath("/");
+
         return { success: true };
       }
 
@@ -391,13 +374,15 @@ async function handleRedisOperation(params: NoteOperationParams) {
         return { success: false, error: "Unknown operation" };
     }
   } catch (error) {
-    console.error(`Redis operation ${operation} failed:`, error);
+    console.error(`❌ Redis operation ${operation} failed:`, error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return { success: false, error: `Failed to ${operation}: ${errorMessage}` };
   }
 }
 
-// Supabase operations
+// ===========================
+// SUPABASE OPERATIONS
+// ===========================
 async function handleSupabaseOperation(params: NoteOperationParams) {
   const { operation } = params;
 
@@ -456,6 +441,7 @@ async function handleSupabaseOperation(params: NoteOperationParams) {
 
       case "updateTitle": {
         const { noteId, title } = params;
+
         if (!validateNoteTitle(title)) {
           return {
             success: false,
@@ -533,6 +519,14 @@ async function handleSupabaseOperation(params: NoteOperationParams) {
       case "updateOrder": {
         const { noteId, order } = params;
 
+        // Validate order
+        if (typeof order !== "number" || order < 0) {
+          return {
+            success: false,
+            error: "Invalid order: Order must be a non-negative number",
+          };
+        }
+
         const { error } = await supabase
           .from("notes")
           .update({ order, updated_at: new Date().toISOString() })
@@ -582,6 +576,18 @@ async function handleSupabaseOperation(params: NoteOperationParams) {
       case "batchUpdateOrders": {
         const { updates } = params;
 
+        // Validate all orders first
+        const invalidOrder = updates.find(
+          (u) => typeof u.order !== "number" || u.order < 0,
+        );
+
+        if (invalidOrder) {
+          return {
+            success: false,
+            error: "Invalid order value in batch update",
+          };
+        }
+
         const updatePromises = updates.map(({ id, order }) =>
           supabase
             .from("notes")
@@ -609,13 +615,15 @@ async function handleSupabaseOperation(params: NoteOperationParams) {
         return { success: false, error: "Unknown operation" };
     }
   } catch (error) {
-    console.error(`Supabase operation ${operation} failed:`, error);
+    console.error(`❌ Supabase operation ${operation} failed:`, error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return { success: false, error: `Failed to ${operation}: ${errorMessage}` };
   }
 }
 
-// Main exported function
+// ===========================
+// MAIN EXPORTED FUNCTION
+// ===========================
 export async function noteOperation(
   storage: "redis" | "supabase",
   params: NoteOperationParams,

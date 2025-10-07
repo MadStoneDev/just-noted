@@ -2,6 +2,8 @@
 export const DEBOUNCE_DELAY = 2000; // 2 seconds for auto-save
 export const REFRESH_INTERVAL = 10000; // 10 seconds for note refresh
 export const ACTIVITY_TIMEOUT = 30000; // 30 seconds before considering user inactive
+export const INIT_TIMEOUT = 10000; //
+export const HAS_INITIALISED_KEY = "justNoted_has_initialised"; //
 
 // Redis Constants
 export const MAX_RETRIES = 3;
@@ -51,3 +53,6 @@ export const PAGE_FORMATS = {
   A4: { name: "a4", wordsPerPage: 500 },
   A5: { name: "a5", wordsPerPage: 300 },
 } as const;
+
+// Other
+export const MOBILE_BREAKPOINT = 768;

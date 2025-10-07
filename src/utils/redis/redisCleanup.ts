@@ -1,4 +1,5 @@
 ﻿import redis from "@/utils/redis";
+import { USER_ACTIVITY_PREFIX } from "@/constants/app";
 
 /**
  * Runs a cleanup operation to remove notes for users who have been inactive
@@ -8,10 +9,16 @@ export async function cleanupOldNotes() {
   try {
     // Get all user note keys from Redis
     const userNoteKeys = await scanAllKeys("notes:*");
+    const failedDeletions: Array<{ userId: string; error: string }> = [];
 
     // Get all active user IDs (these have valid activity timestamps)
-    const activeUserIds = await scanAllKeys("user:activity:*");
-    const activeUserIdSet = new Set(activeUserIds);
+    const activeUserKeys = await scanAllKeys(`${USER_ACTIVITY_PREFIX}*`);
+    const activeUserIdSet = new Set<string>();
+
+    for (const key of activeUserKeys) {
+      const userId = key.replace(USER_ACTIVITY_PREFIX, "");
+      activeUserIdSet.add(userId);
+    }
 
     // Track statistics for reporting
     let totalUsersRemoved = 0;
@@ -24,9 +31,18 @@ export async function cleanupOldNotes() {
 
       // If user is not in the active set, delete their notes
       if (!activeUserIdSet.has(userId)) {
-        await redis.del(noteKey);
-        removedUserIds.push(userId);
-        totalUsersRemoved++;
+        try {
+          await redis.del(noteKey);
+          removedUserIds.push(userId);
+          totalUsersRemoved++;
+        } catch (error) {
+          failedDeletions.push({
+            userId,
+            error: String(error),
+          });
+
+          console.error(`Failed to delete notes for user ${userId}:`, error);
+        }
       }
     }
 
@@ -40,6 +56,7 @@ export async function cleanupOldNotes() {
         totalUsersProcessed,
         totalUsersRemoved,
         removedUserIds,
+        failedDeletions,
       },
     };
   } catch (error) {

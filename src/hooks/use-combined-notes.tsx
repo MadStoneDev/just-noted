@@ -24,13 +24,13 @@ import {
   updateSupabaseNoteOrder,
   batchUpdateNoteOrders,
 } from "@/app/actions/supabaseActions";
-import { USER_NOTE_COUNT_KEY } from "@/constants/app";
-
-// Constants
-const REFRESH_INTERVAL = 10000;
-const ACTIVITY_TIMEOUT = 30000;
-const HAS_INITIALISED_KEY = "justNoted_has_initialised";
-const INIT_TIMEOUT = 10000;
+import {
+  USER_NOTE_COUNT_KEY,
+  HAS_INITIALISED_KEY,
+  INIT_TIMEOUT,
+  ACTIVITY_TIMEOUT,
+  REFRESH_INTERVAL,
+} from "@/constants/app";
 
 interface UseCombinedNotesReturn {
   notes: CombinedNote[];
@@ -86,10 +86,11 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
   const animationTimeout = useRef<NodeJS.Timeout | null>(null);
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const noteFlushFunctionsRef = useRef<Map<string, () => void>>(new Map());
-  const initializationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const initialisationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const debouncedServerUpdates = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const redisUserIdRef = useRef<string | null>(null);
   const isAuthenticatedRef = useRef(false);
+  const transferLockRef = useRef<Set<string>>(new Set());
 
   // Helper Functions
   const registerNoteFlush = useCallback(
@@ -132,29 +133,34 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
   // Sorting and Organization
   const sortNotes = useCallback(
     (notesToSort: CombinedNote[]): CombinedNote[] => {
-      return [...notesToSort].sort((a, b) => {
+      const handleOrderZero = (a: CombinedNote, b: CombinedNote): number => {
         if (a.order === 0 && b.order !== 0) return -1;
         if (a.order !== 0 && b.order === 0) return 1;
         if (a.order === 0 && b.order === 0) return b.updatedAt - a.updatedAt;
+        return 0;
+      };
 
+      const handlePinStatus = (a: CombinedNote, b: CombinedNote): number => {
         if (a.isPinned && !b.isPinned) return -1;
         if (!a.isPinned && b.isPinned) return 1;
-
-        if (a.isPinned && b.isPinned) {
-          if (a.order > 0 && b.order <= 0) return -1;
-          if (a.order <= 0 && b.order > 0) return 1;
-          if (a.order > 0 && b.order > 0) return a.order - b.order;
-          return b.updatedAt - a.updatedAt;
-        }
-
-        if (!a.isPinned && !b.isPinned) {
-          if (a.order > 0 && b.order <= 0) return -1;
-          if (a.order <= 0 && b.order > 0) return 1;
-          if (a.order > 0 && b.order > 0) return a.order - b.order;
-          return b.updatedAt - a.updatedAt;
-        }
-
         return 0;
+      };
+
+      const handleOrderNumber = (a: CombinedNote, b: CombinedNote): number => {
+        if (a.order > 0 && b.order <= 0) return -1;
+        if (a.order <= 0 && b.order > 0) return 1;
+        if (a.order > 0 && b.order > 0) return a.order - b.order;
+        return b.updatedAt - a.updatedAt;
+      };
+
+      return [...notesToSort].sort((a, b) => {
+        const orderZeroResult = handleOrderZero(a, b);
+        if (orderZeroResult !== 0) return orderZeroResult;
+
+        const pinResult = handlePinStatus(a, b);
+        if (pinResult !== 0) return pinResult;
+
+        return handleOrderNumber(a, b);
       });
     },
     [],
@@ -335,7 +341,7 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
             await refreshNotes();
           }
         } else {
-          throw new Error(result.error);
+          throw new Error("Failed to save note");
         }
       } catch (error) {
         handleError("create note", error, "creation");
@@ -443,6 +449,8 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
             }
           } catch (error) {
             handleError("update collapsed status", error);
+          } finally {
+            debouncedServerUpdates.current.delete(noteId);
           }
         }, 500),
       );
@@ -570,6 +578,12 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
 
       if (!userId) return;
 
+      // Check if this note is already being transferred
+      if (transferLockRef.current.has(noteId)) {
+        console.warn("Transfer already in progress for this note");
+        return;
+      }
+
       const localNote = notes.find((note) => note.id === noteId);
       if (!localNote || localNote.source === targetSource) return;
 
@@ -578,6 +592,8 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
         return;
       }
 
+      // Lock this transfer
+      transferLockRef.current.add(noteId);
       setTransferringNoteId(noteId);
 
       try {
@@ -588,6 +604,7 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
             operation: "getAll",
             userId,
           });
+
           if (result.success && result.notes) {
             const redisNote = result.notes.find((note) => note.id === noteId);
             if (redisNote) {
@@ -631,9 +648,7 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
         }
 
         if (!createResult?.success) {
-          throw new Error(
-            createResult?.error || "Failed to create note in target storage",
-          );
+          throw new Error("Failed to create note in target storage");
         }
 
         let deleteResult;
@@ -648,7 +663,7 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
         }
 
         if (!deleteResult?.success) {
-          console.error("Failed to delete source note:", deleteResult?.error);
+          console.error("Failed to delete source note");
         }
 
         setNotes((prevNotes) => {
@@ -663,6 +678,8 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
         handleError("transfer note", error, "transfer");
       } finally {
         setTransferringNoteId(null);
+        // CRITICAL FIX: Remove the lock after transfer completes
+        transferLockRef.current.delete(noteId);
       }
     },
     [notes, sortNotes, markUpdated, handleError, refreshNotes],
@@ -675,18 +692,24 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
     setIsReorderingInProgress(true);
 
     try {
+      // Flush all pending saves with better error handling
       const flushPromises: Promise<void>[] = [];
-      noteFlushFunctionsRef.current.forEach((flushFn) => {
+      noteFlushFunctionsRef.current.forEach((flushFn, noteId) => {
         flushPromises.push(
           new Promise<void>((resolve) => {
-            flushFn();
-            setTimeout(resolve, 100);
+            try {
+              flushFn();
+              setTimeout(resolve, 100);
+            } catch (error) {
+              console.error(`Flush failed for note ${noteId}:`, error);
+              resolve(); // Continue even if one flush fails
+            }
           }),
         );
       });
 
       if (flushPromises.length > 0) {
-        await Promise.all(flushPromises);
+        await Promise.allSettled(flushPromises);
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
@@ -717,7 +740,13 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
         updates.push(batchUpdateNoteOrders(supabaseUpdates));
       }
 
-      await Promise.allSettled(updates);
+      const results = await Promise.allSettled(updates);
+      const failures = results.filter((r) => r.status === "rejected");
+
+      if (failures.length > 0) {
+        console.warn(`${failures.length} sync operations failed`);
+      }
+
       markUpdated();
     } catch (error) {
       handleError("sync and renumber notes", error);
@@ -816,19 +845,19 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
     [notes, sortNotes, markUpdated],
   );
 
-  // Initialization
+  // Initialisation
   useEffect(() => {
     if (!isMounted.current || hasInitialisedRef.current) return;
 
-    initializationTimeoutRef.current = setTimeout(() => {
+    initialisationTimeoutRef.current = setTimeout(() => {
       if (!hasInitialisedRef.current) {
-        console.error("⚠️ Initialization timeout - forcing completion");
+        console.error("⚠️ Initialisation timeout - forcing completion");
         setIsLoading(false);
         hasInitialisedRef.current = true;
       }
     }, INIT_TIMEOUT);
 
-    const initialize = async () => {
+    const initialise = async () => {
       try {
         const userId = getUserId();
         setRedisUserId(userId);
@@ -906,46 +935,51 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
         setNotes(sortedNotes);
         hasInitialisedRef.current = true;
       } catch (error) {
+        console.error("Initialisation error:", error);
         hasInitialisedRef.current = true;
       } finally {
         setIsLoading(false);
 
-        if (initializationTimeoutRef.current) {
-          clearTimeout(initializationTimeoutRef.current);
-          initializationTimeoutRef.current = null;
+        if (initialisationTimeoutRef.current) {
+          clearTimeout(initialisationTimeoutRef.current);
+          initialisationTimeoutRef.current = null;
         }
       }
     };
 
-    const updateLastAccess = async () => {
-      const userId = redisUserIdRef.current;
-      if (!userId) return;
-
-      try {
-        // Set/update last access timestamp with 2-month TTL
-        await fetch("/api/user-activity", {
-          method: "POST",
-          body: JSON.stringify({ userId }),
-        });
-      } catch (error) {
-        console.error("Failed to update last access:", error);
-      }
-    };
-
-    initialize();
+    initialise();
     updateLastAccess();
+  }, []);
+
+  const updateLastAccess = useCallback(async () => {
+    const userId = redisUserIdRef.current;
+    if (!userId) return;
+
+    try {
+      await fetch("/api/user-activity", {
+        method: "POST",
+        body: JSON.stringify({ userId }),
+      });
+    } catch (error) {
+      console.error("Failed to update last access:", error);
+    }
   }, []);
 
   // Auth change listener
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_, session) => {
-        const authenticated = !!session?.user;
-        setIsAuthenticated(authenticated);
-        isAuthenticatedRef.current = authenticated;
+      async (_, session) => {
+        const wasAuthenticated = isAuthenticatedRef.current;
+        const nowAuthenticated = !!session?.user;
 
-        if (hasInitialisedRef.current) {
-          refreshNotes();
+        setIsAuthenticated(nowAuthenticated);
+        isAuthenticatedRef.current = nowAuthenticated;
+
+        if (
+          hasInitialisedRef.current &&
+          wasAuthenticated !== nowAuthenticated
+        ) {
+          await refreshNotes();
         }
       },
     );
@@ -964,11 +998,13 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
       if (timeSinceLastUpdate > ACTIVITY_TIMEOUT) {
         refreshNotes();
       }
+
+      updateLastAccess();
     }, REFRESH_INTERVAL);
 
     refreshIntervalRef.current = interval;
     return () => clearInterval(interval);
-  }, [lastUpdateTimestamp, refreshNotes]);
+  }, [lastUpdateTimestamp, refreshNotes, updateLastAccess]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -977,8 +1013,14 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
 
       if (animationTimeout.current) clearTimeout(animationTimeout.current);
       if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
-      if (initializationTimeoutRef.current)
-        clearTimeout(initializationTimeoutRef.current);
+      if (initialisationTimeoutRef.current)
+        clearTimeout(initialisationTimeoutRef.current);
+
+      // Clear all debounced server updates
+      debouncedServerUpdates.current.forEach((timeout) =>
+        clearTimeout(timeout),
+      );
+      debouncedServerUpdates.current.clear();
     };
   }, []);
 

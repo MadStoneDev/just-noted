@@ -8,12 +8,11 @@ import {
 } from "@/types/combined-notes";
 import { validateGoalType, validateNoteTitle } from "@/utils/validation";
 
-// Cache the Supabase client creation
-const getSupabase = async () => await createClient();
-
-// Helper function to get authenticated user consistently
+// ===========================
+// AUTHENTICATION HELPER
+// ===========================
 async function getAuthenticatedUser() {
-  const supabase = await getSupabase();
+  const supabase = await createClient();
   const { data: authData, error } = await supabase.auth.getUser();
 
   if (error || !authData.user?.id) {
@@ -23,12 +22,13 @@ async function getAuthenticatedUser() {
   return { supabase, userId: authData.user.id };
 }
 
-// Create Note
+// ===========================
+// NOTE OPERATIONS
+// ===========================
 export const createNote = async (newNote: Partial<CombinedNote>) => {
   try {
     const { supabase, userId } = await getAuthenticatedUser();
 
-    // Convert to Supabase format using centralized converter
     const supabaseNote = combiToSupabase({
       ...newNote,
       author: userId,
@@ -54,7 +54,7 @@ export const createNote = async (newNote: Partial<CombinedNote>) => {
       note: supabaseToCombi(data),
     };
   } catch (error) {
-    console.error("Exception creating Supabase note:", error);
+    console.error("Exception creating note:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
@@ -63,7 +63,6 @@ export const createNote = async (newNote: Partial<CombinedNote>) => {
   }
 };
 
-// Update Note
 export const updateNote = async (
   noteId: string,
   content: string,
@@ -91,16 +90,15 @@ export const updateNote = async (
 
     return { success: true };
   } catch (error) {
-    console.error("Failed to update note content:", error);
+    console.error("Failed to update note:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
-      error: `Failed to update note content: ${errorMessage}`,
+      error: `Failed to update note: ${errorMessage}`,
     };
   }
 };
 
-// Update Note Title
 export const updateNoteTitle = async (noteId: string, title: string) => {
   try {
     if (!validateNoteTitle(title)) {
@@ -121,9 +119,7 @@ export const updateNoteTitle = async (noteId: string, title: string) => {
       .eq("id", noteId)
       .eq("author", userId);
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     return { success: true };
   } catch (error) {
@@ -136,7 +132,6 @@ export const updateNoteTitle = async (noteId: string, title: string) => {
   }
 };
 
-// Get Notes By User Id
 export const getNotesByUserId = async () => {
   try {
     const { supabase, userId } = await getAuthenticatedUser();
@@ -154,12 +149,11 @@ export const getNotesByUserId = async () => {
       throw error;
     }
 
-    // Convert to CombinedNote format using centralized converter
     const notes = data.map(supabaseToCombi);
 
     return { success: true, notes };
   } catch (error) {
-    console.error("Failed to get notes from Supabase:", error);
+    console.error("Failed to get notes:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
@@ -168,7 +162,6 @@ export const getNotesByUserId = async () => {
   }
 };
 
-// Update Note Pin Status
 export const updateNotePinStatus = async (
   noteId: string,
   isPinned: boolean,
@@ -185,22 +178,19 @@ export const updateNotePinStatus = async (
       .eq("id", noteId)
       .eq("author", userId);
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     return { success: true };
   } catch (error) {
-    console.error("Failed to update note pin status:", error);
+    console.error("Failed to update pin status:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
-      error: `Failed to update note pin status: ${errorMessage}`,
+      error: `Failed to update pin status: ${errorMessage}`,
     };
   }
 };
 
-// Update Note Privacy Status
 export const updateNotePrivacyStatus = async (
   noteId: string,
   isPrivate: boolean,
@@ -217,22 +207,19 @@ export const updateNotePrivacyStatus = async (
       .eq("id", noteId)
       .eq("author", userId);
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     return { success: true };
   } catch (error) {
-    console.error("Failed to update note privacy status:", error);
+    console.error("Failed to update privacy status:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
-      error: `Failed to update note privacy status: ${errorMessage}`,
+      error: `Failed to update privacy status: ${errorMessage}`,
     };
   }
 };
 
-// Update Note Collapsed Status
 export const updateNoteCollapsedStatus = async (
   noteId: string,
   isCollapsed: boolean,
@@ -249,22 +236,19 @@ export const updateNoteCollapsedStatus = async (
       .eq("id", noteId)
       .eq("author", userId);
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     return { success: true };
   } catch (error) {
-    console.error("Failed to update note collapsed status:", error);
+    console.error("Failed to update collapsed status:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
-      error: `Failed to update note collapsed status: ${errorMessage}`,
+      error: `Failed to update collapsed status: ${errorMessage}`,
     };
   }
 };
 
-// Update Note Order
 export const updateSupabaseNoteOrder = async (
   noteId: string,
   newOrder: number,
@@ -281,22 +265,19 @@ export const updateSupabaseNoteOrder = async (
       .eq("id", noteId)
       .eq("author", userId);
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     return { success: true };
   } catch (error) {
-    console.error("Failed to update note order:", error);
+    console.error("Failed to update order:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
-      error: `Failed to update note order: ${errorMessage}`,
+      error: `Failed to update order: ${errorMessage}`,
     };
   }
 };
 
-// Delete Note
 export const deleteNote = async (noteId: string) => {
   try {
     const { supabase, userId } = await getAuthenticatedUser();
@@ -307,9 +288,7 @@ export const deleteNote = async (noteId: string) => {
       .eq("id", noteId)
       .eq("author", userId);
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     return { success: true };
   } catch (error) {
@@ -322,14 +301,12 @@ export const deleteNote = async (noteId: string) => {
   }
 };
 
-// Batch update note orders for better performance
 export const batchUpdateNoteOrders = async (
   updates: { id: string; order: number }[],
 ) => {
   try {
     const { supabase, userId } = await getAuthenticatedUser();
 
-    // Use a transaction-like approach with Promise.allSettled
     const updatePromises = updates.map(({ id, order }) =>
       supabase
         .from("notes")
@@ -343,7 +320,6 @@ export const batchUpdateNoteOrders = async (
 
     const results = await Promise.allSettled(updatePromises);
 
-    // Check if any failed
     const failures = results.filter((result) => result.status === "rejected");
 
     if (failures.length > 0) {
@@ -356,11 +332,11 @@ export const batchUpdateNoteOrders = async (
 
     return { success: true };
   } catch (error) {
-    console.error("Failed to batch update note orders:", error);
+    console.error("Failed to batch update orders:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
-      error: `Failed to update note orders: ${errorMessage}`,
+      error: `Failed to update orders: ${errorMessage}`,
     };
   }
 };

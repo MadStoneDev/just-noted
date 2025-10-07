@@ -1,9 +1,10 @@
 ﻿import { useCallback, useRef, useEffect } from "react";
+import { DEBOUNCE_DELAY } from "@/constants/app";
 
 export function useAutoSave(
   noteContent: string,
   saveFunction: (content: string, isManual?: boolean) => Promise<void>,
-  delay: number = 2000,
+  delay: number = DEBOUNCE_DELAY,
 ) {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const latestContentRef = useRef(noteContent);
@@ -85,6 +86,7 @@ export function useAutoSave(
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
+      saveInProgressRef.current = false;
     };
   }, []);
 
@@ -92,6 +94,5 @@ export function useAutoSave(
     debouncedSave,
     flushSave,
     cancelSave,
-    isSaveInProgress: () => saveInProgressRef.current,
   };
 }

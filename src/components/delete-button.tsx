@@ -1,9 +1,13 @@
-﻿import React, { useState } from "react";
+﻿// src/components/delete-button.tsx
+"use client";
+
+import React, { useState, useCallback } from "react";
+import { IconTrash } from "@tabler/icons-react";
+import { ConfirmModal } from "@/components/ui/modal";
+import { useToast } from "@/components/ui/toast";
 import { deleteNote as deleteSupabaseNote } from "@/app/actions/supabaseActions";
 import { noteOperation } from "@/app/actions/notes";
 import { NoteSource } from "@/types/combined-notes";
-
-import { IconTrash } from "@tabler/icons-react";
 
 interface DeleteButtonProps {
   noteId: string;
@@ -20,48 +24,59 @@ export default function DeleteButton({
   noteSource,
   onDeleteSuccess,
 }: DeleteButtonProps) {
-  const [isDeleting, setIsDeleting] = useState<boolean>(false);
-  const [showConfirm, setShowConfirm] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const { showSuccess, showError } = useToast();
 
-  const handleClick = (e: React.MouseEvent<HTMLButtonElement>): void => {
+  const handleClick = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setShowConfirm(true);
-  };
+  }, []);
 
-  const cancelDelete = (): void => {
-    setShowConfirm(false);
-  };
-
-  const confirmDelete = (): void => {
+  const handleConfirm = useCallback(async () => {
     setIsDeleting(true);
-    setShowConfirm(false);
 
-    const deletePromise =
-      noteSource === "redis"
-        ? noteOperation("redis", {
-            operation: "delete",
-            userId,
-            noteId,
-          })
-        : deleteSupabaseNote(noteId);
+    try {
+      const deletePromise =
+        noteSource === "redis"
+          ? noteOperation("redis", {
+              operation: "delete",
+              userId,
+              noteId,
+            })
+          : deleteSupabaseNote(noteId);
 
-    deletePromise
-      .then((result) => {
-        if (result.success) {
-          if (onDeleteSuccess) {
-            onDeleteSuccess(noteId);
-          }
-        } else {
-          console.error("Delete failed:", result.error);
-          setIsDeleting(false);
+      const result = await deletePromise;
+
+      if (result.success) {
+        showSuccess(`"${noteTitle}" deleted successfully`);
+        if (onDeleteSuccess) {
+          onDeleteSuccess(noteId);
         }
-      })
-      .catch((error) => {
-        console.error("Delete error:", error);
+        setShowConfirm(false);
+      } else {
+        showError("Failed to delete note");
         setIsDeleting(false);
-      });
-  };
+      }
+    } catch (error) {
+      console.error("Delete error:", error);
+      showError("An unexpected error occurred");
+      setIsDeleting(false);
+    }
+  }, [
+    noteSource,
+    userId,
+    noteId,
+    noteTitle,
+    onDeleteSuccess,
+    showSuccess,
+    showError,
+  ]);
+
+  const handleCancel = useCallback(() => {
+    setShowConfirm(false);
+  }, []);
 
   if (isDeleting) {
     return (
@@ -80,38 +95,17 @@ export default function DeleteButton({
         <IconTrash size={20} strokeWidth={2} />
       </button>
 
-      {showConfirm && (
-        <div
-          className={`absolute top-0 left-0 right-0 bottom-0 flex items-center justify-center z-50`}
-        >
-          <div
-            className={`absolute top-0 left-0 bottom-0 right-0 bg-neutral-900 opacity-50`}
-          ></div>
-
-          <div className={`bg-white p-6 rounded-xl shadow-lg max-w-md z-50`}>
-            <h3 className="text-lg font-semibold mb-4">Delete Note</h3>
-            <p className="mb-6">
-              Are you sure you want to delete{" "}
-              <span className={`font-bold`}>{noteTitle}</span>? This action
-              cannot be undone.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={cancelDelete}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={showConfirm}
+        onClose={handleCancel}
+        onConfirm={handleConfirm}
+        title="Delete Note"
+        message={`Are you sure you want to delete "${noteTitle}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        isDestructive={true}
+        isLoading={isDeleting}
+      />
     </>
   );
 }

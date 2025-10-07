@@ -7,10 +7,26 @@ import {
   STORE_NAME,
   MAX_BACKUPS,
   ENCRYPTION_KEY_NAME,
-  DEFAULT_WORD_COUNT_WPM,
 } from "@/constants/app";
 
-// Encryption utilities
+// ===========================
+// INDEXEDDB SUPPORT CHECK
+// ===========================
+function checkIndexedDBSupport(): void {
+  if (typeof window === "undefined") {
+    throw new Error("Cannot use IndexedDB in server-side rendering context");
+  }
+
+  if (!window.indexedDB) {
+    throw new Error(
+      "IndexedDB is not supported in this browser. Backup functionality is unavailable.",
+    );
+  }
+}
+
+// ===========================
+// ENCRYPTION UTILITIES
+// ===========================
 async function getOrCreateEncryptionKey(): Promise<CryptoKey> {
   const existingKey = await getStoredKey();
   if (existingKey) {
@@ -102,6 +118,9 @@ async function decryptData(
   return new TextDecoder().decode(decrypted);
 }
 
+// ===========================
+// TYPES
+// ===========================
 interface BackupEntry {
   id: string;
   noteId: string;
@@ -135,21 +154,59 @@ interface CombinedNote {
 
 type RestoreCallback = (restoredNote: any) => Promise<void> | void;
 
+// ===========================
+// BACKUP MANAGER CLASS
+// ===========================
 class NotesBackupManager {
   private db: IDBDatabase | null = null;
   private restoreCallback: RestoreCallback | null = null;
+  private isSupported: boolean = false;
+  private initPromise: Promise<void> | null = null;
+  private isInitializing: boolean = false;
+
+  constructor() {
+    // Check support on construction (client-side only)
+    if (typeof window !== "undefined") {
+      this.isSupported = !!window.indexedDB;
+    }
+  }
 
   setRestoreCallback(callback: RestoreCallback) {
     this.restoreCallback = callback;
   }
 
+  // CRITICAL FIX: Ensure init is only called once and is awaited properly
+  private async ensureInitialized(): Promise<void> {
+    if (this.db) return; // Already initialized
+
+    if (this.initPromise) {
+      // Initialization in progress, wait for it
+      await this.initPromise;
+      return;
+    }
+
+    // Start initialization
+    this.initPromise = this.init();
+    await this.initPromise;
+  }
+
   async init(): Promise<void> {
+    if (this.db || this.isInitializing) return;
+
+    this.isInitializing = true;
+    checkIndexedDBSupport();
+
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-      request.onerror = () => reject(request.error);
+      request.onerror = () => {
+        this.isInitializing = false;
+        reject(request.error);
+      };
+
       request.onsuccess = () => {
         this.db = request.result;
+        this.isInitializing = false;
         resolve();
       };
 
@@ -170,7 +227,12 @@ class NotesBackupManager {
     note: CombinedNote,
     changeType: "create" | "update" | "delete" = "update",
   ): Promise<void> {
-    if (!this.db) await this.init();
+    if (!this.isSupported) {
+      console.warn("IndexedDB not supported - skipping backup");
+      return;
+    }
+
+    await this.ensureInitialized();
 
     try {
       const { encrypted, iv } = await encryptData(
@@ -217,6 +279,11 @@ class NotesBackupManager {
   }
 
   async backupMultipleNotes(notes: CombinedNote[]): Promise<void> {
+    if (!this.isSupported) {
+      console.warn("IndexedDB not supported - skipping backup");
+      return;
+    }
+
     console.log(`🔄 Backing up ${notes.length} notes...`);
 
     for (const note of notes) {
@@ -227,7 +294,8 @@ class NotesBackupManager {
   }
 
   async getBackupsForNote(noteId: string, limit = 10): Promise<BackupEntry[]> {
-    if (!this.db) await this.init();
+    if (!this.isSupported) return [];
+    await this.ensureInitialized();
 
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([STORE_NAME], "readonly");
@@ -249,7 +317,11 @@ class NotesBackupManager {
   async restoreNoteFromBackup(
     backupId: string,
   ): Promise<{ success: boolean; note?: CombinedNote; error?: string }> {
-    if (!this.db) await this.init();
+    if (!this.isSupported) {
+      return { success: false, error: "IndexedDB not supported" };
+    }
+
+    await this.ensureInitialized();
 
     try {
       const backup = await this.getBackupById(backupId);
@@ -279,7 +351,8 @@ class NotesBackupManager {
   }
 
   async getAllBackups(): Promise<BackupEntry[]> {
-    if (!this.db) await this.init();
+    if (!this.isSupported) return [];
+    await this.ensureInitialized();
 
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([STORE_NAME], "readonly");
@@ -322,7 +395,8 @@ class NotesBackupManager {
   }
 
   async deleteAllBackups(): Promise<void> {
-    if (!this.db) await this.init();
+    if (!this.isSupported) return;
+    await this.ensureInitialized();
 
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([STORE_NAME], "readwrite");
@@ -406,6 +480,8 @@ class NotesBackupManager {
   }
 
   private async getBackupById(id: string): Promise<BackupEntry | null> {
+    await this.ensureInitialized();
+
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([STORE_NAME], "readonly");
       const store = transaction.objectStore(STORE_NAME);
@@ -447,8 +523,14 @@ class NotesBackupManager {
   }
 }
 
+// ===========================
+// SINGLETON INSTANCE
+// ===========================
 export const notesBackupManager = new NotesBackupManager();
 
+// ===========================
+// REACT HOOK
+// ===========================
 export function useNotesBackup(
   onRestoreNote?: (note: any) => Promise<void> | void,
 ) {

@@ -1,6 +1,10 @@
 ﻿// src/scripts/backfillUserActivity.ts
 import redis from "@/utils/redis";
-import { TWO_MONTHS_IN_SECONDS } from "@/constants/app";
+import {
+  NOTES_KEY_PREFIX,
+  TWO_MONTHS_IN_SECONDS,
+  USER_ACTIVITY_PREFIX,
+} from "@/constants/app";
 
 export async function scanAllKeys(
   pattern: string,
@@ -29,7 +33,7 @@ export async function scanAllKeys(
 }
 
 export async function backfillUserActivity() {
-  const noteKeys = await scanAllKeys("notes:*");
+  const noteKeys = await scanAllKeys(`${NOTES_KEY_PREFIX}*`);
   const now = Date.now().toString();
 
   for (const noteKey of noteKeys) {
@@ -39,7 +43,11 @@ export async function backfillUserActivity() {
     const notes = await redis.get(noteKey);
     if (notes && Array.isArray(notes) && notes.length > 0) {
       // Set activity timestamp for existing user
-      await redis.setex(`user:activity:${userId}`, TWO_MONTHS_IN_SECONDS, now);
+      await redis.setex(
+        `${USER_ACTIVITY_PREFIX}${userId}`,
+        TWO_MONTHS_IN_SECONDS,
+        now,
+      );
       console.log(`Backfilled activity for user: ${userId}`);
     }
   }
