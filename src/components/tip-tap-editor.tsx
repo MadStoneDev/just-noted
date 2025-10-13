@@ -1,6 +1,11 @@
 ﻿"use client";
 
-import React, { useEffect, useImperativeHandle, forwardRef } from "react";
+import React, {
+  useEffect,
+  useImperativeHandle,
+  forwardRef,
+  useRef,
+} from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Highlight } from "@tiptap/extension-highlight";
@@ -34,7 +39,10 @@ import {
   AlignRight,
 } from "lucide-react";
 
+import { useNotesStore } from "@/stores/notes-store";
+
 interface TipTapEditorProps {
+  noteId?: string; // NEW: Add noteId prop
   markdown: string;
   onChange?: (markdown: string) => void;
   onReady?: () => void;
@@ -52,6 +60,7 @@ interface TipTapEditorMethods {
 const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
   (
     {
+      noteId, // NEW: Destructure noteId
       markdown,
       onChange,
       onReady,
@@ -61,6 +70,10 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
     },
     ref,
   ) => {
+    // NEW: Get setEditing from store
+    const { setEditing } = useNotesStore();
+    const editingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
     const editor = useEditor({
       extensions: [
         StarterKit.configure({
@@ -106,12 +119,45 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
       ],
       content: markdown,
       onUpdate: ({ editor }) => {
+        // NEW: Mark as editing when user types
+        if (noteId) {
+          setEditing(noteId, true);
+
+          // Clear previous timeout
+          if (editingTimeoutRef.current) {
+            clearTimeout(editingTimeoutRef.current);
+          }
+
+          // After 2 seconds of no typing, mark as not editing
+          editingTimeoutRef.current = setTimeout(() => {
+            setEditing(noteId, false);
+          }, 2000);
+        }
+
         const html = editor.getHTML();
         const text = editor.getText();
         // Convert HTML to markdown-like format or use the text content
         // For simplicity, we'll use the HTML content. You might want to use a HTML-to-markdown converter
         if (onChange) {
           onChange(html);
+        }
+      },
+      onFocus: () => {
+        // NEW: Mark as editing when editor gets focus
+        if (noteId) {
+          setEditing(noteId, true);
+        }
+      },
+      onBlur: () => {
+        // NEW: Clear editing state when editor loses focus
+        if (noteId) {
+          if (editingTimeoutRef.current) {
+            clearTimeout(editingTimeoutRef.current);
+          }
+          // Small delay before clearing editing state
+          setTimeout(() => {
+            setEditing(noteId, false);
+          }, 500);
         }
       },
       editorProps: {
@@ -150,6 +196,18 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
         }, 100);
       }
     }, [editor, onReady]);
+
+    // NEW: Cleanup editing state on unmount
+    useEffect(() => {
+      return () => {
+        if (editingTimeoutRef.current) {
+          clearTimeout(editingTimeoutRef.current);
+        }
+        if (noteId) {
+          setEditing(noteId, false);
+        }
+      };
+    }, [noteId, setEditing]);
 
     if (!editor) {
       return <div className="animate-pulse bg-neutral-200 h-64 rounded-lg" />;
@@ -239,7 +297,6 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
 
           {/* Lists */}
           <div className="flex gap-1 border-r border-neutral-300 pr-2 mr-2">
-            {/*<div className="flex gap-1 border-r border-neutral-300 pr-2 mr-2">*/}
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleBulletList().run()}
               isActive={editor.isActive("bulletList")}
@@ -283,31 +340,6 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
               title="Align Right"
             />
           </div>
-
-          {/* Link and Image */}
-          {/*<div className="flex gap-1">*/}
-          {/*  <ToolbarButton*/}
-          {/*    onClick={() => {*/}
-          {/*      const url = window.prompt("Enter URL:");*/}
-          {/*      if (url) {*/}
-          {/*        editor.chain().focus().setLink({ href: url }).run();*/}
-          {/*      }*/}
-          {/*    }}*/}
-          {/*    isActive={editor.isActive("link")}*/}
-          {/*    icon={<LinkIcon size={16} />}*/}
-          {/*    title="Add Link"*/}
-          {/*  />*/}
-          {/*  <ToolbarButton*/}
-          {/*    onClick={() => {*/}
-          {/*      const url = window.prompt("Enter image URL:");*/}
-          {/*      if (url) {*/}
-          {/*        editor.chain().focus().setImage({ src: url }).run();*/}
-          {/*      }*/}
-          {/*    }}*/}
-          {/*    icon={<ImageIcon size={16} />}*/}
-          {/*    title="Add Image"*/}
-          {/*  />*/}
-          {/*</div>*/}
         </div>
 
         {/* Editor */}

@@ -4,45 +4,43 @@ import React, { useMemo, useCallback } from "react";
 
 import NoteBlock from "@/components/note-block";
 import { CombinedNote } from "@/types/combined-notes";
-import { UseCombinedNotesReturn } from "@/hooks/use-combined-notes";
+import { useNotesStore } from "@/stores/notes-store";
+
+interface DistractionFreeNoteBlockProps {
+  note?: CombinedNote | null;
+  fullWidth?: boolean;
+  userId: string | null;
+  isAuthenticated: boolean;
+  notesOperations: any;
+  registerNoteFlush: (noteId: string, flushFn: () => void) => void;
+  unregisterNoteFlush: (noteId: string) => void;
+}
 
 export default function DistractionFreeNoteBlock({
   note,
   fullWidth,
-  combinedNotesHook,
-}: {
-  note?: CombinedNote | null;
-  fullWidth?: boolean;
-  combinedNotesHook: UseCombinedNotesReturn;
-}) {
-  // Destructure from the passed hook instead of calling it here
+  userId,
+  isAuthenticated,
+  notesOperations,
+  registerNoteFlush,
+  unregisterNoteFlush,
+}: DistractionFreeNoteBlockProps) {
+  // Get notes from Zustand store
+  const { notes, isLoading } = useNotesStore();
+
   const {
-    notes,
-    isLoading,
-    userId,
-    isAuthenticated,
-    transferringNoteId,
     updatePinStatus,
     updatePrivacyStatus,
     updateCollapsedStatus,
     reorderNote,
-    deleteNote,
-    getNotePositionInfo,
     transferNote,
-    registerNoteFlush,
-    unregisterNoteFlush,
-    refreshSingleNote, // ADD THIS
-  } = combinedNotesHook;
+    deleteNote,
+    saveNoteContent,
+    saveNoteTitle,
+    transferringNoteId,
+  } = notesOperations;
 
-  // ADD THIS: Callback for when a note is saved
-  const handleNoteSaved = useCallback(
-    async (noteId: string) => {
-      await refreshSingleNote(noteId);
-    },
-    [refreshSingleNote],
-  );
-
-  // Find the latest version of the note from the hook's state
+  // Find the latest version of the note from the store
   const latestNote = useMemo(() => {
     if (!note?.id) return note;
 
@@ -53,6 +51,27 @@ export default function DistractionFreeNoteBlock({
     // Otherwise fall back to the passed note prop
     return foundNote || note;
   }, [notes, note]);
+
+  // Calculate position info
+  const getNotePositionInfo = useCallback(
+    (noteId: string) => {
+      const pinnedNotes = notes.filter((note) => note.isPinned);
+      const unpinnedNotes = notes.filter((note) => !note.isPinned);
+
+      const pinnedIndex = pinnedNotes.findIndex((note) => note.id === noteId);
+      const unpinnedIndex = unpinnedNotes.findIndex(
+        (note) => note.id === noteId,
+      );
+
+      return {
+        isFirstPinned: pinnedIndex === 0,
+        isLastPinned: pinnedIndex === pinnedNotes.length - 1,
+        isFirstUnpinned: unpinnedIndex === 0,
+        isLastUnpinned: unpinnedIndex === unpinnedNotes.length - 1,
+      };
+    },
+    [notes],
+  );
 
   if (isLoading) {
     return (
@@ -102,7 +121,6 @@ export default function DistractionFreeNoteBlock({
       <NoteBlock
         details={{
           ...latestNote,
-          // Map the CombinedNote properties to what NoteBlock expects
           isPinned: latestNote.isPinned,
           isPrivate: latestNote.isPrivate,
           isCollapsed: false,
@@ -131,7 +149,8 @@ export default function DistractionFreeNoteBlock({
         onRegisterFlush={registerNoteFlush}
         onUnregisterFlush={unregisterNoteFlush}
         distractionFreeMode={true}
-        onNoteSaved={handleNoteSaved}
+        saveNoteContent={saveNoteContent}
+        saveNoteTitle={saveNoteTitle}
       />
     </div>
   );

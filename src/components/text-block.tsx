@@ -10,6 +10,7 @@ import React, {
 import TipTapEditor from "./tip-tap-editor";
 
 interface Props {
+  noteId?: string; // NEW: Add noteId prop
   value: string;
   onChange?: (value: string) => void;
   placeholder?: string;
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export default function TextBlock({
+  noteId, // Destructure noteId
   value,
   onChange,
   placeholder = "Start typing...",
@@ -101,6 +103,7 @@ export default function TextBlock({
     <div className={editorContainerClass}>
       <TipTapEditor
         ref={editorRef}
+        noteId={noteId} // NEW: Pass noteId to TipTapEditor
         markdown={isEmpty ? "" : localValue}
         onChange={handleChange}
         onReady={handleEditorReady}

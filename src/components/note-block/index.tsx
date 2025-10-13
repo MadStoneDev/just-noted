@@ -1,4 +1,5 @@
-﻿import React, {
+﻿// src/components/note-block/index.tsx
+import React, {
   useCallback,
   useEffect,
   useRef,
@@ -30,6 +31,8 @@ import PageEstimateModal from "@/components/page-estimate-modal";
 import WordCountGoalModal from "@/components/word-count-goal-modal";
 import { noteOperation } from "@/app/actions/notes";
 
+import { useNotesStore } from "@/stores/notes-store";
+
 // Type definition for the word count goal
 interface WordCountGoal {
   target: number;
@@ -59,7 +62,16 @@ interface NoteBlockProps {
   setActiveNote?: (note: CombinedNote | null) => void;
   openDistractionFreeNote?: () => void;
   distractionFreeMode?: boolean;
-  onNoteSaved?: (noteId: string) => Promise<void>;
+  saveNoteContent?: (
+    noteId: string,
+    content: string,
+    goal: number,
+    goalType: "" | "words" | "characters",
+  ) => Promise<{ success: boolean }>;
+  saveNoteTitle?: (
+    noteId: string,
+    title: string,
+  ) => Promise<{ success: boolean }>;
 }
 
 export default function NoteBlock({
@@ -83,14 +95,25 @@ export default function NoteBlock({
   onUnregisterFlush,
   openDistractionFreeNote,
   distractionFreeMode = false,
-  onNoteSaved,
+  saveNoteContent,
+  saveNoteTitle,
 }: NoteBlockProps) {
+  // ========== ZUSTAND - Read latest note data ==========
+  const latestNote = useNotesStore((state) =>
+    state.notes.find((n) => n.id === details.id),
+  );
+  const isSaving = useNotesStore((state) => state.isSaving.has(details.id));
+  const isEditing = useNotesStore((state) => state.isEditing.has(details.id));
+
+  // Use Zustand data if available, otherwise fall back to props
+  const currentNote = latestNote || details;
+
   // ========== CUSTOM HOOKS ==========
   const { message: saveStatus, icon: saveIcon, setStatus } = useStatusMessage();
 
   // ========== STATE ==========
-  const [noteTitle, setNoteTitle] = useState(details.title);
-  const [noteContent, setNoteContent] = useState(details.content);
+  const [noteTitle, setNoteTitle] = useState(currentNote.title);
+  const [noteContent, setNoteContent] = useState(currentNote.content);
   const [editingTitle, setEditingTitle] = useState(false);
   const [transferComplete, setTransferComplete] = useState(false);
   const [isContentVisible, setIsContentVisible] = useState(true);
@@ -104,13 +127,14 @@ export default function NoteBlock({
   const [wordCountGoal, setWordCountGoal] = useState<WordCountGoal | null>(
     () => {
       if (
-        details.goal &&
-        details.goal_type &&
-        (details.goal_type === "words" || details.goal_type === "characters")
+        currentNote.goal &&
+        currentNote.goal_type &&
+        (currentNote.goal_type === "words" ||
+          currentNote.goal_type === "characters")
       ) {
         return {
-          target: details.goal || 0,
-          type: details.goal_type as "" | "words" | "characters",
+          target: currentNote.goal || 0,
+          type: currentNote.goal_type as "" | "words" | "characters",
         };
       }
       return null;
@@ -118,10 +142,13 @@ export default function NoteBlock({
   );
 
   // ========== DERIVED STATE (useMemo) ==========
-  const isPinned = useMemo(() => details.isPinned || false, [details.isPinned]);
+  const isPinned = useMemo(
+    () => currentNote.isPinned || false,
+    [currentNote.isPinned],
+  );
   const isPrivate = useMemo(
-    () => details.isPrivate || false,
-    [details.isPrivate],
+    () => currentNote.isPrivate || false,
+    [currentNote.isPrivate],
   );
 
   const canMoveUp = useMemo(
@@ -161,13 +188,33 @@ export default function NoteBlock({
 
   // ========== REFS ==========
   const containerRef = useRef<HTMLElement | null>(null);
-  const lastSavedContentRef = useRef(details.content);
+  const lastSavedContentRef = useRef(currentNote.content);
   const saveCounterRef = useRef(0);
   const pendingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const prevIsTransferring = useRef(false);
   const collapseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const collapseSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const wordCountGoalRef = useRef(wordCountGoal);
+
+  // ========== SYNC LOCAL STATE WITH ZUSTAND ==========
+  useEffect(() => {
+    if (
+      !isSaving &&
+      !isEditing &&
+      currentNote.content !== noteContent &&
+      currentNote.content !== lastSavedContentRef.current
+    ) {
+      setNoteContent(currentNote.content);
+      lastSavedContentRef.current = currentNote.content;
+    }
+  }, [
+    currentNote.title,
+    currentNote.content,
+    currentNote.updatedAt,
+    editingTitle,
+    isSaving,
+    isEditing,
+  ]);
 
   // ========== FUNCTIONS ==========
   const getActiveEditorContent = useCallback((): string => {
@@ -218,7 +265,7 @@ export default function NoteBlock({
 
   const handleSaveTitle = async () => {
     if (noteTitle.trim() === "") {
-      setNoteTitle(details.title);
+      setNoteTitle(currentNote.title);
       setEditingTitle(false);
       return;
     }
@@ -233,16 +280,19 @@ export default function NoteBlock({
 
     try {
       let result;
-
-      if (noteSource === "redis") {
-        result = await noteOperation("redis", {
-          operation: "updateTitle",
-          userId,
-          noteId: details.id,
-          title: noteTitle,
-        });
+      if (saveNoteTitle) {
+        result = await saveNoteTitle(details.id, noteTitle);
       } else {
-        result = await updateSupabaseNoteTitle(details.id, noteTitle);
+        if (noteSource === "redis") {
+          result = await noteOperation("redis", {
+            operation: "updateTitle",
+            userId,
+            noteId: details.id,
+            title: noteTitle,
+          });
+        } else {
+          result = await updateSupabaseNoteTitle(details.id, noteTitle);
+        }
       }
 
       if (result.success) {
@@ -273,7 +323,7 @@ export default function NoteBlock({
   };
 
   const handleCancelEditTitle = () => {
-    setNoteTitle(details.title);
+    setNoteTitle(currentNote.title);
     setEditingTitle(false);
   };
 
@@ -421,8 +471,6 @@ export default function NoteBlock({
         return;
       }
 
-      const saveId = ++saveCounterRef.current;
-
       setStatus(
         "Saving...",
         <IconLoader className="animate-spin" />,
@@ -435,22 +483,31 @@ export default function NoteBlock({
 
       try {
         let result;
-        if (noteSource === "redis") {
-          result = await noteOperation("redis", {
-            operation: "update",
-            userId,
-            noteId: details.id,
-            content: safeContent,
-            goal: wordCountGoalRef.current?.target || 0,
-            goalType: wordCountGoalRef.current?.type || "",
-          });
-        } else {
-          result = await updateSupabaseNote(
+        if (saveNoteContent) {
+          result = await saveNoteContent(
             details.id,
             safeContent,
             wordCountGoalRef.current?.target || 0,
             wordCountGoalRef.current?.type || "",
           );
+        } else {
+          if (noteSource === "redis") {
+            result = await noteOperation("redis", {
+              operation: "update",
+              userId,
+              noteId: details.id,
+              content: safeContent,
+              goal: wordCountGoalRef.current?.target || 0,
+              goalType: wordCountGoalRef.current?.type || "",
+            });
+          } else {
+            result = await updateSupabaseNote(
+              details.id,
+              safeContent,
+              wordCountGoalRef.current?.target || 0,
+              wordCountGoalRef.current?.type || "",
+            );
+          }
         }
 
         const elapsed = Date.now() - startTime;
@@ -469,12 +526,6 @@ export default function NoteBlock({
             false,
             2000,
           );
-
-          if (onNoteSaved) {
-            onNoteSaved(details.id).catch((error) => {
-              console.error("Failed to refresh note after save:", error);
-            });
-          }
         } else {
           setStatus(
             "Failed to save",
@@ -494,7 +545,7 @@ export default function NoteBlock({
         setIsPending(false);
       }
     },
-    [userId, details.id, noteSource, setStatus],
+    [userId, details.id, noteSource, setStatus, saveNoteContent],
   );
 
   const { debouncedSave, flushSave } = useAutoSave(
@@ -526,6 +577,7 @@ export default function NoteBlock({
   const handleChange = useCallback(
     (value: string) => {
       setNoteContent(value);
+
       debouncedSave();
     },
     [debouncedSave],
@@ -538,19 +590,16 @@ export default function NoteBlock({
 
   // ========== EFFECTS ==========
   useEffect(() => {
-    setNoteContent(details.content);
-    setNoteTitle(details.title);
-    lastSavedContentRef.current = details.content;
+    setIsContentExpanded(!(currentNote.isCollapsed || false));
+    setIsContentVisible(!(currentNote.isCollapsed || false));
 
-    setIsContentExpanded(!(details.isCollapsed || false));
-    setIsContentVisible(!(details.isCollapsed || false));
-
-    if (details.goal || details.goal_type) {
+    if (currentNote.goal || currentNote.goal_type) {
       setWordCountGoal({
-        target: details.goal || 0,
+        target: currentNote.goal || 0,
         type:
-          details.goal_type === "words" || details.goal_type === "characters"
-            ? details.goal_type
+          currentNote.goal_type === "words" ||
+          currentNote.goal_type === "characters"
+            ? currentNote.goal_type
             : "",
       });
     }
@@ -559,20 +608,19 @@ export default function NoteBlock({
       if (pendingTimeoutRef.current) {
         clearTimeout(pendingTimeoutRef.current);
       }
+
       flushAutoSave();
       cancelAutoSave();
+
       if (collapseTimeoutRef.current) {
         clearTimeout(collapseTimeoutRef.current);
       }
+
       if (collapseSaveTimeoutRef.current) {
         clearTimeout(collapseSaveTimeoutRef.current);
       }
     };
   }, []);
-
-  useEffect(() => {
-    setNoteTitle(details.title);
-  }, [details.title]);
 
   useEffect(() => {
     if (isTransferring) {
@@ -612,11 +660,11 @@ export default function NoteBlock({
   }, []);
 
   useEffect(() => {
-    if (details.isCollapsed !== undefined) {
-      setIsContentExpanded(!details.isCollapsed);
-      setIsContentVisible(!details.isCollapsed);
+    if (currentNote.isCollapsed !== undefined) {
+      setIsContentExpanded(!currentNote.isCollapsed);
+      setIsContentVisible(!currentNote.isCollapsed);
     }
-  }, [details.isCollapsed]);
+  }, [currentNote.isCollapsed]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -734,6 +782,7 @@ export default function NoteBlock({
         canMoveUp={canMoveUp}
         canMoveDown={canMoveDown}
         distractionFreeMode={distractionFreeMode}
+        isSaving={isSaving}
         onTogglePin={() => handleTogglePin(isPinned)}
         onTogglePrivacy={() => handleTogglePrivacy(isPrivate)}
         onToggleVisibility={toggleContentVisibility}
@@ -768,6 +817,7 @@ export default function NoteBlock({
                 } rounded-xl overflow-hidden`}
               >
                 <TextBlock
+                  noteId={details.id}
                   value={noteContent}
                   onChange={handleChange}
                   distractionFreeMode={distractionFreeMode}

@@ -241,3 +241,21 @@ export function validateContentPreservation(
   const originalContent = safeExtractContent(original);
   return originalContent === converted.content;
 }
+
+/**
+ * Generate a unique note ID that doesn't conflict with existing IDs
+ */
+export function generateNoteId(existingIds: string[]): string {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 9);
+  let newId = `note_${timestamp}_${random}`;
+
+  // Ensure uniqueness
+  let counter = 0;
+  while (existingIds.includes(newId)) {
+    counter++;
+    newId = `note_${timestamp}_${random}_${counter}`;
+  }
+
+  return newId;
+}

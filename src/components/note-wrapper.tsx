@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useState, useRef, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 
 import JustNotes from "@/components/just-notes";
 import DistractionFreeNoteBlock from "@/components/distraction-free-note-block";
@@ -13,11 +13,27 @@ import {
 
 import { CombinedNote } from "@/types/combined-notes";
 import { NotesErrorBoundary } from "@/components/error-boundary";
-import { useCombinedNotes } from "@/hooks/use-combined-notes";
+import { useNotesSync } from "@/hooks/use-notes-sync";
+import { useNotesOperations } from "@/hooks/use-notes-operations";
 
 export default function NoteWrapper() {
-  // Lift useCombinedNotes to this level so both children share the same state
-  const combinedNotesHook = useCombinedNotes();
+  // Initialize sync and get user info
+  const {
+    userId,
+    isAuthenticated,
+    refreshNotes,
+    registerNoteFlush,
+    unregisterNoteFlush,
+    noteFlushFunctions,
+  } = useNotesSync();
+
+  // Get operations
+  const notesOperations = useNotesOperations(
+    userId,
+    isAuthenticated,
+    refreshNotes,
+    noteFlushFunctions,
+  );
 
   // States
   const [activeNote, setActiveNote] = useState<CombinedNote | null>(null);
@@ -64,10 +80,13 @@ export default function NoteWrapper() {
 
   return (
     <NotesErrorBoundary>
-      {/* Pass the entire hook down to JustNotes */}
       <JustNotes
         openDistractionFreeNote={handleShow}
-        combinedNotesHook={combinedNotesHook}
+        userId={userId}
+        isAuthenticated={isAuthenticated}
+        notesOperations={notesOperations}
+        registerNoteFlush={registerNoteFlush}
+        unregisterNoteFlush={unregisterNoteFlush}
       />
 
       {showDistractionFree && (
@@ -102,11 +121,14 @@ export default function NoteWrapper() {
               </button>
             </div>
 
-            {/* Pass the hook and activeNote down */}
             <DistractionFreeNoteBlock
               note={activeNote}
               fullWidth={fullWidth}
-              combinedNotesHook={combinedNotesHook}
+              userId={userId}
+              isAuthenticated={isAuthenticated}
+              notesOperations={notesOperations}
+              registerNoteFlush={registerNoteFlush}
+              unregisterNoteFlush={unregisterNoteFlush}
             />
           </article>
         </section>

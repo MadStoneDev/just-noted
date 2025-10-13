@@ -21,6 +21,7 @@ interface NoteActionsProps {
   canMoveUp: boolean;
   canMoveDown: boolean;
   distractionFreeMode: boolean;
+  isSaving: boolean;
   onTogglePin: () => void;
   onTogglePrivacy: () => void;
   onToggleVisibility: () => void;
@@ -43,6 +44,7 @@ export default function NoteActions({
   canMoveUp,
   canMoveDown,
   distractionFreeMode,
+  isSaving,
   onTogglePin,
   onTogglePrivacy,
   onToggleVisibility,
@@ -75,8 +77,15 @@ export default function NoteActions({
         <button
           type="button"
           onClick={onOpenDistractionFree}
-          className={`p-1 cursor-pointer rounded-lg border border-neutral-300 hover:bg-neutral-100 opacity-60 hover:opacity-100 transition-all duration-300 ease-in-out`}
-          title="Open Distraction-Free Mode"
+          disabled={isSaving} // ADD THIS
+          className={`p-1 cursor-pointer rounded-lg border border-neutral-300 ${
+            isSaving
+              ? "opacity-30 cursor-not-allowed"
+              : "hover:bg-neutral-100 opacity-60 hover:opacity-100"
+          } transition-all duration-300 ease-in-out`}
+          title={
+            isSaving ? "Saving... Please wait" : "Open Distraction-Free Mode"
+          }
         >
           <IconArrowsMaximize size={18} strokeWidth={1.5} />
         </button>

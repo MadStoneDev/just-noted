@@ -1,49 +1,47 @@
 ﻿"use client";
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 
 import NoteBlock from "@/components/note-block";
-import { CombinedNote } from "@/types/combined-notes";
-import { UseCombinedNotesReturn } from "@/hooks/use-combined-notes";
+import { CombinedNote, NoteSource } from "@/types/combined-notes";
+import { useNotesStore } from "@/stores/notes-store";
 
 import { IconSquareRoundedPlus, IconRefresh } from "@tabler/icons-react";
 
+interface JustNotesProps {
+  openDistractionFreeNote?: (note: CombinedNote) => void;
+  userId: string | null;
+  isAuthenticated: boolean;
+  notesOperations: any;
+  registerNoteFlush: (noteId: string, flushFn: () => void) => void;
+  unregisterNoteFlush: (noteId: string) => void;
+}
+
 export default function JustNotes({
   openDistractionFreeNote,
-  combinedNotesHook,
-}: {
-  openDistractionFreeNote?: (
-    note: CombinedNote,
-    onRefresh: () => Promise<void>,
-  ) => void;
-  combinedNotesHook: UseCombinedNotesReturn;
-}) {
-  // Destructure from the passed hook instead of calling it here
+  userId,
+  isAuthenticated,
+  notesOperations,
+  registerNoteFlush,
+  unregisterNoteFlush,
+}: JustNotesProps) {
+  // Get notes from Zustand store
+  const { notes, isLoading, animating, newNoteId, isReorderingInProgress } =
+    useNotesStore();
+
   const {
-    notes,
-    isLoading,
-    animating,
-    newNoteId,
-    userId,
-    isAuthenticated,
-    isReorderingInProgress,
-    transferringNoteId,
     addNote,
     updatePinStatus,
     updatePrivacyStatus,
     updateCollapsedStatus,
     reorderNote,
-    deleteNote,
-    getNotePositionInfo,
     transferNote,
     syncAndRenumberNotes,
-    registerNoteFlush,
-    unregisterNoteFlush,
-    refreshNotes,
-    refreshSingleNote, // ADD THIS
-  } = combinedNotesHook;
-
-  const [refreshNoteId, setRefreshNoteId] = useState<string | null>(null);
+    deleteNote,
+    saveNoteContent,
+    saveNoteTitle,
+    transferringNoteId,
+  } = notesOperations;
 
   // Memoize button text to prevent re-renders
   const addButtonText = useMemo(
@@ -60,28 +58,52 @@ export default function JustNotes({
   // Memoize add button disabled state
   const isAddDisabled = useMemo(() => animating, [animating]);
 
-  // ADD THIS: Callback for when a note is saved
-  const handleNoteSaved = useCallback(
-    async (noteId: string) => {
-      await refreshSingleNote(noteId);
+  // Calculate position info
+  const getNotePositionInfo = useCallback(
+    (noteId: string) => {
+      const pinnedNotes = notes.filter((note) => note.isPinned);
+      const unpinnedNotes = notes.filter((note) => !note.isPinned);
+
+      const pinnedIndex = pinnedNotes.findIndex((note) => note.id === noteId);
+      const unpinnedIndex = unpinnedNotes.findIndex(
+        (note) => note.id === noteId,
+      );
+
+      return {
+        isFirstPinned: pinnedIndex === 0,
+        isLastPinned: pinnedIndex === pinnedNotes.length - 1,
+        isFirstUnpinned: unpinnedIndex === 0,
+        isLastUnpinned: unpinnedIndex === unpinnedNotes.length - 1,
+      };
     },
-    [refreshSingleNote],
+    [notes],
   );
 
-  // Stable callback for opening distraction-free mode
+  // Simplified callback for opening distraction-free mode
   const handleOpenDistractionFree = useCallback(
     (note: CombinedNote) => {
       if (!openDistractionFreeNote) return;
-
-      const refreshCallback = async () => {
-        await refreshNotes();
-        setRefreshNoteId(note.id);
-        setTimeout(() => setRefreshNoteId(null), 1000);
-      };
-
-      openDistractionFreeNote(note, refreshCallback);
+      openDistractionFreeNote(note);
     },
-    [openDistractionFreeNote, refreshNotes],
+    [openDistractionFreeNote],
+  );
+
+  const handleSyncAndRenumber = useCallback(() => {
+    syncAndRenumberNotes();
+  }, [syncAndRenumberNotes]);
+
+  const handleReorder = useCallback(
+    (noteId: string, direction: "up" | "down") => {
+      reorderNote(noteId, direction);
+    },
+    [reorderNote],
+  );
+
+  const handleTransfer = useCallback(
+    (noteId: string, targetSource: NoteSource) => {
+      transferNote(noteId, targetSource);
+    },
+    [transferNote],
   );
 
   if (isLoading) {
@@ -101,7 +123,7 @@ export default function JustNotes({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={syncAndRenumberNotes}
+            onClick={handleSyncAndRenumber}
             disabled={isSyncDisabled}
             className={`px-2 py-1 cursor-pointer inline-flex items-center gap-2 rounded-xl border border-neutral-400 hover:border-blue-500 hover:bg-blue-500 hover:text-white transition-all duration-300 ease-in-out ${
               isSyncDisabled ? "opacity-50 cursor-not-allowed" : ""
@@ -139,9 +161,7 @@ export default function JustNotes({
       <div className="col-span-12 grid grid-cols-12 gap-4 note-container">
         {notes.map((note) => {
           const positionInfo = getNotePositionInfo(note.id);
-          const noteKey = `${note.source}-${note.id}${
-            refreshNoteId === note.id ? "-refreshed" : ""
-          }`;
+          const noteKey = `${note.source}-${note.id}`;
 
           return (
             <MemoizedNoteWrapper
@@ -157,12 +177,13 @@ export default function JustNotes({
               onPinStatusChange={updatePinStatus}
               onPrivacyStatusChange={updatePrivacyStatus}
               onCollapsedStatusChange={updateCollapsedStatus}
-              onReorder={reorderNote}
-              onTransferNote={transferNote}
+              onReorder={handleReorder}
+              onTransferNote={handleTransfer}
               onRegisterFlush={registerNoteFlush}
               onUnregisterFlush={unregisterNoteFlush}
               onOpenDistractionFree={handleOpenDistractionFree}
-              onNoteSaved={handleNoteSaved} // ADD THIS LINE
+              saveNoteContent={saveNoteContent}
+              saveNoteTitle={saveNoteTitle}
             />
           );
         })}
@@ -176,14 +197,16 @@ const MemoizedNoteWrapper = React.memo(function NoteWrapper({
   positionInfo,
   isNew,
   onOpenDistractionFree,
-  onNoteSaved, // ADD THIS
+  saveNoteContent,
+  saveNoteTitle,
   ...props
 }: {
   note: CombinedNote;
   positionInfo: any;
   isNew: boolean;
   onOpenDistractionFree: (note: CombinedNote) => void;
-  onNoteSaved?: (noteId: string) => Promise<void>; // ADD THIS
+  saveNoteContent: any;
+  saveNoteTitle: any;
   [key: string]: any;
 }) {
   const handleOpenDistractionFree = useCallback(() => {
@@ -209,7 +232,8 @@ const MemoizedNoteWrapper = React.memo(function NoteWrapper({
         noteSource={note.source}
         isTransferring={props.transferringNoteId === note.id}
         openDistractionFreeNote={handleOpenDistractionFree}
-        onNoteSaved={onNoteSaved} // ADD THIS LINE
+        saveNoteContent={saveNoteContent}
+        saveNoteTitle={saveNoteTitle}
       />
     </div>
   );
