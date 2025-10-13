@@ -4,18 +4,21 @@ import React, { useState, useCallback, useMemo } from "react";
 
 import NoteBlock from "@/components/note-block";
 import { CombinedNote } from "@/types/combined-notes";
-import { useCombinedNotes } from "@/hooks/use-combined-notes";
+import { UseCombinedNotesReturn } from "@/hooks/use-combined-notes";
 
 import { IconSquareRoundedPlus, IconRefresh } from "@tabler/icons-react";
 
 export default function JustNotes({
   openDistractionFreeNote,
+  combinedNotesHook,
 }: {
   openDistractionFreeNote?: (
     note: CombinedNote,
     onRefresh: () => Promise<void>,
   ) => void;
+  combinedNotesHook: UseCombinedNotesReturn;
 }) {
+  // Destructure from the passed hook instead of calling it here
   const {
     notes,
     isLoading,
@@ -37,7 +40,8 @@ export default function JustNotes({
     registerNoteFlush,
     unregisterNoteFlush,
     refreshNotes,
-  } = useCombinedNotes();
+    refreshSingleNote, // ADD THIS
+  } = combinedNotesHook;
 
   const [refreshNoteId, setRefreshNoteId] = useState<string | null>(null);
 
@@ -55,6 +59,14 @@ export default function JustNotes({
 
   // Memoize add button disabled state
   const isAddDisabled = useMemo(() => animating, [animating]);
+
+  // ADD THIS: Callback for when a note is saved
+  const handleNoteSaved = useCallback(
+    async (noteId: string) => {
+      await refreshSingleNote(noteId);
+    },
+    [refreshSingleNote],
+  );
 
   // Stable callback for opening distraction-free mode
   const handleOpenDistractionFree = useCallback(
@@ -150,6 +162,7 @@ export default function JustNotes({
               onRegisterFlush={registerNoteFlush}
               onUnregisterFlush={unregisterNoteFlush}
               onOpenDistractionFree={handleOpenDistractionFree}
+              onNoteSaved={handleNoteSaved} // ADD THIS LINE
             />
           );
         })}
@@ -163,12 +176,14 @@ const MemoizedNoteWrapper = React.memo(function NoteWrapper({
   positionInfo,
   isNew,
   onOpenDistractionFree,
+  onNoteSaved, // ADD THIS
   ...props
 }: {
   note: CombinedNote;
   positionInfo: any;
   isNew: boolean;
   onOpenDistractionFree: (note: CombinedNote) => void;
+  onNoteSaved?: (noteId: string) => Promise<void>; // ADD THIS
   [key: string]: any;
 }) {
   const handleOpenDistractionFree = useCallback(() => {
@@ -194,6 +209,7 @@ const MemoizedNoteWrapper = React.memo(function NoteWrapper({
         noteSource={note.source}
         isTransferring={props.transferringNoteId === note.id}
         openDistractionFreeNote={handleOpenDistractionFree}
+        onNoteSaved={onNoteSaved} // ADD THIS LINE
       />
     </div>
   );

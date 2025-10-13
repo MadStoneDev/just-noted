@@ -1,19 +1,21 @@
 ﻿"use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useCallback } from "react";
 
 import NoteBlock from "@/components/note-block";
 import { CombinedNote } from "@/types/combined-notes";
-import { useCombinedNotes } from "@/hooks/use-combined-notes";
+import { UseCombinedNotesReturn } from "@/hooks/use-combined-notes";
 
 export default function DistractionFreeNoteBlock({
   note,
   fullWidth,
+  combinedNotesHook,
 }: {
   note?: CombinedNote | null;
   fullWidth?: boolean;
+  combinedNotesHook: UseCombinedNotesReturn;
 }) {
-  // Use our combined notes hook
+  // Destructure from the passed hook instead of calling it here
   const {
     notes,
     isLoading,
@@ -29,7 +31,16 @@ export default function DistractionFreeNoteBlock({
     transferNote,
     registerNoteFlush,
     unregisterNoteFlush,
-  } = useCombinedNotes();
+    refreshSingleNote, // ADD THIS
+  } = combinedNotesHook;
+
+  // ADD THIS: Callback for when a note is saved
+  const handleNoteSaved = useCallback(
+    async (noteId: string) => {
+      await refreshSingleNote(noteId);
+    },
+    [refreshSingleNote],
+  );
 
   // Find the latest version of the note from the hook's state
   const latestNote = useMemo(() => {
@@ -41,7 +52,7 @@ export default function DistractionFreeNoteBlock({
     // If found in notes state, use that (it's more current)
     // Otherwise fall back to the passed note prop
     return foundNote || note;
-  }, [notes, note?.id]);
+  }, [notes, note]);
 
   if (isLoading) {
     return (
@@ -120,6 +131,7 @@ export default function DistractionFreeNoteBlock({
         onRegisterFlush={registerNoteFlush}
         onUnregisterFlush={unregisterNoteFlush}
         distractionFreeMode={true}
+        onNoteSaved={handleNoteSaved}
       />
     </div>
   );

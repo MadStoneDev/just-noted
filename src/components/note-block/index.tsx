@@ -59,6 +59,7 @@ interface NoteBlockProps {
   setActiveNote?: (note: CombinedNote | null) => void;
   openDistractionFreeNote?: () => void;
   distractionFreeMode?: boolean;
+  onNoteSaved?: (noteId: string) => Promise<void>;
 }
 
 export default function NoteBlock({
@@ -82,6 +83,7 @@ export default function NoteBlock({
   onUnregisterFlush,
   openDistractionFreeNote,
   distractionFreeMode = false,
+  onNoteSaved,
 }: NoteBlockProps) {
   // ========== CUSTOM HOOKS ==========
   const { message: saveStatus, icon: saveIcon, setStatus } = useStatusMessage();
@@ -420,7 +422,6 @@ export default function NoteBlock({
       }
 
       const saveId = ++saveCounterRef.current;
-      console.log(`🔵 Starting save #${saveId} (manual: ${isManual})`);
 
       setStatus(
         "Saving...",
@@ -461,7 +462,6 @@ export default function NoteBlock({
 
         if (result.success) {
           lastSavedContentRef.current = safeContent;
-          console.log(`✅ Save #${saveId} completed successfully`);
 
           setStatus(
             "Saved",
@@ -469,8 +469,13 @@ export default function NoteBlock({
             false,
             2000,
           );
+
+          if (onNoteSaved) {
+            onNoteSaved(details.id).catch((error) => {
+              console.error("Failed to refresh note after save:", error);
+            });
+          }
         } else {
-          console.log(`❌ Save #${saveId} failed`);
           setStatus(
             "Failed to save",
             <IconCircleX className="text-red-700" />,
@@ -479,7 +484,6 @@ export default function NoteBlock({
           );
         }
       } catch (error) {
-        console.log(`❌ Save #${saveId} error:`, error);
         setStatus(
           "Error saving",
           <IconCircleX className="text-red-700" />,
@@ -501,7 +505,6 @@ export default function NoteBlock({
 
   const flushAutoSave = useCallback(() => {
     if (pendingTimeoutRef.current) {
-      console.log("🚀 Flushing pending auto-save");
       clearTimeout(pendingTimeoutRef.current);
       pendingTimeoutRef.current = null;
       saveContentRef.current?.(noteContent, false);
@@ -510,7 +513,6 @@ export default function NoteBlock({
 
   const cancelAutoSave = useCallback(() => {
     if (pendingTimeoutRef.current) {
-      console.log("🛑 Cancelling pending auto-save");
       clearTimeout(pendingTimeoutRef.current);
       pendingTimeoutRef.current = null;
     }
@@ -523,7 +525,6 @@ export default function NoteBlock({
 
   const handleChange = useCallback(
     (value: string) => {
-      console.log(`📝 Content changed (length: ${value.length})`);
       setNoteContent(value);
       debouncedSave();
     },
@@ -555,7 +556,6 @@ export default function NoteBlock({
     }
 
     return () => {
-      console.log("🧹 Component unmounting - cleaning up timers");
       if (pendingTimeoutRef.current) {
         clearTimeout(pendingTimeoutRef.current);
       }

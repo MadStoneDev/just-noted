@@ -32,7 +32,7 @@ import {
   REFRESH_INTERVAL,
 } from "@/constants/app";
 
-interface UseCombinedNotesReturn {
+export interface UseCombinedNotesReturn {
   notes: CombinedNote[];
   isLoading: boolean;
   animating: boolean;
@@ -827,10 +827,15 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
 
         if (updatedNote) {
           setNotes((prevNotes) => {
+            // CHANGED: Update the note but DON'T resort - preserve order
             const updatedNotes = prevNotes.map((note) =>
               note.id === noteId ? updatedNote : note,
             );
-            return sortNotes(updatedNotes);
+            // Only re-sort if pin status changed, otherwise keep current order
+            if (targetNoteFromCurrentState.isPinned !== updatedNote.isPinned) {
+              return sortNotes(updatedNotes);
+            }
+            return updatedNotes;
           });
 
           markUpdated();
