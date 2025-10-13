@@ -94,7 +94,7 @@ export default function DistractionFreeNoteBlock({
           // Map the CombinedNote properties to what NoteBlock expects
           isPinned: latestNote.isPinned,
           isPrivate: latestNote.isPrivate,
-          isCollapsed: latestNote.isCollapsed,
+          isCollapsed: false,
           goal: latestNote.goal,
           goal_type:
             latestNote.goal_type === "words" ||

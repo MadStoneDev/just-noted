@@ -21,12 +21,7 @@ export async function handleAuth(formData: FormData): Promise<AuthResponse> {
   try {
     const supabase = await createClient();
 
-    // Log for debugging
-    console.log("Attempting to send OTP to:", email);
-
     const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3045";
-
-    console.log("Using site URL:", siteUrl);
 
     const { data, error } = await supabase.auth.signInWithOtp({
       email,
@@ -35,9 +30,6 @@ export async function handleAuth(formData: FormData): Promise<AuthResponse> {
         emailRedirectTo: `${siteUrl}/auth/confirm`,
       },
     });
-
-    // Log full response for debugging
-    console.log("Supabase auth response:", { data, error });
 
     if (error) {
       console.error("Supabase auth error:", {

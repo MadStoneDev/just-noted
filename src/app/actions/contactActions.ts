@@ -131,7 +131,6 @@ async function sendAdminEmail(
       ]);
 
     await mailerSend.email.send(emailParams);
-    console.log("✅ Admin notification sent successfully");
 
     return { success: true };
   } catch (error: any) {
@@ -163,7 +162,6 @@ async function sendUserEmail(apiKey: string, userEmail: string): Promise<void> {
     ]);
 
   await mailerSend.email.send(emailParams);
-  console.log("✅ User confirmation sent successfully");
 }
 
 // ===========================

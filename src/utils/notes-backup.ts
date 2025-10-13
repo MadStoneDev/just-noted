@@ -271,8 +271,6 @@ class NotesBackupManager {
       });
 
       await this.cleanupOldBackups(note.id);
-
-      console.log(`✅ Backup created for note: ${note.title} (${changeType})`);
     } catch (error) {
       console.error("Failed to backup note:", error);
     }
@@ -284,13 +282,9 @@ class NotesBackupManager {
       return;
     }
 
-    console.log(`🔄 Backing up ${notes.length} notes...`);
-
     for (const note of notes) {
       await this.backupNote(note, "update");
     }
-
-    console.log(`✅ Backup completed for ${notes.length} notes`);
   }
 
   async getBackupsForNote(noteId: string, limit = 10): Promise<BackupEntry[]> {
@@ -404,7 +398,6 @@ class NotesBackupManager {
       const request = store.clear();
 
       request.onsuccess = () => {
-        console.log("🗑️ All backups deleted");
         resolve();
       };
 
@@ -505,10 +498,6 @@ class NotesBackupManager {
     for (const backup of backupsToDelete) {
       store.delete(backup.id);
     }
-
-    console.log(
-      `🧹 Cleaned up ${backupsToDelete.length} old backups for note ${noteId}`,
-    );
   }
 
   private calculateWordCount(content: string): number {
