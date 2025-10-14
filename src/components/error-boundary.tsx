@@ -2,6 +2,7 @@
 
 import React from "react";
 import { IconAlertTriangle, IconRefresh } from "@tabler/icons-react";
+import LogRocket from "logrocket";
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -32,13 +33,16 @@ export class NotesErrorBoundary extends React.Component<
     console.error("Notes Error Boundary caught an error:", error, errorInfo);
 
     // Log to LogRocket
-    if (typeof window !== "undefined" && (window as any).LogRocket) {
-      (window as any).LogRocket.captureException(error, {
+    try {
+      LogRocket.captureException(error, {
         extra: {
-          errorInfo: errorInfo,
-          componentStack: errorInfo.componentStack,
+          componentStack:
+            errorInfo.componentStack || "No component stack available",
+          errorBoundary: "NotesErrorBoundary",
         },
       });
+    } catch (logRocketError) {
+      console.error("Failed to log error to LogRocket:", logRocketError);
     }
 
     this.setState({ errorInfo });

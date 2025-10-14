@@ -2,6 +2,7 @@
 
 import React, { useEffect } from "react";
 import { IconAlertTriangle, IconRefresh, IconHome } from "@tabler/icons-react";
+import LogRocket from "logrocket";
 
 interface ErrorProps {
   error: Error & { digest?: string };
@@ -10,8 +11,24 @@ interface ErrorProps {
 
 export default function Error({ error, reset }: ErrorProps) {
   useEffect(() => {
-    // Log the error to an error reporting service
+    // Log the error to console
     console.error("Application error:", error);
+
+    // Log to LogRocket
+    try {
+      LogRocket.captureException(error, {
+        tags: {
+          errorType: "page-error",
+        },
+        extra: {
+          digest: error.digest || "No digest",
+          errorPage: "error.tsx",
+          errorMessage: error.message,
+        },
+      });
+    } catch (logRocketError) {
+      console.error("Failed to log error to LogRocket:", logRocketError);
+    }
   }, [error]);
 
   return (
