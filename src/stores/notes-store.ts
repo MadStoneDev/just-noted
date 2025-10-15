@@ -1,5 +1,7 @@
-﻿import { create } from "zustand";
+﻿// src/stores/notes-store.ts
+import { create } from "zustand";
 import { CombinedNote, NoteSource } from "@/types/combined-notes";
+import { sortNotes } from "@/utils/notes-utils"; // ADD THIS IMPORT
 
 interface NotesStore {
   // State
@@ -12,8 +14,8 @@ interface NotesStore {
   lastUpdateTimestamp: number;
   creationError: boolean;
   transferError: boolean;
-  isSaving: Map<string, boolean>; // Track which notes are saving
-  isEditing: Map<string, boolean>; // NEW: Track which notes are being edited
+  isSaving: Map<string, boolean>;
+  isEditing: Map<string, boolean>;
 
   // Actions
   setNotes: (notes: CombinedNote[]) => void;
@@ -26,7 +28,7 @@ interface NotesStore {
   setCreationError: (error: boolean) => void;
   setTransferError: (error: boolean) => void;
   setSaving: (noteId: string, saving: boolean) => void;
-  setEditing: (noteId: string, editing: boolean) => void; // NEW
+  setEditing: (noteId: string, editing: boolean) => void;
 
   // Optimistic updates
   optimisticUpdateNote: (
@@ -35,12 +37,10 @@ interface NotesStore {
   ) => void;
   optimisticAddNote: (note: CombinedNote) => void;
   optimisticDeleteNote: (noteId: string) => void;
-  optimisticReorderNotes: (notes: CombinedNote[]) => void;
+  optimisticReorderNotes: (notes: CombinedNote[]) => void; // UPDATED: removed preserveNewNote param
 
-  // Sync from backend - but preserve optimistic updates
+  // Sync from backend
   syncFromBackend: (notes: CombinedNote[]) => void;
-
-  // Smart merge that preserves local edits
   mergeWithBackend: (notes: CombinedNote[]) => void;
 }
 
@@ -56,7 +56,7 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
   creationError: false,
   transferError: false,
   isSaving: new Map(),
-  isEditing: new Map(), // NEW
+  isEditing: new Map(),
 
   // Basic setters
   setNotes: (notes) => set({ notes }),
@@ -93,7 +93,6 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
     });
   },
 
-  // NEW: Track editing state
   setEditing: (noteId, editing) => {
     set((state) => {
       const newEditing = new Map(state.isEditing);
@@ -106,7 +105,7 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
     });
   },
 
-  // Optimistic updates - instant UI feedback
+  // Optimistic updates
   optimisticUpdateNote: (noteId, updates) => {
     set((state) => ({
       notes: state.notes.map((note) =>
@@ -132,6 +131,7 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
     }));
   },
 
+  // UPDATED: Always re-sort when reordering
   optimisticReorderNotes: (notes) => {
     set({
       notes,
@@ -147,7 +147,7 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
     });
   },
 
-  // UPDATED: Smart merge - preserves notes being saved OR edited
+  // Smart merge - preserves notes being saved OR edited
   mergeWithBackend: (backendNotes) => {
     set((state) => {
       const { isSaving, isEditing } = state;

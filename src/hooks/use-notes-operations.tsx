@@ -24,10 +24,10 @@ import {
   combiToRedis,
   cloneNote,
   validateContentPreservation,
-  generateNoteId,
   redisToCombi,
   CombinedNote,
 } from "@/types/combined-notes";
+import { generateNoteId } from "@/utils/general/notes";
 import { USER_NOTE_COUNT_KEY, HAS_INITIALISED_KEY } from "@/constants/app";
 
 export function useNotesOperations(
@@ -75,41 +75,67 @@ export function useNotesOperations(
     };
 
     const newNote = createNote(newNoteInput, noteSource);
-    newNote.order = 0;
+    newNote.order = 0; // Mark as new with order 0
 
-    // Optimistic update - instant UI
+    // Set author immediately for authenticated users
+    if (isAuthenticated && userId) {
+      newNote.author = userId;
+    }
+
+    // Optimistic update - note will be at the top
     setAnimating(true);
     setNewNoteId(newNote.id);
-    optimisticAddNote(newNote);
+
+    // Add note and immediately re-sort with newNoteId priority
+    const updatedNotes = [newNote, ...notes];
+    const sortedNotes = sortNotes(updatedNotes, newNote.id);
+    optimisticReorderNotes(sortedNotes);
 
     // Background save
     try {
+      let result;
       if (noteSource === "redis") {
-        await noteOperation("redis", {
+        result = await noteOperation("redis", {
           operation: "create",
           userId,
           note: combiToRedis(newNote),
         });
       } else {
-        await createSupabaseNote(newNote);
+        result = await createSupabaseNote(newNote);
+
+        if (result.success && result.note) {
+          // Update with server response but keep it at the top
+          optimisticUpdateNote(newNote.id, result.note);
+        }
       }
+
+      if (!result.success) {
+        throw new Error("Failed to save note");
+      }
+
+      // After successful save, trigger a re-sort to move below pinned notes
+      // But keep the visual feedback for a moment
+      setTimeout(() => {
+        setNewNoteId(null); // This will trigger re-sort on next render
+      }, 2000); // Keep "new note" indicator for 2 seconds
     } catch (error) {
       console.error("Failed to create note:", error);
-      setCreationError(true); // ADD THIS
-      // Revert on error
+      setCreationError(true);
+      optimisticDeleteNote(newNote.id);
       await refreshNotes();
     } finally {
       setAnimating(false);
-      setTimeout(() => setNewNoteId(null), 600);
     }
   }, [
     userId,
     isAuthenticated,
     notes,
-    optimisticAddNote,
+    optimisticUpdateNote,
+    optimisticDeleteNote,
+    optimisticReorderNotes,
     setAnimating,
     setNewNoteId,
-    setCreationError, // ADD THIS
+    setCreationError,
     refreshNotes,
   ]);
 
@@ -128,7 +154,10 @@ export function useNotesOperations(
       const updatedNotes = notes.map((note) =>
         note.id === noteId ? { ...note, isPinned } : note,
       );
-      const sortedNotes = sortNotes(updatedNotes);
+      const sortedNotes = sortNotes(
+        updatedNotes,
+        useNotesStore.getState().newNoteId,
+      );
       optimisticReorderNotes(sortedNotes);
 
       // Background save
@@ -239,7 +268,7 @@ export function useNotesOperations(
         const sameStatusNotes = notes.filter(
           (note) => note.isPinned === targetNote.isPinned,
         );
-        const sortedNotes = sortNotes(sameStatusNotes);
+        const sortedNotes = sortNotes(sameStatusNotes, null);
 
         const targetIndex = sortedNotes.findIndex((note) => note.id === noteId);
         let swapIndex = -1;
@@ -265,7 +294,9 @@ export function useNotesOperations(
           if (note.id === swapNote.id) return { ...note, order: targetOrder };
           return note;
         });
-        optimisticReorderNotes(sortNotes(updatedNotes));
+        optimisticReorderNotes(
+          sortNotes(updatedNotes, useNotesStore.getState().newNoteId),
+        );
 
         // Background save
         const updates = [];
@@ -524,7 +555,10 @@ export function useNotesOperations(
       if (!userId) return { success: false };
 
       const targetNote = notes.find((note) => note.id === noteId);
-      if (!targetNote) return { success: false };
+      if (!targetNote) {
+        console.error("❌ Note not found for saving:", noteId);
+        return { success: false };
+      }
 
       // Get store methods
       const { setSaving, setEditing } = useNotesStore.getState();

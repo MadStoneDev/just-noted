@@ -108,6 +108,14 @@ export default function NoteBlock({
   // Use Zustand data if available, otherwise fall back to props
   const currentNote = latestNote || details;
 
+  const { newNoteId } = useNotesStore();
+  const notes = useNotesStore((state) => state.notes);
+
+  const isNewNote = details.id === newNoteId;
+  const hasPinnedNotes = notes.some(
+    (note) => note.isPinned && note.id !== details.id,
+  );
+
   // ========== CUSTOM HOOKS ==========
   const { message: saveStatus, icon: saveIcon, setStatus } = useStatusMessage();
 
@@ -764,6 +772,8 @@ export default function NoteBlock({
         editingTitle={editingTitle}
         saveStatus={saveStatus}
         saveIcon={saveIcon}
+        isNewNote={isNewNote}
+        hasPinnedNotes={hasPinnedNotes}
         onEditTitle={handleEditTitle}
         onSaveTitle={handleSaveTitle}
         onCancelEdit={handleCancelEditTitle}

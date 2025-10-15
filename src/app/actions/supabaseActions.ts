@@ -27,13 +27,24 @@ async function getAuthenticatedUser() {
 // ===========================
 export const createNote = async (newNote: Partial<CombinedNote>) => {
   try {
+    console.log("📝 Creating Supabase note:", {
+      id: newNote.id,
+      title: newNote.title,
+      hasContent: !!newNote.content,
+      author: newNote.author,
+    });
+
     const { supabase, userId } = await getAuthenticatedUser();
+
+    console.log("✅ User authenticated:", userId);
 
     const supabaseNote = combiToSupabase({
       ...newNote,
       author: userId,
       goal_type: validateGoalType(newNote.goal_type),
     } as CombinedNote);
+
+    console.log("📤 Inserting note to Supabase:", supabaseNote);
 
     const { data, error } = await supabase
       .from("notes")
@@ -42,19 +53,21 @@ export const createNote = async (newNote: Partial<CombinedNote>) => {
       .single();
 
     if (error) {
-      console.error("Supabase insert error:", error);
+      console.error("❌ Supabase insert error:", error);
       return {
         success: false,
         error: `Database error: ${error.message}`,
       };
     }
 
+    console.log("✅ Note created successfully:", data);
+
     return {
       success: true,
       note: supabaseToCombi(data),
     };
   } catch (error) {
-    console.error("Exception creating note:", error);
+    console.error("❌ Exception creating note:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,

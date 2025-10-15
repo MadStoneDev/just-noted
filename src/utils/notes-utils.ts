@@ -3,36 +3,42 @@ import { CombinedNote } from "@/types/combined-notes";
 
 /**
  * Sort notes by order, pin status, and timestamps
+ * New notes (identified by newNoteId) always appear at the top
  */
-export function sortNotes(notesToSort: CombinedNote[]): CombinedNote[] {
-  const handleOrderZero = (a: CombinedNote, b: CombinedNote): number => {
-    if (a.order === 0 && b.order !== 0) return -1;
-    if (a.order !== 0 && b.order === 0) return 1;
-    if (a.order === 0 && b.order === 0) return b.updatedAt - a.updatedAt;
-    return 0;
-  };
+export function sortNotes(
+  notesToSort: CombinedNote[],
+  newNoteId?: string | null,
+): CombinedNote[] {
+  return [...notesToSort].sort((a, b) => {
+    // PRIORITY 1: New note always at the very top
+    if (newNoteId) {
+      if (a.id === newNoteId) return -1;
+      if (b.id === newNoteId) return 1;
+    }
 
-  const handlePinStatus = (a: CombinedNote, b: CombinedNote): number => {
+    // PRIORITY 2: Order 0 notes (newly created, not yet synced)
+    const aIsOrderZero = a.order === 0;
+    const bIsOrderZero = b.order === 0;
+
+    if (aIsOrderZero && !bIsOrderZero) return -1;
+    if (!aIsOrderZero && bIsOrderZero) return 1;
+
+    // If both are order 0, sort by newest first (by createdAt)
+    if (aIsOrderZero && bIsOrderZero) {
+      return b.createdAt - a.createdAt;
+    }
+
+    // PRIORITY 3: Pinned status
     if (a.isPinned && !b.isPinned) return -1;
     if (!a.isPinned && b.isPinned) return 1;
-    return 0;
-  };
 
-  const handleOrderNumber = (a: CombinedNote, b: CombinedNote): number => {
-    if (a.order > 0 && b.order <= 0) return -1;
-    if (a.order <= 0 && b.order > 0) return 1;
-    if (a.order > 0 && b.order > 0) return a.order - b.order;
+    // PRIORITY 4: Order number (for notes with order > 0)
+    if (a.order > 0 && b.order > 0) {
+      return a.order - b.order;
+    }
+
+    // PRIORITY 5: Fall back to updated timestamp (newest first)
     return b.updatedAt - a.updatedAt;
-  };
-
-  return [...notesToSort].sort((a, b) => {
-    const orderZeroResult = handleOrderZero(a, b);
-    if (orderZeroResult !== 0) return orderZeroResult;
-
-    const pinResult = handlePinStatus(a, b);
-    if (pinResult !== 0) return pinResult;
-
-    return handleOrderNumber(a, b);
   });
 }
 

@@ -18,8 +18,9 @@ import {
   redisToCombi,
   combiToRedis,
   createNote,
-  generateNoteId,
 } from "@/types/combined-notes";
+
+import { generateNoteId } from "@/utils/general/notes";
 
 import {
   USER_NOTE_COUNT_KEY,
@@ -101,7 +102,7 @@ export function useNotesSync() {
 
       const allNotes = [...redisNotes, ...supabaseNotes];
       const normalisedNotes = normaliseOrdering(allNotes);
-      const sortedNotes = sortNotes(normalisedNotes);
+      const sortedNotes = sortNotes(normalisedNotes, null);
 
       if (isMounted.current) {
         // CHANGE: Use mergeWithBackend instead of syncFromBackend
@@ -189,9 +190,10 @@ export function useNotesSync() {
         }
 
         const normalizedNotes = normaliseOrdering(allNotes);
-        const sortedNotes = sortNotes(normalizedNotes);
+        const sortedNotes = sortNotes(normalizedNotes, null);
 
         syncFromBackend(sortedNotes);
+
         hasInitialisedRef.current = true;
       } catch (error) {
         console.error("Initialization error:", error);
