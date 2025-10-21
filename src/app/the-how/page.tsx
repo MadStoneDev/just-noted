@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   IconCheck,
   IconCircleCheck,
+  IconCloud,
   IconDeviceFloppy,
   IconDownload,
   IconEdit,
@@ -24,7 +25,7 @@ export const metadata = {
   title: "The How - Just Noted",
   description:
     "With privacy in mind, Just Noted, the distraction-free note-taking app, saves your notes without stealing any" +
-    " private information about yo. Find out how it works.",
+    " private information about you. Find out how it works.",
 };
 
 export default async function TheHowPage() {
@@ -62,28 +63,14 @@ export default async function TheHowPage() {
               Creating a note on{" "}
               <span className={`font-medium`}>JustNoted</span> couldn't be
               easier. When you first load the page, you'll see an empty note
-              waiting for your thoughts. Just start typing. If you need another
-              note, just click/tap the big{" "}
+              waiting for your thoughts. Just start typing and, if you need
+              another note, just click/tap the big{" "}
               <span
                 className={`mx-2 px-2 py-1 inline-flex items-center gap-1 w-fit border rounded-xl font-medium`}
               >
                 <IconSquareRoundedPlus stroke={2} /> Add a new note
               </span>{" "}
               button.
-            </p>
-            <p>
-              You will notice that every new note is automatically titled,{" "}
-              <span className={`font-semibold`}>Just Noted #1</span> or a
-              different number. This isn't random but is incremented by a global
-              counter that every user of{" "}
-              <span className={`font-medium`}>JustNoted</span> contributes to.
-              The current count was last reset on{" "}
-              <span
-                className={`px-2 py-1 border bg-neutral-800 text-neutral-100`}
-              >
-                27 March, 2025
-              </span>
-              .
             </p>
             <p>
               Your work is automatically saved 2 seconds after you stop typing.
@@ -110,6 +97,37 @@ export default async function TheHowPage() {
                 <IconDeviceFloppy size={20} strokeWidth={2} />
               </span>{" "}
               button anytime.
+            </p>
+
+            <h2
+              className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+            >
+              <IconCloud size={24} strokeWidth={2} /> Local Notes vs Cloud Notes
+            </h2>
+            <p>
+              <span className={`font-medium`}>JustNoted</span> offers two types
+              of notes to suit different needs:
+            </p>
+            <p>
+              <span className={`font-semibold`}>Local Notes</span> are perfect
+              for quick, anonymous note-taking. They're automatically saved and
+              tied to your specific device and browser – no account required.
+              These notes will be there when you return, as long as you're using
+              the same browser on the same device and haven't cleared your
+              browser data. Think of them as your private scratchpad that's
+              always ready when you need it.
+            </p>
+            <p>
+              <span className={`font-semibold`}>Cloud Notes</span> require a
+              free account but give you the flexibility to access your notes
+              from any device or browser. Perfect for notes you want to keep
+              long-term or access across multiple devices. Your cloud notes are
+              securely tied to your account and sync automatically.
+            </p>
+            <p>
+              Both types save automatically and work exactly the same way – the
+              only difference is where they're stored and from where you can
+              access them.
             </p>
 
             <h2
@@ -174,7 +192,7 @@ export default async function TheHowPage() {
               </span>{" "}
               button. You'll get a quick confirmation (just to make sure you're
               certain), and then it's gone forever. Really forever – I don't
-              keep backups.
+              keep backups of deleted notes, whether they're local or cloud.
             </p>
 
             <h2
@@ -185,35 +203,44 @@ export default async function TheHowPage() {
             </h2>
             <p>
               I built <span className={`font-medium`}>JustNoted</span> with
-              privacy in mind. No information about your computer or browser is
-              stored anywhere. <span className={`font-medium`}>JustNoted</span>{" "}
-              creates a randomly generated code that serves as an anonymous
-              token for your browser. This token is saved only in your browser's
-              LocalStorage. When you return to{" "}
-              <span className={`font-medium`}>JustNoted</span>, it checks for
-              this token to retrieve your notes.
+              privacy in mind. For local notes, no information about your
+              computer or browser is stored in the database.{" "}
+              <span className={`font-medium`}>JustNoted</span> creates a
+              randomly generated code that serves as an anonymous token for your
+              browser. This token is saved only in your browser. When you return
+              to <span className={`font-medium`}>JustNoted</span>, it checks for
+              this token to retrieve your notes. (The word "Local" is not an
+              indication of where the notes are saved but what type of access
+              you need to access them.)
             </p>
             <p>
               <span className={`font-medium`}>JustNoted</span> knows nothing
-              about your browser type or device – none of that is tied to your
-              notes. When you delete a note, it's permanently deleted with no
-              backups kept.
+              about your browser type or device for local notes – none of that
+              is tied to your notes. For cloud notes with an account, only your
+              email and the notes themselves are stored, nothing more.
             </p>
             <p>
-              In fact, it's more likely that{" "}
+              Both local and cloud notes are stored in separate secure
+              databases. Local notes use a privacy-focused approach where your
+              device signature never leaves your browser, while cloud notes are
+              securely tied to your account credentials.
+            </p>
+            <p>
+              When you delete a note, whether local or cloud, it's permanently
+              deleted with no backups kept. Your data is yours, and when you say
+              it's gone, it's truly gone.
+            </p>
+            <p>
+              For local notes, it's more likely that{" "}
               <span className={`font-medium`}>JustNoted</span> will create a
               separate randomly-generated token for you (for example, if you
               clear your browser storage or cache) than it is for anyone to ever
-              see your notes.
-            </p>
-            <p>
-              This approach means your notes remain private while still being
-              there when you need them – as long as you're using the same
-              browser on the same device and haven't cleared your cache.
+              see your notes. This is why cloud notes with an account are
+              recommended if you want guaranteed access across devices.
             </p>
 
             <p>
-              If you haven't yet found, please check out{" "}
+              If you haven't yet, please check out{" "}
               <Link
                 href={"/the-what"}
                 className={`hover:px-1 hover:bg-mercedes-primary text-mercedes-primary hover:text-white font-semibold transition-all duration-300 ease-in-out`}

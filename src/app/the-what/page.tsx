@@ -60,14 +60,13 @@ export default async function TheWhatPage() {
             </p>
             <p>
               With <span className={`font-medium`}>JustNoted</span>, I made sure
-              to include the features that actually matter. You can see your
-              word and character counts as you type, and, best of all, create
-              unlimited notes without any restrictions. Your notes stay right
-              where you left them when you come back on the same device and
-              browser (just don't use incognito mode). As long as you keep
-              editing your notes, any of them, they remain saved. If you're
-              wondering how I made this work, or you're worried about your
-              privacy, check out{" "}
+              to include features that actually matter. You can see your word
+              and character counts as you type, and create unlimited notes
+              without any restrictions. Your notes are saved automatically, and
+              you can choose how you want to access them – keep notes local that
+              you don't need everywhere you go, or create a free account to sync
+              your notes across all your devices. If you're wondering how I made
+              this work, or you're worried about your privacy, check out{" "}
               <Link
                 href={"/the-how"}
                 className={`hover:px-1 hover:bg-mercedes-primary text-mercedes-primary hover:text-white font-semibold transition-all duration-300 ease-in-out`}
@@ -92,7 +91,9 @@ export default async function TheWhatPage() {
               didn't need 🙄. When I couldn't find it, I decided to build it
               myself. That's how{" "}
               <span className={`font-medium`}>JustNoted</span> was born – my
-              answer to overcomplicated note-taking apps.
+              answer to overcomplicated note-taking apps. And while you can now
+              create an account if you want your notes everywhere, you still
+              don't have to. The choice is yours.
             </p>
             <p>
               Do you have any ideas of how I can improve{" "}

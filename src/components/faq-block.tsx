@@ -19,9 +19,9 @@ export default function FaqBlock() {
       question: "Do I need to create an account or subscribe?",
       answer: (
         <p>
-          Absolutely not! That's one of the core principles behind JustNoted.
-          You don't need to sign up, register, or create any kind of account.
-          Just visit the website and start typing right away.
+          No, that's actually one of the core principles behind JustNoted. You
+          don't need to sign up, register, or create any account in order to use
+          JustNoted.
         </p>
       ),
     },
@@ -29,10 +29,11 @@ export default function FaqBlock() {
       question: "Can I edit the same notes on multiple devices?",
       answer: (
         <p>
-          Currently, no. JustNoted is designed for quick, temporary notes
-          without the dependency on logins and registrations. Your notes are
-          stored locally on the device and browser you're using, so they won't
-          sync across different devices or browsers.
+          Yes, but bear in mind that, in order to edit the same notes on
+          multiple devices, you will need to create a free account. Without an
+          account, your notes are stored securely and tied to the device and
+          browser you're using, so they won't sync across different devices or
+          browsers.
         </p>
       ),
     },
@@ -40,17 +41,22 @@ export default function FaqBlock() {
       question: "How do my notes get saved?",
       answer: (
         <p>
-          Your notes are automatically saved in your browser's local storage. As
-          long as you keep editing your notes on the same device and browser
-          (and don't use incognito mode), they'll stay right where you left them
-          when you come back. For more details on how this works, check out{" "}
+          There are two types of notes in JustNoted. Local and Cloud. Cloud
+          notes are only available for those with an account. Local notes are
+          automatically saved in a secure database, and tied to your device and
+          browser signature - think of it like a fingerprint. These notes will
+          be readily available as long as you keep editing your notes on the
+          same device and browser (and don't use incognito mode). For more
+          details on how this works, check out{" "}
           <Link
             href={"/the-how"}
             className={`hover:px-1 hover:bg-mercedes-primary text-mercedes-primary hover:text-white font-semibold transition-all duration-300 ease-in-out`}
           >
             The How
           </Link>{" "}
-          page.
+          page. Cloud notes are also automatically saved in a separate secure
+          database, and these are tied to your account so that you can take them
+          with you to any device and/or browser.
         </p>
       ),
     },
@@ -59,7 +65,6 @@ export default function FaqBlock() {
       answer: (
         <p>
           JustNoted lets you create unlimited notes without any restrictions.
-          For typical note-taking needs, you won't run into any issues.
         </p>
       ),
     },
@@ -67,10 +72,9 @@ export default function FaqBlock() {
       question: "Is my data private and secure?",
       answer: (
         <p>
-          Your notes are stored securely and tied with an anonymous
-          randomly-generated token. JustNoted was designed with privacy in mind
-          - no tracking, no data collection, just a simple notepad. For more
-          information about how your data is handled, please visit{" "}
+          Your notes are stored securely in two separate databases, one for
+          local notes and another for cloud notes. For more information about
+          how your data is handled, please visit{" "}
           <Link
             href={"/the-how"}
             className={`hover:px-1 hover:bg-mercedes-primary text-mercedes-primary hover:text-white font-semibold transition-all duration-300 ease-in-out`}
@@ -85,10 +89,11 @@ export default function FaqBlock() {
       question: "What happens if I clear my browser data?",
       answer: (
         <p>
-          If you clear your browser data, including local storage, your notes
-          will be lost. JustNoted is designed for temporary notes rather than
-          permanent storage. If you have important information, it's best to
-          copy it somewhere else for long-term keeping.
+          If you clear your browser data, including local storage, you will wipe
+          the signature created for your browser and device which is used to
+          retrieve your notes. If this happens, please get in touch with us so
+          we can help you regain your notes. Cloud notes will not be affected by
+          clearing your browser data.
         </p>
       ),
     },
@@ -97,9 +102,9 @@ export default function FaqBlock() {
       answer: (
         <p>
           JustNoted is intentionally minimalist, focusing on distraction-free
-          plain text note-taking. Currently, it doesn't support rich text
-          formatting or image embedding. This keeps the interface clean and the
-          app fast and simple.
+          plain text note-taking. You have some basic options for formatting.
+          Image embedding is not a feature possible in JustNoted and nor is it
+          currently on our radar either.
         </p>
       ),
     },
