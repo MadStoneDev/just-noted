@@ -101,8 +101,8 @@ export default function ContactForm() {
 
           <ReCAPTCHA
             ref={recaptchaRef}
-            size="invisible"
             sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ""}
+            badge={"bottomright"}
           />
 
           {error && <div className={`text-red-700 text-sm`}>{error}</div>}

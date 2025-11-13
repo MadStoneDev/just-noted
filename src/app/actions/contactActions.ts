@@ -73,11 +73,12 @@ export async function submitContactForm(formData: FormData) {
       return { success: false, error: getRandomErrorMessage() };
     }
 
-    // 4. Send admin notification (critical)
+    // 4. Send admin notification (critical) - NOW WITH SCORE
     const adminResult = await sendAdminEmail(
       apiKey,
       validatedData.name || "Anonymous",
       validatedData.email,
+      recaptchaResult.score,
       validatedData.message,
     );
 
@@ -87,7 +88,6 @@ export async function submitContactForm(formData: FormData) {
     }
 
     // 5. Send user confirmation (non-critical)
-    // If this fails, we still report success to the user
     await sendUserEmail(apiKey, validatedData.email).catch((error) => {
       console.error("User confirmation email failed (non-critical):", error);
     });
@@ -112,6 +112,7 @@ async function sendAdminEmail(
   apiKey: string,
   name: string,
   email: string,
+  score: number | undefined,
   message: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -126,7 +127,7 @@ async function sendAdminEmail(
       .setPersonalization([
         {
           email: EMAIL_CONFIG.TO_ADMIN,
-          data: { name, email, message },
+          data: { name, email, score, message },
         },
       ]);
 
@@ -168,12 +169,14 @@ async function sendUserEmail(apiKey: string, userEmail: string): Promise<void> {
 // RECAPTCHA VERIFICATION
 // ===========================
 
-async function verifyRecaptcha(token: string): Promise<{ success: boolean }> {
+async function verifyRecaptcha(
+  token: string,
+): Promise<{ success: boolean; score?: number; error?: string }> {
   const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY;
 
   if (!recaptchaSecret) {
     console.error("RECAPTCHA_SECRET_KEY is missing");
-    return { success: false };
+    return { success: false, error: "Configuration error" };
   }
 
   try {
@@ -188,9 +191,39 @@ async function verifyRecaptcha(token: string): Promise<{ success: boolean }> {
       },
     );
 
-    return await response.json();
+    const data = await response.json();
+
+    console.log("reCaptcha verification:", {
+      success: data.success,
+      score: data.score,
+      action: data.action,
+      hostname: data.hostname,
+      errors: data[`error-codes`],
+    });
+
+    if (data.success && data.score !== undefined) {
+      if (data.score < 0.5) {
+        return {
+          success: false,
+          score: data.score,
+          error: "Low reCAPTCHA score",
+        };
+      }
+    }
+
+    const expectedHostname =
+      process.env.NEXT_PUBLIC_SITE_DOMAIN || "justnoted.app";
+    if (data.hostname && !data.hostname.includes(expectedHostname)) {
+      console.error("Hostname mismatch:", data.hostname);
+      return { success: false, score: 0, error: "Invalid hostname" };
+    }
+
+    return {
+      success: data.success,
+      score: data.score,
+    };
   } catch (error) {
     console.error("reCAPTCHA verification failed:", error);
-    return { success: false };
+    return { success: false, error: "Verification failed" };
   }
 }
