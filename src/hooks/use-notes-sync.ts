@@ -1,4 +1,4 @@
-﻿// src/hooks/use-notes-sync.ts
+// src/hooks/use-notes-sync.ts
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
@@ -19,9 +19,7 @@ import {
   combiToRedis,
   createNote,
 } from "@/types/combined-notes";
-
 import { generateNoteId } from "@/utils/general/notes";
-
 import {
   USER_NOTE_COUNT_KEY,
   HAS_INITIALISED_KEY,
@@ -31,24 +29,33 @@ import {
 
 export function useNotesSync() {
   const supabase = createClient();
-  const { syncFromBackend, setLoading, markUpdated } = useNotesStore();
 
-  const redisUserIdRef = useRef<string | null>(null);
-  const isAuthenticatedRef = useRef(false);
+  // Get store state and actions
+  const {
+    syncFromBackend,
+    mergeWithBackend,
+    setLoading,
+    markUpdated,
+    setUserId,
+    setAuthenticated,
+    userId,
+    isAuthenticated,
+  } = useNotesStore();
+
   const hasInitialisedRef = useRef(false);
   const isMounted = useRef(true);
   const noteFlushFunctionsRef = useRef<Map<string, () => void>>(new Map());
   const lastUpdateTimestamp = useRef(Date.now());
 
-  // Load notes from backend
+  // Load notes from Redis
   const loadNotesFromRedis = useCallback(async (): Promise<CombinedNote[]> => {
-    const userId = redisUserIdRef.current;
-    if (!userId) return [];
+    const currentUserId = useNotesStore.getState().userId;
+    if (!currentUserId) return [];
 
     try {
       const result = await noteOperation("redis", {
         operation: "getAll",
-        userId,
+        userId: currentUserId,
       });
       if (result.success && result.notes) {
         return result.notes.map(redisToCombi);
@@ -59,11 +66,10 @@ export function useNotesSync() {
     return [];
   }, []);
 
-  const loadNotesFromSupabase = useCallback(async (): Promise<
-    CombinedNote[]
-  > => {
-    const authenticated = isAuthenticatedRef.current;
-    if (!authenticated) return [];
+  // Load notes from Supabase
+  const loadNotesFromSupabase = useCallback(async (): Promise<CombinedNote[]> => {
+    const currentIsAuthenticated = useNotesStore.getState().isAuthenticated;
+    if (!currentIsAuthenticated) return [];
 
     try {
       const result = await getSupabaseNotesByUserId();
@@ -76,23 +82,25 @@ export function useNotesSync() {
     return [];
   }, []);
 
+  // Update last access timestamp
   const updateLastAccess = useCallback(async () => {
-    const userId = redisUserIdRef.current;
-    if (!userId) return;
+    const currentUserId = useNotesStore.getState().userId;
+    if (!currentUserId) return;
 
     try {
       await fetch("/api/user-activity", {
         method: "POST",
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ userId: currentUserId }),
       });
     } catch (error) {
       console.error("Failed to update last access:", error);
     }
   }, []);
 
+  // Refresh notes from backend
   const refreshNotes = useCallback(async () => {
-    const userId = redisUserIdRef.current;
-    if (!userId || !isMounted.current) return;
+    const currentUserId = useNotesStore.getState().userId;
+    if (!currentUserId || !isMounted.current) return;
 
     try {
       const [redisNotes, supabaseNotes] = await Promise.all([
@@ -105,15 +113,14 @@ export function useNotesSync() {
       const sortedNotes = sortNotes(normalisedNotes, null);
 
       if (isMounted.current) {
-        // CHANGE: Use mergeWithBackend instead of syncFromBackend
-        const { mergeWithBackend, markUpdated } = useNotesStore.getState();
         mergeWithBackend(sortedNotes);
         markUpdated();
+        lastUpdateTimestamp.current = Date.now();
       }
     } catch (error) {
       console.error("Failed to refresh notes:", error);
     }
-  }, [loadNotesFromRedis, loadNotesFromSupabase]);
+  }, [loadNotesFromRedis, loadNotesFromSupabase, mergeWithBackend, markUpdated]);
 
   // Initialize
   useEffect(() => {
@@ -121,19 +128,22 @@ export function useNotesSync() {
 
     const initialize = async () => {
       try {
-        const userId = getUserId();
-        redisUserIdRef.current = userId;
+        // Get or create user ID
+        const newUserId = getUserId();
+        setUserId(newUserId);
 
-        if (!userId) {
-          throw new Error("Failed to get Redis user ID");
+        if (!newUserId) {
+          throw new Error("Failed to get user ID");
         }
 
+        // Check authentication status
         const { data: authData } = await supabase.auth.getUser();
         const authenticated = !!authData?.user;
-        isAuthenticatedRef.current = authenticated;
+        setAuthenticated(authenticated);
 
+        // Load notes from both sources
         const [redisResult, supabaseResult] = await Promise.allSettled([
-          noteOperation("redis", { operation: "getAll", userId }),
+          noteOperation("redis", { operation: "getAll", userId: newUserId }),
           authenticated
             ? getSupabaseNotesByUserId()
             : Promise.resolve({ success: true, notes: [] }),
@@ -155,10 +165,9 @@ export function useNotesSync() {
 
         let allNotes = [...redisNotes, ...supabaseNotes];
 
+        // Create default note if none exist
         if (allNotes.length === 0) {
-          const defaultNoteSource: NoteSource = authenticated
-            ? "supabase"
-            : "redis";
+          const defaultNoteSource: NoteSource = authenticated ? "supabase" : "redis";
           const noteNumber =
             parseInt(localStorage.getItem(USER_NOTE_COUNT_KEY) || "0") + 1;
           localStorage.setItem(USER_NOTE_COUNT_KEY, noteNumber.toString());
@@ -174,7 +183,7 @@ export function useNotesSync() {
           if (defaultNoteSource === "redis") {
             await noteOperation("redis", {
               operation: "create",
-              userId,
+              userId: newUserId,
               note: combiToRedis(newNote),
             });
           } else {
@@ -193,7 +202,6 @@ export function useNotesSync() {
         const sortedNotes = sortNotes(normalizedNotes, null);
 
         syncFromBackend(sortedNotes);
-
         hasInitialisedRef.current = true;
       } catch (error) {
         console.error("Initialization error:", error);
@@ -204,32 +212,29 @@ export function useNotesSync() {
     };
 
     initialize();
-  }, [supabase, syncFromBackend, setLoading]);
+  }, [supabase, syncFromBackend, setLoading, setUserId, setAuthenticated]);
 
   // Auth change listener
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (_, session) => {
-        const wasAuthenticated = isAuthenticatedRef.current;
+        const wasAuthenticated = useNotesStore.getState().isAuthenticated;
         const nowAuthenticated = !!session?.user;
 
-        isAuthenticatedRef.current = nowAuthenticated;
+        setAuthenticated(nowAuthenticated);
 
-        if (
-          hasInitialisedRef.current &&
-          wasAuthenticated !== nowAuthenticated
-        ) {
+        if (hasInitialisedRef.current && wasAuthenticated !== nowAuthenticated) {
           await refreshNotes();
         }
-      },
+      }
     );
 
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [supabase, refreshNotes]);
+  }, [supabase, refreshNotes, setAuthenticated]);
 
-  // Periodic refresh - only refresh when user is not actively editing
+  // Periodic refresh - only when user is not actively editing
   useEffect(() => {
     if (!hasInitialisedRef.current) return;
 
@@ -256,16 +261,21 @@ export function useNotesSync() {
     };
   }, []);
 
+  // Register/unregister flush functions for notes
+  const registerNoteFlush = useCallback((noteId: string, flushFn: () => void) => {
+    noteFlushFunctionsRef.current.set(noteId, flushFn);
+  }, []);
+
+  const unregisterNoteFlush = useCallback((noteId: string) => {
+    noteFlushFunctionsRef.current.delete(noteId);
+  }, []);
+
   return {
-    userId: redisUserIdRef.current,
-    isAuthenticated: isAuthenticatedRef.current,
+    userId,
+    isAuthenticated,
     refreshNotes,
-    registerNoteFlush: (noteId: string, flushFn: () => void) => {
-      noteFlushFunctionsRef.current.set(noteId, flushFn);
-    },
-    unregisterNoteFlush: (noteId: string) => {
-      noteFlushFunctionsRef.current.delete(noteId);
-    },
+    registerNoteFlush,
+    unregisterNoteFlush,
     noteFlushFunctions: noteFlushFunctionsRef,
     updateLastAccess,
   };

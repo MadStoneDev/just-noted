@@ -7,7 +7,7 @@ import React, {
   useMemo,
 } from "react";
 
-import TextBlock from "@/components/text-block";
+import LazyTextBlock from "@/components/lazy-text-block";
 import type { CombinedNote } from "@/types/combined-notes";
 import type { NoteSource } from "@/types/combined-notes";
 
@@ -29,6 +29,7 @@ import NoteStatistics from "./note-statistics";
 import NoteToolbar from "./note-toolbar";
 import PageEstimateModal from "@/components/page-estimate-modal";
 import WordCountGoalModal from "@/components/word-count-goal-modal";
+import VersionHistory, { useVersionHistory, NoteVersion } from "@/components/ui/version-history";
 import { noteOperation } from "@/app/actions/notes";
 
 import { useNotesStore } from "@/stores/notes-store";
@@ -166,6 +167,12 @@ export default function NoteBlock({
       return null;
     },
   );
+
+  // Version history
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [versions, setVersions] = useState<NoteVersion[]>([]);
+  const versionHistory = useVersionHistory(details.id);
+  const lastVersionSaveRef = useRef<number>(0);
 
   // ========== DERIVED STATE (useMemo) ==========
   const isPinned = useMemo(
@@ -374,25 +381,6 @@ export default function NoteBlock({
     }
   };
 
-  // Export functionality
-  const handleExportTxt = () => {
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = noteContent;
-    const plainText = tempDiv.textContent || tempDiv.innerText || "";
-    const textContent = `${noteTitle}\n\n${plainText}`;
-    const blob = new Blob([textContent], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${noteTitle.replace(/\s+/g, "-").toLowerCase()}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 100);
-  };
-
   // Transfer functionality
   const handleTransferNote = async (targetSource: NoteSource) => {
     if (!onTransferNote) {
@@ -490,6 +478,39 @@ export default function NoteBlock({
     }
   };
 
+  // Version history handlers
+  const handleShowVersionHistory = () => {
+    const loadedVersions = versionHistory.getVersions();
+    setVersions(loadedVersions);
+    setShowVersionHistory(true);
+  };
+
+  const handleRestoreVersion = (version: NoteVersion) => {
+    setNoteContent(version.content);
+    setNoteTitle(version.title);
+    setShowVersionHistory(false);
+    setStatus(
+      "Version restored",
+      <IconCircleCheck className="text-mercedes-primary" />,
+      false,
+      2000,
+    );
+    // Trigger save of the restored content
+    saveContent(version.content, true);
+  };
+
+  // Save version periodically (every 5 minutes or significant changes)
+  const saveVersionIfNeeded = useCallback(() => {
+    const now = Date.now();
+    const timeSinceLastSave = now - lastVersionSaveRef.current;
+    const MIN_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+    if (timeSinceLastSave >= MIN_INTERVAL) {
+      versionHistory.saveVersion(currentNote);
+      lastVersionSaveRef.current = now;
+    }
+  }, [currentNote, versionHistory]);
+
   // Create a stable save function using refs
   const saveContentRef =
     useRef<
@@ -558,6 +579,9 @@ export default function NoteBlock({
 
         if (result.success) {
           lastSavedContentRef.current = safeContent;
+
+          // Save version periodically
+          saveVersionIfNeeded();
 
           setStatus(
             "Saved",
@@ -857,11 +881,12 @@ export default function NoteBlock({
                     : "sm:col-span-8 md:col-span-9 3xl:col-span-10"
                 } rounded-xl overflow-hidden`}
               >
-                <TextBlock
+                <LazyTextBlock
                   noteId={details.id}
                   value={noteContent}
                   onChange={handleChange}
                   distractionFreeMode={distractionFreeMode}
+                  isCollapsed={!isContentExpanded}
                   placeholder="Just start typing..."
                 />
               </div>
@@ -891,15 +916,16 @@ export default function NoteBlock({
               userId={userId}
               noteTitle={noteTitle}
               noteSource={noteSource}
+              note={currentNote}
               isPrivate={isPrivate}
               isPinned={isPinned}
               isPending={isPending}
               isAuthenticated={isAuthenticated}
               showDelete={showDelete}
-              onExport={handleExportTxt}
               onTransfer={onTransferNote ? handleTransferNote : undefined}
               onManualSave={handleManualSave}
               onDelete={onDelete}
+              onShowVersionHistory={handleShowVersionHistory}
             />
           </>
         )}
@@ -922,6 +948,14 @@ export default function NoteBlock({
           onClose={() => setShowWordCountGoalModal(false)}
           currentWordCount={wordCount}
           currentCharCount={charCount}
+        />
+      )}
+      {showVersionHistory && (
+        <VersionHistory
+          note={currentNote}
+          versions={versions}
+          onRestore={handleRestoreVersion}
+          onClose={() => setShowVersionHistory(false)}
         />
       )}
     </section>

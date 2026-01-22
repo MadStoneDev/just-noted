@@ -55,8 +55,8 @@ export function useNotesOperations(
   const transferLockRef = useRef<Set<string>>(new Set());
   const debouncedTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
-  // Add Note
-  const addNote = useCallback(async () => {
+  // Add Note (with optional template content)
+  const addNote = useCallback(async (templateContent?: string, templateTitle?: string) => {
     if (!userId) return;
 
     const noteSource: NoteSource = isAuthenticated ? "supabase" : "redis";
@@ -70,8 +70,8 @@ export function useNotesOperations(
 
     const newNoteInput: CreateNoteInput = {
       id: generateNoteId(notes.map((n) => n.id)),
-      title: `New Note #${noteNumber}`,
-      content: "",
+      title: templateTitle || `New Note #${noteNumber}`,
+      content: templateContent || "",
     };
 
     const newNote = createNote(newNoteInput, noteSource);
@@ -512,7 +512,7 @@ export function useNotesOperations(
     refreshNotes,
   ]);
 
-  // Delete Note
+  // Delete Note with Undo support
   const deleteNote = useCallback(
     async (noteId: string) => {
       if (!userId) return;
@@ -527,23 +527,55 @@ export function useNotesOperations(
         return;
       }
 
+      const { setRecentlyDeleted, clearRecentlyDeleted } = useNotesStore.getState();
+
       // Optimistic update
       optimisticDeleteNote(noteId);
 
-      // Background save
-      try {
-        if (targetNote.source === "redis") {
-          await noteOperation("redis", { operation: "delete", userId, noteId });
-        } else {
-          await deleteSupabaseNote(noteId);
+      // Set up undo - will auto-clear after 10 seconds
+      const timeoutId = setTimeout(async () => {
+        // Actually delete from backend after timeout
+        try {
+          if (targetNote.source === "redis") {
+            await noteOperation("redis", { operation: "delete", userId, noteId });
+          } else {
+            await deleteSupabaseNote(noteId);
+          }
+        } catch (error) {
+          console.error("Failed to delete note:", error);
         }
-      } catch (error) {
-        console.error("Failed to delete note:", error);
-        await refreshNotes();
-      }
+        clearRecentlyDeleted();
+      }, 10000);
+
+      setRecentlyDeleted(targetNote, timeoutId);
     },
-    [userId, notes, optimisticDeleteNote, refreshNotes],
+    [userId, notes, optimisticDeleteNote],
   );
+
+  // Restore deleted note (called when undo is clicked)
+  const restoreNote = useCallback(async () => {
+    const { recentlyDeleted, restoreDeletedNote: restoreFromStore } = useNotesStore.getState();
+    if (!recentlyDeleted || !userId) return;
+
+    const restoredNote = restoreFromStore();
+    if (!restoredNote) return;
+
+    // Re-save to backend
+    try {
+      if (restoredNote.source === "redis") {
+        await noteOperation("redis", {
+          operation: "create",
+          userId,
+          note: combiToRedis(restoredNote),
+        });
+      } else {
+        await createSupabaseNote(restoredNote);
+      }
+    } catch (error) {
+      console.error("Failed to restore note:", error);
+      await refreshNotes();
+    }
+  }, [userId, refreshNotes]);
 
   // Save Note Content
   const saveNoteContent = useCallback(
@@ -701,6 +733,7 @@ export function useNotesOperations(
     transferNote,
     syncAndRenumberNotes,
     deleteNote,
+    restoreNote,
     saveNoteContent,
     saveNoteTitle,
     refreshSingleNote,

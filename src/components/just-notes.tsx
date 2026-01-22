@@ -1,12 +1,14 @@
-﻿"use client";
+"use client";
 
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 
 import NoteBlock from "@/components/note-block";
+import NoteTemplates from "@/components/ui/note-templates";
+import LazyNoteRender, { useLazyRenderBatch } from "@/components/ui/lazy-note-render";
 import { CombinedNote, NoteSource } from "@/types/combined-notes";
 import { useNotesStore } from "@/stores/notes-store";
 
-import { IconSquareRoundedPlus, IconRefresh } from "@tabler/icons-react";
+import { IconSquareRoundedPlus, IconRefresh, IconTemplate } from "@tabler/icons-react";
 
 interface JustNotesProps {
   openDistractionFreeNote?: (note: CombinedNote) => void;
@@ -42,6 +44,20 @@ export default function JustNotes({
     saveNoteTitle,
     transferringNoteId,
   } = notesOperations;
+
+  // Template selection state
+  const [showTemplates, setShowTemplates] = useState(false);
+
+  // Handle template selection
+  const handleSelectTemplate = useCallback((content: string, title: string) => {
+    addNote(content, title);
+    setShowTemplates(false);
+  }, [addNote]);
+
+  // Handle adding blank note
+  const handleAddBlankNote = useCallback(() => {
+    addNote();
+  }, [addNote]);
 
   // Memoize button text to prevent re-renders
   const addButtonText = useMemo(
@@ -145,30 +161,49 @@ export default function JustNotes({
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={addNote}
-          disabled={isAddDisabled}
-          className={`px-2 py-1 cursor-pointer inline-flex items-center gap-2 rounded-xl border border-neutral-400 hover:border-mercedes-primary hover:bg-mercedes-primary hover:text-white transition-all duration-300 ease-in-out ${
-            isAddDisabled ? "opacity-50 cursor-not-allowed" : ""
-          }`}
-        >
-          <IconSquareRoundedPlus size={30} strokeWidth={1.5} />
-          <span className="hidden md:flex">{addButtonText}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowTemplates(true)}
+            disabled={isAddDisabled}
+            className={`px-2 py-1 cursor-pointer inline-flex items-center gap-2 rounded-xl border border-neutral-400 hover:border-blue-500 hover:bg-blue-500 hover:text-white transition-all duration-300 ease-in-out ${
+              isAddDisabled ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+            title="Create note from template"
+          >
+            <IconTemplate size={24} strokeWidth={1.5} />
+            <span className="hidden lg:flex">From Template</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleAddBlankNote}
+            disabled={isAddDisabled}
+            className={`px-2 py-1 cursor-pointer inline-flex items-center gap-2 rounded-xl border border-neutral-400 hover:border-mercedes-primary hover:bg-mercedes-primary hover:text-white transition-all duration-300 ease-in-out ${
+              isAddDisabled ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+          >
+            <IconSquareRoundedPlus size={30} strokeWidth={1.5} />
+            <span className="hidden md:flex">{addButtonText}</span>
+          </button>
+        </div>
       </section>
 
       <div className="col-span-12 grid grid-cols-12 gap-4 note-container">
-        {notes.map((note) => {
+        {notes.map((note, index) => {
           const positionInfo = getNotePositionInfo(note.id);
           const noteKey = `${note.source}-${note.id}`;
+          const isNew = note.id === newNoteId;
 
-          return (
+          // Render first 3 notes immediately, lazy render the rest
+          const shouldLazyRender = index >= 3 && !isNew;
+
+          const noteContent = (
             <MemoizedNoteWrapper
               key={noteKey}
               note={note}
               positionInfo={positionInfo}
-              isNew={note.id === newNoteId}
+              isNew={isNew}
               userId={userId || ""}
               showDelete={notes.length > 1}
               isAuthenticated={isAuthenticated}
@@ -186,8 +221,26 @@ export default function JustNotes({
               saveNoteTitle={saveNoteTitle}
             />
           );
+
+          if (shouldLazyRender) {
+            return (
+              <LazyNoteRender key={noteKey}>
+                {noteContent}
+              </LazyNoteRender>
+            );
+          }
+
+          return noteContent;
         })}
       </div>
+
+      {/* Template selection modal */}
+      {showTemplates && (
+        <NoteTemplates
+          onSelectTemplate={handleSelectTemplate}
+          onClose={() => setShowTemplates(false)}
+        />
+      )}
     </main>
   );
 }
@@ -250,7 +303,10 @@ const MemoizedNoteWrapper = React.memo(function NoteWrapper({
   }, [note, onOpenDistractionFree]);
 
   return (
-    <div className={`col-span-12 ${isNew ? "animate-slide-in" : ""}`}>
+    <div
+      data-note-id={note.id}
+      className={`col-span-12 ${isNew ? "animate-slide-in" : ""}`}
+    >
       <NoteBlock
         details={{
           ...note,

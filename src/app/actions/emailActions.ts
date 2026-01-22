@@ -169,7 +169,7 @@ export async function submitContactForm(formData: FormData) {
       return { success: false, error: "reCAPTCHA verification failed" };
     }
 
-    // 3. Check API key (Resend)
+    // 3. Check API key
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
       console.error("RESEND_API_KEY is missing");

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, {
   useEffect,
@@ -6,6 +6,7 @@ import React, {
   forwardRef,
   useRef,
   useCallback,
+  useState,
 } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
@@ -38,9 +39,16 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
+  ImageIcon,
+  Link as LinkIcon,
+  Quote,
+  Code,
+  Minus,
 } from "lucide-react";
 
 import { useNotesStore } from "@/stores/notes-store";
+import TextTransformMenu from "@/components/ui/text-transform-menu";
+import ImageUpload from "@/components/ui/image-upload";
 
 interface TipTapEditorProps {
   noteId?: string;
@@ -76,6 +84,9 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
     const isFocusedRef = useRef(false);
     const editingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const lastContentRef = useRef(markdown);
+
+    // State for image upload modal
+    const [showImageUpload, setShowImageUpload] = useState(false);
 
     // Get setEditing from store - use a stable reference
     const setEditing = useNotesStore((state) => state.setEditing);
@@ -350,7 +361,7 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
           </div>
 
           {/* Alignment */}
-          <div className="flex gap-1">
+          <div className="flex gap-1 border-r border-neutral-300 pr-2 mr-2">
             <ToolbarButton
               onClick={() => editor.chain().focus().setTextAlign("left").run()}
               isActive={editor.isActive({ textAlign: "left" })}
@@ -372,10 +383,68 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
               title="Align Right"
             />
           </div>
+
+          {/* Additional Tools */}
+          <div className="flex gap-1 border-r border-neutral-300 pr-2 mr-2">
+            <ToolbarButton
+              onClick={() => editor.chain().focus().toggleBlockquote().run()}
+              isActive={editor.isActive("blockquote")}
+              icon={<Quote size={16} />}
+              title="Blockquote"
+            />
+            <ToolbarButton
+              onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+              isActive={editor.isActive("codeBlock")}
+              icon={<Code size={16} />}
+              title="Code Block"
+            />
+            <ToolbarButton
+              onClick={() => editor.chain().focus().setHorizontalRule().run()}
+              icon={<Minus size={16} />}
+              title="Horizontal Rule"
+            />
+          </div>
+
+          {/* Image & Link */}
+          <div className="flex gap-1 border-r border-neutral-300 pr-2 mr-2">
+            <ToolbarButton
+              onClick={() => setShowImageUpload(true)}
+              icon={<ImageIcon size={16} />}
+              title="Insert Image"
+            />
+            <ToolbarButton
+              onClick={() => {
+                const url = window.prompt("Enter link URL:");
+                if (url) {
+                  editor.chain().focus().setLink({ href: url }).run();
+                } else {
+                  editor.chain().focus().unsetLink().run();
+                }
+              }}
+              isActive={editor.isActive("link")}
+              icon={<LinkIcon size={16} />}
+              title="Insert Link"
+            />
+          </div>
+
+          {/* Text Transform */}
+          <div className="flex gap-1">
+            <TextTransformMenu editor={editor} />
+          </div>
         </div>
 
         {/* Editor */}
         <EditorContent editor={editor} className={`px-4`} />
+
+        {/* Image Upload Modal */}
+        {showImageUpload && (
+          <ImageUpload
+            onInsertImage={(src, alt) => {
+              editor.chain().focus().setImage({ src, alt }).run();
+            }}
+            onClose={() => setShowImageUpload(false)}
+          />
+        )}
       </div>
     );
   },
