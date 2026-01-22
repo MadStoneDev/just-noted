@@ -994,13 +994,18 @@ export function useCombinedNotes(): UseCombinedNotesReturn {
     };
   }, [refreshNotes]);
 
-  // Refresh interval
+  // Refresh interval - only refresh when user is not actively editing
   useEffect(() => {
     if (!hasInitialisedRef.current) return;
 
     const interval = setInterval(() => {
       const timeSinceLastUpdate = Date.now() - lastUpdateTimestamp;
-      if (timeSinceLastUpdate > ACTIVITY_TIMEOUT) {
+
+      // Check if any note is being actively edited before refreshing
+      // This prevents the cursor from jumping during active editing sessions
+      const hasActiveEdits = noteFlushFunctionsRef.current.size > 0;
+
+      if (timeSinceLastUpdate > ACTIVITY_TIMEOUT && !hasActiveEdits) {
         refreshNotes();
       }
 

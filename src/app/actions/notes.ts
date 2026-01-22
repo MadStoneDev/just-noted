@@ -2,8 +2,9 @@
 
 import redis from "@/utils/redis";
 import { headers } from "next/headers";
-import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
+// Note: revalidatePath removed - client-side state is managed by Zustand
+// Calling revalidatePath on every Redis operation caused unnecessary re-renders
 import {
   RedisNote,
   CreateNoteInput,
@@ -175,7 +176,7 @@ async function updateRedisNoteField<K extends keyof RedisNote>(
     ];
 
     await setNotesWithRetry(userId, updatedNotes);
-    revalidatePath("/");
+    // revalidatePath("/"); // Removed - causes unnecessary re-renders during editing
 
     return { success: true, notes: updatedNotes };
   } catch (error) {
@@ -220,7 +221,7 @@ async function handleRedisOperation(params: NoteOperationParams) {
         const currentNotes = await getNotesWithRetry(userId);
         const updatedNotes = [newNote, ...currentNotes];
         await setNotesWithRetry(userId, updatedNotes);
-        revalidatePath("/");
+        // revalidatePath("/"); // Removed - causes unnecessary re-renders during editing
 
         return { success: true, notes: updatedNotes };
       }
@@ -261,7 +262,7 @@ async function handleRedisOperation(params: NoteOperationParams) {
         ];
 
         await setNotesWithRetry(userId, updatedNotes);
-        revalidatePath("/");
+        // revalidatePath("/"); // Removed - causes unnecessary re-renders during editing
 
         return { success: true, notes: updatedNotes };
       }
@@ -321,7 +322,7 @@ async function handleRedisOperation(params: NoteOperationParams) {
 
         const updatedNotes = currentNotes.filter((note) => note.id !== noteId);
         await setNotesWithRetry(userId, updatedNotes);
-        revalidatePath("/");
+        // revalidatePath("/"); // Removed - causes unnecessary re-renders during editing
 
         return {
           success: true,
@@ -365,7 +366,7 @@ async function handleRedisOperation(params: NoteOperationParams) {
         });
 
         await setNotesWithRetry(userId, updatedNotes);
-        revalidatePath("/");
+        // revalidatePath("/"); // Removed - causes unnecessary re-renders during editing
 
         return { success: true };
       }

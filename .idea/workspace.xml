@@ -6,8 +6,11 @@
   <component name="ChangeListManager">
     <list default="true" id="c964cf5b-c203-4783-b48d-35cd19ff7e4b" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/note-wrapper.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/note-wrapper.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/actions/notes.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/actions/notes.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/note-block/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/note-block/index.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/text-block.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/text-block.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/components/tip-tap-editor.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/tip-tap-editor.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/constants/app.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/constants/app.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -39,17 +42,18 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "git-widget-placeholder": "main",
     "js.debugger.nextJs.config.created.client": "true",
     "js.debugger.nextJs.config.created.server": "true",
-    "last_opened_file_path": "/Users/richardhaddad/Development-Sandbox/just-noted",
+    "last_opened_file_path": "D:/Development Sandbox/just-noted",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
     "prettierjs.PrettierConfiguration.Package": "/Users/richardhaddad/.nvm/versions/node/v20.18.2/lib/node_modules/prettier",
-    "settings.editor.selected.configurable": "settings.javascript.prettier",
+    "settings.editor.selected.configurable": "terminal",
     "ts.external.directory.path": "/Users/richardhaddad/Development-Sandbox/just-noted/node_modules/typescript/lib",
     "vue.rearranger.settings.migration": "true"
   }
@@ -81,6 +85,7 @@
       <workItem from="1759232307556" duration="1518000" />
       <workItem from="1759716187544" duration="861000" />
       <workItem from="1759717451201" duration="2368000" />
+      <workItem from="1769061585269" duration="56000" />
     </task>
     <servers />
   </component>

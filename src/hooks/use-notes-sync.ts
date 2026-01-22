@@ -229,13 +229,18 @@ export function useNotesSync() {
     };
   }, [supabase, refreshNotes]);
 
-  // Periodic refresh
+  // Periodic refresh - only refresh when user is not actively editing
   useEffect(() => {
     if (!hasInitialisedRef.current) return;
 
     const interval = setInterval(() => {
       const timeSinceLastUpdate = Date.now() - lastUpdateTimestamp.current;
-      if (timeSinceLastUpdate > ACTIVITY_TIMEOUT) {
+      const { isEditing, isSaving } = useNotesStore.getState();
+
+      // Don't refresh if any note is being edited or saved
+      const isAnyNoteActive = isEditing.size > 0 || isSaving.size > 0;
+
+      if (timeSinceLastUpdate > ACTIVITY_TIMEOUT && !isAnyNoteActive) {
         refreshNotes();
       }
       updateLastAccess();

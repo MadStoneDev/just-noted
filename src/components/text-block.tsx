@@ -8,9 +8,10 @@ import React, {
   useMemo,
 } from "react";
 import TipTapEditor from "./tip-tap-editor";
+import { useNotesStore } from "@/stores/notes-store";
 
 interface Props {
-  noteId?: string; // NEW: Add noteId prop
+  noteId?: string;
   value: string;
   onChange?: (value: string) => void;
   placeholder?: string;
@@ -20,7 +21,7 @@ interface Props {
 }
 
 export default function TextBlock({
-  noteId, // Destructure noteId
+  noteId,
   value,
   onChange,
   placeholder = "Start typing...",
@@ -36,6 +37,11 @@ export default function TextBlock({
   const lastExternalValueRef = useRef(value);
   const isInternalChangeRef = useRef(false);
 
+  // Check if this note is being edited - if so, don't sync external changes
+  const isEditing = useNotesStore((state) =>
+    noteId ? state.isEditing.has(noteId) : false
+  );
+
   // Stable change handler - only recreate if onChange changes
   const handleChange = useCallback(
     (newContent: string) => {
@@ -43,6 +49,7 @@ export default function TextBlock({
       isInternalChangeRef.current = true;
 
       setLocalValue(newContent);
+      lastExternalValueRef.current = newContent;
 
       // Clear existing timeout
       if (changeTimeoutRef.current) {
@@ -51,30 +58,30 @@ export default function TextBlock({
 
       // Debounce external onChange to reduce parent re-renders
       changeTimeoutRef.current = setTimeout(() => {
-        if (onChange && newContent !== lastExternalValueRef.current) {
+        if (onChange) {
           onChange(newContent);
-          lastExternalValueRef.current = newContent;
         }
         isInternalChangeRef.current = false;
-      }, 150); // Reduced debounce for better responsiveness
+      }, 100);
     },
     [onChange],
   );
 
-  // Only update if external value changed (not from internal typing)
+  // Only update if external value changed AND user is not currently editing
   useEffect(() => {
-    if (
-      value !== lastExternalValueRef.current &&
-      !isInternalChangeRef.current
-    ) {
+    // Don't sync external changes while user is editing
+    if (isEditing || isInternalChangeRef.current) {
+      return;
+    }
+
+    if (value !== lastExternalValueRef.current) {
       setLocalValue(value);
       lastExternalValueRef.current = value;
 
-      if (editorRef.current && isEditorReady) {
-        editorRef.current.setMarkdown(value);
-      }
+      // Let TipTapEditor handle its own content update via props
+      // Don't call setMarkdown directly as it can cause issues
     }
-  }, [value, isEditorReady]);
+  }, [value, isEditing]);
 
   // Memoize editor ready handler
   const handleEditorReady = useCallback(() => {
@@ -103,7 +110,7 @@ export default function TextBlock({
     <div className={editorContainerClass}>
       <TipTapEditor
         ref={editorRef}
-        noteId={noteId} // NEW: Pass noteId to TipTapEditor
+        noteId={noteId}
         markdown={isEmpty ? "" : localValue}
         onChange={handleChange}
         onReady={handleEditorReady}

@@ -5,6 +5,7 @@ import React, {
   useImperativeHandle,
   forwardRef,
   useRef,
+  useCallback,
 } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
@@ -42,7 +43,7 @@ import {
 import { useNotesStore } from "@/stores/notes-store";
 
 interface TipTapEditorProps {
-  noteId?: string; // NEW: Add noteId prop
+  noteId?: string;
   markdown: string;
   onChange?: (markdown: string) => void;
   onReady?: () => void;
@@ -60,7 +61,7 @@ interface TipTapEditorMethods {
 const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
   (
     {
-      noteId, // NEW: Destructure noteId
+      noteId,
       markdown,
       onChange,
       onReady,
@@ -70,9 +71,21 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
     },
     ref,
   ) => {
-    // NEW: Get setEditing from store
-    const { setEditing } = useNotesStore();
+    // Track whether editor is actively being used - this prevents external updates from resetting cursor
+    const isUserEditingRef = useRef(false);
+    const isFocusedRef = useRef(false);
     const editingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const lastContentRef = useRef(markdown);
+
+    // Get setEditing from store - use a stable reference
+    const setEditing = useNotesStore((state) => state.setEditing);
+
+    // Stable callback for marking editing state
+    const markEditing = useCallback((editing: boolean) => {
+      if (noteId) {
+        setEditing(noteId, editing);
+      }
+    }, [noteId, setEditing]);
 
     const editor = useEditor({
       extensions: [
@@ -119,46 +132,48 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
       ],
       content: markdown,
       onUpdate: ({ editor }) => {
-        // NEW: Mark as editing when user types
-        if (noteId) {
-          setEditing(noteId, true);
+        // Mark as actively editing
+        isUserEditingRef.current = true;
+        markEditing(true);
 
-          // Clear previous timeout
-          if (editingTimeoutRef.current) {
-            clearTimeout(editingTimeoutRef.current);
-          }
-
-          // After 2 seconds of no typing, mark as not editing
-          editingTimeoutRef.current = setTimeout(() => {
-            setEditing(noteId, false);
-          }, 2000);
+        // Clear previous timeout
+        if (editingTimeoutRef.current) {
+          clearTimeout(editingTimeoutRef.current);
         }
 
+        // After 3 seconds of no typing, allow external updates again
+        editingTimeoutRef.current = setTimeout(() => {
+          isUserEditingRef.current = false;
+          if (!isFocusedRef.current) {
+            markEditing(false);
+          }
+        }, 3000);
+
         const html = editor.getHTML();
-        const text = editor.getText();
-        // Convert HTML to markdown-like format or use the text content
-        // For simplicity, we'll use the HTML content. You might want to use a HTML-to-markdown converter
+        lastContentRef.current = html;
+
         if (onChange) {
           onChange(html);
         }
       },
       onFocus: () => {
-        // NEW: Mark as editing when editor gets focus
-        if (noteId) {
-          setEditing(noteId, true);
-        }
+        isFocusedRef.current = true;
+        isUserEditingRef.current = true;
+        markEditing(true);
       },
       onBlur: () => {
-        // NEW: Clear editing state when editor loses focus
-        if (noteId) {
-          if (editingTimeoutRef.current) {
-            clearTimeout(editingTimeoutRef.current);
-          }
-          // Small delay before clearing editing state
-          setTimeout(() => {
-            setEditing(noteId, false);
-          }, 500);
+        isFocusedRef.current = false;
+
+        // Clear editing timeout
+        if (editingTimeoutRef.current) {
+          clearTimeout(editingTimeoutRef.current);
         }
+
+        // Delay clearing editing state to allow save operations to complete
+        editingTimeoutRef.current = setTimeout(() => {
+          isUserEditingRef.current = false;
+          markEditing(false);
+        }, 1000);
       },
       editorProps: {
         attributes: {
@@ -174,17 +189,31 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
     useImperativeHandle(ref, () => ({
       getMarkdown: () => editor?.getHTML() || "",
       setMarkdown: (newMarkdown: string) => {
-        if (editor && newMarkdown !== editor.getHTML()) {
-          editor.commands.setContent(newMarkdown);
+        // Only allow external setMarkdown if user is not actively editing
+        if (editor && !isUserEditingRef.current && !isFocusedRef.current) {
+          if (newMarkdown !== editor.getHTML()) {
+            editor.commands.setContent(newMarkdown);
+            lastContentRef.current = newMarkdown;
+          }
         }
       },
       focus: () => editor?.commands.focus(),
     }));
 
-    // Handle content updates from props
+    // Handle content updates from props - ONLY when user is not editing
     useEffect(() => {
-      if (editor && markdown !== editor.getHTML()) {
+      if (!editor) return;
+
+      // CRITICAL: Don't update content while user is editing or focused
+      // This prevents the cursor from jumping to the end
+      if (isUserEditingRef.current || isFocusedRef.current) {
+        return;
+      }
+
+      // Only update if content actually changed from external source
+      if (markdown !== lastContentRef.current && markdown !== editor.getHTML()) {
         editor.commands.setContent(markdown);
+        lastContentRef.current = markdown;
       }
     }, [markdown, editor]);
 
@@ -197,17 +226,20 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
       }
     }, [editor, onReady]);
 
-    // NEW: Cleanup editing state on unmount
+    // Cleanup on unmount - use refs to avoid dependency issues
     useEffect(() => {
+      const currentNoteId = noteId;
+
       return () => {
         if (editingTimeoutRef.current) {
           clearTimeout(editingTimeoutRef.current);
         }
-        if (noteId) {
-          setEditing(noteId, false);
+        if (currentNoteId) {
+          // Use getState to avoid stale closure
+          useNotesStore.getState().setEditing(currentNoteId, false);
         }
       };
-    }, [noteId, setEditing]);
+    }, [noteId]);
 
     if (!editor) {
       return <div className="animate-pulse bg-neutral-200 h-64 rounded-lg" />;

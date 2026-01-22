@@ -426,6 +426,7 @@ export function useNotesOperations(
       optimisticAddNote,
       optimisticDeleteNote,
       setTransferring,
+      setTransferError,
       refreshNotes,
     ],
   );

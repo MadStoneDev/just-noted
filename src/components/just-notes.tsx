@@ -192,6 +192,39 @@ export default function JustNotes({
   );
 }
 
+interface NotePositionInfo {
+  isFirstPinned: boolean;
+  isLastPinned: boolean;
+  isFirstUnpinned: boolean;
+  isLastUnpinned: boolean;
+}
+
+interface MemoizedNoteWrapperProps {
+  note: CombinedNote;
+  positionInfo: NotePositionInfo;
+  isNew: boolean;
+  onOpenDistractionFree: (note: CombinedNote) => void;
+  saveNoteContent: (
+    noteId: string,
+    content: string,
+    goal: number,
+    goalType: "" | "words" | "characters",
+  ) => Promise<{ success: boolean }>;
+  saveNoteTitle: (noteId: string, title: string) => Promise<{ success: boolean }>;
+  userId: string;
+  showDelete: boolean;
+  isAuthenticated: boolean;
+  transferringNoteId: string | null;
+  onDelete: (noteId: string) => void;
+  onPinStatusChange: (noteId: string, isPinned: boolean) => void;
+  onPrivacyStatusChange: (noteId: string, isPrivate: boolean) => void;
+  onCollapsedStatusChange: (noteId: string, isCollapsed: boolean) => void;
+  onReorder: (noteId: string, direction: "up" | "down") => void;
+  onTransferNote: (noteId: string, targetSource: NoteSource) => void;
+  onRegisterFlush: (noteId: string, flushFn: () => void) => void;
+  onUnregisterFlush: (noteId: string) => void;
+}
+
 const MemoizedNoteWrapper = React.memo(function NoteWrapper({
   note,
   positionInfo,
@@ -199,16 +232,19 @@ const MemoizedNoteWrapper = React.memo(function NoteWrapper({
   onOpenDistractionFree,
   saveNoteContent,
   saveNoteTitle,
-  ...props
-}: {
-  note: CombinedNote;
-  positionInfo: any;
-  isNew: boolean;
-  onOpenDistractionFree: (note: CombinedNote) => void;
-  saveNoteContent: any;
-  saveNoteTitle: any;
-  [key: string]: any;
-}) {
+  userId,
+  showDelete,
+  isAuthenticated,
+  transferringNoteId,
+  onDelete,
+  onPinStatusChange,
+  onPrivacyStatusChange,
+  onCollapsedStatusChange,
+  onReorder,
+  onTransferNote,
+  onRegisterFlush,
+  onUnregisterFlush,
+}: MemoizedNoteWrapperProps) {
   const handleOpenDistractionFree = useCallback(() => {
     onOpenDistractionFree(note);
   }, [note, onOpenDistractionFree]);
@@ -228,9 +264,19 @@ const MemoizedNoteWrapper = React.memo(function NoteWrapper({
               : ("" as "" | "words" | "characters"),
         }}
         {...positionInfo}
-        {...props}
+        userId={userId}
+        showDelete={showDelete}
+        isAuthenticated={isAuthenticated}
         noteSource={note.source}
-        isTransferring={props.transferringNoteId === note.id}
+        isTransferring={transferringNoteId === note.id}
+        onDelete={onDelete}
+        onPinStatusChange={onPinStatusChange}
+        onPrivacyStatusChange={onPrivacyStatusChange}
+        onCollapsedStatusChange={onCollapsedStatusChange}
+        onReorder={onReorder}
+        onTransferNote={onTransferNote}
+        onRegisterFlush={onRegisterFlush}
+        onUnregisterFlush={onUnregisterFlush}
         openDistractionFreeNote={handleOpenDistractionFree}
         saveNoteContent={saveNoteContent}
         saveNoteTitle={saveNoteTitle}

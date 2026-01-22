@@ -82,6 +82,12 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
   },
 
   setSaving: (noteId, saving) => {
+    const { isSaving } = get();
+    const currentValue = isSaving.has(noteId);
+
+    // Only update if the value actually changed
+    if (saving === currentValue) return;
+
     set((state) => {
       const newSaving = new Map(state.isSaving);
       if (saving) {
@@ -94,6 +100,12 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
   },
 
   setEditing: (noteId, editing) => {
+    const { isEditing } = get();
+    const currentValue = isEditing.has(noteId);
+
+    // Only update if the value actually changed - prevents unnecessary re-renders
+    if (editing === currentValue) return;
+
     set((state) => {
       const newEditing = new Map(state.isEditing);
       if (editing) {

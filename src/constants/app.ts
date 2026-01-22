@@ -1,8 +1,8 @@
 ﻿// Timing Constants
 export const DEBOUNCE_DELAY = 2000; // 2 seconds for auto-save
-export const REFRESH_INTERVAL = 10000; // 10 seconds for note refresh
-export const ACTIVITY_TIMEOUT = 30000; // 30 seconds before considering user inactive
-export const INIT_TIMEOUT = 10000; //
+export const REFRESH_INTERVAL = 60000; // 60 seconds for note refresh (was 10s - too aggressive)
+export const ACTIVITY_TIMEOUT = 120000; // 2 minutes before considering user inactive (was 30s)
+export const INIT_TIMEOUT = 10000; // 10 seconds for initialization timeout
 export const HAS_INITIALISED_KEY = "justNoted_has_initialised"; //
 
 // Redis Constants

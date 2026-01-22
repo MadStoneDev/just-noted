@@ -99,22 +99,40 @@ export default function NoteBlock({
   saveNoteTitle,
 }: NoteBlockProps) {
   // ========== ZUSTAND - Read latest note data ==========
-  const latestNote = useNotesStore((state) =>
-    state.notes.find((n) => n.id === details.id),
+  // Optimized selectors - only re-render when specific values change
+  const latestNote = useNotesStore(
+    useCallback(
+      (state) => state.notes.find((n) => n.id === details.id),
+      [details.id]
+    )
   );
-  const isSaving = useNotesStore((state) => state.isSaving.has(details.id));
-  const isEditing = useNotesStore((state) => state.isEditing.has(details.id));
+  const isSaving = useNotesStore(
+    useCallback(
+      (state) => state.isSaving.has(details.id),
+      [details.id]
+    )
+  );
+  const isEditing = useNotesStore(
+    useCallback(
+      (state) => state.isEditing.has(details.id),
+      [details.id]
+    )
+  );
 
   // Use Zustand data if available, otherwise fall back to props
   const currentNote = latestNote || details;
 
-  const { newNoteId } = useNotesStore();
-  const notes = useNotesStore((state) => state.notes);
+  const newNoteId = useNotesStore((state) => state.newNoteId);
+  // Only get notes for checking if there are pinned notes - use a memoized selector
+  const hasPinnedNotesOtherThanThis = useNotesStore(
+    useCallback(
+      (state) => state.notes.some((note) => note.isPinned && note.id !== details.id),
+      [details.id]
+    )
+  );
 
   const isNewNote = details.id === newNoteId;
-  const hasPinnedNotes = notes.some(
-    (note) => note.isPinned && note.id !== details.id,
-  );
+  const hasPinnedNotes = hasPinnedNotesOtherThanThis;
 
   // ========== CUSTOM HOOKS ==========
   const { message: saveStatus, icon: saveIcon, setStatus } = useStatusMessage();
@@ -205,23 +223,36 @@ export default function NoteBlock({
   const wordCountGoalRef = useRef(wordCountGoal);
 
   // ========== SYNC LOCAL STATE WITH ZUSTAND ==========
+  // Only sync content from Zustand when NOT editing and NOT saving
+  // This prevents the cursor from jumping during active editing
   useEffect(() => {
+    // Skip sync entirely if user is editing or save is in progress
+    if (isSaving || isEditing) {
+      return;
+    }
+
+    // Only sync if content actually differs and it's not our own save echoing back
     if (
-      !isSaving &&
-      !isEditing &&
       currentNote.content !== noteContent &&
       currentNote.content !== lastSavedContentRef.current
     ) {
       setNoteContent(currentNote.content);
       lastSavedContentRef.current = currentNote.content;
     }
+
+    // Sync title separately (doesn't affect cursor)
+    if (currentNote.title !== noteTitle && !editingTitle) {
+      setNoteTitle(currentNote.title);
+    }
   }, [
-    currentNote.title,
     currentNote.content,
+    currentNote.title,
     currentNote.updatedAt,
-    editingTitle,
     isSaving,
     isEditing,
+    editingTitle,
+    noteContent,
+    noteTitle,
   ]);
 
   // ========== FUNCTIONS ==========
