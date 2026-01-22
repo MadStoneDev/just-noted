@@ -23,6 +23,7 @@ interface NoteToolbarProps {
   onManualSave: () => void;
   onDelete?: (noteId: string) => void;
   onShowVersionHistory?: () => void;
+  onReplaceContent?: (content: string) => void;
 }
 
 /**
@@ -44,6 +45,7 @@ export default function NoteToolbar({
   onManualSave,
   onDelete,
   onShowVersionHistory,
+  onReplaceContent,
 }: NoteToolbarProps) {
   return (
     <article
@@ -78,6 +80,7 @@ export default function NoteToolbar({
         userId={isAuthenticated ? userId : null}
         note={note}
         isPrivate={isPrivate}
+        onReplaceContent={onReplaceContent}
       />
 
       {/* Authenticated user actions */}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Editor } from "@tiptap/react";
 import {
   IconLetterCase,
@@ -18,22 +18,50 @@ type TransformType = "uppercase" | "lowercase" | "capitalize" | "sentence" | "to
 
 export default function TextTransformMenu({ editor }: TextTransformMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Calculate menu position when opening
+  const updateMenuPosition = useCallback(() => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setMenuPosition({
+        top: rect.bottom + 4,
+        left: Math.min(rect.left, window.innerWidth - 220), // Ensure menu doesn't go off-screen
+      });
+    }
+  }, []);
 
   // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(e.target as Node)
+      ) {
         setIsOpen(false);
+      }
+    };
+
+    const handleScroll = () => {
+      if (isOpen) {
+        updateMenuPosition();
       }
     };
 
     if (isOpen) {
       document.addEventListener("mousedown", handleClickOutside);
+      window.addEventListener("scroll", handleScroll, true);
     }
 
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen]);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScroll, true);
+    };
+  }, [isOpen, updateMenuPosition]);
 
   const transformText = (type: TransformType) => {
     if (!editor) return;
@@ -125,21 +153,33 @@ export default function TextTransformMenu({ editor }: TextTransformMenuProps) {
     },
   ];
 
+  const handleToggle = () => {
+    if (!isOpen) {
+      updateMenuPosition();
+    }
+    setIsOpen(!isOpen);
+  };
+
   return (
-    <div ref={menuRef} className="relative">
+    <>
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        ref={buttonRef}
+        onClick={handleToggle}
         className={`p-1.5 rounded hover:bg-neutral-200 transition-colors flex items-center gap-0.5 ${
           isOpen ? "bg-neutral-200" : ""
         }`}
-        title="Text Transform"
+        title="Text Transform (select text first)"
       >
         <IconLetterCase size={16} />
         <IconChevronDown size={12} className={`transition-transform ${isOpen ? "rotate-180" : ""}`} />
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-xl border border-neutral-200 py-1 min-w-[200px] z-50">
+        <div
+          ref={menuRef}
+          className="fixed bg-white rounded-lg shadow-xl border border-neutral-200 py-1 min-w-[200px] z-[100]"
+          style={{ top: menuPosition.top, left: menuPosition.left }}
+        >
           <div className="px-3 py-1.5 text-xs font-medium text-neutral-500 border-b border-neutral-100">
             Transform Selected Text
           </div>
@@ -158,6 +198,6 @@ export default function TextTransformMenu({ editor }: TextTransformMenuProps) {
           ))}
         </div>
       )}
-    </div>
+    </>
   );
 }

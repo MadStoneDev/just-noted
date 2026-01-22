@@ -651,6 +651,16 @@ export default function NoteBlock({
     await saveContent(noteContent, true);
   }, [saveContent, noteContent]);
 
+  // Replace content (for AI reverse feature)
+  const handleReplaceContent = useCallback(
+    (newContent: string) => {
+      setNoteContent(newContent);
+      // Trigger save of the new content
+      saveContent(newContent, true);
+    },
+    [saveContent]
+  );
+
   // ========== EFFECTS ==========
   useEffect(() => {
     setIsContentExpanded(!(currentNote.isCollapsed || false));
@@ -926,6 +936,7 @@ export default function NoteBlock({
               onManualSave={handleManualSave}
               onDelete={onDelete}
               onShowVersionHistory={handleShowVersionHistory}
+              onReplaceContent={handleReplaceContent}
             />
           </>
         )}

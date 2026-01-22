@@ -144,6 +144,7 @@ export default function AIAnalysisButton({
                   note={note}
                   onInsertContent={onInsertContent}
                   onReplaceContent={onReplaceContent}
+                  userId={userId}
                 />
               ) : null}
             </div>
@@ -304,14 +305,19 @@ function ResultsView({
   note,
   onInsertContent,
   onReplaceContent,
+  userId,
 }: {
   result: AIAnalysisResult;
   note: CombinedNote;
   onInsertContent?: (content: string) => void;
   onReplaceContent?: (content: string) => void;
+  userId: string | null;
 }) {
   const [copiedTemplate, setCopiedTemplate] = useState(false);
   const [showIndex, setShowIndex] = useState(false);
+  const [isReversing, setIsReversing] = useState(false);
+  const [reverseError, setReverseError] = useState<string | null>(null);
+  const [reverseSuccess, setReverseSuccess] = useState(false);
 
   const handleCopyTemplate = () => {
     if (result.template) {
@@ -330,6 +336,46 @@ function ResultsView({
       navigator.clipboard.writeText("\n\n" + result.template);
       setCopiedTemplate(true);
       setTimeout(() => setCopiedTemplate(false), 2000);
+    }
+  };
+
+  const handleReverseOrder = async () => {
+    if (!userId || !onReplaceContent) return;
+
+    setIsReversing(true);
+    setReverseError(null);
+
+    try {
+      const response = await fetch("/api/ai/reverse-entries", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId,
+          noteContent: note.content,
+          patternName: result.patternName,
+          entryCount: result.entryCount,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setReverseError(data.error || "Failed to reverse entries");
+        return;
+      }
+
+      if (data.reversedContent) {
+        onReplaceContent(data.reversedContent);
+        setReverseSuccess(true);
+        setTimeout(() => setReverseSuccess(false), 3000);
+      }
+    } catch (error) {
+      console.error("Reverse error:", error);
+      setReverseError("Failed to reverse entries. Please try again.");
+    } finally {
+      setIsReversing(false);
     }
   };
 
@@ -401,6 +447,37 @@ function ResultsView({
           <IconPlus size={18} />
           {onInsertContent ? "Add New Entry" : "Copy Template for New Entry"}
         </button>
+
+        {/* Reverse Order */}
+        {onReplaceContent && (
+          <button
+            onClick={handleReverseOrder}
+            disabled={isReversing}
+            className="w-full p-3 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isReversing ? (
+              <>
+                <IconLoader size={18} className="animate-spin" />
+                Reversing...
+              </>
+            ) : reverseSuccess ? (
+              <>
+                <IconCheck size={18} />
+                Entries Reversed!
+              </>
+            ) : (
+              <>
+                <IconArrowsSort size={18} />
+                Reverse Order
+              </>
+            )}
+          </button>
+        )}
+
+        {/* Reverse Error */}
+        {reverseError && (
+          <p className="text-sm text-red-600 text-center">{reverseError}</p>
+        )}
 
         {/* Index View Toggle */}
         <button
