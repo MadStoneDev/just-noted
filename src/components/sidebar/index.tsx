@@ -79,18 +79,34 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
     (noteId: string) => {
       setActiveNoteId(noteId);
 
-      // Scroll to note
-      const noteElement = document.querySelector(`[data-note-id="${noteId}"]`);
-      if (noteElement) {
-        noteElement.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-
-      onNoteClick?.(noteId);
-
-      // Close sidebar on mobile
+      // Close sidebar first on mobile for better UX
       if (window.innerWidth < 768) {
         setSidebarOpen(false);
       }
+
+      // Small delay to allow sidebar close animation and ensure DOM is ready
+      setTimeout(() => {
+        const noteElement = document.querySelector(`[data-note-id="${noteId}"]`);
+        if (noteElement) {
+          // Account for sticky header (64px) plus top bar (~48px)
+          const headerOffset = 120;
+          const elementPosition = noteElement.getBoundingClientRect().top;
+          const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+          window.scrollTo({
+            top: offsetPosition,
+            behavior: "smooth"
+          });
+
+          // Add highlight effect
+          noteElement.classList.add("ring-2", "ring-mercedes-primary", "ring-offset-2");
+          setTimeout(() => {
+            noteElement.classList.remove("ring-2", "ring-mercedes-primary", "ring-offset-2");
+          }, 2000);
+        }
+      }, 100);
+
+      onNoteClick?.(noteId);
     },
     [setActiveNoteId, onNoteClick, setSidebarOpen]
   );

@@ -4,22 +4,31 @@ import { useState, useCallback } from "react";
 import { CombinedNote } from "@/types/combined-notes";
 
 export interface PatternResult {
-  type: "structure" | "topic" | "format";
   name: string;
   description: string;
-  frequency: "daily" | "weekly" | "occasional";
-  suggestedTemplate?: string;
+  suggestion: string;
 }
 
-export interface SimilarNote {
-  noteTitle: string;
-  similarity: string;
+export interface NoteStructure {
+  type: "list" | "outline" | "freeform" | "mixed" | "unknown";
+  hasHeadings: boolean;
+  hasChecklists: boolean;
+  hasCodeBlocks: boolean;
+  estimatedReadTime?: string;
+}
+
+export interface TemplatePotential {
+  isGoodTemplate: boolean;
+  templateName?: string;
+  reason: string;
 }
 
 export interface AIAnalysisResult {
+  structure: NoteStructure;
   patterns: PatternResult[];
-  similarNotes: SimilarNote[];
-  suggestions: string[];
+  improvements: string[];
+  templatePotential: TemplatePotential;
+  summary: string;
 }
 
 export interface AIAnalysisState {
@@ -33,7 +42,7 @@ export interface AIAnalysisState {
 const DAILY_LIMIT = 5;
 
 /**
- * Hook for AI-powered pattern analysis of notes
+ * Hook for AI-powered analysis of a single note
  * Rate limited to 5 analyses per day
  */
 export function useAIAnalysis(userId: string | null) {
@@ -63,9 +72,9 @@ export function useAIAnalysis(userId: string | null) {
     }
   }, [userId]);
 
-  // Analyze notes for patterns
-  const analyzePatterns = useCallback(
-    async (notes: CombinedNote[], currentNoteId?: string) => {
+  // Analyze a single note
+  const analyzeNote = useCallback(
+    async (note: CombinedNote) => {
       if (!userId) {
         setState((prev) => ({
           ...prev,
@@ -74,10 +83,10 @@ export function useAIAnalysis(userId: string | null) {
         return null;
       }
 
-      if (notes.length === 0) {
+      if (!note.content || note.content.trim().length === 0) {
         setState((prev) => ({
           ...prev,
-          error: "No notes available for analysis",
+          error: "This note is empty. Add some content first!",
         }));
         return null;
       }
@@ -89,14 +98,6 @@ export function useAIAnalysis(userId: string | null) {
       }));
 
       try {
-        // Prepare notes for API (strip to essential fields)
-        const notesForAnalysis = notes.map((note) => ({
-          id: note.id,
-          title: note.title,
-          content: note.content,
-          createdAt: note.createdAt,
-        }));
-
         const response = await fetch("/api/ai/analyze-patterns", {
           method: "POST",
           headers: {
@@ -104,8 +105,11 @@ export function useAIAnalysis(userId: string | null) {
           },
           body: JSON.stringify({
             userId,
-            notes: notesForAnalysis,
-            currentNoteId,
+            note: {
+              id: note.id,
+              title: note.title,
+              content: note.content,
+            },
           }),
         });
 
@@ -173,7 +177,7 @@ export function useAIAnalysis(userId: string | null) {
 
   return {
     ...state,
-    analyzePatterns,
+    analyzeNote,
     checkRateLimit,
     clearResult,
     getResetTimeDisplay,

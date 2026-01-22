@@ -28,7 +28,6 @@ interface NoteForAnalysis {
   id: string;
   title: string;
   content: string;
-  createdAt: number;
 }
 
 export async function POST(request: NextRequest) {
@@ -43,18 +42,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { userId, notes, currentNoteId } = body as {
+    const { userId, note } = body as {
       userId: string;
-      notes: NoteForAnalysis[];
-      currentNoteId?: string;
+      note: NoteForAnalysis;
     };
 
     if (!userId) {
       return NextResponse.json({ error: "User ID required" }, { status: 400 });
     }
 
-    if (!notes || notes.length === 0) {
-      return NextResponse.json({ error: "No notes provided for analysis" }, { status: 400 });
+    if (!note || !note.content) {
+      return NextResponse.json({ error: "Note content required for analysis" }, { status: 400 });
     }
 
     // Check rate limit
@@ -71,61 +69,65 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Prepare notes summary for analysis (limit content to save tokens)
-    const noteSummaries = notes.slice(0, 20).map((note) => {
-      // Strip HTML and limit content
-      const plainText = note.content
-        .replace(/<[^>]*>/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, 500);
+    // Strip HTML for analysis but preserve structure hints
+    const plainText = note.content
+      .replace(/<h[1-6][^>]*>/gi, "\n[HEADING] ")
+      .replace(/<\/h[1-6]>/gi, "\n")
+      .replace(/<li[^>]*>/gi, "\n• ")
+      .replace(/<ul[^>]*data-type="taskList"[^>]*>/gi, "\n[CHECKLIST]\n")
+      .replace(/<input[^>]*checked[^>]*>/gi, "[x] ")
+      .replace(/<input[^>]*type="checkbox"[^>]*>/gi, "[ ] ")
+      .replace(/<blockquote[^>]*>/gi, "\n[QUOTE] ")
+      .replace(/<code[^>]*>/gi, "[CODE]")
+      .replace(/<\/code>/gi, "[/CODE]")
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
 
-      return `[${note.title}]: ${plainText}`;
-    });
+    // Limit content length for API
+    const contentForAnalysis = plainText.slice(0, 3000);
 
-    const currentNote = currentNoteId ? notes.find((n) => n.id === currentNoteId) : null;
-    const currentNoteText = currentNote
-      ? currentNote.content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 1000)
-      : null;
+    // Create the prompt for Claude Haiku - focused on single note analysis
+    const systemPrompt = `You are a writing assistant for a note-taking app. Analyze THIS SINGLE NOTE for patterns, structure, and provide helpful suggestions.
 
-    // Create the prompt for Claude Haiku
-    const systemPrompt = `You are a pattern analysis assistant for a note-taking app. Your job is to identify repetitive patterns and structures in the user's notes.
+Focus on:
+1. Structural patterns within the note (repeated sections, consistent formatting)
+2. Content organization and flow
+3. Potential improvements for clarity or structure
+4. Whether this note could become a reusable template
 
-Analyze the provided notes and identify:
-1. Recurring structures (weekly reports, meeting notes, daily logs, etc.)
-2. Common formatting patterns
-3. Repeated topics or themes
-4. Similar note types that could benefit from a template
-
-Be concise and actionable. Focus on patterns that would help the user be more productive.
+Be concise, friendly, and actionable. This is for a single note, not comparing multiple notes.
 
 Respond in JSON format:
 {
+  "structure": {
+    "type": "list|outline|freeform|mixed",
+    "hasHeadings": boolean,
+    "hasChecklists": boolean,
+    "hasCodeBlocks": boolean,
+    "estimatedReadTime": "X min"
+  },
   "patterns": [
     {
-      "type": "structure|topic|format",
       "name": "Short pattern name",
-      "description": "Brief description of the pattern",
-      "frequency": "daily|weekly|occasional",
-      "suggestedTemplate": "Optional: HTML template suggestion if applicable"
+      "description": "What you noticed",
+      "suggestion": "How to improve or use this pattern"
     }
   ],
-  "similarNotes": [
-    {
-      "noteTitle": "Title of similar note",
-      "similarity": "Brief explanation of similarity"
-    }
+  "improvements": [
+    "Specific, actionable suggestion for this note"
   ],
-  "suggestions": [
-    "Actionable suggestion for improving note organization"
-  ]
+  "templatePotential": {
+    "isGoodTemplate": boolean,
+    "templateName": "Suggested name if applicable",
+    "reason": "Why or why not"
+  },
+  "summary": "One sentence summary of what this note is about"
 }
 
-Keep the response concise - max 3 patterns, 3 similar notes, and 3 suggestions.`;
+Keep responses concise - max 3 patterns and 3 improvements.`;
 
-    const userPrompt = currentNoteText
-      ? `Here are the user's recent notes:\n\n${noteSummaries.join("\n\n")}\n\nThe user is currently working on this note:\n[Current Note - ${currentNote?.title}]: ${currentNoteText}\n\nAnalyze patterns and find notes similar to the current one.`
-      : `Here are the user's recent notes:\n\n${noteSummaries.join("\n\n")}\n\nAnalyze these notes for repetitive patterns and structures.`;
+    const userPrompt = `Analyze this note titled "${note.title}":\n\n${contentForAnalysis}`;
 
     // Call Claude Haiku API
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -152,7 +154,7 @@ Keep the response concise - max 3 patterns, 3 similar notes, and 3 suggestions.`
       const errorData = await response.json().catch(() => ({}));
       console.error("Anthropic API error:", errorData);
       return NextResponse.json(
-        { error: "Failed to analyze patterns. Please try again later." },
+        { error: "Failed to analyze note. Please try again later." },
         { status: 500 }
       );
     }
@@ -174,9 +176,11 @@ Keep the response concise - max 3 patterns, 3 similar notes, and 3 suggestions.`
       // If parsing fails, return a structured error
       console.error("Failed to parse AI response:", assistantMessage);
       analysis = {
+        structure: { type: "unknown", hasHeadings: false, hasChecklists: false, hasCodeBlocks: false },
         patterns: [],
-        similarNotes: [],
-        suggestions: ["Unable to analyze patterns at this time. Please try again."],
+        improvements: ["Unable to analyze this note at the moment. Please try again."],
+        templatePotential: { isGoodTemplate: false, reason: "Analysis failed" },
+        summary: "Unable to generate summary",
       };
     }
 

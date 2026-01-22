@@ -5,6 +5,7 @@ import TransferButton from "./sub-components/transfer-button";
 import SaveButton from "./sub-components/save-button";
 import DeleteButton from "@/components/delete-button";
 import ShareNoteButton from "@/components/share-note-button";
+import AIAnalysisButton from "@/components/ui/ai-analysis";
 import type { NoteSource, CombinedNote } from "@/types/combined-notes";
 
 interface NoteToolbarProps {
@@ -71,6 +72,13 @@ export default function NoteToolbar({
           </span>
         </button>
       )}
+
+      {/* AI Analysis button */}
+      <AIAnalysisButton
+        userId={isAuthenticated ? userId : null}
+        note={note}
+        isPrivate={isPrivate}
+      />
 
       {/* Authenticated user actions */}
       {isAuthenticated && (

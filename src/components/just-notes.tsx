@@ -4,7 +4,6 @@ import React, { useCallback, useMemo, useState } from "react";
 
 import NoteBlock from "@/components/note-block";
 import NoteTemplates from "@/components/ui/note-templates";
-import LazyNoteRender, { useLazyRenderBatch } from "@/components/ui/lazy-note-render";
 import { CombinedNote, NoteSource } from "@/types/combined-notes";
 import { useNotesStore } from "@/stores/notes-store";
 
@@ -190,15 +189,12 @@ export default function JustNotes({
       </section>
 
       <div className="col-span-12 grid grid-cols-12 gap-4 note-container">
-        {notes.map((note, index) => {
+        {notes.map((note) => {
           const positionInfo = getNotePositionInfo(note.id);
           const noteKey = `${note.source}-${note.id}`;
           const isNew = note.id === newNoteId;
 
-          // Render first 3 notes immediately, lazy render the rest
-          const shouldLazyRender = index >= 3 && !isNew;
-
-          const noteContent = (
+          return (
             <MemoizedNoteWrapper
               key={noteKey}
               note={note}
@@ -221,16 +217,6 @@ export default function JustNotes({
               saveNoteTitle={saveNoteTitle}
             />
           );
-
-          if (shouldLazyRender) {
-            return (
-              <LazyNoteRender key={noteKey}>
-                {noteContent}
-              </LazyNoteRender>
-            );
-          }
-
-          return noteContent;
         })}
       </div>
 

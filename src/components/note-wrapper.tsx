@@ -8,7 +8,6 @@ import Sidebar from "@/components/sidebar";
 import UndoDeleteToast from "@/components/ui/undo-toast";
 import { GlobalSaveIndicator } from "@/components/ui/save-indicator";
 import OfflineIndicator, { OfflineStatusBadge } from "@/components/ui/offline-indicator";
-import AIAnalysisButton from "@/components/ui/ai-analysis";
 
 import {
   IconArrowsMinimize,
@@ -134,7 +133,7 @@ export default function NoteWrapper() {
       {/* Main content area */}
       <main id="main-content" className="relative" role="main" aria-label="Notes application">
         {/* Top bar with sidebar toggle and save indicator */}
-        <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-sm border-b border-neutral-200 px-3 py-2 flex items-center justify-between">
+        <div className="sticky top-16 z-30 bg-white/80 backdrop-blur-sm border-b border-neutral-200 px-3 py-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
               onClick={toggleSidebar}
@@ -148,13 +147,6 @@ export default function NoteWrapper() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* AI Analysis Button */}
-            <AIAnalysisButton
-              userId={userId}
-              notes={notes}
-              currentNoteId={activeNoteId || undefined}
-            />
-
             <button
               onClick={() => setShowShortcuts(!showShortcuts)}
               className="p-2 rounded-lg hover:bg-neutral-100 transition-colors text-neutral-500"
