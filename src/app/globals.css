@@ -538,12 +538,45 @@ body {
    PRINT OPTIMIZATIONS
    ============================================ */
 
+@page {
+    margin: 1.5cm;
+    size: A4;
+}
+
 @media print {
-    .ProseMirror {
+    /* Reset body and html for print */
+    html, body {
+        margin: 0 !important;
         padding: 0 !important;
+        height: auto !important;
+        overflow: visible !important;
     }
 
-    .ProseMirror li {
+    /* Hide elements that shouldn't print */
+    .print\\:hidden,
+    header,
+    footer,
+    nav {
+        display: none !important;
+        height: 0 !important;
+        overflow: hidden !important;
+        visibility: hidden !important;
+    }
+
+    /* Ensure main content starts at top */
+    main {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+
+    .ProseMirror,
+    .shared-note-content {
+        padding: 0 !important;
+        min-height: auto !important;
+    }
+
+    .ProseMirror li,
+    .shared-note-content li {
         page-break-inside: avoid !important;
         break-inside: avoid !important;
     }
@@ -556,9 +589,33 @@ body {
         break-before: avoid !important;
     }
 
-    .ProseMirror ul[data-type="taskList"] li input[type="checkbox"] {
+    /* Checkbox print styling */
+    .ProseMirror ul[data-type="taskList"] li input[type="checkbox"],
+    .shared-note-content ul[data-type="taskList"] li input[type="checkbox"] {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
+    }
+
+    /* Ensure colors print properly */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* Prevent page breaks inside important elements */
+    h1, h2, h3, h4, h5, h6 {
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+    }
+
+    p, blockquote, pre {
+        orphans: 3 !important;
+        widows: 3 !important;
+    }
+
+    /* Links in print */
+    a {
+        text-decoration: underline !important;
     }
 }
 

@@ -5,17 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="c964cf5b-c203-4783-b48d-35cd19ff7e4b" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/app/actions/contactActions.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/actions/contactActions.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/just-notes.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/just-notes.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/note-block/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/note-block/index.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/note-block/note-toolbar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/note-block/note-toolbar.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/note-wrapper.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/note-wrapper.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/tip-tap-editor.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/tip-tap-editor.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/hooks/use-notes-operations.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/hooks/use-notes-operations.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/hooks/use-notes-sync.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/hooks/use-notes-sync.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/stores/notes-store.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/stores/notes-store.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/globals.css" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/globals.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/shared-note-page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/shared-note-page.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -90,7 +81,7 @@
       <workItem from="1759232307556" duration="1518000" />
       <workItem from="1759716187544" duration="861000" />
       <workItem from="1759717451201" duration="2368000" />
-      <workItem from="1769061585269" duration="5954000" />
+      <workItem from="1769061585269" duration="6560000" />
     </task>
     <servers />
   </component>

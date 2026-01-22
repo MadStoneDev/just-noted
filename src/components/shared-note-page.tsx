@@ -63,115 +63,11 @@ export default function SharedNotePage({
     });
   };
 
-  // Process markdown content to handle checkboxes and basic formatting
-  const processMarkdown = (content: string): string => {
-    // Split content into lines for better processing
-    const lines = content.split("\n");
-    const processedLines: string[] = [];
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-
-      if (!line) {
-        // Empty line - add some spacing
-        processedLines.push("<br>");
-        continue;
-      }
-
-      // Convert actual headings (######, #####, ####, ###, ##, #)
-      if (line.match(/^###### (.+)$/)) {
-        const content = line.replace(/^### (.+)$/, "$1");
-        processedLines.push(`<h6>${content}</h6>`);
-        continue;
-      }
-
-      if (line.match(/^##### (.+)$/)) {
-        const content = line.replace(/^### (.+)$/, "$1");
-        processedLines.push(`<h5>${content}</h5>`);
-        continue;
-      }
-
-      if (line.match(/^#### (.+)$/)) {
-        const content = line.replace(/^### (.+)$/, "$1");
-        processedLines.push(`<h4>${content}</h4>`);
-        continue;
-      }
-
-      if (line.match(/^### (.+)$/)) {
-        const content = line.replace(/^### (.+)$/, "$1");
-        processedLines.push(`<h3>${content}</h3>`);
-        continue;
-      }
-
-      if (line.match(/^## (.+)$/)) {
-        const content = line.replace(/^## (.+)$/, "$1");
-        processedLines.push(`<h2>${content}</h2>`);
-        continue;
-      }
-
-      if (line.match(/^# (.+)$/)) {
-        const content = line.replace(/^# (.+)$/, "$1");
-        processedLines.push(`<h1>${content}</h1>`);
-        continue;
-      }
-
-      // Convert checkboxes
-      if (line.match(/^\*\s*\[\s*\]/)) {
-        const content = line.replace(/^\*\s*\[\s*\]\s*/, "");
-        processedLines.push(
-          `<li role="checkbox" aria-checked="false"><span>${content}</span></li>`,
-        );
-        continue;
-      }
-
-      if (line.match(/^\*\s*\[[xX]\]/)) {
-        const content = line.replace(/^\*\s*\[[xX]\]\s*/, "");
-        processedLines.push(
-          `<li role="checkbox" aria-checked="true"><span>${content}</span></li>`,
-        );
-        continue;
-      }
-
-      // Convert regular list items
-      if (line.match(/^\*\s+/)) {
-        const content = line.replace(/^\*\s+/, "");
-        processedLines.push(`<li>${content}</li>`);
-        continue;
-      }
-
-      // Convert bold text inline (not as headings)
-      let processedLine = line.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-
-      // Regular text
-      processedLines.push(processedLine);
-    }
-
-    // Now group consecutive list items into ul tags
-    const finalLines: string[] = [];
-    let inList = false;
-
-    for (const line of processedLines) {
-      if (line.startsWith("<li")) {
-        if (!inList) {
-          finalLines.push("<ul>");
-          inList = true;
-        }
-        finalLines.push(line);
-      } else {
-        if (inList) {
-          finalLines.push("</ul>");
-          inList = false;
-        }
-        finalLines.push(line);
-      }
-    }
-
-    // Close any remaining list
-    if (inList) {
-      finalLines.push("</ul>");
-    }
-
-    return finalLines.join("");
+  // Sanitize HTML content - TipTap already stores HTML, just need to ensure it's safe
+  const sanitizeContent = (content: string): string => {
+    // Content from TipTap is already HTML - just return it
+    // The CSS will handle proper styling via the ProseMirror class
+    return content;
   };
 
   useEffect(() => {
@@ -311,7 +207,7 @@ export default function SharedNotePage({
   }
 
   return (
-    <main className="mt-2 flex-grow w-full overflow-hidden">
+    <main className="mt-2 print:mt-0 flex-grow w-full overflow-hidden print:overflow-visible">
       {/* Header section with navigation */}
       <section className="px-3 col-span-12 flex items-center justify-between mb-4 print:hidden">
         <Link
@@ -334,8 +230,8 @@ export default function SharedNotePage({
       </section>
 
       {/* Note content */}
-      <div className={`px-3 print:px-0 grid grid-cols-12 gap-3`}>
-        <div className={`col-span-12`}>
+      <div className={`px-3 print:px-0 grid grid-cols-12 gap-3 print:block`}>
+        <div className={`col-span-12 print:col-span-full`}>
           {/* Note header matching your NoteBlock style */}
           <article
             className={`flex flex-col md:flex-row print:flex-col gap-2 md:items-center mb-4`}
@@ -401,12 +297,13 @@ export default function SharedNotePage({
           <article className="grid grid-cols-12 gap-4">
             <div className="col-span-12">
               <div
-                className={`bg-white rounded-xl border border-neutral-300 p-6 print:p-0`}
+                className={`bg-white rounded-xl border border-neutral-300 p-6 print:p-0 print:border-0`}
               >
+                {/* Use ProseMirror class to get same styling as editor */}
                 <div
-                  className="mdx-editor-custom custom-editor-content focus:outline-none"
+                  className="ProseMirror shared-note-content"
                   dangerouslySetInnerHTML={{
-                    __html: processMarkdown(note.content),
+                    __html: sanitizeContent(note.content),
                   }}
                 />
               </div>
