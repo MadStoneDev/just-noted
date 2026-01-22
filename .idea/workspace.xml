@@ -6,11 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="c964cf5b-c203-4783-b48d-35cd19ff7e4b" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/app/api/ai/analyze-patterns/route.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/api/ai/analyze-patterns/route.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/note-block/note-toolbar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/note-block/note-toolbar.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/note-wrapper.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/note-wrapper.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/ui/ai-analysis.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/ui/ai-analysis.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/hooks/use-ai-analysis.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/hooks/use-ai-analysis.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/manage-shared-notes.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/manage-shared-notes.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -26,6 +22,9 @@
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/package-lock.json" root0="SKIP_HIGHLIGHTING" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;customColor&quot;: &quot;&quot;,
@@ -85,7 +84,7 @@
       <workItem from="1759232307556" duration="1518000" />
       <workItem from="1759716187544" duration="861000" />
       <workItem from="1759717451201" duration="2368000" />
-      <workItem from="1769061585269" duration="7791000" />
+      <workItem from="1769061585269" duration="8747000" />
     </task>
     <servers />
   </component>

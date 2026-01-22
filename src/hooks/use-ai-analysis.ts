@@ -3,32 +3,20 @@
 import { useState, useCallback } from "react";
 import { CombinedNote } from "@/types/combined-notes";
 
-export interface PatternResult {
-  name: string;
-  description: string;
-  suggestion: string;
-}
-
-export interface NoteStructure {
-  type: "list" | "outline" | "freeform" | "mixed" | "unknown";
-  hasHeadings: boolean;
-  hasChecklists: boolean;
-  hasCodeBlocks: boolean;
-  estimatedReadTime?: string;
-}
-
-export interface TemplatePotential {
-  isGoodTemplate: boolean;
-  templateName?: string;
-  reason: string;
+export interface PatternEntry {
+  index: number;
+  title: string;
+  preview: string;
 }
 
 export interface AIAnalysisResult {
-  structure: NoteStructure;
-  patterns: PatternResult[];
-  improvements: string[];
-  templatePotential: TemplatePotential;
-  summary: string;
+  patternFound: boolean;
+  patternName: string | null;
+  fields: string[];
+  entryCount: number;
+  entries: PatternEntry[];
+  template: string | null;
+  confidence: "high" | "medium" | "low";
 }
 
 export interface AIAnalysisState {
@@ -42,7 +30,7 @@ export interface AIAnalysisState {
 const DAILY_LIMIT = 5;
 
 /**
- * Hook for AI-powered analysis of a single note
+ * Hook for AI-powered pattern detection in notes
  * Rate limited to 5 analyses per day
  */
 export function useAIAnalysis(userId: string | null) {
@@ -72,7 +60,7 @@ export function useAIAnalysis(userId: string | null) {
     }
   }, [userId]);
 
-  // Analyze a single note
+  // Analyze a single note for patterns
   const analyzeNote = useCallback(
     async (note: CombinedNote) => {
       if (!userId) {

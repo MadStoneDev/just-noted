@@ -16,7 +16,7 @@ export default async function Home() {
     <>
       <GlobalHeader user={user} />
 
-      <div className={`relative mt-2 flex-grow w-full`}>
+      <div className={`relative flex-grow w-full`}>
         <NoteWrapper />
 
         <h1

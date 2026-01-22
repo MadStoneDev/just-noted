@@ -183,6 +183,7 @@ export default function ManageSharedNotes({ userId }: { userId: string }) {
     setError(null);
 
     try {
+      // Fetch shared notes for this user
       const { data: sharedData, error: sharedError } = await supabase
         .from("shared_notes")
         .select(
@@ -190,11 +191,19 @@ export default function ManageSharedNotes({ userId }: { userId: string }) {
         )
         .eq("note_owner_id", userId);
 
-      if (sharedError) throw new Error(sharedError.message);
+      if (sharedError) {
+        console.error("Error fetching shared_notes:", sharedError);
+        throw new Error(sharedError.message);
+      }
+
+      if (!sharedData || sharedData.length === 0) {
+        setSharedNotes([]);
+        return;
+      }
 
       const notesMap = new Map();
 
-      for (const share of sharedData) {
+      for (const share of sharedData || []) {
         if (!notesMap.has(share.note_id)) {
           notesMap.set(share.note_id, {
             id: share.id,
@@ -205,27 +214,43 @@ export default function ManageSharedNotes({ userId }: { userId: string }) {
             sharedUsers: [],
             viewCount: share.view_count || 0,
             updatedAt: share.updated_at || share.created_at,
+            title: "Untitled Note", // Default title
           });
         }
       }
 
       const noteIds = Array.from(notesMap.keys());
 
-      if (noteIds.length > 0) {
+      // Fetch titles only for Supabase notes
+      const supabaseNoteIds = noteIds.filter(
+        (id) => notesMap.get(id).storage === "supabase"
+      );
+
+      if (supabaseNoteIds.length > 0) {
         const { data: notesData, error: notesError } = await supabase
           .from("notes")
           .select("id, title")
-          .in("id", noteIds);
+          .in("id", supabaseNoteIds);
 
-        if (notesError) throw new Error(notesError.message);
-
-        for (const note of notesData) {
-          if (notesMap.has(note.id)) {
-            notesMap.get(note.id).title = note.title;
+        if (!notesError && notesData) {
+          for (const note of notesData) {
+            if (notesMap.has(note.id)) {
+              notesMap.get(note.id).title = note.title || "Untitled Note";
+            }
           }
         }
+      }
 
-        for (const noteId of noteIds) {
+      // For Redis/local notes, we'll mark them as "Local Note" since we can't fetch the title server-side easily
+      for (const [, noteData] of notesMap) {
+        if (noteData.storage === "redis" && noteData.title === "Untitled Note") {
+          noteData.title = "Local Note";
+        }
+      }
+
+      // Fetch shared users for each note (in parallel for speed)
+      const userFetchPromises = noteIds.map(async (noteId) => {
+        try {
           const result = await sharingOperation({
             operation: "getUsers",
             noteId,
@@ -234,16 +259,22 @@ export default function ManageSharedNotes({ userId }: { userId: string }) {
 
           if (result.success) {
             const noteData = notesMap.get(noteId);
-            noteData.isPublic = result.isPublic;
-            noteData.sharedUsers = result.users || [];
+            if (noteData) {
+              noteData.isPublic = result.isPublic;
+              noteData.sharedUsers = result.users || [];
+            }
           }
+        } catch (err) {
+          console.error(`Failed to fetch users for note ${noteId}:`, err);
         }
-      }
+      });
+
+      await Promise.all(userFetchPromises);
 
       setSharedNotes(Array.from(notesMap.values()));
     } catch (err) {
       console.error("Error fetching shared notes:", err);
-      setError("Failed to load shared notes");
+      setError("Failed to load shared notes. Please try refreshing.");
     } finally {
       setIsLoading(false);
     }
@@ -408,6 +439,7 @@ export default function ManageSharedNotes({ userId }: { userId: string }) {
     if (userId) {
       fetchSharedNotes();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   if (isLoading) {

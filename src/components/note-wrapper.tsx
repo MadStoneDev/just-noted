@@ -198,7 +198,7 @@ export default function NoteWrapper() {
         )}
 
         {/* Notes grid */}
-        <div id="notes-list" aria-label="Notes list">
+        <div id="notes-list" className="pt-4" aria-label="Notes list">
           <JustNotes
             openDistractionFreeNote={handleShowDistractionFree}
             userId={userId}

@@ -69,65 +69,72 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Strip HTML for analysis but preserve structure hints
+    // Strip HTML for analysis but preserve structure
     const plainText = note.content
-      .replace(/<h[1-6][^>]*>/gi, "\n[HEADING] ")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n\n")
+      .replace(/<\/div>/gi, "\n")
+      .replace(/<h[1-6][^>]*>/gi, "\n")
       .replace(/<\/h[1-6]>/gi, "\n")
       .replace(/<li[^>]*>/gi, "\n• ")
-      .replace(/<ul[^>]*data-type="taskList"[^>]*>/gi, "\n[CHECKLIST]\n")
-      .replace(/<input[^>]*checked[^>]*>/gi, "[x] ")
-      .replace(/<input[^>]*type="checkbox"[^>]*>/gi, "[ ] ")
-      .replace(/<blockquote[^>]*>/gi, "\n[QUOTE] ")
-      .replace(/<code[^>]*>/gi, "[CODE]")
-      .replace(/<\/code>/gi, "[/CODE]")
-      .replace(/<[^>]*>/g, " ")
-      .replace(/\s+/g, " ")
+      .replace(/<[^>]*>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/\n{3,}/g, "\n\n")
       .trim();
 
     // Limit content length for API
-    const contentForAnalysis = plainText.slice(0, 3000);
+    const contentForAnalysis = plainText.slice(0, 4000);
 
-    // Create the prompt for Claude Haiku - focused on single note analysis
-    const systemPrompt = `You are a writing assistant for a note-taking app. Analyze THIS SINGLE NOTE for patterns, structure, and provide helpful suggestions.
+    // Create the prompt for Claude Haiku - focused on pattern detection
+    const systemPrompt = `You are a pattern detection assistant for a note-taking app. Your job is to find REPEATING PATTERNS within a single note.
 
-Focus on:
-1. Structural patterns within the note (repeated sections, consistent formatting)
-2. Content organization and flow
-3. Potential improvements for clarity or structure
-4. Whether this note could become a reusable template
+A pattern is when the note contains multiple entries that follow the same structure/template. For example:
+- A note with multiple meeting notes, each with Date, Attendees, Agenda, Notes
+- A note with multiple sermon entries, each with Date, Title, Bible Reference, Preacher
+- A note with multiple recipes, each with Name, Ingredients, Instructions
+- A note tracking habits with Date and activities
+- A journal with dated entries
 
-Be concise, friendly, and actionable. This is for a single note, not comparing multiple notes.
+Your task:
+1. Identify if there's a repeating pattern/template in this note
+2. Extract the field names/labels that make up each entry
+3. Count how many entries/repetitions exist
+4. Extract each entry's content
 
-Respond in JSON format:
+Respond ONLY with valid JSON in this exact format:
 {
-  "structure": {
-    "type": "list|outline|freeform|mixed",
-    "hasHeadings": boolean,
-    "hasChecklists": boolean,
-    "hasCodeBlocks": boolean,
-    "estimatedReadTime": "X min"
-  },
-  "patterns": [
+  "patternFound": boolean,
+  "patternName": "Short name for the pattern (e.g., 'Sermon Notes', 'Meeting Minutes', 'Daily Log')" or null,
+  "fields": ["Field1", "Field2", "Field3"] or [],
+  "entryCount": number,
+  "entries": [
     {
-      "name": "Short pattern name",
-      "description": "What you noticed",
-      "suggestion": "How to improve or use this pattern"
+      "index": 1,
+      "title": "Brief identifier for this entry (e.g., date or first field value)",
+      "preview": "First 50 chars of entry content"
     }
   ],
-  "improvements": [
-    "Specific, actionable suggestion for this note"
-  ],
-  "templatePotential": {
-    "isGoodTemplate": boolean,
-    "templateName": "Suggested name if applicable",
-    "reason": "Why or why not"
-  },
-  "summary": "One sentence summary of what this note is about"
+  "template": "The template structure with field placeholders like [Field1], [Field2]" or null,
+  "confidence": "high" | "medium" | "low"
 }
 
-Keep responses concise - max 3 patterns and 3 improvements.`;
+If no clear repeating pattern is found, return:
+{
+  "patternFound": false,
+  "patternName": null,
+  "fields": [],
+  "entryCount": 0,
+  "entries": [],
+  "template": null,
+  "confidence": "low"
+}
 
-    const userPrompt = `Analyze this note titled "${note.title}":\n\n${contentForAnalysis}`;
+Be strict about pattern detection - only return patternFound: true if there are at least 2 entries following the same structure.`;
+
+    const userPrompt = `Analyze this note for repeating patterns:\n\n${contentForAnalysis}`;
 
     // Call Claude Haiku API
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -139,7 +146,7 @@ Keep responses concise - max 3 patterns and 3 improvements.`;
       },
       body: JSON.stringify({
         model: "claude-3-haiku-20240307",
-        max_tokens: 1024,
+        max_tokens: 2048,
         messages: [
           {
             role: "user",
@@ -173,14 +180,16 @@ Keep responses concise - max 3 patterns and 3 improvements.`;
         throw new Error("No JSON found in response");
       }
     } catch {
-      // If parsing fails, return a structured error
+      // If parsing fails, return no pattern found
       console.error("Failed to parse AI response:", assistantMessage);
       analysis = {
-        structure: { type: "unknown", hasHeadings: false, hasChecklists: false, hasCodeBlocks: false },
-        patterns: [],
-        improvements: ["Unable to analyze this note at the moment. Please try again."],
-        templatePotential: { isGoodTemplate: false, reason: "Analysis failed" },
-        summary: "Unable to generate summary",
+        patternFound: false,
+        patternName: null,
+        fields: [],
+        entryCount: 0,
+        entries: [],
+        template: null,
+        confidence: "low",
       };
     }
 
