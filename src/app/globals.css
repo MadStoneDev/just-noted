@@ -553,7 +553,7 @@ body {
     }
 
     /* Hide elements that shouldn't print */
-    .print\\:hidden,
+    [class*="print:hidden"],
     header,
     footer,
     nav {
