@@ -127,6 +127,10 @@ export function useNotesSync() {
     isMounted.current = true;
     if (hasInitialisedRef.current) return;
 
+    // Mark as initialised immediately to prevent concurrent initializations
+    // (effect may re-run due to supabase client being recreated on each render)
+    hasInitialisedRef.current = true;
+
     const initialize = async () => {
       try {
         // Get or create user ID
@@ -203,10 +207,8 @@ export function useNotesSync() {
         const sortedNotes = sortNotes(normalizedNotes, null);
 
         syncFromBackend(sortedNotes);
-        hasInitialisedRef.current = true;
       } catch (error) {
         console.error("Initialization error:", error);
-        hasInitialisedRef.current = true;
       } finally {
         setLoading(false);
       }
