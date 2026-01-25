@@ -6,7 +6,8 @@
       "Bash(npx next build)",
       "Bash(npm install)",
       "Bash(./node_modules/.bin/tsc:*)",
-      "Bash(npm run lint)"
+      "Bash(npm run lint)",
+      "Bash(git add:*)"
     ]
   }
 }

@@ -124,7 +124,8 @@ export function useNotesSync() {
 
   // Initialize
   useEffect(() => {
-    if (!isMounted.current || hasInitialisedRef.current) return;
+    isMounted.current = true;
+    if (hasInitialisedRef.current) return;
 
     const initialize = async () => {
       try {
