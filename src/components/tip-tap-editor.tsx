@@ -44,11 +44,13 @@ import {
   Quote,
   Code,
   Minus,
+  RemoveFormatting,
 } from "lucide-react";
 
 import { useNotesStore } from "@/stores/notes-store";
 import TextTransformMenu from "@/components/ui/text-transform-menu";
 import ImageUpload from "@/components/ui/image-upload";
+import FormatInspector from "@/components/ui/format-inspector";
 
 interface TipTapEditorProps {
   noteId?: string;
@@ -308,6 +310,11 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
               icon={<HighlighterIcon size={16} />}
               title="Highlight"
             />
+            <ToolbarButton
+              onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
+              icon={<RemoveFormatting size={16} />}
+              title="Clear Formatting"
+            />
           </div>
 
           {/* Headings */}
@@ -432,6 +439,9 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
             <TextTransformMenu editor={editor} />
           </div>
         </div>
+
+        {/* Format Inspector (Bubble Menu) */}
+        <FormatInspector editor={editor} />
 
         {/* Editor */}
         <EditorContent editor={editor} className={`px-4`} />
