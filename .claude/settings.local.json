@@ -8,7 +8,8 @@
       "Bash(./node_modules/.bin/tsc:*)",
       "Bash(npm run lint)",
       "Bash(git add:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npx eslint:*)"
     ]
   }
 }

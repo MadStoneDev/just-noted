@@ -2,6 +2,7 @@ import React from "react";
 import { IconHistory } from "@tabler/icons-react";
 import ExportMenu from "@/components/ui/export-menu";
 import TransferButton from "./sub-components/transfer-button";
+import MoveToNotebookButton from "./sub-components/move-to-notebook-button";
 import SaveButton from "./sub-components/save-button";
 import DeleteButton from "@/components/delete-button";
 import ShareNoteButton from "@/components/share-note-button";
@@ -91,6 +92,15 @@ export default function NoteToolbar({
             <TransferButton
               noteSource={noteSource}
               onTransfer={onTransfer}
+              isPrivate={isPrivate}
+            />
+          )}
+
+          {/* Move to Notebook button (cloud notes only) */}
+          {noteSource === "supabase" && (
+            <MoveToNotebookButton
+              noteId={noteId}
+              currentNotebookId={note.notebookId}
               isPrivate={isPrivate}
             />
           )}

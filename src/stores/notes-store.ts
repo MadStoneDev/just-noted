@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { CombinedNote, NoteSource } from "@/types/combined-notes";
+import { Notebook } from "@/types/notebook";
 import { sortNotes } from "@/utils/notes-utils";
 
 // Deleted note with timestamp for undo functionality
@@ -10,6 +11,9 @@ interface DeletedNote {
   deletedAt: number;
   timeoutId?: NodeJS.Timeout;
 }
+
+// Active notebook filter type: null = "All Notes", "loose" = unassigned notes, uuid = specific notebook
+type ActiveNotebookFilter = string | null;
 
 interface NotesStore {
   // ========== User State ==========
@@ -28,6 +32,13 @@ interface NotesStore {
   transferError: boolean;
   isSaving: Map<string, boolean>;
   isEditing: Map<string, boolean>;
+
+  // ========== Notebook State ==========
+  notebooks: Notebook[];
+  activeNotebookId: ActiveNotebookFilter; // null = "All Notes", "loose" = loose notes, uuid = specific notebook
+  notebooksLoading: boolean;
+  notebookCounts: Record<string, number>; // notebook id -> note count
+  looseNotesCount: number;
 
   // ========== UI State ==========
   sidebarOpen: boolean;
@@ -64,6 +75,16 @@ interface NotesStore {
   setFilterSource: (filter: "all" | "local" | "cloud") => void;
   setFilterPinned: (filter: "all" | "pinned" | "unpinned") => void;
   clearFilters: () => void;
+
+  // ========== Notebook Actions ==========
+  setNotebooks: (notebooks: Notebook[]) => void;
+  setActiveNotebookId: (id: ActiveNotebookFilter) => void;
+  setNotebooksLoading: (loading: boolean) => void;
+  addNotebook: (notebook: Notebook) => void;
+  updateNotebook: (id: string, updates: Partial<Notebook>) => void;
+  removeNotebook: (id: string) => void;
+  updateNotebookCounts: (counts: Record<string, number>, looseCount: number) => void;
+  recalculateNotebookCounts: () => void;
 
   // ========== Optimistic Updates ==========
   optimisticUpdateNote: (noteId: string, updates: Partial<CombinedNote>) => void;
@@ -102,6 +123,13 @@ export const useNotesStore = create<NotesStore>()(
     transferError: false,
     isSaving: new Map(),
     isEditing: new Map(),
+
+    // ========== Initial Notebook State ==========
+    notebooks: [],
+    activeNotebookId: null,
+    notebooksLoading: false,
+    notebookCounts: {},
+    looseNotesCount: 0,
 
     // ========== Initial UI State ==========
     sidebarOpen: false,
@@ -179,7 +207,57 @@ export const useNotesStore = create<NotesStore>()(
     setSearchQuery: (searchQuery) => set({ searchQuery }),
     setFilterSource: (filterSource) => set({ filterSource }),
     setFilterPinned: (filterPinned) => set({ filterPinned }),
-    clearFilters: () => set({ searchQuery: "", filterSource: "all", filterPinned: "all" }),
+    clearFilters: () => set({ searchQuery: "", filterSource: "all", filterPinned: "all", activeNotebookId: null }),
+
+    // ========== Notebook Actions ==========
+    setNotebooks: (notebooks) => set({ notebooks }),
+    setActiveNotebookId: (activeNotebookId) => set({ activeNotebookId }),
+    setNotebooksLoading: (notebooksLoading) => set({ notebooksLoading }),
+
+    addNotebook: (notebook) => {
+      set((state) => ({
+        notebooks: [...state.notebooks, notebook],
+      }));
+    },
+
+    updateNotebook: (id, updates) => {
+      set((state) => ({
+        notebooks: state.notebooks.map((nb) =>
+          nb.id === id ? { ...nb, ...updates, updatedAt: Date.now() } : nb
+        ),
+      }));
+    },
+
+    removeNotebook: (id) => {
+      set((state) => ({
+        notebooks: state.notebooks.filter((nb) => nb.id !== id),
+        // If the deleted notebook was active, go back to "All Notes"
+        activeNotebookId: state.activeNotebookId === id ? null : state.activeNotebookId,
+      }));
+    },
+
+    updateNotebookCounts: (counts, looseCount) => {
+      set({ notebookCounts: counts, looseNotesCount: looseCount });
+    },
+
+    recalculateNotebookCounts: () => {
+      const { notes } = get();
+      const counts: Record<string, number> = {};
+      let looseCount = 0;
+
+      for (const note of notes) {
+        // Only count Supabase notes for notebook counts
+        if (note.source === "supabase") {
+          if (note.notebookId) {
+            counts[note.notebookId] = (counts[note.notebookId] || 0) + 1;
+          } else {
+            looseCount++;
+          }
+        }
+      }
+
+      set({ notebookCounts: counts, looseNotesCount: looseCount });
+    },
 
     // ========== Optimistic Updates ==========
     optimisticUpdateNote: (noteId, updates) => {
@@ -304,9 +382,24 @@ export const useNotesStore = create<NotesStore>()(
 
     // ========== Computed/Selectors ==========
     getFilteredNotes: () => {
-      const { notes, searchQuery, filterSource, filterPinned } = get();
+      const { notes, searchQuery, filterSource, filterPinned, activeNotebookId } = get();
 
       let filtered = [...notes];
+
+      // Filter by notebook (only applies to Supabase notes)
+      // null = "All Notes" (no filtering)
+      // "loose" = notes without a notebook (Supabase only)
+      // uuid = specific notebook
+      if (activeNotebookId === "loose") {
+        // Show only Supabase notes without a notebook
+        filtered = filtered.filter(
+          (note) => note.source === "supabase" && !note.notebookId
+        );
+      } else if (activeNotebookId) {
+        // Show only notes in the specific notebook
+        filtered = filtered.filter((note) => note.notebookId === activeNotebookId);
+      }
+      // activeNotebookId === null means "All Notes" - no notebook filtering
 
       // Filter by source
       if (filterSource === "local") {
@@ -341,3 +434,10 @@ export const useNotesStore = create<NotesStore>()(
 export const useFilteredNotes = () => useNotesStore((state) => state.getFilteredNotes());
 export const useNoteById = (noteId: string) =>
   useNotesStore((state) => state.notes.find((n) => n.id === noteId));
+export const useNotebooks = () => useNotesStore((state) => state.notebooks);
+export const useActiveNotebook = () =>
+  useNotesStore((state) =>
+    state.activeNotebookId && state.activeNotebookId !== "loose"
+      ? state.notebooks.find((nb) => nb.id === state.activeNotebookId)
+      : null
+  );

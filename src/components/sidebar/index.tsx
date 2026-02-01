@@ -1,7 +1,20 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNotesStore } from "@/stores/notes-store";
+import { Notebook, CoverType } from "@/types/notebook";
+import {
+  getNotebooks,
+  createNotebook,
+  updateNotebook,
+  deleteNotebook,
+  getNotebookNoteCounts,
+} from "@/app/actions/notebookActions";
+import { uploadNotebookCover } from "@/app/actions/notebookCoverActions";
+import NotebookSwitcher from "@/components/notebook-switcher";
+import NotebookModal from "@/components/notebook-modal";
+import { NotebookCoverHeader } from "@/components/notebook-breadcrumb";
+import { getCoverPreviewColor } from "@/lib/notebook-covers";
 import {
   IconX,
   IconSearch,
@@ -9,7 +22,6 @@ import {
   IconPinFilled,
   IconCloud,
   IconDeviceFloppy,
-  IconFilter,
   IconFilterOff,
 } from "@tabler/icons-react";
 
@@ -33,13 +45,26 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
     getFilteredNotes,
     notes,
     isAuthenticated,
+    notebooks,
+    setNotebooks,
+    activeNotebookId,
+    notebooksLoading,
+    setNotebooksLoading,
+    addNotebook,
+    updateNotebook: updateNotebookInStore,
+    removeNotebook,
+    updateNotebookCounts,
   } = useNotesStore();
 
   const sidebarRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // Modal state
+  const [isNotebookModalOpen, setIsNotebookModalOpen] = useState(false);
+  const [editingNotebook, setEditingNotebook] = useState<Notebook | null>(null);
+
   const filteredNotes = getFilteredNotes();
-  const hasActiveFilters = searchQuery || filterSource !== "all" || filterPinned !== "all";
+  const hasActiveFilters = searchQuery || filterSource !== "all" || filterPinned !== "all" || activeNotebookId !== null;
 
   // Focus search input when sidebar opens
   useEffect(() => {
@@ -47,6 +72,45 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
       setTimeout(() => searchInputRef.current?.focus(), 100);
     }
   }, [sidebarOpen]);
+
+  // Load notebooks when authenticated and sidebar opens
+  useEffect(() => {
+    if (isAuthenticated && sidebarOpen && notebooks.length === 0 && !notebooksLoading) {
+      loadNotebooks();
+    }
+  }, [isAuthenticated, sidebarOpen]);
+
+  // Load notebook counts when notes change
+  useEffect(() => {
+    if (isAuthenticated && notebooks.length > 0) {
+      loadNotebookCounts();
+    }
+  }, [isAuthenticated, notes.length, notebooks.length]);
+
+  const loadNotebooks = async () => {
+    setNotebooksLoading(true);
+    try {
+      const result = await getNotebooks();
+      if (result.success && result.notebooks) {
+        setNotebooks(result.notebooks);
+      }
+    } catch (error) {
+      console.error("Failed to load notebooks:", error);
+    } finally {
+      setNotebooksLoading(false);
+    }
+  };
+
+  const loadNotebookCounts = async () => {
+    try {
+      const result = await getNotebookNoteCounts();
+      if (result.success) {
+        updateNotebookCounts(result.counts || {}, result.looseCount || 0);
+      }
+    } catch (error) {
+      console.error("Failed to load notebook counts:", error);
+    }
+  };
 
   // Close sidebar on escape
   useEffect(() => {
@@ -123,6 +187,72 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
     searchInputRef.current?.focus();
   }, [setSearchQuery]);
 
+  // Notebook handlers
+  const handleNewNotebook = () => {
+    setEditingNotebook(null);
+    setIsNotebookModalOpen(true);
+  };
+
+  const handleManageNotebooks = () => {
+    // For now, just open the modal without a specific notebook
+    // In the future, this could open a dedicated management view
+    setEditingNotebook(null);
+    setIsNotebookModalOpen(true);
+  };
+
+  const handleEditNotebook = (notebook: Notebook) => {
+    setEditingNotebook(notebook);
+    setIsNotebookModalOpen(true);
+  };
+
+  const handleSaveNotebook = async (data: {
+    name: string;
+    coverType: CoverType;
+    coverValue: string;
+  }) => {
+    if (editingNotebook) {
+      // Update existing notebook
+      const result = await updateNotebook(editingNotebook.id, data);
+      if (result.success && result.notebook) {
+        updateNotebookInStore(editingNotebook.id, result.notebook);
+      } else {
+        throw new Error(result.error || "Failed to update notebook");
+      }
+    } else {
+      // Create new notebook
+      const result = await createNotebook(data);
+      if (result.success && result.notebook) {
+        addNotebook(result.notebook);
+      } else {
+        throw new Error(result.error || "Failed to create notebook");
+      }
+    }
+  };
+
+  const handleDeleteNotebook = async () => {
+    if (!editingNotebook) return;
+
+    const result = await deleteNotebook(editingNotebook.id);
+    if (result.success) {
+      removeNotebook(editingNotebook.id);
+    } else {
+      throw new Error(result.error || "Failed to delete notebook");
+    }
+  };
+
+  const handleUploadCover = async (file: File): Promise<string | null> => {
+    if (!editingNotebook) return null;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const result = await uploadNotebookCover(editingNotebook.id, formData);
+    if (result.success && result.url) {
+      return result.url;
+    }
+    return null;
+  };
+
   // Strip HTML tags for preview
   const getPlainTextPreview = (html: string, maxLength = 60) => {
     const div = document.createElement("div");
@@ -160,6 +290,19 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
               <IconX size={20} />
             </button>
           </div>
+
+          {/* Notebook Switcher (authenticated users only) */}
+          {isAuthenticated && (
+            <div className="p-4 border-b border-neutral-200">
+              <NotebookSwitcher
+                onNewNotebook={handleNewNotebook}
+                onManageNotebooks={handleManageNotebooks}
+              />
+            </div>
+          )}
+
+          {/* Notebook Cover Header (when viewing specific notebook) */}
+          {isAuthenticated && activeNotebookId && <NotebookCoverHeader />}
 
           {/* Search */}
           <div className="p-4 border-b border-neutral-200">
@@ -289,6 +432,25 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
                             {note.isPinned && (
                               <IconPinFilled size={14} className="text-mercedes-primary flex-shrink-0" />
                             )}
+                            {/* Notebook indicator */}
+                            {note.notebookId && (() => {
+                              const notebook = notebooks.find((nb) => nb.id === note.notebookId);
+                              if (notebook) {
+                                return (
+                                  <div
+                                    className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
+                                    style={{
+                                      backgroundColor: getCoverPreviewColor(
+                                        notebook.coverType,
+                                        notebook.coverValue
+                                      ),
+                                    }}
+                                    title={notebook.name}
+                                  />
+                                );
+                              }
+                              return null;
+                            })()}
                             <h3 className="font-medium text-neutral-800 truncate">
                               {note.title}
                             </h3>
@@ -319,6 +481,19 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
           </div>
         </div>
       </aside>
+
+      {/* Notebook Modal */}
+      <NotebookModal
+        isOpen={isNotebookModalOpen}
+        onClose={() => {
+          setIsNotebookModalOpen(false);
+          setEditingNotebook(null);
+        }}
+        notebook={editingNotebook}
+        onSave={handleSaveNotebook}
+        onDelete={editingNotebook ? handleDeleteNotebook : undefined}
+        onUploadCover={editingNotebook ? handleUploadCover : undefined}
+      />
     </>
   );
 }

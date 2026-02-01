@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200">
+  <defs>
+    <linearGradient id="nightSky" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0D1B2A"/>
+      <stop offset="100%" style="stop-color:#1B263B"/>
+    </linearGradient>
+  </defs>
+  <rect fill="url(#nightSky)" width="400" height="200"/>
+  <circle fill="#FFFFFF" cx="50" cy="30" r="1.5"/>
+  <circle fill="#FFFFFF" cx="100" cy="50" r="1"/>
+  <circle fill="#FFFFFF" cx="150" cy="20" r="2"/>
+  <circle fill="#FFFFFF" cx="200" cy="60" r="1"/>
+  <circle fill="#FFFFFF" cx="250" cy="35" r="1.5"/>
+  <circle fill="#FFFFFF" cx="300" cy="15" r="1"/>
+  <circle fill="#FFFFFF" cx="350" cy="45" r="2"/>
+  <circle fill="#FFFFFF" cx="80" cy="90" r="1"/>
+  <circle fill="#FFFFFF" cx="180" cy="100" r="1.5"/>
+  <circle fill="#FFFFFF" cx="280" cy="85" r="1"/>
+  <circle fill="#FFFFFF" cx="370" cy="100" r="1.5"/>
+  <circle fill="#FFFFFF" cx="30" cy="140" r="1"/>
+  <circle fill="#FFFFFF" cx="120" cy="150" r="1.5"/>
+  <circle fill="#FFFFFF" cx="220" cy="145" r="1"/>
+  <circle fill="#FFFFFF" cx="320" cy="160" r="2"/>
+  <circle fill="#FFFFFF" cx="380" cy="150" r="1"/>
+  <circle fill="#FFD700" cx="350" cy="70" r="3" opacity="0.8"/>
+</svg>

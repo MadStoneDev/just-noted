@@ -17,6 +17,7 @@ export interface CombinedNote {
   goal?: number;
   goal_type?: "words" | "characters" | "";
   source: NoteSource;
+  notebookId?: string | null; // Reference to parent notebook (Supabase users only)
 }
 
 // Redis note format (matches your current Redis structure)
@@ -113,6 +114,7 @@ export function supabaseToCombi(note: SupabaseNote): CombinedNote {
     goal: note.goal || 0,
     goal_type: goalType,
     source: "supabase",
+    notebookId: (note as any).notebook_id ?? null,
   };
 }
 
@@ -131,7 +133,8 @@ export function combiToSupabase(note: CombinedNote): Partial<SupabaseNote> {
     goal_type: note.goal_type,
     created_at: new Date(note.createdAt).toISOString(),
     updated_at: new Date(note.updatedAt).toISOString(),
-  };
+    notebook_id: note.notebookId,
+  } as Partial<SupabaseNote>;
 }
 
 // Convert CreateNoteInput to CombinedNote
@@ -201,6 +204,7 @@ export function safeConvertNote(
     goal: sourceNote.goal || 0,
     goal_type: sourceNote.goal_type || "",
     source: targetSource,
+    notebookId: sourceNote.notebookId ?? sourceNote.notebook_id ?? null,
   };
 
   // Handle timestamps based on source format
