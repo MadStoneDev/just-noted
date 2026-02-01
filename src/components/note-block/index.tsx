@@ -124,6 +124,7 @@ export default function NoteBlock({
   const currentNote = latestNote || details;
 
   const newNoteId = useNotesStore((state) => state.newNoteId);
+  const setActiveNoteId = useNotesStore((state) => state.setActiveNoteId);
   // Only get notes for checking if there are pinned notes - use a memoized selector
   const hasPinnedNotesOtherThanThis = useNotesStore(
     useCallback(
@@ -766,6 +767,8 @@ export default function NoteBlock({
   return (
     <section
       ref={containerRef}
+      data-note-id={details.id}
+      onClick={() => setActiveNoteId(details.id)}
       className={`py-2 px-4 relative col-span-12 flex flex-col gap-3 ${
         distractionFreeMode ? "h-full" : ""
       }`}

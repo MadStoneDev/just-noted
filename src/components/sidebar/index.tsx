@@ -272,13 +272,15 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
                 )}
               </div>
             ) : (
-              <ul className="divide-y divide-neutral-100">
+              <ul className="divide-y divide-neutral-200/60">
                 {filteredNotes.map((note) => (
                   <li key={note.id}>
                     <button
                       onClick={() => handleNoteClick(note.id)}
                       className={`w-full p-4 text-left hover:bg-neutral-50 transition-colors ${
-                        activeNoteId === note.id ? "bg-mercedes-primary/5 border-l-2 border-mercedes-primary" : ""
+                        activeNoteId === note.id
+                          ? "bg-mercedes-primary/10 border-l-[3px] border-mercedes-primary"
+                          : "border-l-[3px] border-transparent"
                       }`}
                     >
                       <div className="flex items-start gap-2">
@@ -291,7 +293,7 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
                               {note.title}
                             </h3>
                           </div>
-                          <p className="text-sm text-neutral-500 truncate mt-1">
+                          <p className="text-sm text-neutral-400/70 truncate mt-1">
                             {getPlainTextPreview(note.content) || "Empty note"}
                           </p>
                         </div>
