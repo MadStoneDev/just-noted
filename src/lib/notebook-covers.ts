@@ -53,7 +53,7 @@ export const COVER_PHOTOS = [
   { name: "forest", path: "/covers/forest.jpg" },
   { name: "ocean", path: "/covers/ocean.jpg" },
   { name: "stars", path: "/covers/stars.jpg" },
-  { name: "books", path: "/covers/books.jpg" },
+  // { name: "books", path: "/covers/books.jpg" },
   { name: "desk", path: "/covers/desk.jpg" },
   { name: "coffee", path: "/covers/coffee.jpg" },
 ];
@@ -83,7 +83,7 @@ export function getCoverStyle(
         backgroundSize: "cover",
         backgroundPosition: "center",
         // Apply faded/muted effect - slightly darkened and desaturated
-        filter: applyFade ? "brightness(0.75) saturate(0.85)" : undefined,
+        // filter: applyFade ? "brightness(0.75) saturate(0.85)" : undefined,
       };
     default:
       return { backgroundColor: DEFAULT_COVER_VALUE };
@@ -113,6 +113,7 @@ export function getCoverStyleWithOverlay(
 }
 
 // Helper to get a preview color from any cover type (for indicators/dots)
+// Note: For photos, this returns a fallback gray. Use getCoverPreviewStyle for photo thumbnails.
 export function getCoverPreviewColor(
   coverType: CoverType,
   coverValue: string,
@@ -126,10 +127,33 @@ export function getCoverPreviewColor(
       return match ? match[0] : DEFAULT_COVER_VALUE;
     case "photo":
     case "custom":
-      // Return a neutral color for photos
+      // Return a neutral color for photos (fallback only)
       return "#6b7280";
     default:
       return DEFAULT_COVER_VALUE;
+  }
+}
+
+// Helper to get preview styles for notebook marker/indicator
+// Returns styles that can show photos as mini thumbnails
+export function getCoverPreviewStyle(
+  coverType: CoverType,
+  coverValue: string,
+): React.CSSProperties {
+  switch (coverType) {
+    case "color":
+      return { backgroundColor: coverValue };
+    case "gradient":
+      return { background: coverValue };
+    case "photo":
+    case "custom":
+      return {
+        backgroundImage: `url(${coverValue})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      };
+    default:
+      return { backgroundColor: DEFAULT_COVER_VALUE };
   }
 }
 

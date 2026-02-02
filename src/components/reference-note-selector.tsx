@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useNotesStore } from "@/stores/notes-store";
-import { getCoverPreviewColor } from "@/lib/notebook-covers";
+import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import {
   IconSearch,
   IconChevronDown,
@@ -104,7 +104,7 @@ export default function ReferenceNoteSelector({
     if (!notebook) return null;
     return {
       name: notebook.name,
-      color: getCoverPreviewColor(notebook.coverType, notebook.coverValue),
+      style: getCoverPreviewStyle(notebook.coverType, notebook.coverValue),
     };
   };
 
@@ -220,7 +220,7 @@ interface NoteGroupProps {
   onSelect: (noteId: string) => void;
   getNotebookInfo: (notebookId: string | null | undefined) => {
     name: string;
-    color: string;
+    style: React.CSSProperties;
   } | null;
 }
 
@@ -251,7 +251,7 @@ function NoteGroup({
             {notebookInfo && (
               <div
                 className="w-2 h-2 rounded-full flex-shrink-0"
-                style={{ backgroundColor: notebookInfo.color }}
+                style={notebookInfo.style}
                 title={notebookInfo.name}
               />
             )}

@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNotesStore } from "@/stores/notes-store";
 import { bulkAssignNotesToNotebook } from "@/app/actions/notebookActions";
-import { getCoverPreviewColor } from "@/lib/notebook-covers";
+import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import {
   IconX,
   IconNotebook,
@@ -133,7 +133,7 @@ export default function BulkActionBar({
               {/* Notebooks list */}
               <div className="max-h-48 overflow-y-auto">
                 {notebooks.map((notebook) => {
-                  const previewColor = getCoverPreviewColor(
+                  const previewStyle = getCoverPreviewStyle(
                     notebook.coverType,
                     notebook.coverValue
                   );
@@ -146,7 +146,7 @@ export default function BulkActionBar({
                     >
                       <div
                         className="w-4 h-4 rounded-sm flex-shrink-0"
-                        style={{ backgroundColor: previewColor }}
+                        style={previewStyle}
                       />
                       <span className="text-sm text-neutral-800 truncate">
                         {notebook.name}

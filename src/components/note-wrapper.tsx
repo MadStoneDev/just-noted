@@ -51,7 +51,7 @@ export default function NoteWrapper() {
   );
 
   // UI State from Zustand
-  const { toggleSidebar, setSidebarOpen, activeNoteId, notes, updateNotebook: updateNotebookInStore, removeNotebook } = useNotesStore();
+  const { toggleSidebar, setSidebarOpen, activeNoteId, notes, updateNotebook: updateNotebookInStore, removeNotebook, recalculateNotebookCounts } = useNotesStore();
 
   // Get active notebook for editing via breadcrumb
   const activeNotebook = useNotesStore((state) => {
@@ -248,10 +248,11 @@ export default function NoteWrapper() {
     const result = await deleteNotebook(activeNotebook.id);
     if (result.success) {
       removeNotebook(activeNotebook.id);
+      recalculateNotebookCounts();
     } else {
       throw new Error(result.error || "Failed to delete notebook");
     }
-  }, [activeNotebook, removeNotebook]);
+  }, [activeNotebook, removeNotebook, recalculateNotebookCounts]);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({

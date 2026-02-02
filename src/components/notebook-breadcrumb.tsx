@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useNotesStore, useActiveNotebook } from "@/stores/notes-store";
-import { getCoverPreviewColor, getCoverStyle } from "@/lib/notebook-covers";
+import { getCoverPreviewStyle, getCoverStyle } from "@/lib/notebook-covers";
 import NotebookExportButton from "./notebook-export-button";
 import { IconArrowLeft, IconSettings, IconFileOff } from "@tabler/icons-react";
 
@@ -56,7 +56,7 @@ export default function NotebookBreadcrumb({ onEditNotebook }: NotebookBreadcrum
     return null;
   }
 
-  const previewColor = getCoverPreviewColor(
+  const previewStyle = getCoverPreviewStyle(
     activeNotebook.coverType,
     activeNotebook.coverValue
   );
@@ -78,7 +78,7 @@ export default function NotebookBreadcrumb({ onEditNotebook }: NotebookBreadcrum
         <div className="flex items-center gap-2">
           <div
             className="w-5 h-5 rounded flex-shrink-0"
-            style={{ backgroundColor: previewColor }}
+            style={previewStyle}
           />
           <span className="font-medium text-neutral-800">{activeNotebook.name}</span>
           <span className="text-xs text-neutral-400">({noteCount})</span>

@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNotesStore } from "@/stores/notes-store";
 import { assignNoteToNotebook } from "@/app/actions/notebookActions";
-import { getCoverPreviewColor } from "@/lib/notebook-covers";
+import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import {
   IconNotebook,
   IconCheck,
@@ -116,12 +116,10 @@ export default function MoveToNotebookButton({
         ) : currentNotebook ? (
           <div
             className="w-5 h-5 rounded flex-shrink-0"
-            style={{
-              backgroundColor: getCoverPreviewColor(
-                currentNotebook.coverType,
-                currentNotebook.coverValue
-              ),
-            }}
+            style={getCoverPreviewStyle(
+              currentNotebook.coverType,
+              currentNotebook.coverValue
+            )}
           />
         ) : (
           <IconNotebook size={20} strokeWidth={2} />
@@ -154,7 +152,7 @@ export default function MoveToNotebookButton({
           <div className="max-h-48 overflow-y-auto">
             {notebooks.map((notebook) => {
               const isSelected = notebook.id === currentNotebookId;
-              const previewColor = getCoverPreviewColor(
+              const previewStyle = getCoverPreviewStyle(
                 notebook.coverType,
                 notebook.coverValue
               );
@@ -170,7 +168,7 @@ export default function MoveToNotebookButton({
                   <div className="flex items-center gap-2 min-w-0">
                     <div
                       className="w-4 h-4 rounded-sm flex-shrink-0"
-                      style={{ backgroundColor: previewColor }}
+                      style={previewStyle}
                     />
                     <span className="text-sm text-neutral-800 truncate">
                       {notebook.name}

@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNotesStore, useNotebooks, useActiveNotebook } from "@/stores/notes-store";
 import { Notebook, NOTEBOOK_LIMITS } from "@/types/notebook";
 import { reorderNotebooks } from "@/app/actions/notebookActions";
-import { getCoverPreviewColor } from "@/lib/notebook-covers";
+import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import {
   IconChevronDown,
   IconNotebook,
@@ -107,12 +107,10 @@ export default function NotebookSwitcher({
       return (
         <div
           className="w-4 h-4 rounded-sm flex-shrink-0"
-          style={{
-            backgroundColor: getCoverPreviewColor(
-              activeNotebook.coverType,
-              activeNotebook.coverValue
-            ),
-          }}
+          style={getCoverPreviewStyle(
+            activeNotebook.coverType,
+            activeNotebook.coverValue
+          )}
         />
       );
     }
@@ -355,7 +353,7 @@ function NotebookOption({
   onDrop: (e: React.DragEvent) => void;
   onDragEnd: () => void;
 }) {
-  const previewColor = getCoverPreviewColor(notebook.coverType, notebook.coverValue);
+  const previewStyle = getCoverPreviewStyle(notebook.coverType, notebook.coverValue);
 
   return (
     <div
@@ -379,7 +377,7 @@ function NotebookOption({
         <div className="flex items-center gap-2 min-w-0">
           <div
             className="w-4 h-4 rounded-sm flex-shrink-0"
-            style={{ backgroundColor: previewColor }}
+            style={previewStyle}
           />
           <span className="text-neutral-800 truncate">{notebook.name}</span>
           <span className="text-xs text-neutral-400">({count})</span>

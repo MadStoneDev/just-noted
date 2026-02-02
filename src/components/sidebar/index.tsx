@@ -15,7 +15,7 @@ import NotebookSwitcher from "@/components/notebook-switcher";
 import NotebookModal from "@/components/notebook-modal";
 import { NotebookCoverHeader } from "@/components/notebook-breadcrumb";
 import BulkActionBar from "@/components/bulk-action-bar";
-import { getCoverPreviewColor } from "@/lib/notebook-covers";
+import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import {
   IconX,
   IconSearch,
@@ -432,10 +432,11 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
     const result = await deleteNotebook(editingNotebook.id);
     if (result.success) {
       removeNotebook(editingNotebook.id);
+      recalculateNotebookCounts();
     } else {
       throw new Error(result.error || "Failed to delete notebook");
     }
-  }, [editingNotebook, removeNotebook]);
+  }, [editingNotebook, removeNotebook, recalculateNotebookCounts]);
 
   // Strip HTML tags for preview
   const getPlainTextPreview = (html: string, maxLength = 60) => {
@@ -667,12 +668,10 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
                                 return (
                                   <div
                                     className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
-                                    style={{
-                                      backgroundColor: getCoverPreviewColor(
-                                        notebook.coverType,
-                                        notebook.coverValue
-                                      ),
-                                    }}
+                                    style={getCoverPreviewStyle(
+                                      notebook.coverType,
+                                      notebook.coverValue
+                                    )}
                                     title={notebook.name}
                                   />
                                 );
