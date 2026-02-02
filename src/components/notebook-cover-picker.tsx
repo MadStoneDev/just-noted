@@ -8,7 +8,7 @@ import {
   COVER_PHOTOS,
   getCoverStyle,
 } from "@/lib/notebook-covers";
-import { IconCheck, IconUpload, IconLoader2, IconPhoto } from "@tabler/icons-react";
+import { IconCheck, IconUpload, IconPhoto } from "@tabler/icons-react";
 
 type TabType = "colors" | "gradients" | "photos" | "upload";
 
@@ -16,20 +16,16 @@ interface NotebookCoverPickerProps {
   coverType: CoverType;
   coverValue: string;
   onSelect: (type: CoverType, value: string) => void;
-  onUpload?: (file: File) => Promise<string | null>;
-  onFileSelect?: (file: File | null) => void; // For pending file selection (new notebooks)
+  onFileSelect?: (file: File | null) => void; // For pending file selection
   pendingFile?: File | null; // File selected but not yet uploaded
-  isUploading?: boolean;
 }
 
 export default function NotebookCoverPicker({
   coverType,
   coverValue,
   onSelect,
-  onUpload,
   onFileSelect,
   pendingFile,
-  isUploading = false,
 }: NotebookCoverPickerProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -61,18 +57,12 @@ export default function NotebookCoverPicker({
     { id: "upload", label: "Upload" },
   ];
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // If we have onUpload (editing mode), upload immediately
-    if (onUpload) {
-      const url = await onUpload(file);
-      if (url) {
-        onSelect("custom", url);
-      }
-    } else if (onFileSelect) {
-      // Otherwise, just select the file for later upload (creating mode)
+    // Always use deferred upload - select file for later upload on save
+    if (onFileSelect) {
       onFileSelect(file);
       onSelect("custom", "pending"); // Mark as custom with pending upload
     }
@@ -177,16 +167,11 @@ export default function NotebookCoverPicker({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading}
-              className="w-full flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-neutral-300 rounded-lg hover:border-mercedes-primary hover:bg-neutral-50 transition-colors disabled:opacity-50"
+              className="w-full flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-neutral-300 rounded-lg hover:border-mercedes-primary hover:bg-neutral-50 transition-colors"
             >
-              {isUploading ? (
-                <IconLoader2 size={24} className="text-neutral-400 animate-spin" />
-              ) : (
-                <IconUpload size={24} className="text-neutral-400" />
-              )}
+              <IconUpload size={24} className="text-neutral-400" />
               <span className="text-sm text-neutral-600">
-                {isUploading ? "Uploading..." : pendingFile ? "Change image" : "Click to select image"}
+                {pendingFile ? "Change image" : "Click to select image"}
               </span>
               <span className="text-xs text-neutral-400">
                 JPG, PNG or WebP, max 2MB

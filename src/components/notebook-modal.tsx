@@ -14,10 +14,9 @@ interface NotebookModalProps {
     name: string;
     coverType: CoverType;
     coverValue: string;
-    pendingFile?: File | null; // File to upload after creation
+    pendingFile?: File | null; // File to upload after save
   }) => Promise<void>;
   onDelete?: () => Promise<void>;
-  onUploadCover?: (file: File) => Promise<string | null>;
 }
 
 export default function NotebookModal({
@@ -26,7 +25,6 @@ export default function NotebookModal({
   notebook,
   onSave,
   onDelete,
-  onUploadCover,
 }: NotebookModalProps) {
   const [name, setName] = useState("");
   const [coverType, setCoverType] = useState<CoverType>(DEFAULT_COVER_TYPE);
@@ -34,7 +32,6 @@ export default function NotebookModal({
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -73,21 +70,6 @@ export default function NotebookModal({
   const handleCoverSelect = (type: CoverType, value: string) => {
     setCoverType(type);
     setCoverValue(value);
-  };
-
-  const handleUpload = async (file: File): Promise<string | null> => {
-    if (!onUploadCover) return null;
-
-    setIsUploading(true);
-    try {
-      const url = await onUploadCover(file);
-      return url;
-    } catch (err) {
-      setError("Failed to upload image");
-      return null;
-    } finally {
-      setIsUploading(false);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -205,10 +187,8 @@ export default function NotebookModal({
                   coverType={coverType}
                   coverValue={coverValue}
                   onSelect={handleCoverSelect}
-                  onUpload={onUploadCover ? handleUpload : undefined}
-                  onFileSelect={!isEditing ? setPendingFile : undefined}
+                  onFileSelect={setPendingFile}
                   pendingFile={pendingFile}
-                  isUploading={isUploading}
                 />
               </div>
 
@@ -277,7 +257,7 @@ export default function NotebookModal({
                 </button>
                 <button
                   type="submit"
-                  disabled={isSaving || isDeleting || isUploading}
+                  disabled={isSaving || isDeleting}
                   className="px-4 py-2 text-sm bg-mercedes-primary text-white rounded-lg hover:bg-mercedes-primary/90 disabled:opacity-50 flex items-center gap-2"
                 >
                   {isSaving ? (
