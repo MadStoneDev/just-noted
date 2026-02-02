@@ -33,7 +33,7 @@ import WordCountGoalModal from "@/components/word-count-goal-modal";
 import VersionHistory, { useVersionHistory, NoteVersion } from "@/components/ui/version-history";
 import { noteOperation } from "@/app/actions/notes";
 
-import { useNotesStore } from "@/stores/notes-store";
+import { useNotesStore, useNotebooks } from "@/stores/notes-store";
 
 // Type definition for the word count goal
 interface WordCountGoal {
@@ -140,6 +140,13 @@ export default function NoteBlock({
 
   const isNewNote = details.id === newNoteId;
   const hasPinnedNotes = hasPinnedNotesOtherThanThis;
+
+  // Get notebooks and find the one this note belongs to
+  const notebooks = useNotebooks();
+  const noteNotebook = useMemo(() => {
+    if (!currentNote.notebookId) return null;
+    return notebooks.find((nb) => nb.id === currentNote.notebookId) || null;
+  }, [currentNote.notebookId, notebooks]);
 
   // ========== CUSTOM HOOKS ==========
   const { message: saveStatus, icon: saveIcon, setStatus } = useStatusMessage();
@@ -986,6 +993,11 @@ export default function NoteBlock({
                   progressPercentage={progressPercentage}
                   wordCountGoal={wordCountGoal}
                   isPrivate={isPrivate}
+                  notebook={noteNotebook ? {
+                    name: noteNotebook.name,
+                    coverType: noteNotebook.coverType,
+                    coverValue: noteNotebook.coverValue,
+                  } : null}
                   onOpenPageEstimateModal={() => setShowPageEstimateModal(true)}
                   onOpenWordCountGoalModal={() =>
                     setShowWordCountGoalModal(true)

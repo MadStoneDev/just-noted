@@ -4,10 +4,19 @@ import PageEstimateCard from "./sub-components/page-estimate-card";
 import TocCard from "./sub-components/toc-card";
 import WordCountGoalCard from "./sub-components/word-count-goal-card";
 import { TocHeading } from "@/lib/toc-parser";
+import { getCoverStyle } from "@/lib/notebook-covers";
+import { CoverType } from "@/types/notebook";
+import { IconNotebook } from "@tabler/icons-react";
 
 interface WordCountGoal {
   target: number;
   type: "" | "words" | "characters";
+}
+
+interface NotebookInfo {
+  name: string;
+  coverType: CoverType;
+  coverValue: string;
 }
 
 interface NoteStatisticsProps {
@@ -19,6 +28,7 @@ interface NoteStatisticsProps {
   progressPercentage: number;
   wordCountGoal: WordCountGoal | null;
   isPrivate: boolean;
+  notebook?: NotebookInfo | null;
   onOpenPageEstimateModal: () => void;
   onOpenWordCountGoalModal: () => void;
   onScrollToHeading: (heading: TocHeading) => void;
@@ -27,6 +37,7 @@ interface NoteStatisticsProps {
 /**
  * Note statistics sidebar component
  * Displays word count, character count, reading time, page estimate, and goal progress
+ * When note is in a notebook, applies the notebook cover as background
  */
 export default function NoteStatistics({
   wordCount,
@@ -37,47 +48,97 @@ export default function NoteStatistics({
   progressPercentage,
   wordCountGoal,
   isPrivate,
+  notebook,
   onOpenPageEstimateModal,
   onOpenWordCountGoalModal,
   onScrollToHeading,
 }: NoteStatisticsProps) {
+  // Get background style based on notebook cover or default
+  const getBackgroundStyle = (): React.CSSProperties => {
+    if (notebook) {
+      const coverStyle = getCoverStyle(notebook.coverType, notebook.coverValue, { faded: true });
+      return {
+        ...coverStyle,
+        // Add slight opacity overlay for readability
+      };
+    }
+    return {};
+  };
+
+  const hasNotebookCover = !!notebook;
+  const baseClasses = "p-3 col-span-12 sm:col-span-4 md:col-span-3 3xl:col-span-2 grid grid-cols-4 sm:flex sm:flex-col justify-start gap-3 rounded-xl relative overflow-hidden";
+
   return (
     <div
-      className={`p-3 col-span-12 sm:col-span-4 md:col-span-3 3xl:col-span-2 grid grid-cols-4 sm:flex sm:flex-col justify-start gap-3 rounded-xl ${
-        isPrivate ? "bg-violet-100/50" : "bg-neutral-100"
+      className={`${baseClasses} ${
+        hasNotebookCover
+          ? ""
+          : isPrivate
+            ? "bg-violet-100/50"
+            : "bg-neutral-100"
       }`}
+      style={getBackgroundStyle()}
     >
-      {/* Table of Contents - at the top */}
-      <TocCard isPrivate={isPrivate} onScrollToHeading={onScrollToHeading} />
+      {/* Overlay for readability when notebook cover is applied */}
+      {hasNotebookCover && (
+        <div className="absolute inset-0 bg-black/30 pointer-events-none" />
+      )}
 
-      {/* Divider */}
-      <div className={`col-span-4 h-px ${isPrivate ? "bg-violet-200" : "bg-neutral-200"}`} />
+      {/* Content wrapper for z-index */}
+      <div className={`relative z-10 col-span-4 sm:contents ${hasNotebookCover ? "text-white" : ""}`}>
+        {/* In Notebook indicator */}
+        {notebook && (
+          <>
+            <div className="col-span-4 flex flex-col items-center gap-1 py-2">
+              <div className="flex items-center gap-1.5 text-xs uppercase tracking-wide opacity-80">
+                <IconNotebook size={14} />
+                <span>In Notebook</span>
+              </div>
+              <span className="font-medium text-sm text-center">{notebook.name}</span>
+            </div>
 
-      {/* Stats row - word count, char count, reading time */}
-      {/* col until lg, then row */}
-      <div className={`col-span-4 flex flex-col lg:flex-row items-center rounded-xl ${
-        isPrivate ? "bg-violet-50" : "bg-white"
-      }`}>
-        <StatCard label="words" value={wordCount} isPrivate={isPrivate} />
-        <StatCard label="chars" value={charCount} isPrivate={isPrivate} />
-        <StatCard label="read" value={readingTime} isPrivate={isPrivate} />
+            {/* Divider */}
+            <div className={`col-span-4 h-px ${hasNotebookCover ? "bg-white/30" : isPrivate ? "bg-violet-200" : "bg-neutral-200"}`} />
+          </>
+        )}
+
+        {/* Table of Contents - at the top */}
+        <TocCard isPrivate={isPrivate} onScrollToHeading={onScrollToHeading} hasNotebookCover={hasNotebookCover} />
+
+        {/* Divider */}
+        <div className={`col-span-4 h-px ${hasNotebookCover ? "bg-white/30" : isPrivate ? "bg-violet-200" : "bg-neutral-200"}`} />
+
+        {/* Stats row - word count, char count, reading time */}
+        <div className={`col-span-4 flex flex-col lg:flex-row items-center rounded-xl ${
+          hasNotebookCover
+            ? "bg-white/20"
+            : isPrivate
+              ? "bg-violet-50"
+              : "bg-white"
+        }`}>
+          <StatCard label="words" value={wordCount} isPrivate={isPrivate} hasNotebookCover={hasNotebookCover} />
+          <StatCard label="chars" value={charCount} isPrivate={isPrivate} hasNotebookCover={hasNotebookCover} />
+          <StatCard label="read" value={readingTime} isPrivate={isPrivate} hasNotebookCover={hasNotebookCover} />
+        </div>
+
+        {/* Page Estimate - actionable */}
+        <PageEstimateCard
+          pageEstimate={pageEstimate}
+          currentFormat={currentPageFormat}
+          onClick={onOpenPageEstimateModal}
+          isPrivate={isPrivate}
+          hasNotebookCover={hasNotebookCover}
+        />
+
+        {/* Word Count Goal - actionable */}
+        <WordCountGoalCard
+          goal={wordCountGoal}
+          progress={progressPercentage}
+          onClick={onOpenWordCountGoalModal}
+          isPrivate={isPrivate}
+          hasNotebookCover={hasNotebookCover}
+        />
       </div>
-
-      {/* Page Estimate - actionable */}
-      <PageEstimateCard
-        pageEstimate={pageEstimate}
-        currentFormat={currentPageFormat}
-        onClick={onOpenPageEstimateModal}
-        isPrivate={isPrivate}
-      />
-
-      {/* Word Count Goal - actionable */}
-      <WordCountGoalCard
-        goal={wordCountGoal}
-        progress={progressPercentage}
-        onClick={onOpenWordCountGoalModal}
-        isPrivate={isPrivate}
-      />
     </div>
   );
 }
