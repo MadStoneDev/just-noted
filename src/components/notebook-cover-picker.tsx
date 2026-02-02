@@ -81,6 +81,7 @@ export default function NotebookCoverPicker({
         {tabs.map((tab) => (
           <button
             key={tab.id}
+            type="button"
             onClick={() => setActiveTab(tab.id)}
             className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
               activeTab === tab.id
@@ -134,6 +135,7 @@ export default function NotebookCoverPicker({
 
             {/* Upload button */}
             <button
+              type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
               className="w-full flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-neutral-300 rounded-lg hover:border-mercedes-primary hover:bg-neutral-50 transition-colors disabled:opacity-50"
@@ -178,6 +180,7 @@ function ColorPicker({
       {COVER_COLORS.map((color) => (
         <button
           key={color}
+          type="button"
           onClick={() => onSelect(color)}
           className={`w-8 h-8 rounded-lg transition-transform hover:scale-110 ${
             selectedValue === color ? "ring-2 ring-mercedes-primary ring-offset-2" : ""
@@ -207,6 +210,7 @@ function GradientPicker({
       {COVER_GRADIENTS.map((gradient) => (
         <button
           key={gradient.name}
+          type="button"
           onClick={() => onSelect(gradient.value)}
           className={`h-12 rounded-lg transition-transform hover:scale-105 ${
             selectedValue === gradient.value
@@ -247,6 +251,7 @@ function PhotoPicker({
         return (
           <button
             key={photo.name}
+            type="button"
             onClick={() => onSelect(photo.path)}
             className={`h-16 rounded-lg overflow-hidden transition-transform hover:scale-105 bg-neutral-100 ${
               selectedValue === photo.path

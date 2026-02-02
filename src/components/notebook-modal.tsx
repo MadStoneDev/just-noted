@@ -179,6 +179,12 @@ export default function NotebookModal({
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  onKeyDown={(e) => {
+                    // Prevent Enter from submitting the form - require explicit button click
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                    }
+                  }}
                   placeholder="My Notebook"
                   className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:border-mercedes-primary focus:outline-none focus:ring-1 focus:ring-mercedes-primary"
                   autoFocus
