@@ -10,11 +10,15 @@ import {
   IconFileTypeTxt,
   IconLoader,
   IconNote,
+  IconNotebook,
   IconPencil,
   IconShieldLock,
   IconSquareRoundedPlus,
   IconTrash,
   IconX,
+  IconLayoutColumns,
+  IconList,
+  IconCheckbox,
 } from "@tabler/icons-react";
 import { createClient } from "@/utils/supabase/server";
 import GlobalHeader from "@/components/global-header";
@@ -193,6 +197,118 @@ export default async function TheHowPage() {
               button. You'll get a quick confirmation (just to make sure you're
               certain), and then it's gone forever. Really forever – I don't
               keep backups of deleted notes, whether they're local or cloud.
+            </p>
+
+            <h2
+              className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+            >
+              <IconNotebook size={24} strokeWidth={2} /> Organising with
+              Notebooks
+            </h2>
+            <p>
+              Look, I know I said{" "}
+              <span className={`font-medium`}>JustNoted</span> was meant to be
+              simple, and it still is. But sometimes you end up with a lot of
+              notes and need a bit of organisation without the fuss. That's
+              where notebooks come in.
+            </p>
+            <p>
+              If you have a cloud account, you can create notebooks to group
+              your notes together. Working on a novel? Make a notebook for it.
+              Got a bunch of work notes? Another notebook. You can even
+              customise each notebook with different covers – solid colours,
+              gradients, or photos. It's a small thing, but it helps you find
+              what you're looking for at a glance.
+            </p>
+            <p>
+              Don't want to use notebooks? That's completely fine. Your notes
+              will just live in "All Notes" like they always have. The feature
+              is there when you need it, invisible when you don't 🤷‍♂️.
+            </p>
+
+            <h2
+              className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+            >
+              <IconLayoutColumns size={24} strokeWidth={2} /> Split View for
+              Referencing Notes
+            </h2>
+            <p>
+              Ever been writing something and needed to check another note? Used
+              to be you'd have to scroll up, lose your place, scroll back down,
+              forget what you read, scroll up again... you get it. It's
+              annoying.
+            </p>
+            <p>
+              Split view fixes that. Click the split view button in the toolbar
+              and your screen divides in two – your current note on one side, a
+              reference note on the other. You can pick any note to reference,
+              resize the panes however you like, and even switch between
+              side-by-side or top-and-bottom layouts. When you're done, just
+              close it and you're back to normal.
+            </p>
+            <p>
+              Keyboard shortcut:{" "}
+              <span className={`font-medium`}>Ctrl+Shift+S</span> (or{" "}
+              <span className={`font-medium`}>Cmd+Shift+S</span> on Mac) toggles
+              it on and off.
+            </p>
+
+            <h2
+              className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+            >
+              <IconList size={24} strokeWidth={2} /> Table of Contents
+            </h2>
+            <p>
+              If you're writing something longer – maybe an article, a story, or
+              just a really detailed plan – the table of contents can help you
+              navigate. It automatically picks up any headings you've added to
+              your note and lists them in a panel on the right.
+            </p>
+            <p>
+              Click any heading in the list and you'll jump straight to it in
+              your note. The current section gets highlighted as you scroll, so
+              you always know where you are. It's genuinely useful for longer
+              pieces, and completely ignorable for quick notes.
+            </p>
+            <p>
+              Toggle it with the{" "}
+              <span
+                className={`inline-flex border border-mercedes-primary rounded-md bg-neutral-100 p-1`}
+              >
+                <IconList size={20} strokeWidth={2} />
+              </span>{" "}
+              button in the toolbar, or use{" "}
+              <span className={`font-medium`}>Ctrl+Shift+T</span>.
+            </p>
+
+            <h2
+              className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+            >
+              <IconCheckbox size={24} strokeWidth={2} /> Bulk Actions
+            </h2>
+            <p>
+              Got a bunch of notes that need to move to a notebook? You don't
+              have to do them one by one. In the sidebar, there's a select mode
+              that lets you tick multiple notes and move them all at once.
+              Select what you need, pick the destination, done.
+            </p>
+
+            <h2
+              className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+            >
+              <IconDownload size={24} strokeWidth={2} /> Exporting Notebooks
+            </h2>
+            <p>
+              Sometimes you need to take your notes somewhere else – maybe
+              you're backing up a project, or you want to share a collection
+              with someone. When you're viewing a notebook, you'll see an export
+              button that lets you download all the notes in that notebook at
+              once.
+            </p>
+            <p>
+              You can export as plain text (.txt), Markdown (.md), HTML (for web
+              viewing), or JSON (if you're a dev who wants the raw data). Pick
+              what works for you.
             </p>
 
             <h2

@@ -96,6 +96,17 @@ export default async function TheWhatPage() {
               don't have to. The choice is yours.
             </p>
             <p>
+              Now, I'll be honest – since launching{" "}
+              <span className={`font-medium`}>JustNoted</span>, I've added a few
+              extra features. Notebooks to organise your notes, a split view to
+              reference one note while writing another, even a table of contents
+              for longer pieces. But here's the thing: you don't have to use any
+              of it. If all you want is a blank page to type on, that's exactly
+              what you'll get. The extras are there if you need them, tucked
+              away until you don't. <span className={`font-medium`}>JustNoted</span>{" "}
+              can be as simple or as organised as you want it to be 👌.
+            </p>
+            <p>
               Do you have any ideas of how I can improve{" "}
               <span className={`font-medium`}>JustNoted</span>? Are you saying
               it's not perfect? 🤨 Yeah, fair enough 😆. Alright, shoot me an
