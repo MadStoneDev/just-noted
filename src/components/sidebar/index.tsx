@@ -10,7 +10,7 @@ import {
   deleteNotebook,
   getNotebookNoteCounts,
 } from "@/app/actions/notebookActions";
-import { uploadNotebookCover } from "@/app/actions/notebookCoverActions";
+import { createUploadUrl, confirmCoverUpload } from "@/app/actions/notebookCoverActions";
 import NotebookSwitcher from "@/components/notebook-switcher";
 import NotebookModal from "@/components/notebook-modal";
 import { NotebookCoverHeader } from "@/components/notebook-breadcrumb";
@@ -300,18 +300,42 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
       if (result.success && result.notebook) {
         addNotebook(result.notebook);
 
-        // If there's a pending file, upload it now
+        // If there's a pending file, upload it now using signed URL
         if (data.pendingFile) {
-          const formData = new FormData();
-          formData.append("file", data.pendingFile);
+          const file = data.pendingFile;
 
-          const uploadResult = await uploadNotebookCover(result.notebook.id, formData);
-          if (uploadResult.success && uploadResult.url) {
-            // Update the notebook in store with the uploaded cover
-            updateNotebookInStore(result.notebook.id, {
-              coverType: "custom",
-              coverValue: uploadResult.url,
+          // Get signed URL for upload
+          const urlResult = await createUploadUrl(
+            result.notebook.id,
+            file.type,
+            file.name
+          );
+
+          if (urlResult.success && urlResult.signedUrl && urlResult.path) {
+            // Upload directly to Supabase Storage using signed URL
+            const uploadResponse = await fetch(urlResult.signedUrl, {
+              method: "PUT",
+              body: file,
+              headers: {
+                "Content-Type": file.type,
+              },
             });
+
+            if (uploadResponse.ok) {
+              // Confirm the upload and update notebook
+              const confirmResult = await confirmCoverUpload(
+                result.notebook.id,
+                urlResult.path
+              );
+
+              if (confirmResult.success && confirmResult.url) {
+                // Update the notebook in store with the uploaded cover
+                updateNotebookInStore(result.notebook.id, {
+                  coverType: "custom",
+                  coverValue: confirmResult.url,
+                });
+              }
+            }
           }
         }
       } else {
@@ -334,14 +358,48 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
   const handleUploadCover = useCallback(async (file: File): Promise<string | null> => {
     if (!editingNotebook) return null;
 
-    const formData = new FormData();
-    formData.append("file", file);
+    try {
+      // Get signed URL for upload
+      const urlResult = await createUploadUrl(
+        editingNotebook.id,
+        file.type,
+        file.name
+      );
 
-    const result = await uploadNotebookCover(editingNotebook.id, formData);
-    if (result.success && result.url) {
-      return result.url;
+      if (!urlResult.success || !urlResult.signedUrl || !urlResult.path) {
+        console.error("Failed to get upload URL:", urlResult.error);
+        return null;
+      }
+
+      // Upload directly to Supabase Storage using signed URL
+      const uploadResponse = await fetch(urlResult.signedUrl, {
+        method: "PUT",
+        body: file,
+        headers: {
+          "Content-Type": file.type,
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        console.error("Failed to upload file:", uploadResponse.statusText);
+        return null;
+      }
+
+      // Confirm the upload and update notebook
+      const confirmResult = await confirmCoverUpload(
+        editingNotebook.id,
+        urlResult.path
+      );
+
+      if (confirmResult.success && confirmResult.url) {
+        return confirmResult.url;
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Upload error:", error);
+      return null;
     }
-    return null;
   }, [editingNotebook]);
 
   // Strip HTML tags for preview
