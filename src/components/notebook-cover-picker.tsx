@@ -119,47 +119,61 @@ export default function NotebookCoverPicker({
 
         {activeTab === "upload" && (
           <div className="space-y-4">
-            {/* Current custom image */}
-            {coverType === "custom" && coverValue && (
-              <div className="relative w-full h-20 rounded-lg overflow-hidden bg-neutral-100">
-                <img
-                  src={coverValue}
-                  alt="Custom cover"
-                  className="w-full h-full object-cover"
+            {onUpload ? (
+              <>
+                {/* Current custom image */}
+                {coverType === "custom" && coverValue && (
+                  <div className="relative w-full h-20 rounded-lg overflow-hidden bg-neutral-100">
+                    <img
+                      src={coverValue}
+                      alt="Custom cover"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute top-2 right-2 bg-mercedes-primary text-white p-1 rounded-full">
+                      <IconCheck size={12} />
+                    </div>
+                  </div>
+                )}
+
+                {/* Upload button */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="w-full flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-neutral-300 rounded-lg hover:border-mercedes-primary hover:bg-neutral-50 transition-colors disabled:opacity-50"
+                >
+                  {isUploading ? (
+                    <IconLoader2 size={24} className="text-neutral-400 animate-spin" />
+                  ) : (
+                    <IconUpload size={24} className="text-neutral-400" />
+                  )}
+                  <span className="text-sm text-neutral-600">
+                    {isUploading ? "Uploading..." : "Click to upload image"}
+                  </span>
+                  <span className="text-xs text-neutral-400">
+                    JPG, PNG or WebP, max 2MB
+                  </span>
+                </button>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleFileChange}
+                  className="hidden"
                 />
-                <div className="absolute top-2 right-2 bg-mercedes-primary text-white p-1 rounded-full">
-                  <IconCheck size={12} />
-                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-neutral-200 rounded-lg bg-neutral-50">
+                <IconUpload size={24} className="text-neutral-300" />
+                <span className="text-sm text-neutral-500 text-center">
+                  Custom uploads available after creating the notebook
+                </span>
+                <span className="text-xs text-neutral-400">
+                  Create the notebook first, then edit to upload
+                </span>
               </div>
             )}
-
-            {/* Upload button */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading}
-              className="w-full flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-neutral-300 rounded-lg hover:border-mercedes-primary hover:bg-neutral-50 transition-colors disabled:opacity-50"
-            >
-              {isUploading ? (
-                <IconLoader2 size={24} className="text-neutral-400 animate-spin" />
-              ) : (
-                <IconUpload size={24} className="text-neutral-400" />
-              )}
-              <span className="text-sm text-neutral-600">
-                {isUploading ? "Uploading..." : "Click to upload image"}
-              </span>
-              <span className="text-xs text-neutral-400">
-                JPG, PNG or WebP, max 2MB
-              </span>
-            </button>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={handleFileChange}
-              className="hidden"
-            />
           </div>
         )}
       </div>
