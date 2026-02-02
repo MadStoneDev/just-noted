@@ -1,32 +1,55 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200">
   <defs>
-    <linearGradient id="coffeeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#4E342E"/>
-      <stop offset="100%" style="stop-color:#3E2723"/>
+    <linearGradient id="coffeebg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#292524"/>
+      <stop offset="100%" style="stop-color:#1c1917"/>
     </linearGradient>
-    <linearGradient id="cupGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#FFFFFF"/>
-      <stop offset="100%" style="stop-color:#E0E0E0"/>
+    <linearGradient id="cup" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fafaf9"/>
+      <stop offset="100%" style="stop-color:#d6d3d1"/>
     </linearGradient>
+    <linearGradient id="coffee" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#78350f"/>
+      <stop offset="100%" style="stop-color:#451a03"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="30%" r="60%">
+      <stop offset="0%" style="stop-color:#fef3c7" stop-opacity="0.3"/>
+      <stop offset="100%" style="stop-color:#292524" stop-opacity="0"/>
+    </radialGradient>
   </defs>
-  <rect fill="url(#coffeeGrad)" width="400" height="200"/>
+  <rect fill="url(#coffeebg)" width="400" height="200"/>
+  <!-- Ambient glow -->
+  <rect fill="url(#glow)" width="400" height="200"/>
   <!-- Saucer -->
-  <ellipse fill="#BDBDBD" cx="200" cy="160" rx="70" ry="20"/>
-  <ellipse fill="#E0E0E0" cx="200" cy="155" rx="65" ry="18"/>
-  <!-- Cup -->
-  <ellipse fill="url(#cupGrad)" cx="200" cy="130" rx="45" ry="15"/>
-  <rect fill="url(#cupGrad)" x="155" y="80" width="90" height="50" rx="5"/>
-  <ellipse fill="#5D4037" cx="200" cy="85" rx="40" ry="12"/>
-  <ellipse fill="#6D4C41" cx="200" cy="85" rx="35" ry="10"/>
-  <!-- Handle -->
-  <path d="M245,90 Q280,90 280,115 Q280,135 250,130" stroke="#E0E0E0" stroke-width="8" fill="none"/>
+  <ellipse fill="#78716c" cx="200" cy="160" rx="80" ry="25"/>
+  <ellipse fill="#a8a29e" cx="200" cy="155" rx="72" ry="22"/>
+  <ellipse fill="#d6d3d1" cx="200" cy="152" rx="65" ry="18"/>
+  <!-- Cup body -->
+  <ellipse fill="url(#cup)" cx="200" cy="120" rx="50" ry="18"/>
+  <rect fill="url(#cup)" x="150" y="70" width="100" height="50" rx="5"/>
+  <ellipse fill="url(#coffee)" cx="200" cy="75" rx="42" ry="14"/>
+  <!-- Latte art heart -->
+  <path d="M200,80 Q190,72 195,68 Q200,65 200,72 Q200,65 205,68 Q210,72 200,80" fill="#e7e5e4" opacity="0.8"/>
+  <!-- Cup handle -->
+  <path d="M250,80 Q285,80 285,105 Q285,125 255,120" stroke="url(#cup)" stroke-width="10" fill="none"/>
+  <path d="M250,80 Q280,80 280,105 Q280,120 255,117" stroke="#a8a29e" stroke-width="6" fill="none"/>
   <!-- Steam -->
-  <path d="M180,60 Q175,45 185,35" stroke="#BDBDBD" stroke-width="2" fill="none" opacity="0.6"/>
-  <path d="M200,55 Q195,40 205,25" stroke="#BDBDBD" stroke-width="2" fill="none" opacity="0.6"/>
-  <path d="M220,60 Q215,45 225,35" stroke="#BDBDBD" stroke-width="2" fill="none" opacity="0.6"/>
-  <!-- Coffee beans decoration -->
-  <ellipse fill="#3E2723" cx="80" cy="170" rx="12" ry="8" transform="rotate(-20 80 170)"/>
-  <ellipse fill="#3E2723" cx="100" cy="175" rx="10" ry="6" transform="rotate(15 100 175)"/>
-  <ellipse fill="#3E2723" cx="300" cy="168" rx="11" ry="7" transform="rotate(10 300 168)"/>
-  <ellipse fill="#3E2723" cx="320" cy="175" rx="10" ry="6" transform="rotate(-25 320 175)"/>
+  <path d="M175,55 Q170,40 180,30" stroke="#a8a29e" stroke-width="2" fill="none" opacity="0.4">
+    <animate attributeName="d" values="M175,55 Q170,40 180,30;M175,55 Q165,35 180,25;M175,55 Q170,40 180,30" dur="3s" repeatCount="indefinite"/>
+  </path>
+  <path d="M200,50 Q195,35 205,20" stroke="#a8a29e" stroke-width="2" fill="none" opacity="0.5">
+    <animate attributeName="d" values="M200,50 Q195,35 205,20;M200,50 Q190,30 205,15;M200,50 Q195,35 205,20" dur="2.5s" repeatCount="indefinite"/>
+  </path>
+  <path d="M225,55 Q220,40 230,30" stroke="#a8a29e" stroke-width="2" fill="none" opacity="0.4">
+    <animate attributeName="d" values="M225,55 Q220,40 230,30;M225,55 Q215,35 230,25;M225,55 Q220,40 230,30" dur="3.5s" repeatCount="indefinite"/>
+  </path>
+  <!-- Coffee beans scattered -->
+  <ellipse fill="#3f1f0a" cx="60" cy="170" rx="12" ry="7" transform="rotate(-25 60 170)"/>
+  <line x1="55" y1="170" x2="65" y2="170" stroke="#2a1506" stroke-width="1" transform="rotate(-25 60 170)"/>
+  <ellipse fill="#3f1f0a" cx="85" cy="178" rx="10" ry="6" transform="rotate(15 85 178)"/>
+  <line x1="80" y1="178" x2="90" y2="178" stroke="#2a1506" stroke-width="1" transform="rotate(15 85 178)"/>
+  <ellipse fill="#3f1f0a" cx="310" cy="168" rx="11" ry="6" transform="rotate(10 310 168)"/>
+  <line x1="305" y1="168" x2="315" y2="168" stroke="#2a1506" stroke-width="1" transform="rotate(10 310 168)"/>
+  <ellipse fill="#3f1f0a" cx="340" cy="175" rx="10" ry="6" transform="rotate(-20 340 175)"/>
+  <line x1="335" y1="175" x2="345" y2="175" stroke="#2a1506" stroke-width="1" transform="rotate(-20 340 175)"/>
 </svg>

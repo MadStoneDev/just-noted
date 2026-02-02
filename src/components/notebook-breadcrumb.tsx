@@ -3,6 +3,7 @@
 import React from "react";
 import { useNotesStore, useActiveNotebook } from "@/stores/notes-store";
 import { getCoverPreviewColor, getCoverStyle } from "@/lib/notebook-covers";
+import NotebookExportButton from "./notebook-export-button";
 import { IconArrowLeft, IconSettings, IconFileOff } from "@tabler/icons-react";
 
 interface NotebookBreadcrumbProps {
@@ -84,15 +85,24 @@ export default function NotebookBreadcrumb({ onEditNotebook }: NotebookBreadcrum
         </div>
       </div>
 
-      {onEditNotebook && (
-        <button
-          onClick={onEditNotebook}
-          className="p-2 text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 rounded-lg transition-colors"
-          title="Edit notebook"
-        >
-          <IconSettings size={18} />
-        </button>
-      )}
+      <div className="flex items-center gap-1">
+        {/* Export button */}
+        <NotebookExportButton
+          notebookId={activeNotebook.id}
+          notebookName={activeNotebook.name}
+        />
+
+        {/* Edit button */}
+        {onEditNotebook && (
+          <button
+            onClick={onEditNotebook}
+            className="p-2 text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 rounded-lg transition-colors"
+            title="Edit notebook"
+          >
+            <IconSettings size={18} />
+          </button>
+        )}
+      </div>
     </div>
   );
 }

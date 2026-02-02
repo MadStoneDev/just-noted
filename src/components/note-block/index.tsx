@@ -10,6 +10,7 @@ import React, {
 import LazyTextBlock from "@/components/lazy-text-block";
 import type { CombinedNote } from "@/types/combined-notes";
 import type { NoteSource } from "@/types/combined-notes";
+import { parseHeadings } from "@/lib/toc-parser";
 
 import { IconCircleCheck, IconCircleX, IconLoader } from "@tabler/icons-react";
 
@@ -125,6 +126,8 @@ export default function NoteBlock({
 
   const newNoteId = useNotesStore((state) => state.newNoteId);
   const setActiveNoteId = useNotesStore((state) => state.setActiveNoteId);
+  const activeNoteId = useNotesStore((state) => state.activeNoteId);
+  const setTocHeadings = useNotesStore((state) => state.setTocHeadings);
   // Only get notes for checking if there are pinned notes - use a memoized selector
   const hasPinnedNotesOtherThanThis = useNotesStore(
     useCallback(
@@ -758,6 +761,45 @@ export default function NoteBlock({
   useEffect(() => {
     wordCountGoalRef.current = wordCountGoal;
   }, [wordCountGoal]);
+
+  // Parse headings for ToC when this is the active note
+  const tocParseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isActiveNote = activeNoteId === details.id;
+
+  useEffect(() => {
+    // Only parse headings if this note is active
+    if (!isActiveNote) {
+      return;
+    }
+
+    // Debounce the parsing
+    if (tocParseTimeoutRef.current) {
+      clearTimeout(tocParseTimeoutRef.current);
+    }
+
+    tocParseTimeoutRef.current = setTimeout(() => {
+      const headings = parseHeadings(noteContent);
+      setTocHeadings(headings);
+    }, 300);
+
+    return () => {
+      if (tocParseTimeoutRef.current) {
+        clearTimeout(tocParseTimeoutRef.current);
+      }
+    };
+  }, [noteContent, isActiveNote, setTocHeadings]);
+
+  // Clear headings when this note becomes inactive
+  useEffect(() => {
+    if (!isActiveNote) {
+      return;
+    }
+
+    // When unmounting while active, clear headings
+    return () => {
+      setTocHeadings([]);
+    };
+  }, [isActiveNote, setTocHeadings]);
 
   // ========== RENDER ==========
   if (!details) {

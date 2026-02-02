@@ -371,6 +371,72 @@ export async function assignNoteToNotebook(
 }
 
 // ===========================
+// BULK NOTE ASSIGNMENT
+// ===========================
+
+export async function bulkAssignNotesToNotebook(
+  noteIds: string[],
+  notebookId: string | null,
+): Promise<{
+  success: boolean;
+  updatedCount?: number;
+  error?: string;
+}> {
+  try {
+    const { supabase, userId } = await getAuthenticatedUser();
+
+    // If assigning to a notebook, verify the user owns it
+    if (notebookId) {
+      const { data: notebook, error: notebookError } = await supabase
+        .from("notebooks")
+        .select("id")
+        .eq("id", notebookId)
+        .eq("owner", userId)
+        .single();
+
+      if (notebookError || !notebook) {
+        return {
+          success: false,
+          error: "Notebook not found or access denied",
+        };
+      }
+    }
+
+    // Update all notes
+    const { data, error } = await supabase
+      .from("notes")
+      .update({
+        notebook_id: notebookId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("author", userId)
+      .in("id", noteIds)
+      .select("id");
+
+    if (error) {
+      console.error("Failed to bulk assign notes:", error);
+      return {
+        success: false,
+        error: `Database error: ${error.message}`,
+      };
+    }
+
+    return {
+      success: true,
+      updatedCount: data?.length || 0,
+    };
+  } catch (error) {
+    console.error("Failed to bulk assign notes:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      error: `Failed to assign notes: ${errorMessage}`,
+    };
+  }
+}
+
+// ===========================
 // NOTEBOOK STATS
 // ===========================
 

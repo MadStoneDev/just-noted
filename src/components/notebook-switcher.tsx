@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNotesStore, useNotebooks, useActiveNotebook } from "@/stores/notes-store";
 import { Notebook, NOTEBOOK_LIMITS } from "@/types/notebook";
+import { reorderNotebooks } from "@/app/actions/notebookActions";
 import { getCoverPreviewColor } from "@/lib/notebook-covers";
 import {
   IconChevronDown,
@@ -11,6 +12,7 @@ import {
   IconSettings,
   IconCheck,
   IconFileOff,
+  IconGripVertical,
 } from "@tabler/icons-react";
 
 interface NotebookSwitcherProps {
@@ -23,6 +25,8 @@ export default function NotebookSwitcher({
   onManageNotebooks,
 }: NotebookSwitcherProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const notebooks = useNotebooks();
@@ -34,6 +38,7 @@ export default function NotebookSwitcher({
     looseNotesCount,
     notes,
     isAuthenticated,
+    setNotebooks,
   } = useNotesStore();
 
   // Calculate total notes count
@@ -111,6 +116,75 @@ export default function NotebookSwitcher({
 
   const notebookLimitReached = notebooks.length >= NOTEBOOK_LIMITS.free;
 
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, notebookId: string) => {
+    setDraggedId(notebookId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", notebookId);
+  };
+
+  const handleDragOver = (e: React.DragEvent, notebookId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (draggedId && notebookId !== draggedId) {
+      setDragOverId(notebookId);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverId(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    setDragOverId(null);
+
+    if (!draggedId || draggedId === targetId) {
+      setDraggedId(null);
+      return;
+    }
+
+    // Find indices
+    const draggedIndex = notebooks.findIndex((nb) => nb.id === draggedId);
+    const targetIndex = notebooks.findIndex((nb) => nb.id === targetId);
+
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedId(null);
+      return;
+    }
+
+    // Reorder locally (optimistic update)
+    const newNotebooks = [...notebooks];
+    const [removed] = newNotebooks.splice(draggedIndex, 1);
+    newNotebooks.splice(targetIndex, 0, removed);
+
+    // Update display orders
+    const updatedNotebooks = newNotebooks.map((nb, index) => ({
+      ...nb,
+      displayOrder: index,
+    }));
+
+    setNotebooks(updatedNotebooks);
+    setDraggedId(null);
+
+    // Persist to database
+    const updates = updatedNotebooks.map((nb) => ({
+      id: nb.id,
+      order: nb.displayOrder,
+    }));
+
+    const result = await reorderNotebooks(updates);
+    if (!result.success) {
+      console.error("Failed to reorder notebooks:", result.error);
+      // Could revert here, but for now just log
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedId(null);
+    setDragOverId(null);
+  };
+
   return (
     <div ref={dropdownRef} className="relative">
       {/* Trigger Button */}
@@ -176,6 +250,13 @@ export default function NotebookSwitcher({
               isActive={activeNotebookId === notebook.id}
               count={notebookCounts[notebook.id] || 0}
               onSelect={() => handleSelect(notebook.id)}
+              isDragging={draggedId === notebook.id}
+              isDragOver={dragOverId === notebook.id}
+              onDragStart={(e) => handleDragStart(e, notebook.id)}
+              onDragOver={(e) => handleDragOver(e, notebook.id)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, notebook.id)}
+              onDragEnd={handleDragEnd}
             />
           ))}
 
@@ -235,28 +316,57 @@ function NotebookOption({
   isActive,
   count,
   onSelect,
+  isDragging,
+  isDragOver,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
 }: {
   notebook: Notebook;
   isActive: boolean;
   count: number;
   onSelect: () => void;
+  isDragging: boolean;
+  isDragOver: boolean;
+  onDragStart: (e: React.DragEvent) => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDragLeave: () => void;
+  onDrop: (e: React.DragEvent) => void;
+  onDragEnd: () => void;
 }) {
   const previewColor = getCoverPreviewColor(notebook.coverType, notebook.coverValue);
 
   return (
-    <button
-      onClick={onSelect}
-      className="w-full flex items-center justify-between px-3 py-2 hover:bg-neutral-50 transition-colors"
+    <div
+      draggable
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+      className={`flex items-center transition-all ${
+        isDragging ? "opacity-50" : ""
+      } ${isDragOver ? "bg-mercedes-primary/10 border-t-2 border-mercedes-primary" : ""}`}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        <div
-          className="w-4 h-4 rounded-sm flex-shrink-0"
-          style={{ backgroundColor: previewColor }}
-        />
-        <span className="text-neutral-800 truncate">{notebook.name}</span>
-        <span className="text-xs text-neutral-400">({count})</span>
+      <div className="px-1 py-2 cursor-grab text-neutral-400 hover:text-neutral-600">
+        <IconGripVertical size={14} />
       </div>
-      {isActive && <IconCheck size={16} className="text-mercedes-primary flex-shrink-0" />}
-    </button>
+      <button
+        onClick={onSelect}
+        className="flex-1 flex items-center justify-between px-2 py-2 hover:bg-neutral-50 transition-colors"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <div
+            className="w-4 h-4 rounded-sm flex-shrink-0"
+            style={{ backgroundColor: previewColor }}
+          />
+          <span className="text-neutral-800 truncate">{notebook.name}</span>
+          <span className="text-xs text-neutral-400">({count})</span>
+        </div>
+        {isActive && <IconCheck size={16} className="text-mercedes-primary flex-shrink-0" />}
+      </button>
+    </div>
   );
 }

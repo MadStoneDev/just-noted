@@ -64,10 +64,14 @@ export const DEFAULT_COVER_TYPE: CoverType = "color";
 export const DEFAULT_COVER_VALUE = "#6366f1"; // Indigo
 
 // Helper to get CSS background style from cover type and value
+// Photos get a faded/muted treatment so they're not too loud
 export function getCoverStyle(
   coverType: CoverType,
   coverValue: string,
+  options?: { faded?: boolean },
 ): React.CSSProperties {
+  const applyFade = options?.faded !== false; // Default to faded for photos
+
   switch (coverType) {
     case "color":
       return { backgroundColor: coverValue };
@@ -79,10 +83,34 @@ export function getCoverStyle(
         backgroundImage: `url(${coverValue})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
+        // Apply faded/muted effect - slightly darkened and desaturated
+        filter: applyFade ? "brightness(0.75) saturate(0.85)" : undefined,
       };
     default:
       return { backgroundColor: DEFAULT_COVER_VALUE };
   }
+}
+
+// Get cover style with overlay for text readability
+export function getCoverStyleWithOverlay(
+  coverType: CoverType,
+  coverValue: string,
+): { container: React.CSSProperties; overlay: React.CSSProperties } {
+  const baseStyle = getCoverStyle(coverType, coverValue, { faded: true });
+
+  return {
+    container: {
+      ...baseStyle,
+      position: "relative",
+    },
+    overlay: {
+      position: "absolute",
+      inset: 0,
+      background: coverType === "photo" || coverType === "custom"
+        ? "linear-gradient(to top, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.05) 100%)"
+        : "transparent",
+    },
+  };
 }
 
 // Helper to get a preview color from any cover type (for indicators/dots)

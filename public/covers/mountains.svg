@@ -1,14 +1,38 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200">
   <defs>
-    <linearGradient id="sky" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#87CEEB"/>
-      <stop offset="100%" style="stop-color:#E0F6FF"/>
+    <linearGradient id="sky1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e3a5f"/>
+      <stop offset="40%" style="stop-color:#3d6f99"/>
+      <stop offset="70%" style="stop-color:#7ba3c4"/>
+      <stop offset="100%" style="stop-color:#c9dae8"/>
+    </linearGradient>
+    <linearGradient id="mtn1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2d3748"/>
+      <stop offset="100%" style="stop-color:#1a202c"/>
+    </linearGradient>
+    <linearGradient id="mtn2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4a5568"/>
+      <stop offset="100%" style="stop-color:#2d3748"/>
+    </linearGradient>
+    <linearGradient id="mtn3" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#718096"/>
+      <stop offset="100%" style="stop-color:#4a5568"/>
     </linearGradient>
   </defs>
-  <rect fill="url(#sky)" width="400" height="200"/>
-  <polygon fill="#4A5568" points="0,200 100,80 200,200"/>
-  <polygon fill="#2D3748" points="80,200 200,60 320,200"/>
-  <polygon fill="#1A202C" points="200,200 320,100 400,200"/>
-  <polygon fill="#FFFFFF" points="200,60 180,90 220,90"/>
-  <polygon fill="#FFFFFF" points="320,100 305,120 335,120"/>
+  <rect fill="url(#sky1)" width="400" height="200"/>
+  <!-- Distant mountains -->
+  <polygon fill="url(#mtn3)" points="-20,200 60,120 140,200"/>
+  <polygon fill="url(#mtn3)" points="100,200 180,100 260,200"/>
+  <polygon fill="url(#mtn3)" points="220,200 320,130 420,200"/>
+  <!-- Mid mountains -->
+  <polygon fill="url(#mtn2)" points="0,200 100,90 200,200"/>
+  <polygon fill="url(#mtn2)" points="150,200 280,70 400,200"/>
+  <!-- Front mountains -->
+  <polygon fill="url(#mtn1)" points="-30,200 80,130 190,200"/>
+  <polygon fill="url(#mtn1)" points="200,200 320,110 440,200"/>
+  <!-- Snow caps -->
+  <polygon fill="#e2e8f0" points="280,70 265,95 295,95" opacity="0.9"/>
+  <polygon fill="#e2e8f0" points="100,90 85,110 115,110" opacity="0.9"/>
+  <!-- Fog layer -->
+  <rect fill="#c9dae8" y="180" width="400" height="20" opacity="0.4"/>
 </svg>

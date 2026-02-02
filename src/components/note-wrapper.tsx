@@ -5,6 +5,9 @@ import React, { useState, useCallback, useMemo } from "react";
 import JustNotes from "@/components/just-notes";
 import DistractionFreeNoteBlock from "@/components/distraction-free-note-block";
 import Sidebar from "@/components/sidebar";
+import RightSidebar from "@/components/right-sidebar";
+import SplitViewContainer from "@/components/split-view-container";
+import NotebookBreadcrumb from "@/components/notebook-breadcrumb";
 import UndoDeleteToast from "@/components/ui/undo-toast";
 import { GlobalSaveIndicator } from "@/components/ui/save-indicator";
 import OfflineIndicator, { OfflineStatusBadge } from "@/components/ui/offline-indicator";
@@ -157,6 +160,9 @@ export default function NoteWrapper() {
           </div>
         </div>
 
+        {/* Notebook breadcrumb - shows when viewing specific notebook */}
+        <NotebookBreadcrumb />
+
         {/* Keyboard shortcuts help */}
         {showShortcuts && (
           <div
@@ -197,17 +203,19 @@ export default function NoteWrapper() {
           </div>
         )}
 
-        {/* Notes grid */}
-        <div id="notes-list" className="pt-4" aria-label="Notes list">
-          <JustNotes
-            openDistractionFreeNote={handleShowDistractionFree}
-            userId={userId}
-            isAuthenticated={isAuthenticated}
-            notesOperations={notesOperations}
-            registerNoteFlush={registerNoteFlush}
-            unregisterNoteFlush={unregisterNoteFlush}
-          />
-        </div>
+        {/* Notes grid with split view support */}
+        <SplitViewContainer>
+          <div id="notes-list" className="pt-4" aria-label="Notes list">
+            <JustNotes
+              openDistractionFreeNote={handleShowDistractionFree}
+              userId={userId}
+              isAuthenticated={isAuthenticated}
+              notesOperations={notesOperations}
+              registerNoteFlush={registerNoteFlush}
+              unregisterNoteFlush={unregisterNoteFlush}
+            />
+          </div>
+        </SplitViewContainer>
       </main>
 
       {/* Distraction-free mode */}
@@ -250,6 +258,9 @@ export default function NoteWrapper() {
           </article>
         </section>
       )}
+
+      {/* Right sidebar (ToC) */}
+      <RightSidebar />
 
       {/* Undo delete toast */}
       <UndoDeleteToast />

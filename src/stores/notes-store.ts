@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { CombinedNote, NoteSource } from "@/types/combined-notes";
 import { Notebook } from "@/types/notebook";
+import { TocHeading } from "@/lib/toc-parser";
 import { sortNotes } from "@/utils/notes-utils";
 
 // Deleted note with timestamp for undo functionality
@@ -39,6 +40,18 @@ interface NotesStore {
   notebooksLoading: boolean;
   notebookCounts: Record<string, number>; // notebook id -> note count
   looseNotesCount: number;
+
+  // ========== ToC State ==========
+  tocVisible: boolean;
+  tocHeadings: TocHeading[];
+  activeHeadingId: string | null;
+
+  // ========== Split View State ==========
+  splitViewEnabled: boolean;
+  splitViewDirection: "horizontal" | "vertical";
+  referenceNoteId: string | null;
+  referenceNoteEditable: boolean;
+  splitPaneSizes: [number, number]; // percentages [main, reference]
 
   // ========== UI State ==========
   sidebarOpen: boolean;
@@ -86,6 +99,20 @@ interface NotesStore {
   updateNotebookCounts: (counts: Record<string, number>, looseCount: number) => void;
   recalculateNotebookCounts: () => void;
 
+  // ========== ToC Actions ==========
+  setTocVisible: (visible: boolean) => void;
+  toggleToc: () => void;
+  setTocHeadings: (headings: TocHeading[]) => void;
+  setActiveHeadingId: (id: string | null) => void;
+
+  // ========== Split View Actions ==========
+  setSplitViewEnabled: (enabled: boolean) => void;
+  toggleSplitView: () => void;
+  setSplitViewDirection: (direction: "horizontal" | "vertical") => void;
+  setReferenceNoteId: (noteId: string | null) => void;
+  setReferenceNoteEditable: (editable: boolean) => void;
+  setSplitPaneSizes: (sizes: [number, number]) => void;
+
   // ========== Optimistic Updates ==========
   optimisticUpdateNote: (noteId: string, updates: Partial<CombinedNote>) => void;
   optimisticAddNote: (note: CombinedNote) => void;
@@ -130,6 +157,28 @@ export const useNotesStore = create<NotesStore>()(
     notebooksLoading: false,
     notebookCounts: {},
     looseNotesCount: 0,
+
+    // ========== Initial ToC State ==========
+    tocVisible: typeof window !== "undefined"
+      ? localStorage.getItem("tocVisible") === "true"
+      : false,
+    tocHeadings: [],
+    activeHeadingId: null,
+
+    // ========== Initial Split View State ==========
+    splitViewEnabled: false,
+    splitViewDirection: typeof window !== "undefined"
+      ? (localStorage.getItem("splitViewDirection") as "horizontal" | "vertical") || "horizontal"
+      : "horizontal",
+    referenceNoteId: typeof window !== "undefined"
+      ? localStorage.getItem("referenceNoteId")
+      : null,
+    referenceNoteEditable: typeof window !== "undefined"
+      ? localStorage.getItem("referenceNoteEditable") === "true"
+      : false,
+    splitPaneSizes: typeof window !== "undefined"
+      ? JSON.parse(localStorage.getItem("splitPaneSizes") || "[50, 50]")
+      : [50, 50],
 
     // ========== Initial UI State ==========
     sidebarOpen: false,
@@ -257,6 +306,55 @@ export const useNotesStore = create<NotesStore>()(
       }
 
       set({ notebookCounts: counts, looseNotesCount: looseCount });
+    },
+
+    // ========== ToC Actions ==========
+    setTocVisible: (tocVisible) => {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("tocVisible", String(tocVisible));
+      }
+      set({ tocVisible });
+    },
+    toggleToc: () => {
+      const newValue = !get().tocVisible;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("tocVisible", String(newValue));
+      }
+      set({ tocVisible: newValue });
+    },
+    setTocHeadings: (tocHeadings) => set({ tocHeadings }),
+    setActiveHeadingId: (activeHeadingId) => set({ activeHeadingId }),
+
+    // ========== Split View Actions ==========
+    setSplitViewEnabled: (splitViewEnabled) => set({ splitViewEnabled }),
+    toggleSplitView: () => set((state) => ({ splitViewEnabled: !state.splitViewEnabled })),
+    setSplitViewDirection: (splitViewDirection) => {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("splitViewDirection", splitViewDirection);
+      }
+      set({ splitViewDirection });
+    },
+    setReferenceNoteId: (referenceNoteId) => {
+      if (typeof window !== "undefined") {
+        if (referenceNoteId) {
+          localStorage.setItem("referenceNoteId", referenceNoteId);
+        } else {
+          localStorage.removeItem("referenceNoteId");
+        }
+      }
+      set({ referenceNoteId });
+    },
+    setReferenceNoteEditable: (referenceNoteEditable) => {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("referenceNoteEditable", String(referenceNoteEditable));
+      }
+      set({ referenceNoteEditable });
+    },
+    setSplitPaneSizes: (splitPaneSizes) => {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("splitPaneSizes", JSON.stringify(splitPaneSizes));
+      }
+      set({ splitPaneSizes });
     },
 
     // ========== Optimistic Updates ==========

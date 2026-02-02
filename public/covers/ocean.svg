@@ -1,15 +1,36 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200">
   <defs>
-    <linearGradient id="oceanGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#0077B6"/>
-      <stop offset="50%" style="stop-color:#00B4D8"/>
-      <stop offset="100%" style="stop-color:#90E0EF"/>
+    <linearGradient id="osky" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fbbf24"/>
+      <stop offset="30%" style="stop-color:#f97316"/>
+      <stop offset="60%" style="stop-color:#7c3aed"/>
+      <stop offset="100%" style="stop-color:#1e1b4b"/>
+    </linearGradient>
+    <linearGradient id="ocean" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e3a8a"/>
+      <stop offset="50%" style="stop-color:#1e40af"/>
+      <stop offset="100%" style="stop-color:#172554"/>
+    </linearGradient>
+    <linearGradient id="sunreflect" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fbbf24"/>
+      <stop offset="100%" style="stop-color:#f97316" stop-opacity="0"/>
     </linearGradient>
   </defs>
-  <rect fill="url(#oceanGrad)" width="400" height="200"/>
-  <ellipse fill="#CAF0F8" cx="80" cy="180" rx="60" ry="20" opacity="0.5"/>
-  <ellipse fill="#CAF0F8" cx="200" cy="190" rx="80" ry="15" opacity="0.4"/>
-  <ellipse fill="#CAF0F8" cx="320" cy="175" rx="70" ry="18" opacity="0.5"/>
-  <ellipse fill="#ADE8F4" cx="150" cy="150" rx="40" ry="10" opacity="0.3"/>
-  <ellipse fill="#ADE8F4" cx="280" cy="140" rx="50" ry="12" opacity="0.3"/>
+  <rect fill="url(#osky)" width="400" height="200"/>
+  <!-- Sun -->
+  <circle fill="#fbbf24" cx="200" cy="85" r="30"/>
+  <circle fill="#fef3c7" cx="200" cy="85" r="22" opacity="0.8"/>
+  <!-- Ocean -->
+  <rect fill="url(#ocean)" y="100" width="400" height="100"/>
+  <!-- Sun reflection -->
+  <ellipse fill="url(#sunreflect)" cx="200" cy="120" rx="40" ry="15" opacity="0.6"/>
+  <ellipse fill="#fbbf24" cx="200" cy="140" rx="25" ry="8" opacity="0.4"/>
+  <ellipse fill="#fbbf24" cx="200" cy="160" rx="15" ry="5" opacity="0.3"/>
+  <!-- Waves -->
+  <path d="M0,130 Q50,125 100,130 T200,130 T300,130 T400,130" stroke="#3b82f6" stroke-width="2" fill="none" opacity="0.3"/>
+  <path d="M0,145 Q50,140 100,145 T200,145 T300,145 T400,145" stroke="#3b82f6" stroke-width="1.5" fill="none" opacity="0.25"/>
+  <path d="M0,160 Q50,156 100,160 T200,160 T300,160 T400,160" stroke="#60a5fa" stroke-width="1" fill="none" opacity="0.2"/>
+  <!-- Clouds -->
+  <ellipse fill="#fef3c7" cx="80" cy="40" rx="40" ry="15" opacity="0.3"/>
+  <ellipse fill="#fef3c7" cx="320" cy="50" rx="50" ry="18" opacity="0.25"/>
 </svg>

@@ -14,6 +14,7 @@ import { uploadNotebookCover } from "@/app/actions/notebookCoverActions";
 import NotebookSwitcher from "@/components/notebook-switcher";
 import NotebookModal from "@/components/notebook-modal";
 import { NotebookCoverHeader } from "@/components/notebook-breadcrumb";
+import BulkActionBar from "@/components/bulk-action-bar";
 import { getCoverPreviewColor } from "@/lib/notebook-covers";
 import {
   IconX,
@@ -23,6 +24,9 @@ import {
   IconCloud,
   IconDeviceFloppy,
   IconFilterOff,
+  IconCheckbox,
+  IconSquare,
+  IconSquareCheck,
 } from "@tabler/icons-react";
 
 interface SidebarProps {
@@ -62,6 +66,10 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
   // Modal state
   const [isNotebookModalOpen, setIsNotebookModalOpen] = useState(false);
   const [editingNotebook, setEditingNotebook] = useState<Notebook | null>(null);
+
+  // Multi-select state
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set());
 
   const filteredNotes = getFilteredNotes();
   const hasActiveFilters = searchQuery || filterSource !== "all" || filterPinned !== "all" || activeNotebookId !== null;
@@ -186,6 +194,35 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
     setSearchQuery("");
     searchInputRef.current?.focus();
   }, [setSearchQuery]);
+
+  // Multi-select handlers
+  const handleToggleSelectMode = useCallback(() => {
+    setSelectMode((prev) => !prev);
+    if (selectMode) {
+      setSelectedNoteIds(new Set());
+    }
+  }, [selectMode]);
+
+  const handleToggleNoteSelection = useCallback((noteId: string) => {
+    setSelectedNoteIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(noteId)) {
+        newSet.delete(noteId);
+      } else {
+        newSet.add(noteId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedNoteIds(new Set());
+    setSelectMode(false);
+  }, []);
+
+  const handleBulkAssignComplete = useCallback(() => {
+    loadNotebookCounts();
+  }, []);
 
   // Notebook handlers
   const handleNewNotebook = () => {
@@ -394,6 +431,23 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
                 Unpinned
               </FilterButton>
             </div>
+
+            {/* Select mode toggle (authenticated + cloud notes only) */}
+            {isAuthenticated && (
+              <div className="pt-2 border-t border-neutral-100">
+                <button
+                  onClick={handleToggleSelectMode}
+                  className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-full transition-colors ${
+                    selectMode
+                      ? "bg-mercedes-primary text-white"
+                      : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  }`}
+                >
+                  <IconCheckbox size={14} />
+                  {selectMode ? "Exit Select Mode" : "Select Multiple"}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Notes List */}
@@ -416,17 +470,43 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
               </div>
             ) : (
               <ul className="divide-y divide-neutral-200/60">
-                {filteredNotes.map((note) => (
+                {filteredNotes.map((note) => {
+                  const isSelected = selectedNoteIds.has(note.id);
+                  const canSelect = selectMode && note.source === "supabase";
+
+                  return (
                   <li key={note.id}>
-                    <button
-                      onClick={() => handleNoteClick(note.id)}
-                      className={`w-full p-4 text-left hover:bg-neutral-50 transition-colors ${
-                        activeNoteId === note.id
-                          ? "bg-mercedes-primary/10 border-l-[3px] border-mercedes-primary"
-                          : "border-l-[3px] border-transparent"
+                    <div
+                      onClick={() => {
+                        if (canSelect) {
+                          handleToggleNoteSelection(note.id);
+                        } else {
+                          handleNoteClick(note.id);
+                        }
+                      }}
+                      className={`w-full p-4 text-left hover:bg-neutral-50 transition-colors cursor-pointer ${
+                        isSelected
+                          ? "bg-mercedes-primary/20 border-l-[3px] border-mercedes-primary"
+                          : activeNoteId === note.id
+                            ? "bg-mercedes-primary/10 border-l-[3px] border-mercedes-primary"
+                            : "border-l-[3px] border-transparent"
                       }`}
                     >
                       <div className="flex items-start gap-2">
+                        {/* Checkbox for select mode */}
+                        {selectMode && (
+                          <div className="flex-shrink-0 pt-0.5">
+                            {note.source === "supabase" ? (
+                              isSelected ? (
+                                <IconSquareCheck size={18} className="text-mercedes-primary" />
+                              ) : (
+                                <IconSquare size={18} className="text-neutral-400" />
+                              )
+                            ) : (
+                              <IconSquare size={18} className="text-neutral-200" />
+                            )}
+                          </div>
+                        )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             {note.isPinned && (
@@ -467,18 +547,30 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
                           )}
                         </div>
                       </div>
-                    </button>
+                    </div>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             )}
           </div>
 
+          {/* Bulk Action Bar */}
+          {selectMode && (
+            <BulkActionBar
+              selectedNoteIds={selectedNoteIds}
+              onClearSelection={handleClearSelection}
+              onAssignComplete={handleBulkAssignComplete}
+            />
+          )}
+
           {/* Footer */}
-          <div className="p-4 border-t border-neutral-200 text-center text-xs text-neutral-500">
-            {notes.length} note{notes.length !== 1 ? "s" : ""} total
-            {hasActiveFilters && ` • ${filteredNotes.length} shown`}
-          </div>
+          {!selectMode && (
+            <div className="p-4 border-t border-neutral-200 text-center text-xs text-neutral-500">
+              {notes.length} note{notes.length !== 1 ? "s" : ""} total
+              {hasActiveFilters && ` • ${filteredNotes.length} shown`}
+            </div>
+          )}
         </div>
       </aside>
 

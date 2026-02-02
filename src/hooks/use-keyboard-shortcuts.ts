@@ -17,7 +17,7 @@ export function useKeyboardShortcuts({
   onToggleDistractionFree,
   onSearch,
 }: KeyboardShortcutsOptions) {
-  const { toggleSidebar, setSidebarOpen } = useNotesStore();
+  const { toggleSidebar, setSidebarOpen, toggleToc, toggleSplitView } = useNotesStore();
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -31,11 +31,15 @@ export function useKeyboardShortcuts({
       // Ctrl/Cmd + key shortcuts
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
 
-      // Escape - close sidebar or distraction-free mode
+      // Escape - close sidebar, split view, or distraction-free mode
       if (e.key === "Escape") {
-        const { sidebarOpen } = useNotesStore.getState();
+        const { sidebarOpen, splitViewEnabled, setSplitViewEnabled } = useNotesStore.getState();
         if (sidebarOpen) {
           setSidebarOpen(false);
+          return;
+        }
+        if (splitViewEnabled) {
+          setSplitViewEnabled(false);
           return;
         }
       }
@@ -53,6 +57,20 @@ export function useKeyboardShortcuts({
         if (e.shiftKey && (e.key === "f" || e.key === "F")) {
           e.preventDefault();
           onToggleDistractionFree?.();
+          return;
+        }
+
+        // Ctrl/Cmd + Shift + T - Toggle Table of Contents
+        if (e.shiftKey && (e.key === "t" || e.key === "T")) {
+          e.preventDefault();
+          toggleToc();
+          return;
+        }
+
+        // Ctrl/Cmd + Shift + S - Toggle Split View
+        if (e.shiftKey && (e.key === "s" || e.key === "S")) {
+          e.preventDefault();
+          toggleSplitView();
           return;
         }
       }
@@ -82,7 +100,7 @@ export function useKeyboardShortcuts({
         }
       }
     },
-    [onNewNote, onSave, onToggleDistractionFree, onSearch, toggleSidebar, setSidebarOpen]
+    [onNewNote, onSave, onToggleDistractionFree, onSearch, toggleSidebar, setSidebarOpen, toggleToc, toggleSplitView]
   );
 
   useEffect(() => {
@@ -98,5 +116,7 @@ export const KEYBOARD_SHORTCUTS = [
   { keys: ["Ctrl", "K"], description: "Open search" },
   { keys: ["Ctrl", "B"], description: "Toggle sidebar" },
   { keys: ["Ctrl", "Shift", "F"], description: "Distraction-free mode" },
+  { keys: ["Ctrl", "Shift", "T"], description: "Table of Contents" },
+  { keys: ["Ctrl", "Shift", "S"], description: "Split view" },
   { keys: ["Esc"], description: "Close sidebar/modal" },
 ];
