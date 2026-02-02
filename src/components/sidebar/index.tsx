@@ -271,6 +271,7 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
     name: string;
     coverType: CoverType;
     coverValue: string;
+    pendingFile?: File | null;
   }) => {
     if (editingNotebook) {
       // Update existing notebook
@@ -282,9 +283,30 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
       }
     } else {
       // Create new notebook
-      const result = await createNotebook(data);
+      const createData = {
+        name: data.name,
+        coverType: data.pendingFile ? "color" as CoverType : data.coverType, // Use default initially if uploading
+        coverValue: data.pendingFile ? "#6366f1" : data.coverValue,
+      };
+
+      const result = await createNotebook(createData);
       if (result.success && result.notebook) {
         addNotebook(result.notebook);
+
+        // If there's a pending file, upload it now
+        if (data.pendingFile) {
+          const formData = new FormData();
+          formData.append("file", data.pendingFile);
+
+          const uploadResult = await uploadNotebookCover(result.notebook.id, formData);
+          if (uploadResult.success && uploadResult.url) {
+            // Update the notebook in store with the uploaded cover
+            updateNotebookInStore(result.notebook.id, {
+              coverType: "custom",
+              coverValue: uploadResult.url,
+            });
+          }
+        }
       } else {
         throw new Error(result.error || "Failed to create notebook");
       }

@@ -14,6 +14,7 @@ interface NotebookModalProps {
     name: string;
     coverType: CoverType;
     coverValue: string;
+    pendingFile?: File | null; // File to upload after creation
   }) => Promise<void>;
   onDelete?: () => Promise<void>;
   onUploadCover?: (file: File) => Promise<string | null>;
@@ -30,6 +31,7 @@ export default function NotebookModal({
   const [name, setName] = useState("");
   const [coverType, setCoverType] = useState<CoverType>(DEFAULT_COVER_TYPE);
   const [coverValue, setCoverValue] = useState(DEFAULT_COVER_VALUE);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -50,6 +52,7 @@ export default function NotebookModal({
         setCoverType(DEFAULT_COVER_TYPE);
         setCoverValue(DEFAULT_COVER_VALUE);
       }
+      setPendingFile(null);
       setError(null);
       setShowDeleteConfirm(false);
     }
@@ -104,6 +107,7 @@ export default function NotebookModal({
         name: trimmedName,
         coverType,
         coverValue,
+        pendingFile: pendingFile,
       });
       onClose();
     } catch (err) {
@@ -202,6 +206,8 @@ export default function NotebookModal({
                   coverValue={coverValue}
                   onSelect={handleCoverSelect}
                   onUpload={onUploadCover ? handleUpload : undefined}
+                  onFileSelect={!isEditing ? setPendingFile : undefined}
+                  pendingFile={pendingFile}
                   isUploading={isUploading}
                 />
               </div>

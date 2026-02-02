@@ -17,6 +17,8 @@ interface NotebookCoverPickerProps {
   coverValue: string;
   onSelect: (type: CoverType, value: string) => void;
   onUpload?: (file: File) => Promise<string | null>;
+  onFileSelect?: (file: File | null) => void; // For pending file selection (new notebooks)
+  pendingFile?: File | null; // File selected but not yet uploaded
   isUploading?: boolean;
 }
 
@@ -25,8 +27,22 @@ export default function NotebookCoverPicker({
   coverValue,
   onSelect,
   onUpload,
+  onFileSelect,
+  pendingFile,
   isUploading = false,
 }: NotebookCoverPickerProps) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // Create preview URL for pending file
+  React.useEffect(() => {
+    if (pendingFile) {
+      const url = URL.createObjectURL(pendingFile);
+      setPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setPreviewUrl(null);
+    }
+  }, [pendingFile]);
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     // Set initial tab based on current cover type
     if (coverType === "color") return "colors";
@@ -47,11 +63,18 @@ export default function NotebookCoverPicker({
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !onUpload) return;
+    if (!file) return;
 
-    const url = await onUpload(file);
-    if (url) {
-      onSelect("custom", url);
+    // If we have onUpload (editing mode), upload immediately
+    if (onUpload) {
+      const url = await onUpload(file);
+      if (url) {
+        onSelect("custom", url);
+      }
+    } else if (onFileSelect) {
+      // Otherwise, just select the file for later upload (creating mode)
+      onFileSelect(file);
+      onSelect("custom", "pending"); // Mark as custom with pending upload
     }
 
     // Reset input
@@ -66,7 +89,7 @@ export default function NotebookCoverPicker({
       <div className="relative">
         <div
           className="w-full h-24 rounded-lg overflow-hidden"
-          style={getCoverStyle(coverType, coverValue)}
+          style={pendingFile && previewUrl ? { backgroundImage: `url(${previewUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : getCoverStyle(coverType, coverValue)}
         >
           <div className="absolute inset-0 flex items-center justify-center">
             <span className="text-white/80 text-sm font-medium drop-shadow-md">
@@ -119,61 +142,64 @@ export default function NotebookCoverPicker({
 
         {activeTab === "upload" && (
           <div className="space-y-4">
-            {onUpload ? (
-              <>
-                {/* Current custom image */}
-                {coverType === "custom" && coverValue && (
-                  <div className="relative w-full h-20 rounded-lg overflow-hidden bg-neutral-100">
-                    <img
-                      src={coverValue}
-                      alt="Custom cover"
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute top-2 right-2 bg-mercedes-primary text-white p-1 rounded-full">
-                      <IconCheck size={12} />
-                    </div>
-                  </div>
-                )}
-
-                {/* Upload button */}
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                  className="w-full flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-neutral-300 rounded-lg hover:border-mercedes-primary hover:bg-neutral-50 transition-colors disabled:opacity-50"
-                >
-                  {isUploading ? (
-                    <IconLoader2 size={24} className="text-neutral-400 animate-spin" />
-                  ) : (
-                    <IconUpload size={24} className="text-neutral-400" />
-                  )}
-                  <span className="text-sm text-neutral-600">
-                    {isUploading ? "Uploading..." : "Click to upload image"}
-                  </span>
-                  <span className="text-xs text-neutral-400">
-                    JPG, PNG or WebP, max 2MB
-                  </span>
-                </button>
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={handleFileChange}
-                  className="hidden"
+            {/* Current custom image (uploaded) */}
+            {coverType === "custom" && coverValue && coverValue !== "pending" && (
+              <div className="relative w-full h-20 rounded-lg overflow-hidden bg-neutral-100">
+                <img
+                  src={coverValue}
+                  alt="Custom cover"
+                  className="w-full h-full object-cover"
                 />
-              </>
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-neutral-200 rounded-lg bg-neutral-50">
-                <IconUpload size={24} className="text-neutral-300" />
-                <span className="text-sm text-neutral-500 text-center">
-                  Custom uploads available after creating the notebook
-                </span>
-                <span className="text-xs text-neutral-400">
-                  Create the notebook first, then edit to upload
-                </span>
+                <div className="absolute top-2 right-2 bg-mercedes-primary text-white p-1 rounded-full">
+                  <IconCheck size={12} />
+                </div>
               </div>
             )}
+
+            {/* Pending file preview (not yet uploaded) */}
+            {pendingFile && previewUrl && (
+              <div className="relative w-full h-20 rounded-lg overflow-hidden bg-neutral-100">
+                <img
+                  src={previewUrl}
+                  alt="Selected cover"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute top-2 right-2 bg-amber-500 text-white p-1 rounded-full" title="Will upload on save">
+                  <IconCheck size={12} />
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 bg-amber-500/90 text-white text-xs py-1 text-center">
+                  Ready to upload on save
+                </div>
+              </div>
+            )}
+
+            {/* Upload button */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="w-full flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-neutral-300 rounded-lg hover:border-mercedes-primary hover:bg-neutral-50 transition-colors disabled:opacity-50"
+            >
+              {isUploading ? (
+                <IconLoader2 size={24} className="text-neutral-400 animate-spin" />
+              ) : (
+                <IconUpload size={24} className="text-neutral-400" />
+              )}
+              <span className="text-sm text-neutral-600">
+                {isUploading ? "Uploading..." : pendingFile ? "Change image" : "Click to select image"}
+              </span>
+              <span className="text-xs text-neutral-400">
+                JPG, PNG or WebP, max 2MB
+              </span>
+            </button>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleFileChange}
+              className="hidden"
+            />
           </div>
         )}
       </div>
