@@ -7,8 +7,6 @@ import SaveButton from "./sub-components/save-button";
 import DeleteButton from "@/components/delete-button";
 import ShareNoteButton from "@/components/share-note-button";
 import AIAnalysisButton from "@/components/ui/ai-analysis";
-import { TocToggleButton } from "@/components/toc-panel";
-import SplitViewButton from "@/components/split-view-button";
 import type { NoteSource, CombinedNote } from "@/types/combined-notes";
 
 interface NoteToolbarProps {
@@ -77,12 +75,6 @@ export default function NoteToolbar({
           </span>
         </button>
       )}
-
-      {/* Table of Contents toggle */}
-      <TocToggleButton />
-
-      {/* Split View button */}
-      <SplitViewButton />
 
       {/* AI Analysis button */}
       <AIAnalysisButton

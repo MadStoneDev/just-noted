@@ -11,6 +11,7 @@ import { IconSquareRoundedPlus, IconRefresh, IconTemplate } from "@tabler/icons-
 
 interface JustNotesProps {
   openDistractionFreeNote?: (note: CombinedNote) => void;
+  openSplitViewNote?: (note: CombinedNote) => void;
   userId: string | null;
   isAuthenticated: boolean;
   notesOperations: any;
@@ -20,6 +21,7 @@ interface JustNotesProps {
 
 export default function JustNotes({
   openDistractionFreeNote,
+  openSplitViewNote,
   userId,
   isAuthenticated,
   notesOperations,
@@ -27,8 +29,11 @@ export default function JustNotes({
   unregisterNoteFlush,
 }: JustNotesProps) {
   // Get notes from Zustand store
-  const { notes, isLoading, animating, newNoteId, isReorderingInProgress } =
+  const { isLoading, animating, newNoteId, isReorderingInProgress, getFilteredNotes } =
     useNotesStore();
+
+  // Use filtered notes (respects notebook selection, search, etc.)
+  const notes = getFilteredNotes();
 
   const {
     addNote,
@@ -101,6 +106,15 @@ export default function JustNotes({
       openDistractionFreeNote(note);
     },
     [openDistractionFreeNote],
+  );
+
+  // Simplified callback for opening split view mode
+  const handleOpenSplitView = useCallback(
+    (note: CombinedNote) => {
+      if (!openSplitViewNote) return;
+      openSplitViewNote(note);
+    },
+    [openSplitViewNote],
   );
 
   const handleSyncAndRenumber = useCallback(() => {
@@ -213,6 +227,7 @@ export default function JustNotes({
               onRegisterFlush={registerNoteFlush}
               onUnregisterFlush={unregisterNoteFlush}
               onOpenDistractionFree={handleOpenDistractionFree}
+              onOpenSplitView={handleOpenSplitView}
               saveNoteContent={saveNoteContent}
               saveNoteTitle={saveNoteTitle}
             />
@@ -243,6 +258,7 @@ interface MemoizedNoteWrapperProps {
   positionInfo: NotePositionInfo;
   isNew: boolean;
   onOpenDistractionFree: (note: CombinedNote) => void;
+  onOpenSplitView: (note: CombinedNote) => void;
   saveNoteContent: (
     noteId: string,
     content: string,
@@ -269,6 +285,7 @@ const MemoizedNoteWrapper = React.memo(function NoteWrapper({
   positionInfo,
   isNew,
   onOpenDistractionFree,
+  onOpenSplitView,
   saveNoteContent,
   saveNoteTitle,
   userId,
@@ -287,6 +304,10 @@ const MemoizedNoteWrapper = React.memo(function NoteWrapper({
   const handleOpenDistractionFree = useCallback(() => {
     onOpenDistractionFree(note);
   }, [note, onOpenDistractionFree]);
+
+  const handleOpenSplitView = useCallback(() => {
+    onOpenSplitView(note);
+  }, [note, onOpenSplitView]);
 
   return (
     <div
@@ -320,6 +341,7 @@ const MemoizedNoteWrapper = React.memo(function NoteWrapper({
         onRegisterFlush={onRegisterFlush}
         onUnregisterFlush={onUnregisterFlush}
         openDistractionFreeNote={handleOpenDistractionFree}
+        openSplitViewNote={handleOpenSplitView}
         saveNoteContent={saveNoteContent}
         saveNoteTitle={saveNoteTitle}
       />

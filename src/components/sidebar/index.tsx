@@ -58,6 +58,7 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
     updateNotebook: updateNotebookInStore,
     removeNotebook,
     updateNotebookCounts,
+    recalculateNotebookCounts,
   } = useNotesStore();
 
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -88,12 +89,12 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
     }
   }, [isAuthenticated, sidebarOpen]);
 
-  // Load notebook counts when notes change
+  // Recalculate notebook counts locally when notes change
   useEffect(() => {
-    if (isAuthenticated && notebooks.length > 0) {
-      loadNotebookCounts();
+    if (isAuthenticated) {
+      recalculateNotebookCounts();
     }
-  }, [isAuthenticated, notes.length, notebooks.length]);
+  }, [isAuthenticated, notes, recalculateNotebookCounts]);
 
   const loadNotebooks = async () => {
     setNotebooksLoading(true);
@@ -230,16 +231,28 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
     setIsNotebookModalOpen(true);
   };
 
-  const handleManageNotebooks = () => {
-    // For now, just open the modal without a specific notebook
-    // In the future, this could open a dedicated management view
-    setEditingNotebook(null);
-    setIsNotebookModalOpen(true);
-  };
-
   const handleEditNotebook = (notebook: Notebook) => {
     setEditingNotebook(notebook);
     setIsNotebookModalOpen(true);
+  };
+
+  const handleDeleteNotebookFromSwitcher = async (notebook: Notebook) => {
+    // Confirm deletion
+    if (!confirm(`Delete "${notebook.name}"? Notes in this notebook will become loose notes.`)) {
+      return;
+    }
+
+    try {
+      const result = await deleteNotebook(notebook.id);
+      if (result.success) {
+        removeNotebook(notebook.id);
+        loadNotebookCounts();
+      } else {
+        console.error("Failed to delete notebook:", result.error);
+      }
+    } catch (error) {
+      console.error("Failed to delete notebook:", error);
+    }
   };
 
   const handleSaveNotebook = async (data: {
@@ -333,7 +346,8 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
             <div className="p-4 border-b border-neutral-200">
               <NotebookSwitcher
                 onNewNotebook={handleNewNotebook}
-                onManageNotebooks={handleManageNotebooks}
+                onEditNotebook={handleEditNotebook}
+                onDeleteNotebook={handleDeleteNotebookFromSwitcher}
               />
             </div>
           )}

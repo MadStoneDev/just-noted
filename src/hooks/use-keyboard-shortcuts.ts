@@ -8,6 +8,7 @@ interface KeyboardShortcutsOptions {
   onNewNote?: () => void;
   onSave?: () => void;
   onToggleDistractionFree?: () => void;
+  onToggleSplitView?: () => void;
   onSearch?: () => void;
 }
 
@@ -15,9 +16,10 @@ export function useKeyboardShortcuts({
   onNewNote,
   onSave,
   onToggleDistractionFree,
+  onToggleSplitView,
   onSearch,
 }: KeyboardShortcutsOptions) {
-  const { toggleSidebar, setSidebarOpen, toggleToc, toggleSplitView } = useNotesStore();
+  const { toggleSidebar, setSidebarOpen, toggleToc } = useNotesStore();
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -31,15 +33,11 @@ export function useKeyboardShortcuts({
       // Ctrl/Cmd + key shortcuts
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
 
-      // Escape - close sidebar, split view, or distraction-free mode
+      // Escape - close sidebar or distraction-free mode
       if (e.key === "Escape") {
-        const { sidebarOpen, splitViewEnabled, setSplitViewEnabled } = useNotesStore.getState();
+        const { sidebarOpen } = useNotesStore.getState();
         if (sidebarOpen) {
           setSidebarOpen(false);
-          return;
-        }
-        if (splitViewEnabled) {
-          setSplitViewEnabled(false);
           return;
         }
       }
@@ -70,7 +68,7 @@ export function useKeyboardShortcuts({
         // Ctrl/Cmd + Shift + S - Toggle Split View
         if (e.shiftKey && (e.key === "s" || e.key === "S")) {
           e.preventDefault();
-          toggleSplitView();
+          onToggleSplitView?.();
           return;
         }
       }
@@ -100,7 +98,7 @@ export function useKeyboardShortcuts({
         }
       }
     },
-    [onNewNote, onSave, onToggleDistractionFree, onSearch, toggleSidebar, setSidebarOpen, toggleToc, toggleSplitView]
+    [onNewNote, onSave, onToggleDistractionFree, onToggleSplitView, onSearch, toggleSidebar, setSidebarOpen, toggleToc]
   );
 
   useEffect(() => {

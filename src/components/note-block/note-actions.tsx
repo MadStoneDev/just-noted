@@ -5,6 +5,7 @@ import {
   IconArrowUp,
   IconEye,
   IconEyeClosed,
+  IconLayoutColumns,
   IconLock,
   IconLockOpen,
   IconPin,
@@ -28,6 +29,7 @@ interface NoteActionsProps {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onOpenDistractionFree?: () => void;
+  onOpenSplitView?: () => void;
 }
 
 /**
@@ -51,6 +53,7 @@ export default function NoteActions({
   onMoveUp,
   onMoveDown,
   onOpenDistractionFree,
+  onOpenSplitView,
 }: NoteActionsProps) {
   if (distractionFreeMode) {
     return null;
@@ -77,7 +80,7 @@ export default function NoteActions({
         <button
           type="button"
           onClick={onOpenDistractionFree}
-          disabled={isSaving} // ADD THIS
+          disabled={isSaving}
           className={`p-1 cursor-pointer rounded-lg border border-neutral-300 ${
             isSaving
               ? "opacity-30 cursor-not-allowed"
@@ -88,6 +91,23 @@ export default function NoteActions({
           }
         >
           <IconArrowsMaximize size={18} strokeWidth={1.5} />
+        </button>
+      )}
+
+      {/* Split view mode */}
+      {onOpenSplitView && (
+        <button
+          type="button"
+          onClick={onOpenSplitView}
+          disabled={isSaving}
+          className={`p-1 cursor-pointer rounded-lg border border-neutral-300 ${
+            isSaving
+              ? "opacity-30 cursor-not-allowed"
+              : "hover:bg-neutral-100 opacity-60 hover:opacity-100"
+          } transition-all duration-300 ease-in-out`}
+          title={isSaving ? "Saving... Please wait" : "Open Split View"}
+        >
+          <IconLayoutColumns size={18} strokeWidth={1.5} />
         </button>
       )}
 

@@ -1,7 +1,9 @@
 ﻿import React from "react";
 import StatCard from "./sub-components/stat-card";
 import PageEstimateCard from "./sub-components/page-estimate-card";
+import TocCard from "./sub-components/toc-card";
 import WordCountGoalCard from "./sub-components/word-count-goal-card";
+import { TocHeading } from "@/lib/toc-parser";
 
 interface WordCountGoal {
   target: number;
@@ -19,6 +21,7 @@ interface NoteStatisticsProps {
   isPrivate: boolean;
   onOpenPageEstimateModal: () => void;
   onOpenWordCountGoalModal: () => void;
+  onScrollToHeading: (heading: TocHeading) => void;
 }
 
 /**
@@ -36,6 +39,7 @@ export default function NoteStatistics({
   isPrivate,
   onOpenPageEstimateModal,
   onOpenWordCountGoalModal,
+  onScrollToHeading,
 }: NoteStatisticsProps) {
   return (
     <div
@@ -57,6 +61,9 @@ export default function NoteStatistics({
         onClick={onOpenPageEstimateModal}
         isPrivate={isPrivate}
       />
+
+      {/* Table of Contents */}
+      <TocCard isPrivate={isPrivate} onScrollToHeading={onScrollToHeading} />
 
       {/* Word Count Goal */}
       <WordCountGoalCard

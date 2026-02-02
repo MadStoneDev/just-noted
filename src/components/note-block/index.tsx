@@ -10,7 +10,7 @@ import React, {
 import LazyTextBlock from "@/components/lazy-text-block";
 import type { CombinedNote } from "@/types/combined-notes";
 import type { NoteSource } from "@/types/combined-notes";
-import { parseHeadings } from "@/lib/toc-parser";
+import { parseHeadings, TocHeading } from "@/lib/toc-parser";
 
 import { IconCircleCheck, IconCircleX, IconLoader } from "@tabler/icons-react";
 
@@ -63,6 +63,7 @@ interface NoteBlockProps {
   onUnregisterFlush?: (noteId: string) => void;
   setActiveNote?: (note: CombinedNote | null) => void;
   openDistractionFreeNote?: () => void;
+  openSplitViewNote?: () => void;
   distractionFreeMode?: boolean;
   saveNoteContent?: (
     noteId: string,
@@ -96,6 +97,7 @@ export default function NoteBlock({
   onRegisterFlush,
   onUnregisterFlush,
   openDistractionFreeNote,
+  openSplitViewNote,
   distractionFreeMode = false,
   saveNoteContent,
   saveNoteTitle,
@@ -665,6 +667,32 @@ export default function NoteBlock({
     [saveContent]
   );
 
+  // Scroll to heading (for ToC)
+  const handleScrollToHeading = useCallback(
+    (heading: TocHeading) => {
+      const noteSection = containerRef.current;
+      if (!noteSection) return;
+
+      const editorContainer = noteSection.querySelector(".tiptap-editor-container");
+      if (!editorContainer) return;
+
+      const proseMirror = editorContainer.querySelector(".ProseMirror");
+      const searchContainer = proseMirror || editorContainer;
+
+      const selector = `h${heading.level}`;
+      const headings = searchContainer.querySelectorAll(selector);
+
+      for (const el of headings) {
+        const text = el.textContent?.trim() || "";
+        if (text === heading.text) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+          break;
+        }
+      }
+    },
+    []
+  );
+
   // ========== EFFECTS ==========
   useEffect(() => {
     setIsContentExpanded(!(currentNote.isCollapsed || false));
@@ -909,6 +937,7 @@ export default function NoteBlock({
         onMoveUp={() => handleMoveNote("up")}
         onMoveDown={() => handleMoveNote("down")}
         onOpenDistractionFree={openDistractionFreeNote}
+        onOpenSplitView={openSplitViewNote}
       />
 
       {/* Note Content */}
@@ -961,6 +990,7 @@ export default function NoteBlock({
                   onOpenWordCountGoalModal={() =>
                     setShowWordCountGoalModal(true)
                   }
+                  onScrollToHeading={handleScrollToHeading}
                 />
               )}
             </article>

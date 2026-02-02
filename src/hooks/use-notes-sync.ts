@@ -38,6 +38,7 @@ export function useNotesSync() {
     markUpdated,
     setUserId,
     setAuthenticated,
+    recalculateNotebookCounts,
     userId,
     isAuthenticated,
   } = useNotesStore();
@@ -114,13 +115,14 @@ export function useNotesSync() {
 
       if (isMounted.current) {
         mergeWithBackend(sortedNotes);
+        recalculateNotebookCounts();
         markUpdated();
         lastUpdateTimestamp.current = Date.now();
       }
     } catch (error) {
       console.error("Failed to refresh notes:", error);
     }
-  }, [loadNotesFromRedis, loadNotesFromSupabase, mergeWithBackend, markUpdated]);
+  }, [loadNotesFromRedis, loadNotesFromSupabase, mergeWithBackend, markUpdated, recalculateNotebookCounts]);
 
   // Initialize
   useEffect(() => {
@@ -207,6 +209,7 @@ export function useNotesSync() {
         const sortedNotes = sortNotes(normalizedNotes, null);
 
         syncFromBackend(sortedNotes);
+        recalculateNotebookCounts();
       } catch (error) {
         console.error("Initialization error:", error);
       } finally {
@@ -215,7 +218,7 @@ export function useNotesSync() {
     };
 
     initialize();
-  }, [supabase, syncFromBackend, setLoading, setUserId, setAuthenticated]);
+  }, [supabase, syncFromBackend, setLoading, setUserId, setAuthenticated, recalculateNotebookCounts]);
 
   // Auth change listener
   useEffect(() => {

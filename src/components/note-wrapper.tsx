@@ -4,9 +4,8 @@ import React, { useState, useCallback, useMemo } from "react";
 
 import JustNotes from "@/components/just-notes";
 import DistractionFreeNoteBlock from "@/components/distraction-free-note-block";
+import SplitViewNoteBlock from "@/components/split-view-note-block";
 import Sidebar from "@/components/sidebar";
-import RightSidebar from "@/components/right-sidebar";
-import SplitViewContainer from "@/components/split-view-container";
 import NotebookBreadcrumb from "@/components/notebook-breadcrumb";
 import UndoDeleteToast from "@/components/ui/undo-toast";
 import { GlobalSaveIndicator } from "@/components/ui/save-indicator";
@@ -57,6 +56,11 @@ export default function NoteWrapper() {
   const [isAnimating, setIsAnimating] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
 
+  // Local states for split view mode
+  const [splitViewNote, setSplitViewNote] = useState<CombinedNote | null>(null);
+  const [showSplitView, setShowSplitView] = useState(false);
+  const [isSplitAnimating, setIsSplitAnimating] = useState(false);
+
   // Handlers for distraction-free mode
   const handleShowDistractionFree = useCallback((note: CombinedNote) => {
     setActiveNote(note);
@@ -78,6 +82,25 @@ export default function NoteWrapper() {
 
   const handleToggleWidth = useCallback(() => {
     setFullWidth((prev) => !prev);
+  }, []);
+
+  // Handlers for split view mode
+  const handleShowSplitView = useCallback((note: CombinedNote) => {
+    setSplitViewNote(note);
+    setShowSplitView(true);
+
+    requestAnimationFrame(() => {
+      setIsSplitAnimating(true);
+    });
+  }, []);
+
+  const handleHideSplitView = useCallback(() => {
+    setIsSplitAnimating(false);
+
+    setTimeout(() => {
+      setShowSplitView(false);
+      setSplitViewNote(null);
+    }, 300);
   }, []);
 
   // Force save all notes
@@ -103,6 +126,17 @@ export default function NoteWrapper() {
         const note = notes.find((n) => n.id === activeNoteId);
         if (note) {
           handleShowDistractionFree(note);
+        }
+      }
+    },
+    onToggleSplitView: () => {
+      if (showSplitView) {
+        handleHideSplitView();
+      } else if (activeNoteId) {
+        const notes = useNotesStore.getState().notes;
+        const note = notes.find((n) => n.id === activeNoteId);
+        if (note) {
+          handleShowSplitView(note);
         }
       }
     },
@@ -203,19 +237,18 @@ export default function NoteWrapper() {
           </div>
         )}
 
-        {/* Notes grid with split view support */}
-        <SplitViewContainer>
-          <div id="notes-list" className="pt-4" aria-label="Notes list">
-            <JustNotes
-              openDistractionFreeNote={handleShowDistractionFree}
-              userId={userId}
-              isAuthenticated={isAuthenticated}
-              notesOperations={notesOperations}
-              registerNoteFlush={registerNoteFlush}
-              unregisterNoteFlush={unregisterNoteFlush}
-            />
-          </div>
-        </SplitViewContainer>
+        {/* Notes grid */}
+        <div id="notes-list" className="pt-4" aria-label="Notes list">
+          <JustNotes
+            openDistractionFreeNote={handleShowDistractionFree}
+            openSplitViewNote={handleShowSplitView}
+            userId={userId}
+            isAuthenticated={isAuthenticated}
+            notesOperations={notesOperations}
+            registerNoteFlush={registerNoteFlush}
+            unregisterNoteFlush={unregisterNoteFlush}
+          />
+        </div>
       </main>
 
       {/* Distraction-free mode */}
@@ -259,8 +292,39 @@ export default function NoteWrapper() {
         </section>
       )}
 
-      {/* Right sidebar (ToC) */}
-      <RightSidebar />
+      {/* Split view mode */}
+      {showSplitView && (
+        <section
+          className={`fixed inset-0 z-50 transition-opacity duration-300 ease-in-out ${
+            isSplitAnimating ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          <div className="absolute inset-0 bg-neutral-900/30" onClick={handleHideSplitView} />
+
+          <article className="absolute inset-6 sm:inset-8 p-2 pb-16 rounded-xl bg-neutral-200 overflow-hidden">
+            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex justify-center items-center gap-2 w-full z-10">
+              <button
+                className="cursor-pointer px-4 py-2 flex items-center gap-2 rounded-full bg-white/90 hover:bg-white shadow-lg opacity-80 hover:opacity-100 transition-all duration-200 ease-in-out"
+                onClick={handleHideSplitView}
+              >
+                <IconArrowsMinimize size={18} strokeWidth={2} />
+                <span className="hidden sm:block">Close Split View</span>
+              </button>
+            </div>
+
+            <div className="h-full overflow-hidden">
+              <SplitViewNoteBlock
+                note={splitViewNote}
+                userId={userId || ""}
+                isAuthenticated={isAuthenticated}
+                notesOperations={notesOperations}
+                registerNoteFlush={registerNoteFlush}
+                unregisterNoteFlush={unregisterNoteFlush}
+              />
+            </div>
+          </article>
+        </section>
+      )}
 
       {/* Undo delete toast */}
       <UndoDeleteToast />

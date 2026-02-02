@@ -10,6 +10,7 @@ import {
   IconNotebook,
   IconPlus,
   IconSettings,
+  IconTrash,
   IconCheck,
   IconFileOff,
   IconGripVertical,
@@ -17,12 +18,14 @@ import {
 
 interface NotebookSwitcherProps {
   onNewNotebook: () => void;
-  onManageNotebooks: () => void;
+  onEditNotebook: (notebook: Notebook) => void;
+  onDeleteNotebook: (notebook: Notebook) => void;
 }
 
 export default function NotebookSwitcher({
   onNewNotebook,
-  onManageNotebooks,
+  onEditNotebook,
+  onDeleteNotebook,
 }: NotebookSwitcherProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -250,6 +253,14 @@ export default function NotebookSwitcher({
               isActive={activeNotebookId === notebook.id}
               count={notebookCounts[notebook.id] || 0}
               onSelect={() => handleSelect(notebook.id)}
+              onEdit={() => {
+                setIsOpen(false);
+                onEditNotebook(notebook);
+              }}
+              onDelete={() => {
+                setIsOpen(false);
+                onDeleteNotebook(notebook);
+              }}
               isDragging={draggedId === notebook.id}
               isDragOver={dragOverId === notebook.id}
               onDragStart={(e) => handleDragStart(e, notebook.id)}
@@ -285,18 +296,6 @@ export default function NotebookSwitcher({
             )}
           </button>
 
-          {/* Manage Notebooks */}
-          <button
-            onClick={() => {
-              setIsOpen(false);
-              onManageNotebooks();
-            }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-neutral-600 hover:bg-neutral-50 transition-colors"
-          >
-            <IconSettings size={18} />
-            <span>Manage Notebooks</span>
-          </button>
-
           {/* Limit warning */}
           {notebookLimitReached && (
             <div className="px-3 py-2 bg-amber-50 text-xs text-amber-700 border-t border-amber-100">
@@ -316,6 +315,8 @@ function NotebookOption({
   isActive,
   count,
   onSelect,
+  onEdit,
+  onDelete,
   isDragging,
   isDragOver,
   onDragStart,
@@ -328,6 +329,8 @@ function NotebookOption({
   isActive: boolean;
   count: number;
   onSelect: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
   isDragging: boolean;
   isDragOver: boolean;
   onDragStart: (e: React.DragEvent) => void;
@@ -346,7 +349,7 @@ function NotebookOption({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       onDragEnd={onDragEnd}
-      className={`flex items-center transition-all ${
+      className={`group/notebook flex items-center transition-all ${
         isDragging ? "opacity-50" : ""
       } ${isDragOver ? "bg-mercedes-primary/10 border-t-2 border-mercedes-primary" : ""}`}
     >
@@ -355,7 +358,7 @@ function NotebookOption({
       </div>
       <button
         onClick={onSelect}
-        className="flex-1 flex items-center justify-between px-2 py-2 hover:bg-neutral-50 transition-colors"
+        className="flex-1 flex items-center justify-between px-2 py-2 hover:bg-neutral-50 transition-colors min-w-0"
       >
         <div className="flex items-center gap-2 min-w-0">
           <div
@@ -367,6 +370,29 @@ function NotebookOption({
         </div>
         {isActive && <IconCheck size={16} className="text-mercedes-primary flex-shrink-0" />}
       </button>
+      {/* Edit and delete buttons */}
+      <div className="flex items-center gap-0.5 pr-2 opacity-0 group-hover/notebook:opacity-100 transition-opacity">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit();
+          }}
+          className="p-1 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded transition-colors"
+          title="Edit notebook"
+        >
+          <IconSettings size={14} />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          className="p-1 text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+          title="Delete notebook"
+        >
+          <IconTrash size={14} />
+        </button>
+      </div>
     </div>
   );
 }
