@@ -48,7 +48,7 @@ export default function NotebookCoverPicker({
     if (coverType === "color") return "colors";
     if (coverType === "gradient") return "gradients";
     if (coverType === "photo") return "photos";
-    if (coverType === "custom") return "upload";
+    // if (coverType === "custom") return "upload"; // Upload tab temporarily disabled
     return "colors";
   });
 
@@ -58,7 +58,7 @@ export default function NotebookCoverPicker({
     { id: "colors", label: "Colors" },
     { id: "gradients", label: "Gradients" },
     { id: "photos", label: "Photos" },
-    { id: "upload", label: "Upload" },
+    // { id: "upload", label: "Upload" }, // Temporarily disabled until storage issue is resolved
   ];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
