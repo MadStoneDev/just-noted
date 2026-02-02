@@ -75,6 +75,8 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
   const filteredNotes = getFilteredNotes();
   const hasActiveFilters = searchQuery || filterSource !== "all" || filterPinned !== "all" || activeNotebookId !== null;
 
+  const hasLoadedNotebooks = useRef(false);
+
   // Focus search input when sidebar opens
   useEffect(() => {
     if (sidebarOpen && searchInputRef.current) {
@@ -82,12 +84,17 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
     }
   }, [sidebarOpen]);
 
-  // Load notebooks when authenticated and sidebar opens
+  // Load notebooks when authenticated (once)
   useEffect(() => {
-    if (isAuthenticated && sidebarOpen && notebooks.length === 0 && !notebooksLoading) {
+    if (isAuthenticated && !hasLoadedNotebooks.current && !notebooksLoading) {
+      hasLoadedNotebooks.current = true;
       loadNotebooks();
     }
-  }, [isAuthenticated, sidebarOpen]);
+    // Reset flag when user logs out
+    if (!isAuthenticated) {
+      hasLoadedNotebooks.current = false;
+    }
+  }, [isAuthenticated, notebooksLoading]);
 
   // Recalculate notebook counts locally when notes array length changes
   // Using length instead of full array to avoid excessive recalculations

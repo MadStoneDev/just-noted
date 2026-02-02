@@ -14,6 +14,7 @@ import {
   IconCheck,
   IconFileOff,
   IconGripVertical,
+  IconLoader2,
 } from "@tabler/icons-react";
 
 interface NotebookSwitcherProps {
@@ -41,6 +42,7 @@ export default function NotebookSwitcher({
     looseNotesCount,
     notes,
     isAuthenticated,
+    notebooksLoading,
     setNotebooks,
   } = useNotesStore();
 
@@ -193,12 +195,17 @@ export default function NotebookSwitcher({
       {/* Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-neutral-100 hover:bg-neutral-200 rounded-lg transition-colors"
+        disabled={notebooksLoading}
+        className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-neutral-100 hover:bg-neutral-200 rounded-lg transition-colors disabled:opacity-70"
       >
         <div className="flex items-center gap-2 min-w-0">
-          {getDisplayIcon()}
+          {notebooksLoading ? (
+            <IconLoader2 size={18} className="text-neutral-500 animate-spin" />
+          ) : (
+            getDisplayIcon()
+          )}
           <span className="font-medium text-neutral-800 truncate">
-            {getDisplayName()}
+            {notebooksLoading ? "Loading..." : getDisplayName()}
           </span>
         </div>
         <IconChevronDown
@@ -241,35 +248,44 @@ export default function NotebookSwitcher({
           </button>
 
           {/* Divider */}
-          {notebooks.length > 0 && (
-            <div className="border-t border-neutral-200 my-1" />
-          )}
+          <div className="border-t border-neutral-200 my-1" />
 
           {/* Notebooks list */}
-          {notebooks.map((notebook) => (
-            <NotebookOption
-              key={notebook.id}
-              notebook={notebook}
-              isActive={activeNotebookId === notebook.id}
-              count={notebookCounts[notebook.id] || 0}
-              onSelect={() => handleSelect(notebook.id)}
-              onEdit={() => {
-                setIsOpen(false);
-                onEditNotebook(notebook);
-              }}
-              onDelete={() => {
-                setIsOpen(false);
-                onDeleteNotebook(notebook);
-              }}
-              isDragging={draggedId === notebook.id}
-              isDragOver={dragOverId === notebook.id}
-              onDragStart={(e) => handleDragStart(e, notebook.id)}
-              onDragOver={(e) => handleDragOver(e, notebook.id)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, notebook.id)}
-              onDragEnd={handleDragEnd}
-            />
-          ))}
+          {notebooksLoading ? (
+            <div className="px-3 py-4 text-center text-sm text-neutral-500">
+              <IconLoader2 size={18} className="inline animate-spin mr-2" />
+              Loading notebooks...
+            </div>
+          ) : notebooks.length > 0 ? (
+            notebooks.map((notebook) => (
+              <NotebookOption
+                key={notebook.id}
+                notebook={notebook}
+                isActive={activeNotebookId === notebook.id}
+                count={notebookCounts[notebook.id] || 0}
+                onSelect={() => handleSelect(notebook.id)}
+                onEdit={() => {
+                  setIsOpen(false);
+                  onEditNotebook(notebook);
+                }}
+                onDelete={() => {
+                  setIsOpen(false);
+                  onDeleteNotebook(notebook);
+                }}
+                isDragging={draggedId === notebook.id}
+                isDragOver={dragOverId === notebook.id}
+                onDragStart={(e) => handleDragStart(e, notebook.id)}
+                onDragOver={(e) => handleDragOver(e, notebook.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, notebook.id)}
+                onDragEnd={handleDragEnd}
+              />
+            ))
+          ) : (
+            <div className="px-3 py-3 text-center text-sm text-neutral-400 italic">
+              No notebooks yet
+            </div>
+          )}
 
           {/* Divider */}
           <div className="border-t border-neutral-200 my-1" />
