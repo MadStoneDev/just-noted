@@ -89,12 +89,19 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
     }
   }, [isAuthenticated, sidebarOpen]);
 
-  // Recalculate notebook counts locally when notes change
+  // Recalculate notebook counts locally when notes array length changes
+  // Using length instead of full array to avoid excessive recalculations
+  const notesLength = notes.length;
+  const supabaseNotesFingerprint = notes
+    .filter(n => n.source === "supabase")
+    .map(n => `${n.id}:${n.notebookId || ""}`)
+    .join(",");
+
   useEffect(() => {
     if (isAuthenticated) {
       recalculateNotebookCounts();
     }
-  }, [isAuthenticated, notes, recalculateNotebookCounts]);
+  }, [isAuthenticated, notesLength, supabaseNotesFingerprint, recalculateNotebookCounts]);
 
   const loadNotebooks = async () => {
     setNotebooksLoading(true);
@@ -225,18 +232,23 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
     loadNotebookCounts();
   }, []);
 
-  // Notebook handlers
-  const handleNewNotebook = () => {
+  // Notebook handlers - memoized to prevent unnecessary re-renders
+  const handleNewNotebook = useCallback(() => {
     setEditingNotebook(null);
     setIsNotebookModalOpen(true);
-  };
+  }, []);
 
-  const handleEditNotebook = (notebook: Notebook) => {
+  const handleEditNotebook = useCallback((notebook: Notebook) => {
     setEditingNotebook(notebook);
     setIsNotebookModalOpen(true);
-  };
+  }, []);
 
-  const handleDeleteNotebookFromSwitcher = async (notebook: Notebook) => {
+  const handleCloseNotebookModal = useCallback(() => {
+    setIsNotebookModalOpen(false);
+    setEditingNotebook(null);
+  }, []);
+
+  const handleDeleteNotebookFromSwitcher = useCallback(async (notebook: Notebook) => {
     // Confirm deletion
     if (!confirm(`Delete "${notebook.name}"? Notes in this notebook will become loose notes.`)) {
       return;
@@ -246,16 +258,16 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
       const result = await deleteNotebook(notebook.id);
       if (result.success) {
         removeNotebook(notebook.id);
-        loadNotebookCounts();
+        recalculateNotebookCounts();
       } else {
         console.error("Failed to delete notebook:", result.error);
       }
     } catch (error) {
       console.error("Failed to delete notebook:", error);
     }
-  };
+  }, [removeNotebook, recalculateNotebookCounts]);
 
-  const handleSaveNotebook = async (data: {
+  const handleSaveNotebook = useCallback(async (data: {
     name: string;
     coverType: CoverType;
     coverValue: string;
@@ -277,9 +289,9 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
         throw new Error(result.error || "Failed to create notebook");
       }
     }
-  };
+  }, [editingNotebook, updateNotebookInStore, addNotebook]);
 
-  const handleDeleteNotebook = async () => {
+  const handleDeleteNotebook = useCallback(async () => {
     if (!editingNotebook) return;
 
     const result = await deleteNotebook(editingNotebook.id);
@@ -288,9 +300,9 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
     } else {
       throw new Error(result.error || "Failed to delete notebook");
     }
-  };
+  }, [editingNotebook, removeNotebook]);
 
-  const handleUploadCover = async (file: File): Promise<string | null> => {
+  const handleUploadCover = useCallback(async (file: File): Promise<string | null> => {
     if (!editingNotebook) return null;
 
     const formData = new FormData();
@@ -301,7 +313,7 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
       return result.url;
     }
     return null;
-  };
+  }, [editingNotebook]);
 
   // Strip HTML tags for preview
   const getPlainTextPreview = (html: string, maxLength = 60) => {
@@ -591,10 +603,7 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
       {/* Notebook Modal */}
       <NotebookModal
         isOpen={isNotebookModalOpen}
-        onClose={() => {
-          setIsNotebookModalOpen(false);
-          setEditingNotebook(null);
-        }}
+        onClose={handleCloseNotebookModal}
         notebook={editingNotebook}
         onSave={handleSaveNotebook}
         onDelete={editingNotebook ? handleDeleteNotebook : undefined}
