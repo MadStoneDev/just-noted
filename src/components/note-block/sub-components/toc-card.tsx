@@ -34,29 +34,36 @@ export default function TocCard({ isPrivate, onScrollToHeading }: TocCardProps) 
 
   return (
     <div
-      className={`col-span-2 sm:col-span-1 flex flex-col rounded-xl overflow-hidden transition-all duration-300 ${
+      className={`col-span-4 flex flex-col rounded-xl overflow-hidden transition-all duration-300 ${
         isPrivate
-          ? "bg-violet-800/20 text-violet-900"
-          : "bg-neutral-400/50 text-neutral-600"
+          ? "bg-violet-100/80 text-violet-900"
+          : "bg-neutral-100 text-neutral-600"
       }`}
     >
       {/* Header - always visible */}
       <button
         onClick={handleToggle}
         disabled={!hasHeadings}
-        className={`p-2 flex items-center justify-between gap-1 w-full text-left ${
+        className={`p-2.5 flex items-center justify-between gap-1 w-full text-left ${
           hasHeadings
             ? "cursor-pointer hover:bg-black/5"
-            : "cursor-default opacity-60"
+            : "cursor-default"
         } transition-colors`}
       >
-        <div className="flex items-center gap-1.5">
-          <IconList size={14} strokeWidth={2} />
-          <span className="text-xs font-medium">Contents</span>
+        <div className="flex items-center gap-2">
+          <IconList size={16} strokeWidth={2} className={isPrivate ? "text-violet-600" : "text-neutral-500"} />
+          <span className="text-sm font-medium">Contents</span>
+          {!hasHeadings && (
+            <span className="text-xs text-neutral-400 italic">(No headings found)</span>
+          )}
         </div>
         {hasHeadings && (
-          <div className="flex items-center gap-1">
-            <span className="text-xs opacity-70">{tocHeadings.length}</span>
+          <div className="flex items-center gap-1.5">
+            <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+              isPrivate ? "bg-violet-200 text-violet-700" : "bg-neutral-200 text-neutral-600"
+            }`}>
+              {tocHeadings.length}
+            </span>
             <IconChevronDown
               size={14}
               className={`transition-transform ${isExpanded ? "rotate-180" : ""}`}
@@ -69,7 +76,7 @@ export default function TocCard({ isPrivate, onScrollToHeading }: TocCardProps) 
       {isExpanded && hasHeadings && (
         <div className="border-t border-black/10 max-h-48 overflow-y-auto">
           {flatHeadings.map((heading) => {
-            const paddingLeft = 8 + heading.depth * 10;
+            const paddingLeft = 12 + heading.depth * 12;
             const isActive = heading.id === activeHeadingId;
 
             return (
@@ -79,7 +86,7 @@ export default function TocCard({ isPrivate, onScrollToHeading }: TocCardProps) 
                 className={`w-full text-left py-1.5 px-2 text-xs transition-colors ${
                   isActive
                     ? isPrivate
-                      ? "bg-violet-800/30 font-medium"
+                      ? "bg-violet-200/70 font-medium"
                       : "bg-mercedes-primary/20 font-medium"
                     : "hover:bg-black/5"
                 }`}
@@ -90,13 +97,6 @@ export default function TocCard({ isPrivate, onScrollToHeading }: TocCardProps) 
               </button>
             );
           })}
-        </div>
-      )}
-
-      {/* Empty state when expanded but no headings */}
-      {isExpanded && !hasHeadings && (
-        <div className="p-2 border-t border-black/10 text-xs opacity-60 text-center">
-          Add headings to see them here
         </div>
       )}
     </div>

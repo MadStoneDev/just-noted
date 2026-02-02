@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 
 interface StatCardProps {
   label: string;
@@ -8,21 +8,21 @@ interface StatCardProps {
 
 /**
  * Reusable statistics card component
- * Displays a statistic with label in a consistent format
+ * Displays a statistic with label in a clean, minimal format
  */
 export default function StatCard({ label, value, isPrivate }: StatCardProps) {
   return (
-    <p
-      className={`py-1 col-span-4 xs:col-span-1 flex xs:flex-col xl:flex-row items-center justify-center xl:gap-1 bg-neutral-200 rounded-xl border border-neutral-400 text-base`}
-    >
+    <div className="col-span-2 xs:col-span-1 flex flex-col items-center justify-center py-2 px-1">
       <span
-        className={`${
-          isPrivate ? "text-violet-800" : "text-mercedes-primary"
-        } text-lg font-medium`}
+        className={`text-xl font-semibold tabular-nums ${
+          isPrivate ? "text-violet-700" : "text-neutral-800"
+        }`}
       >
         {value}
       </span>
-      <span>{label}</span>
-    </p>
+      <span className="text-xs text-neutral-500 uppercase tracking-wide">
+        {label}
+      </span>
+    </div>
   );
 }
