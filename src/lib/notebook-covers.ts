@@ -49,14 +49,13 @@ export const COVER_GRADIENTS = [
 
 // Stock photos/images for notebook covers (in public/covers/)
 export const COVER_PHOTOS = [
-  { name: "mountains", path: "/covers/mountains.svg" },
-  { name: "forest", path: "/covers/forest.svg" },
-  { name: "ocean", path: "/covers/ocean.svg" },
-  { name: "stars", path: "/covers/stars.svg" },
-  { name: "abstract", path: "/covers/abstract.svg" },
-  { name: "books", path: "/covers/books.svg" },
-  { name: "desk", path: "/covers/desk.svg" },
-  { name: "coffee", path: "/covers/coffee.svg" },
+  { name: "mountains", path: "/covers/mountains.jpg" },
+  { name: "forest", path: "/covers/forest.jpg" },
+  { name: "ocean", path: "/covers/ocean.jpg" },
+  { name: "stars", path: "/covers/stars.jpg" },
+  { name: "books", path: "/covers/books.jpg" },
+  { name: "desk", path: "/covers/desk.jpg" },
+  { name: "coffee", path: "/covers/coffee.jpg" },
 ];
 
 // Default cover values
