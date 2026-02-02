@@ -280,43 +280,65 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
       const supabase = createClient();
 
       // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) {
+        console.error("Auth error:", authError);
+        return null;
+      }
       if (!user) {
         console.error("User not authenticated");
         return null;
       }
 
       const userId = user.id;
-      const ext = file.name.split(".").pop() || "jpg";
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
       const filePath = `${userId}/${notebookId}-${Date.now()}.${ext}`;
 
+      console.log("Uploading cover to:", filePath, "File size:", file.size, "Type:", file.type);
+
       // Delete any existing cover for this notebook first
-      const { data: existingFiles } = await supabase.storage
+      const { data: existingFiles, error: listError } = await supabase.storage
         .from("notebook-covers")
         .list(userId, { search: notebookId });
 
+      if (listError) {
+        console.error("Error listing existing files:", listError);
+        // Continue with upload even if list fails
+      }
+
       if (existingFiles && existingFiles.length > 0) {
         const filesToDelete = existingFiles.map((f) => `${userId}/${f.name}`);
-        await supabase.storage.from("notebook-covers").remove(filesToDelete);
+        console.log("Deleting existing files:", filesToDelete);
+        const { error: deleteError } = await supabase.storage.from("notebook-covers").remove(filesToDelete);
+        if (deleteError) {
+          console.error("Error deleting existing files:", deleteError);
+          // Continue with upload even if delete fails
+        }
       }
 
       // Upload the new file
-      const { error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from("notebook-covers")
         .upload(filePath, file, {
           cacheControl: "3600",
           upsert: true,
+          contentType: file.type,
         });
 
       if (uploadError) {
         console.error("Storage upload error:", uploadError);
+        console.error("Upload error details:", JSON.stringify(uploadError, null, 2));
         return null;
       }
+
+      console.log("Upload successful:", uploadData);
 
       // Get the public URL
       const { data: { publicUrl } } = supabase.storage
         .from("notebook-covers")
         .getPublicUrl(filePath);
+
+      console.log("Public URL:", publicUrl);
 
       return publicUrl;
     } catch (error) {
@@ -338,10 +360,15 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
 
       // If there's a pending file, upload it first
       if (data.pendingFile) {
+        console.log("Uploading pending file for existing notebook:", editingNotebook.id);
         const uploadedUrl = await uploadCoverFile(editingNotebook.id, data.pendingFile);
         if (uploadedUrl) {
           finalCoverType = "custom";
           finalCoverValue = uploadedUrl;
+          console.log("Upload successful, cover URL:", uploadedUrl);
+        } else {
+          console.error("Failed to upload cover file");
+          throw new Error("Failed to upload cover image. Please try again.");
         }
       }
 
@@ -370,6 +397,7 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
 
         // If there's a pending file, upload it now
         if (data.pendingFile) {
+          console.log("Uploading pending file for new notebook:", result.notebook.id);
           const uploadedUrl = await uploadCoverFile(result.notebook.id, data.pendingFile);
           if (uploadedUrl) {
             // Update notebook with uploaded cover
@@ -383,7 +411,13 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
                 coverType: "custom",
                 coverValue: uploadedUrl,
               });
+              console.log("Notebook updated with custom cover:", uploadedUrl);
+            } else {
+              console.error("Failed to update notebook with cover:", updateResult.error);
             }
+          } else {
+            console.error("Failed to upload cover file for new notebook");
+            // Don't throw here - notebook was created, just cover failed
           }
         }
       } else {

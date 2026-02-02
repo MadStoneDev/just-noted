@@ -8,7 +8,10 @@ import {
   COVER_PHOTOS,
   getCoverStyle,
 } from "@/lib/notebook-covers";
-import { IconCheck, IconUpload, IconPhoto } from "@tabler/icons-react";
+import { IconCheck, IconUpload, IconPhoto, IconAlertCircle } from "@tabler/icons-react";
+
+const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 type TabType = "colors" | "gradients" | "photos" | "upload";
 
@@ -28,6 +31,7 @@ export default function NotebookCoverPicker({
   pendingFile,
 }: NotebookCoverPickerProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   // Create preview URL for pending file
   React.useEffect(() => {
@@ -61,7 +65,29 @@ export default function NotebookCoverPicker({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Always use deferred upload - select file for later upload on save
+    // Clear previous errors
+    setUploadError(null);
+
+    // Validate file type
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setUploadError("Please select a JPG, PNG, or WebP image.");
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
+
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+      setUploadError(`File is too large (${sizeMB}MB). Maximum size is 2MB.`);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
+
+    // File is valid - use deferred upload (select file for later upload on save)
     if (onFileSelect) {
       onFileSelect(file);
       onSelect("custom", "pending"); // Mark as custom with pending upload
@@ -132,6 +158,14 @@ export default function NotebookCoverPicker({
 
         {activeTab === "upload" && (
           <div className="space-y-4">
+            {/* Upload error message */}
+            {uploadError && (
+              <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 text-sm rounded-lg">
+                <IconAlertCircle size={16} className="flex-shrink-0" />
+                <span>{uploadError}</span>
+              </div>
+            )}
+
             {/* Current custom image (uploaded) */}
             {coverType === "custom" && coverValue && coverValue !== "pending" && (
               <div className="relative w-full h-20 rounded-lg overflow-hidden bg-neutral-100">
@@ -166,7 +200,10 @@ export default function NotebookCoverPicker({
             {/* Upload button */}
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => {
+                setUploadError(null);
+                fileInputRef.current?.click();
+              }}
               className="w-full flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-neutral-300 rounded-lg hover:border-mercedes-primary hover:bg-neutral-50 transition-colors"
             >
               <IconUpload size={24} className="text-neutral-400" />

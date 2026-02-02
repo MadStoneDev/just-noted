@@ -89,12 +89,18 @@ export default function NoteStatistics({
         {/* In Notebook indicator */}
         {notebook && (
           <>
-            <div className="col-span-4 flex flex-col items-center gap-1 py-2">
-              <div className="flex items-center gap-1.5 text-xs uppercase tracking-wide opacity-80">
+            <div className={`col-span-4 flex flex-col items-center gap-1 py-2 rounded-lg ${
+              hasNotebookCover ? "bg-neutral-900/50" : ""
+            }`}>
+              <div className={`flex items-center gap-1.5 text-xs uppercase tracking-wide ${
+                hasNotebookCover ? "text-neutral-200" : "opacity-80"
+              }`}>
                 <IconNotebook size={14} />
                 <span>In Notebook</span>
               </div>
-              <span className="font-medium text-sm text-center">{notebook.name}</span>
+              <span className={`font-medium text-sm text-center ${
+                hasNotebookCover ? "text-white" : ""
+              }`}>{notebook.name}</span>
             </div>
 
             {/* Divider */}
@@ -111,7 +117,7 @@ export default function NoteStatistics({
         {/* Stats row - word count, char count, reading time */}
         <div className={`col-span-4 flex flex-col lg:flex-row items-center rounded-xl ${
           hasNotebookCover
-            ? "bg-white/20"
+            ? "bg-neutral-900/50"
             : isPrivate
               ? "bg-violet-50"
               : "bg-white"

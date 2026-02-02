@@ -7,9 +7,13 @@ import DistractionFreeNoteBlock from "@/components/distraction-free-note-block";
 import SplitViewNoteBlock from "@/components/split-view-note-block";
 import Sidebar from "@/components/sidebar";
 import NotebookBreadcrumb from "@/components/notebook-breadcrumb";
+import NotebookModal from "@/components/notebook-modal";
 import UndoDeleteToast from "@/components/ui/undo-toast";
 import { GlobalSaveIndicator } from "@/components/ui/save-indicator";
 import OfflineIndicator, { OfflineStatusBadge } from "@/components/ui/offline-indicator";
+import { updateNotebook, deleteNotebook } from "@/app/actions/notebookActions";
+import { createClient } from "@/utils/supabase/client";
+import { CoverType } from "@/types/notebook";
 
 import {
   IconArrowsMinimize,
@@ -47,7 +51,14 @@ export default function NoteWrapper() {
   );
 
   // UI State from Zustand
-  const { toggleSidebar, setSidebarOpen, activeNoteId, notes } = useNotesStore();
+  const { toggleSidebar, setSidebarOpen, activeNoteId, notes, updateNotebook: updateNotebookInStore, removeNotebook } = useNotesStore();
+
+  // Get active notebook for editing via breadcrumb
+  const activeNotebook = useNotesStore((state) => {
+    const { activeNotebookId, notebooks } = state;
+    if (!activeNotebookId || activeNotebookId === "loose") return null;
+    return notebooks.find((n) => n.id === activeNotebookId) || null;
+  });
 
   // Local states for distraction-free mode
   const [activeNote, setActiveNote] = useState<CombinedNote | null>(null);
@@ -60,6 +71,9 @@ export default function NoteWrapper() {
   const [splitViewNote, setSplitViewNote] = useState<CombinedNote | null>(null);
   const [showSplitView, setShowSplitView] = useState(false);
   const [isSplitAnimating, setIsSplitAnimating] = useState(false);
+
+  // Local states for notebook edit modal (from breadcrumb)
+  const [showNotebookModal, setShowNotebookModal] = useState(false);
 
   // Handlers for distraction-free mode
   const handleShowDistractionFree = useCallback((note: CombinedNote) => {
@@ -113,6 +127,131 @@ export default function NoteWrapper() {
       }
     });
   }, [noteFlushFunctions]);
+
+  // Notebook modal handlers for breadcrumb
+  const handleOpenNotebookModal = useCallback(() => {
+    if (activeNotebook) {
+      setShowNotebookModal(true);
+    }
+  }, [activeNotebook]);
+
+  const handleCloseNotebookModal = useCallback(() => {
+    setShowNotebookModal(false);
+  }, []);
+
+  // Helper to upload cover using client-side Supabase
+  const uploadCoverFile = async (notebookId: string, file: File): Promise<string | null> => {
+    try {
+      const supabase = createClient();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+      if (authError) {
+        console.error("Auth error:", authError);
+        return null;
+      }
+      if (!user) {
+        console.error("User not authenticated");
+        return null;
+      }
+
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const filePath = `${user.id}/${notebookId}-${Date.now()}.${ext}`;
+
+      console.log("Uploading cover to:", filePath, "File size:", file.size, "Type:", file.type);
+
+      // Delete existing covers for this notebook
+      const { data: existingFiles, error: listError } = await supabase.storage
+        .from("notebook-covers")
+        .list(user.id, { search: notebookId });
+
+      if (listError) {
+        console.error("Error listing existing files:", listError);
+      }
+
+      if (existingFiles && existingFiles.length > 0) {
+        const filesToDelete = existingFiles.map((f) => `${user.id}/${f.name}`);
+        console.log("Deleting existing files:", filesToDelete);
+        await supabase.storage.from("notebook-covers").remove(filesToDelete);
+      }
+
+      // Upload new file
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("notebook-covers")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: file.type,
+        });
+
+      if (uploadError) {
+        console.error("Storage upload error:", uploadError);
+        console.error("Upload error details:", JSON.stringify(uploadError, null, 2));
+        return null;
+      }
+
+      console.log("Upload successful:", uploadData);
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("notebook-covers")
+        .getPublicUrl(filePath);
+
+      console.log("Public URL:", publicUrl);
+
+      return publicUrl;
+    } catch (error) {
+      console.error("Upload error:", error);
+      return null;
+    }
+  };
+
+  const handleSaveNotebook = useCallback(async (data: {
+    name: string;
+    coverType: CoverType;
+    coverValue: string;
+    pendingFile?: File | null;
+  }) => {
+    if (!activeNotebook) return;
+
+    let finalCoverType = data.coverType;
+    let finalCoverValue = data.coverValue;
+
+    // Upload pending file if exists
+    if (data.pendingFile) {
+      console.log("Uploading pending file for notebook:", activeNotebook.id);
+      const uploadedUrl = await uploadCoverFile(activeNotebook.id, data.pendingFile);
+      if (uploadedUrl) {
+        finalCoverType = "custom";
+        finalCoverValue = uploadedUrl;
+        console.log("Upload successful, cover URL:", uploadedUrl);
+      } else {
+        console.error("Failed to upload cover file");
+        throw new Error("Failed to upload cover image. Please try again.");
+      }
+    }
+
+    const result = await updateNotebook(activeNotebook.id, {
+      name: data.name,
+      coverType: finalCoverType,
+      coverValue: finalCoverValue,
+    });
+
+    if (result.success && result.notebook) {
+      updateNotebookInStore(activeNotebook.id, result.notebook);
+    } else {
+      throw new Error(result.error || "Failed to update notebook");
+    }
+  }, [activeNotebook, updateNotebookInStore]);
+
+  const handleDeleteNotebook = useCallback(async () => {
+    if (!activeNotebook) return;
+
+    const result = await deleteNotebook(activeNotebook.id);
+    if (result.success) {
+      removeNotebook(activeNotebook.id);
+    } else {
+      throw new Error(result.error || "Failed to delete notebook");
+    }
+  }, [activeNotebook, removeNotebook]);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -195,7 +334,7 @@ export default function NoteWrapper() {
         </div>
 
         {/* Notebook breadcrumb - shows when viewing specific notebook */}
-        <NotebookBreadcrumb />
+        <NotebookBreadcrumb onEditNotebook={handleOpenNotebookModal} />
 
         {/* Keyboard shortcuts help */}
         {showShortcuts && (
@@ -331,6 +470,15 @@ export default function NoteWrapper() {
 
       {/* Offline indicator */}
       <OfflineIndicator />
+
+      {/* Notebook edit modal (from breadcrumb) */}
+      <NotebookModal
+        isOpen={showNotebookModal}
+        onClose={handleCloseNotebookModal}
+        notebook={activeNotebook}
+        onSave={handleSaveNotebook}
+        onDelete={handleDeleteNotebook}
+      />
     </NotesErrorBoundary>
   );
 }

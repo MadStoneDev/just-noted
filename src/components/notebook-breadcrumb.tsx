@@ -86,22 +86,23 @@ export default function NotebookBreadcrumb({ onEditNotebook }: NotebookBreadcrum
       </div>
 
       <div className="flex items-center gap-1">
+        {/* Edit button - more prominent for mobile accessibility */}
+        {onEditNotebook && (
+          <button
+            onClick={onEditNotebook}
+            className="p-2.5 text-neutral-600 hover:text-neutral-800 hover:bg-neutral-200 rounded-lg transition-colors"
+            title="Edit notebook settings"
+            aria-label="Edit notebook settings"
+          >
+            <IconSettings size={20} />
+          </button>
+        )}
+
         {/* Export button */}
         <NotebookExportButton
           notebookId={activeNotebook.id}
           notebookName={activeNotebook.name}
         />
-
-        {/* Edit button */}
-        {onEditNotebook && (
-          <button
-            onClick={onEditNotebook}
-            className="p-2 text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 rounded-lg transition-colors"
-            title="Edit notebook"
-          >
-            <IconSettings size={18} />
-          </button>
-        )}
       </div>
     </div>
   );
