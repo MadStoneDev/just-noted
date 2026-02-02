@@ -54,7 +54,8 @@ export default function NoteStatistics({
       <div className={`col-span-4 h-px ${isPrivate ? "bg-violet-200" : "bg-neutral-200"}`} />
 
       {/* Stats row - word count, char count, reading time */}
-      <div className={`col-span-4 grid grid-cols-3 rounded-xl ${
+      {/* xs: col, sm: row, md: col, lg: row */}
+      <div className={`col-span-4 flex flex-col sm:flex-row md:flex-col lg:flex-row items-center rounded-xl ${
         isPrivate ? "bg-violet-50" : "bg-white"
       }`}>
         <StatCard label="words" value={wordCount} isPrivate={isPrivate} />
