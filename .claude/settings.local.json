@@ -15,7 +15,8 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd Table of Contents and Split View features \\(Phase 3 & 4\\)\n\nPhase 3 - Table of Contents:\n- Auto-detect H1-H6 headings from note content\n- Click-to-jump navigation with smooth scrolling\n- Active heading indicator based on scroll position\n- Indented hierarchy display\n- Toggle via toolbar button or Ctrl+Shift+T\n- Visibility persisted in localStorage\n\nPhase 4 - Split View:\n- Horizontal \\(side-by-side\\) or vertical \\(top-bottom\\) layouts\n- Resizable panes with drag divider\n- Reference note selector with search and grouping\n- Lock/unlock toggle for editable reference\n- Toggle via toolbar dropdown or Ctrl+Shift+S\n- All preferences persisted in localStorage\n\nAlso includes notebook polish items:\n- Bulk assign notes to notebooks\n- Export notebook as TXT/MD/HTML/JSON\n- Drag-and-drop notebook reordering\n- Faded photo cover treatment\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git push)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nUpdate The What and The How pages with new features\n\n- Add paragraph about notebooks, split view, and ToC to The What page\n- Emphasize that JustNoted stays simple by default\n- Add new sections to The How page:\n  - Organising with Notebooks\n  - Split View for Referencing Notes\n  - Table of Contents\n  - Bulk Actions\n  - Exporting Notebooks\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git restore:*)"
     ]
   }
 }
