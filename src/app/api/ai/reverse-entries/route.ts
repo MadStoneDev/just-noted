@@ -1,30 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-
-// Rate limiting storage (shared concept with analyze-patterns)
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+import { createClient } from "@/utils/supabase/server";
+import { checkRateLimit } from "@/utils/rate-limit";
 
 const DAILY_LIMIT = 5;
 const RATE_LIMIT_WINDOW = 24 * 60 * 60 * 1000;
-
-function checkRateLimit(userId: string): { allowed: boolean; remaining: number; resetAt: number } {
-  const now = Date.now();
-  const userLimit = rateLimitStore.get(userId);
-
-  if (!userLimit || now > userLimit.resetAt) {
-    rateLimitStore.set(userId, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
-    return { allowed: true, remaining: DAILY_LIMIT - 1, resetAt: now + RATE_LIMIT_WINDOW };
-  }
-
-  if (userLimit.count >= DAILY_LIMIT) {
-    return { allowed: false, remaining: 0, resetAt: userLimit.resetAt };
-  }
-
-  userLimit.count++;
-  return { allowed: true, remaining: DAILY_LIMIT - userLimit.count, resetAt: userLimit.resetAt };
-}
+const FEATURE_NAME = "ai-reverse";
 
 interface ReverseRequest {
-  userId: string;
   noteContent: string;
   patternName: string;
   entryCount: number;
@@ -32,6 +14,19 @@ interface ReverseRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    // Verify authentication
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
+    const userId = user.id;
+
     const apiKey = process.env.ANTHROPIC_API_KEY;
 
     if (!apiKey) {
@@ -42,18 +37,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { userId, noteContent, patternName, entryCount } = body as ReverseRequest;
-
-    if (!userId) {
-      return NextResponse.json({ error: "User ID required" }, { status: 400 });
-    }
+    const { noteContent, patternName, entryCount } = body as ReverseRequest;
 
     if (!noteContent) {
       return NextResponse.json({ error: "Note content required" }, { status: 400 });
     }
 
-    // Check rate limit
-    const rateLimit = checkRateLimit(userId);
+    // Check rate limit using Redis
+    const rateLimit = await checkRateLimit(userId, FEATURE_NAME, DAILY_LIMIT, RATE_LIMIT_WINDOW);
     if (!rateLimit.allowed) {
       return NextResponse.json(
         {

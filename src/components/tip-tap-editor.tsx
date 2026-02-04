@@ -52,6 +52,21 @@ import TextTransformMenu from "@/components/ui/text-transform-menu";
 import ImageUpload from "@/components/ui/image-upload";
 import FormatInspector from "@/components/ui/format-inspector";
 
+/**
+ * Validates that a URL is safe for use in links/images
+ * Only allows http, https, and mailto protocols
+ */
+function isValidUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    // Only allow safe protocols
+    return ["http:", "https:", "mailto:"].includes(parsed.protocol);
+  } catch {
+    // If URL is invalid, check if it's a relative path
+    return url.startsWith("/") && !url.startsWith("//");
+  }
+}
+
 interface TipTapEditorProps {
   noteId?: string;
   markdown: string;
@@ -423,7 +438,12 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
               onClick={() => {
                 const url = window.prompt("Enter link URL:");
                 if (url) {
-                  editor.chain().focus().setLink({ href: url }).run();
+                  // Validate URL to prevent javascript: and other dangerous protocols
+                  if (isValidUrl(url)) {
+                    editor.chain().focus().setLink({ href: url }).run();
+                  } else {
+                    alert("Invalid URL. Please enter a valid http, https, or mailto link.");
+                  }
                 } else {
                   editor.chain().focus().unsetLink().run();
                 }
@@ -450,7 +470,12 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
         {showImageUpload && (
           <ImageUpload
             onInsertImage={(src, alt) => {
-              editor.chain().focus().setImage({ src, alt }).run();
+              // Validate image URL to prevent javascript: and other dangerous protocols
+              if (isValidUrl(src)) {
+                editor.chain().focus().setImage({ src, alt }).run();
+              } else {
+                alert("Invalid image URL. Please enter a valid http or https URL.");
+              }
             }}
             onClose={() => setShowImageUpload(false)}
           />

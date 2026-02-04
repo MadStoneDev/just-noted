@@ -1,13 +1,22 @@
-﻿import redis from "@/utils/redis";
+import redis from "@/utils/redis";
 import { TWO_MONTHS_IN_SECONDS, USER_ACTIVITY_PREFIX } from "@/constants/app";
+import { createClient } from "@/utils/supabase/server";
 
 export async function POST(request: Request) {
   try {
-    const { userId } = await request.json();
+    // Verify authentication - user can only update their own activity
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (!userId) {
-      return Response.json({ error: "Missing userId" }, { status: 400 });
+    if (authError || !user) {
+      return Response.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
     }
+
+    // Use authenticated user's ID instead of request body
+    const userId = user.id;
 
     await redis.setex(
       `${USER_ACTIVITY_PREFIX}${userId}`,

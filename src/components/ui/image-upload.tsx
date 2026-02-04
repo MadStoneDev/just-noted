@@ -3,6 +3,25 @@
 import React, { useState, useRef, useCallback } from "react";
 import { IconPhoto, IconUpload, IconLink, IconX, IconLoader } from "@tabler/icons-react";
 
+/**
+ * Validates that an image URL is safe
+ * Only allows http and https protocols, plus data: URIs for uploads
+ */
+function isValidImageUrl(url: string): boolean {
+  // Allow data: URIs for uploaded images
+  if (url.startsWith("data:image/")) {
+    return true;
+  }
+
+  try {
+    const parsed = new URL(url);
+    // Only allow http and https for external images
+    return ["http:", "https:"].includes(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+
 interface ImageUploadProps {
   onInsertImage: (src: string, alt?: string) => void;
   onClose: () => void;
@@ -121,8 +140,13 @@ export default function ImageUpload({ onInsertImage, onClose }: ImageUploadProps
       onInsertImage(preview, alt || "Uploaded image");
       onClose();
     } else if (mode === "url" && url.trim()) {
-      onInsertImage(url.trim(), alt || "");
-      onClose();
+      // Validate URL to prevent javascript: and other dangerous protocols
+      if (isValidImageUrl(url.trim())) {
+        onInsertImage(url.trim(), alt || "");
+        onClose();
+      } else {
+        setError("Invalid URL. Please enter a valid http or https image URL.");
+      }
     }
   }, [mode, preview, url, alt, onInsertImage, onClose]);
 

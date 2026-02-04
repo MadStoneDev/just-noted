@@ -32,12 +32,7 @@ export async function handleAuth(formData: FormData): Promise<AuthResponse> {
     });
 
     if (error) {
-      console.error("Supabase auth error:", {
-        message: error.message,
-        status: error.status,
-        code: error.code,
-        name: error.name,
-      });
+      console.error("Auth error occurred");
 
       if (error.message.includes("Invalid email")) {
         return {
@@ -54,9 +49,9 @@ export async function handleAuth(formData: FormData): Promise<AuthResponse> {
         };
       }
 
-      // Return the actual error message for debugging
+      // Return generic error message to client
       return {
-        error: `Error (${error.code}): ${error.message}`,
+        error: "Authentication failed. Please try again.",
         success: false,
       };
     }
@@ -68,11 +63,9 @@ export async function handleAuth(formData: FormData): Promise<AuthResponse> {
       success: true,
     };
   } catch (error: any) {
-    console.error("Unexpected error during authentication:", error);
-
-    // More detailed error
+    console.error("Unexpected auth error");
     return {
-      error: `Authentication error: ${error?.message || "Unknown error"}`,
+      error: "Authentication failed. Please try again.",
       success: false,
     };
   }
@@ -99,11 +92,7 @@ export async function verifyOtp(formData: FormData): Promise<AuthResponse> {
     });
 
     if (error) {
-      console.error("OTP verification error:", {
-        message: error.message,
-        status: error.status,
-        code: error.code,
-      });
+      console.error("OTP verification error");
 
       if (error.message.includes("Invalid OTP")) {
         return {
@@ -120,7 +109,7 @@ export async function verifyOtp(formData: FormData): Promise<AuthResponse> {
       }
 
       return {
-        error: `Verification failed (${error.code}): ${error.message}`,
+        error: "Verification failed. Please try again.",
         success: false,
       };
     }
@@ -134,9 +123,9 @@ export async function verifyOtp(formData: FormData): Promise<AuthResponse> {
       redirectTo: "/",
     };
   } catch (error: any) {
-    console.error("Unexpected error during OTP verification:", error);
+    console.error("Unexpected OTP verification error");
     return {
-      error: `Verification error: ${error?.message || "Unknown error"}`,
+      error: "Verification failed. Please try again.",
       success: false,
     };
   }

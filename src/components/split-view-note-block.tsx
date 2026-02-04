@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useCallback } from "react";
+import DOMPurify from "dompurify";
 import { useNotesStore } from "@/stores/notes-store";
 import NoteBlock from "@/components/note-block";
 import ReferenceNoteSelector from "@/components/reference-note-selector";
@@ -180,7 +181,7 @@ export default function SplitViewNoteBlock({
                 ) : (
                   <div
                     className="prose prose-sm max-w-none p-4 h-full overflow-auto"
-                    dangerouslySetInnerHTML={{ __html: referenceNote.content }}
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(referenceNote.content) }}
                   />
                 )}
               </div>

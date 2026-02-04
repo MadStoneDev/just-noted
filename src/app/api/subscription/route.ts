@@ -6,17 +6,20 @@ import { Subscription, SubscriptionTier } from "@/types/subscription";
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
+    const supabase = await createClient();
 
-    if (!userId) {
+    // Verify authentication - users can only fetch their own subscription
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
       return NextResponse.json(
-        { error: "User ID is required" },
-        { status: 400 }
+        { error: "Authentication required" },
+        { status: 401 }
       );
     }
 
-    const supabase = await createClient();
+    // Use authenticated user's ID instead of query parameter
+    const userId = user.id;
 
     // Fetch subscription from database
     const { data, error } = await supabase
@@ -49,7 +52,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ subscription });
   } catch (error) {
-    console.error("Subscription fetch error:", error);
+    console.error("Subscription fetch error");
     return NextResponse.json(
       { error: "Failed to fetch subscription" },
       { status: 500 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import DOMPurify from "dompurify";
 import {
   IconArrowLeft,
   IconCalendarEvent,
@@ -63,11 +64,10 @@ export default function SharedNotePage({
     });
   };
 
-  // Sanitize HTML content - TipTap already stores HTML, just need to ensure it's safe
+  // Sanitize HTML content to prevent XSS attacks
   const sanitizeContent = (content: string): string => {
-    // Content from TipTap is already HTML - just return it
-    // The CSS will handle proper styling via the ProseMirror class
-    return content;
+    // Use DOMPurify to sanitize any potentially dangerous HTML
+    return DOMPurify.sanitize(content);
   };
 
   useEffect(() => {

@@ -1,28 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-
-// Rate limiting storage (in production, use Redis or database)
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+import { createClient } from "@/utils/supabase/server";
+import { checkRateLimit, getRateLimitStatus } from "@/utils/rate-limit";
 
 const DAILY_LIMIT = 5; // 5 analyses per day per user
 const RATE_LIMIT_WINDOW = 24 * 60 * 60 * 1000; // 24 hours
-
-function checkRateLimit(userId: string): { allowed: boolean; remaining: number; resetAt: number } {
-  const now = Date.now();
-  const userLimit = rateLimitStore.get(userId);
-
-  if (!userLimit || now > userLimit.resetAt) {
-    // Reset or initialize
-    rateLimitStore.set(userId, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
-    return { allowed: true, remaining: DAILY_LIMIT - 1, resetAt: now + RATE_LIMIT_WINDOW };
-  }
-
-  if (userLimit.count >= DAILY_LIMIT) {
-    return { allowed: false, remaining: 0, resetAt: userLimit.resetAt };
-  }
-
-  userLimit.count++;
-  return { allowed: true, remaining: DAILY_LIMIT - userLimit.count, resetAt: userLimit.resetAt };
-}
+const FEATURE_NAME = "ai-analyze";
 
 interface NoteForAnalysis {
   id: string;
@@ -32,31 +14,39 @@ interface NoteForAnalysis {
 
 export async function POST(request: NextRequest) {
   try {
+    // Verify authentication
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
+    const userId = user.id;
+
     const apiKey = process.env.ANTHROPIC_API_KEY;
 
     if (!apiKey) {
       return NextResponse.json(
-        { error: "AI features are not configured. Please add ANTHROPIC_API_KEY to environment variables." },
+        { error: "AI features are not configured." },
         { status: 503 }
       );
     }
 
     const body = await request.json();
-    const { userId, note } = body as {
-      userId: string;
+    const { note } = body as {
       note: NoteForAnalysis;
     };
-
-    if (!userId) {
-      return NextResponse.json({ error: "User ID required" }, { status: 400 });
-    }
 
     if (!note || !note.content) {
       return NextResponse.json({ error: "Note content required for analysis" }, { status: 400 });
     }
 
-    // Check rate limit
-    const rateLimit = checkRateLimit(userId);
+    // Check rate limit using Redis
+    const rateLimit = await checkRateLimit(userId, FEATURE_NAME, DAILY_LIMIT, RATE_LIMIT_WINDOW);
     if (!rateLimit.allowed) {
       const resetIn = Math.ceil((rateLimit.resetAt - Date.now()) / (60 * 60 * 1000));
       return NextResponse.json(
@@ -158,8 +148,7 @@ Be strict about pattern detection - only return patternFound: true if there are 
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error("Anthropic API error:", errorData);
+      console.error("Anthropic API error");
       return NextResponse.json(
         { error: "Failed to analyze note. Please try again later." },
         { status: 500 }
@@ -210,26 +199,25 @@ Be strict about pattern detection - only return patternFound: true if there are 
 
 // GET endpoint to check rate limit status
 export async function GET(request: NextRequest) {
-  const userId = request.nextUrl.searchParams.get("userId");
+  // Verify authentication
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-  if (!userId) {
-    return NextResponse.json({ error: "User ID required" }, { status: 400 });
+  if (authError || !user) {
+    return NextResponse.json(
+      { error: "Authentication required" },
+      { status: 401 }
+    );
   }
 
-  const now = Date.now();
-  const userLimit = rateLimitStore.get(userId);
+  const userId = user.id;
 
-  if (!userLimit || now > userLimit.resetAt) {
-    return NextResponse.json({
-      remaining: DAILY_LIMIT,
-      limit: DAILY_LIMIT,
-      resetAt: now + RATE_LIMIT_WINDOW,
-    });
-  }
+  // Get rate limit status from Redis
+  const status = await getRateLimitStatus(userId, FEATURE_NAME, DAILY_LIMIT, RATE_LIMIT_WINDOW);
 
   return NextResponse.json({
-    remaining: Math.max(0, DAILY_LIMIT - userLimit.count),
+    remaining: status.remaining,
     limit: DAILY_LIMIT,
-    resetAt: userLimit.resetAt,
+    resetAt: status.resetAt,
   });
 }

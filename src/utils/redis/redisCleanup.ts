@@ -9,7 +9,7 @@ export async function cleanupOldNotes() {
   try {
     // Get all user note keys from Redis
     const userNoteKeys = await scanAllKeys("notes:*");
-    const failedDeletions: Array<{ userId: string; error: string }> = [];
+    let failedDeletions = 0;
 
     // Get all active user IDs (these have valid activity timestamps)
     const activeUserKeys = await scanAllKeys(`${USER_ACTIVITY_PREFIX}*`);
@@ -23,7 +23,6 @@ export async function cleanupOldNotes() {
     // Track statistics for reporting
     let totalUsersRemoved = 0;
     let totalUsersProcessed = userNoteKeys.length;
-    const removedUserIds: string[] = [];
 
     // Process each user's notes
     for (const noteKey of userNoteKeys) {
@@ -33,21 +32,16 @@ export async function cleanupOldNotes() {
       if (!activeUserIdSet.has(userId)) {
         try {
           await redis.del(noteKey);
-          removedUserIds.push(userId);
           totalUsersRemoved++;
         } catch (error) {
-          failedDeletions.push({
-            userId,
-            error: String(error),
-          });
-
-          console.error(`Failed to delete notes for user ${userId}:`, error);
+          failedDeletions++;
+          console.error("Failed to delete notes for inactive user");
         }
       }
     }
 
     console.log(
-      `Cleanup completed: Removed notes for ${totalUsersRemoved} inactive users out of ${totalUsersProcessed} total users`,
+      `Cleanup completed: Removed ${totalUsersRemoved} inactive users out of ${totalUsersProcessed} total`,
     );
 
     return {
@@ -55,7 +49,6 @@ export async function cleanupOldNotes() {
       stats: {
         totalUsersProcessed,
         totalUsersRemoved,
-        removedUserIds,
         failedDeletions,
       },
     };

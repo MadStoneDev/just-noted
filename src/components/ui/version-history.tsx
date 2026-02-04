@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import DOMPurify from "dompurify";
 import { CombinedNote } from "@/types/combined-notes";
 import {
   IconHistory,
@@ -192,7 +193,7 @@ export default function VersionHistory({
                   <h3 className="text-lg font-semibold mb-2">{selectedVersion.title}</h3>
                   <div
                     className="prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ __html: selectedVersion.content }}
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedVersion.content) }}
                   />
                 </div>
               </>

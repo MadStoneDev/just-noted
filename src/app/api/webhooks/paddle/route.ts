@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
     const event: PaddleWebhookEvent = JSON.parse(payload);
     const supabase = await createClient();
 
+    // Log event type only, no sensitive data
     console.log("Paddle webhook received:", event.event_type);
 
     switch (event.event_type) {
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
       case "subscription.activated": {
         const userId = event.data.custom_data?.userId;
         if (!userId) {
-          console.error("No userId in subscription event");
+          console.error("Missing userId in subscription event");
           return NextResponse.json({ error: "Missing userId" }, { status: 400 });
         }
 
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString(),
         });
 
-        console.log(`Subscription created for user ${userId}: ${tier}`);
+        console.log("Subscription created successfully");
         break;
       }
 
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
           .update(updates)
           .eq("paddle_subscription_id", subscriptionId);
 
-        console.log(`Subscription updated: ${subscriptionId}`);
+        console.log("Subscription updated successfully");
         break;
       }
 
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
           })
           .eq("paddle_subscription_id", subscriptionId);
 
-        console.log(`Subscription cancelled: ${subscriptionId}`);
+        console.log("Subscription cancelled");
         break;
       }
 
@@ -132,7 +133,7 @@ export async function POST(request: NextRequest) {
           })
           .eq("paddle_subscription_id", subscriptionId);
 
-        console.log(`Subscription past due: ${subscriptionId}`);
+        console.log("Subscription marked as past due");
         break;
       }
 
