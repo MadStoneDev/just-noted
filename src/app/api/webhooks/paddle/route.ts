@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
+import { createServiceRoleClient } from "@/utils/supabase/server";
 import { PaddleWebhookEvent, SubscriptionTier } from "@/types/subscription";
 import crypto from "crypto";
 
@@ -46,7 +46,8 @@ export async function POST(request: NextRequest) {
     }
 
     const event: PaddleWebhookEvent = JSON.parse(payload);
-    const supabase = await createClient();
+    // Use service role client to bypass RLS for webhook operations
+    const supabase = createServiceRoleClient();
 
     // Log event type only, no sensitive data
     console.log("Paddle webhook received:", event.event_type);

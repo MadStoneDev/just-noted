@@ -17,6 +17,8 @@ import {
   validateGoalType,
   validateNoteContent,
   validateNoteTitle,
+  validateNoteContentLength,
+  validateNoteTitleLength,
 } from "@/utils/validation";
 import {
   NOTES_KEY_PREFIX,
@@ -237,6 +239,15 @@ async function handleRedisOperation(params: NoteOperationParams) {
           };
         }
 
+        // Validate content length
+        const contentLengthValidation = validateNoteContentLength(content);
+        if (!contentLengthValidation.valid) {
+          return {
+            success: false,
+            error: contentLengthValidation.error || "Content too long",
+          };
+        }
+
         const currentNotes = await getNotesWithRetry(userId);
         const noteIndex = currentNotes.findIndex((note) => note.id === noteId);
 
@@ -422,6 +433,15 @@ async function handleSupabaseOperation(params: NoteOperationParams) {
       case "update": {
         const { noteId, content, goal = 0, goalType = "" } = params;
 
+        // Validate content length
+        const contentLengthValidation = validateNoteContentLength(content);
+        if (!contentLengthValidation.valid) {
+          return {
+            success: false,
+            error: contentLengthValidation.error || "Content too long",
+          };
+        }
+
         const { error } = await supabase
           .from("notes")
           .update({
@@ -447,6 +467,15 @@ async function handleSupabaseOperation(params: NoteOperationParams) {
           return {
             success: false,
             error: "Invalid title: Title cannot be empty",
+          };
+        }
+
+        // Validate title length
+        const titleLengthValidation = validateNoteTitleLength(title);
+        if (!titleLengthValidation.valid) {
+          return {
+            success: false,
+            error: titleLengthValidation.error || "Title too long",
           };
         }
 

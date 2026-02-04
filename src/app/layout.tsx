@@ -6,6 +6,7 @@ import { Outfit, Playfair_Display } from "next/font/google";
 import React, { ReactNode } from "react";
 import LogRocket from "@/components/providers/logrocket-provider";
 import { ToastProvider } from "@/components/ui/toast";
+import { ConsentBanner } from "@/components/ui/consent-banner";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -64,6 +65,8 @@ export default function RootLayout({
             <div className={`h-18 print:hidden`}></div>
 
             {children}
+
+            <ConsentBanner />
           </ToastProvider>
         </LogRocket>
       </body>

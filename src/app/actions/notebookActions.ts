@@ -13,6 +13,7 @@ import {
   DEFAULT_COVER_TYPE,
   DEFAULT_COVER_VALUE,
 } from "@/lib/notebook-covers";
+import { validateNotebookName, isValidUUID } from "@/utils/validation";
 
 // ===========================
 // AUTHENTICATION HELPER
@@ -115,14 +116,15 @@ export async function createNotebook(
 
     const nextOrder = (maxOrderData?.display_order ?? -1) + 1;
 
-    // Validate and set defaults
-    const name = input.name?.trim();
-    if (!name) {
+    // Validate notebook name
+    const nameValidation = validateNotebookName(input.name);
+    if (!nameValidation.valid) {
       return {
         success: false,
-        error: "Notebook name is required",
+        error: nameValidation.error || "Invalid notebook name",
       };
     }
+    const name = input.name!.trim();
 
     const coverType = input.coverType || DEFAULT_COVER_TYPE;
     const coverValue = input.coverValue || DEFAULT_COVER_VALUE;
@@ -179,14 +181,14 @@ export async function updateNotebook(
     };
 
     if (updates.name !== undefined) {
-      const name = updates.name.trim();
-      if (!name) {
+      const nameValidation = validateNotebookName(updates.name);
+      if (!nameValidation.valid) {
         return {
           success: false,
-          error: "Notebook name cannot be empty",
+          error: nameValidation.error || "Invalid notebook name",
         };
       }
-      updateData.name = name;
+      updateData.name = updates.name.trim();
     }
 
     if (updates.coverType !== undefined) {
