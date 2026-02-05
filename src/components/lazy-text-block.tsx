@@ -145,11 +145,11 @@ export default function LazyTextBlock({
   const editorContainerClass = useMemo(() => {
     return `tiptap-editor-container relative pb-1 ${
       distractionFreeMode ? "h-full" : "min-h-[400px] max-h-[500px]"
-    } bg-white rounded-xl shadow-lg shadow-transparent hover:shadow-neutral-300 focus-within:shadow-neutral-300 outline-2 outline-transparent focus-within:outline-mercedes-primary font-light overflow-hidden transition-all duration-300 ease-in-out overflow-y-auto ${className}`;
+    } bg-white rounded-xl shadow-sm hover:shadow-md focus-within:shadow-md outline-2 outline-transparent focus-within:outline-mercedes-primary font-light overflow-hidden transition-shadow duration-300 ease-in-out overflow-y-auto ${className}`;
   }, [distractionFreeMode, className]);
 
   const previewContainerClass = useMemo(() => {
-    return `relative bg-white rounded-xl shadow-lg shadow-transparent hover:shadow-neutral-300 font-light overflow-hidden transition-all duration-300 ease-in-out ${className}`;
+    return `relative bg-white rounded-xl shadow-sm hover:shadow-md font-light overflow-hidden transition-shadow duration-300 ease-in-out ${className}`;
   }, [className]);
 
   const isEmpty = !localValue || localValue.trim() === "";

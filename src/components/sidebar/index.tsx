@@ -459,7 +459,7 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
       {/* Sidebar */}
       <aside
         ref={sidebarRef}
-        className={`fixed top-0 left-0 h-full w-80 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 h-full w-[min(320px,calc(100vw-48px))] bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -469,7 +469,7 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
             <h2 className="text-lg font-semibold text-neutral-800">Notes</h2>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="p-2 rounded-lg hover:bg-neutral-100 transition-colors"
+              className="p-3 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-neutral-100 transition-colors"
               aria-label="Close sidebar"
             >
               <IconX size={20} />
@@ -586,7 +586,7 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
               <div className="pt-2 border-t border-neutral-100">
                 <button
                   onClick={handleToggleSelectMode}
-                  className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-full transition-colors ${
+                  className={`flex items-center gap-2 px-3 py-2.5 min-h-[44px] text-xs rounded-lg transition-colors ${
                     selectMode
                       ? "bg-mercedes-primary text-white"
                       : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
@@ -746,7 +746,7 @@ function FilterButton({
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-1.5 text-xs rounded-full flex items-center gap-1 transition-colors ${
+      className={`px-3 py-2.5 min-h-[44px] text-xs rounded-lg flex items-center gap-1 transition-colors ${
         active
           ? "bg-mercedes-primary text-white"
           : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"

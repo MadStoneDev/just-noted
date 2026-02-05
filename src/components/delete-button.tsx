@@ -90,7 +90,8 @@ export default function DeleteButton({
         type="button"
         onClick={handleClick}
         title="Delete this note"
-        className="p-2 cursor-pointer flex-grow sm:flex-grow-0 flex items-center justify-center gap-1 rounded-lg border border-red-700 sm:border-0 hover:bg-red-700 text-red-700 hover:text-neutral-100 transition-all duration-300 ease-in-out"
+        aria-label="Delete this note"
+        className="p-2.5 min-w-[44px] min-h-[44px] cursor-pointer flex-grow sm:flex-grow-0 flex items-center justify-center gap-1 rounded-lg border border-red-700 sm:border-0 hover:bg-red-700 text-red-700 hover:text-neutral-100 transition-all duration-300 ease-in-out"
       >
         <IconTrash size={20} strokeWidth={2} />
       </button>

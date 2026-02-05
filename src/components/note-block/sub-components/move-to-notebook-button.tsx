@@ -105,7 +105,8 @@ export default function MoveToNotebookButton({
         onClick={() => setIsOpen(!isOpen)}
         disabled={isMoving}
         title={currentNotebook ? `In: ${currentNotebook.name}` : "Move to notebook"}
-        className={`group/notebook px-2 cursor-pointer flex-grow sm:flex-grow-0 flex items-center justify-center gap-1 w-fit min-w-10 h-10 rounded-lg border-1 ${
+        aria-label={currentNotebook ? `In: ${currentNotebook.name}` : "Move to notebook"}
+        className={`group/notebook px-2 cursor-pointer flex-grow sm:flex-grow-0 flex items-center justify-center gap-1 w-fit min-w-[44px] h-[44px] rounded-lg border-1 ${
           isPrivate
             ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
             : "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary"

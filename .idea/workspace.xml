@@ -6,14 +6,6 @@
   <component name="ChangeListManager">
     <list default="true" id="c964cf5b-c203-4783-b48d-35cd19ff7e4b" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/bulk-action-bar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/bulk-action-bar.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/note-block/sub-components/move-to-notebook-button.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/note-block/sub-components/move-to-notebook-button.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/note-wrapper.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/note-wrapper.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/notebook-breadcrumb.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/notebook-breadcrumb.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/notebook-switcher.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/notebook-switcher.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/reference-note-selector.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/reference-note-selector.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/sidebar/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/sidebar/index.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/lib/notebook-covers.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib/notebook-covers.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -97,6 +89,7 @@
       <workItem from="1769831819289" duration="1206000" />
       <workItem from="1770026364264" duration="700000" />
       <workItem from="1770070647516" duration="516000" />
+      <workItem from="1770222312995" duration="2915000" />
     </task>
     <servers />
   </component>

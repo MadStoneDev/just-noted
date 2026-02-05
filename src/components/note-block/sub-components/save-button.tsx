@@ -22,7 +22,8 @@ export default function SaveButton({
       disabled={isPending}
       onClick={onClick}
       title="Save note manually"
-      className={`group/save flex-grow sm:flex-grow-0 px-2 cursor-pointer flex flex-row-reverse items-center justify-center gap-0 md:hover:gap-2 w-fit min-w-10 h-10 rounded-lg border sm:border-0 ${
+      aria-label="Save note manually"
+      className={`group/save flex-grow sm:flex-grow-0 px-2 cursor-pointer flex flex-row-reverse items-center justify-center gap-0 md:hover:gap-2 w-fit min-w-[44px] h-[44px] rounded-lg border sm:border-0 ${
         isPrivate
           ? "hover:bg-violet-800 hover:text-neutral-100"
           : "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary"

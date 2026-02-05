@@ -27,7 +27,8 @@ export default function GlobalHeader({ user }: GlobalHeaderProps) {
         <button
           type={`button`}
           onClick={() => setOpenMenu(!openMenu)}
-          className={`cursor-pointer md:hidden ${
+          aria-label={openMenu ? "Close menu" : "Open menu"}
+          className={`min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer md:hidden ${
             openMenu ? "rotate-135 delay-200" : "delay-0"
           } transition-all duration-500 ease-in-out`}
         >
@@ -42,7 +43,7 @@ export default function GlobalHeader({ user }: GlobalHeaderProps) {
           <Link
             href={`/`}
             onClick={() => setOpenMenu(false)}
-            className={`md:hidden px-3 py-1.5 w-full md:w-auto hover:bg-mercedes-primary md:hover:bg-white hover:shadow-xl shadow-mercedes-secondary/10 text-base font-bold text-mercedes-primary md:text-neutral-900 hover:text-white md:hover:text-mercedes-primary text-center transition-all duration-300 ease-in-out`}
+            className={`md:hidden px-3 py-1.5 w-full md:w-auto hover:bg-mercedes-primary md:hover:bg-white hover:shadow-md shadow-mercedes-secondary/10 text-base font-bold text-mercedes-primary md:text-neutral-900 hover:text-white md:hover:text-mercedes-primary text-center transition-all duration-300 ease-in-out`}
           >
             Home
           </Link>
@@ -50,7 +51,7 @@ export default function GlobalHeader({ user }: GlobalHeaderProps) {
           <Link
             href={`/the-what`}
             onClick={() => setOpenMenu(false)}
-            className={`px-3 py-1.5 w-full md:w-auto hover:bg-mercedes-primary md:hover:bg-white hover:shadow-xl shadow-mercedes-secondary/10 text-base font-bold text-mercedes-primary md:text-neutral-900 hover:text-white md:hover:text-mercedes-primary text-center transition-all duration-300 ease-in-out`}
+            className={`px-3 py-1.5 w-full md:w-auto hover:bg-mercedes-primary md:hover:bg-white hover:shadow-md shadow-mercedes-secondary/10 text-base font-bold text-mercedes-primary md:text-neutral-900 hover:text-white md:hover:text-mercedes-primary text-center transition-all duration-300 ease-in-out`}
           >
             The What
           </Link>
@@ -60,7 +61,7 @@ export default function GlobalHeader({ user }: GlobalHeaderProps) {
           <Link
             href={`/the-how`}
             onClick={() => setOpenMenu(false)}
-            className={`px-3 py-1.5 w-full md:w-auto hover:bg-mercedes-primary md:hover:bg-white hover:shadow-xl shadow-mercedes-secondary/10 text-base font-bold text-mercedes-primary md:text-neutral-900 hover:text-white md:hover:text-mercedes-primary text-center transition-all duration-300 ease-in-out`}
+            className={`px-3 py-1.5 w-full md:w-auto hover:bg-mercedes-primary md:hover:bg-white hover:shadow-md shadow-mercedes-secondary/10 text-base font-bold text-mercedes-primary md:text-neutral-900 hover:text-white md:hover:text-mercedes-primary text-center transition-all duration-300 ease-in-out`}
           >
             The How
           </Link>
@@ -70,7 +71,7 @@ export default function GlobalHeader({ user }: GlobalHeaderProps) {
           <Link
             href={`/contact`}
             onClick={() => setOpenMenu(false)}
-            className={`px-3 py-1.5 w-full md:w-auto hover:bg-mercedes-primary md:hover:bg-white hover:shadow-xl shadow-mercedes-secondary/10 text-base font-bold text-mercedes-primary md:text-neutral-900 hover:text-white md:hover:text-mercedes-primary text-center transition-all duration-300 ease-in-out`}
+            className={`px-3 py-1.5 w-full md:w-auto hover:bg-mercedes-primary md:hover:bg-white hover:shadow-md shadow-mercedes-secondary/10 text-base font-bold text-mercedes-primary md:text-neutral-900 hover:text-white md:hover:text-mercedes-primary text-center transition-all duration-300 ease-in-out`}
           >
             Get in Touch
           </Link>
@@ -84,7 +85,7 @@ export default function GlobalHeader({ user }: GlobalHeaderProps) {
               <Link
                 href={`/profile`}
                 onClick={() => setOpenMenu(false)}
-                className={`px-3 py-1.5 flex items-center justify-center gap-2 w-full md:w-auto hover:bg-mercedes-primary md:hover:bg-white hover:shadow-xl shadow-mercedes-secondary/10 text-base font-bold text-mercedes-primary md:text-neutral-900 hover:text-white md:hover:text-mercedes-primary text-center transition-all duration-300 ease-in-out`}
+                className={`px-3 py-1.5 flex items-center justify-center gap-2 w-full md:w-auto hover:bg-mercedes-primary md:hover:bg-white hover:shadow-md shadow-mercedes-secondary/10 text-base font-bold text-mercedes-primary md:text-neutral-900 hover:text-white md:hover:text-mercedes-primary text-center transition-all duration-300 ease-in-out`}
               >
                 <IconUser size={22} />
                 Profile
@@ -99,7 +100,7 @@ export default function GlobalHeader({ user }: GlobalHeaderProps) {
               <Link
                 href={`/get-access`}
                 onClick={() => setOpenMenu(false)}
-                className={`px-3 py-1.5 flex items-center justify-center gap-2 w-full md:w-auto hover:bg-mercedes-primary md:hover:bg-white hover:shadow-xl shadow-mercedes-secondary/10 text-base font-bold text-mercedes-primary md:text-neutral-900 hover:text-white md:hover:text-mercedes-primary text-center transition-all duration-300 ease-in-out`}
+                className={`px-3 py-1.5 flex items-center justify-center gap-2 w-full md:w-auto hover:bg-mercedes-primary md:hover:bg-white hover:shadow-md shadow-mercedes-secondary/10 text-base font-bold text-mercedes-primary md:text-neutral-900 hover:text-white md:hover:text-mercedes-primary text-center transition-all duration-300 ease-in-out`}
               >
                 <IconKey size={22} />
                 Get Access

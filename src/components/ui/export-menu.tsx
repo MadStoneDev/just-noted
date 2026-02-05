@@ -264,10 +264,11 @@ export default function ExportMenu({ note, className = "" }: ExportMenuProps) {
     <div ref={menuRef} className={`relative ${className}`}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`p-2 rounded-lg hover:bg-neutral-100 transition-colors flex items-center gap-1 text-neutral-600 ${
+        className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center gap-1 rounded-lg hover:bg-neutral-100 transition-colors text-neutral-600 ${
           isOpen ? "bg-neutral-100" : ""
         }`}
         title="Export Note"
+        aria-label="Export Note"
       >
         <IconDownload size={18} />
         <IconChevronDown

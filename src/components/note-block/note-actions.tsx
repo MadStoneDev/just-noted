@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import {
   IconArrowDown,
   IconArrowsMaximize,
@@ -65,8 +65,9 @@ export default function NoteActions({
       <button
         type="button"
         onClick={onToggleVisibility}
-        className={`p-1 cursor-pointer rounded-lg border border-neutral-300 hover:bg-neutral-100 opacity-60 hover:opacity-100 transition-all duration-300 ease-in-out`}
+        className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-lg border border-neutral-300 hover:bg-neutral-100 opacity-60 hover:opacity-100 transition-all duration-300 ease-in-out`}
         title={isContentVisible ? "Hide note content" : "Show note content"}
+        aria-label={isContentVisible ? "Hide note content" : "Show note content"}
       >
         {isContentVisible ? (
           <IconEye size={18} strokeWidth={1.5} />
@@ -81,12 +82,15 @@ export default function NoteActions({
           type="button"
           onClick={onOpenDistractionFree}
           disabled={isSaving}
-          className={`p-1 cursor-pointer rounded-lg border border-neutral-300 ${
+          className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-lg border border-neutral-300 ${
             isSaving
               ? "opacity-30 cursor-not-allowed"
               : "hover:bg-neutral-100 opacity-60 hover:opacity-100"
           } transition-all duration-300 ease-in-out`}
           title={
+            isSaving ? "Saving... Please wait" : "Open Distraction-Free Mode"
+          }
+          aria-label={
             isSaving ? "Saving... Please wait" : "Open Distraction-Free Mode"
           }
         >
@@ -100,12 +104,13 @@ export default function NoteActions({
           type="button"
           onClick={onOpenSplitView}
           disabled={isSaving}
-          className={`p-1 cursor-pointer rounded-lg border border-neutral-300 ${
+          className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-lg border border-neutral-300 ${
             isSaving
               ? "opacity-30 cursor-not-allowed"
               : "hover:bg-neutral-100 opacity-60 hover:opacity-100"
           } transition-all duration-300 ease-in-out`}
           title={isSaving ? "Saving... Please wait" : "Open Split View"}
+          aria-label={isSaving ? "Saving... Please wait" : "Open Split View"}
         >
           <IconLayoutColumns size={18} strokeWidth={1.5} />
         </button>
@@ -116,12 +121,13 @@ export default function NoteActions({
         type="button"
         onClick={onMoveUp}
         disabled={!canMoveUp || isReordering}
-        className={`p-1 cursor-pointer rounded-lg border border-neutral-300 ${
+        className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-lg border border-neutral-300 ${
           !canMoveUp || isReordering
             ? "opacity-30 cursor-not-allowed"
             : "hover:bg-neutral-100 opacity-60 hover:opacity-100"
         } transition-all duration-300 ease-in-out`}
         title="Move note up"
+        aria-label="Move note up"
       >
         <IconArrowUp size={18} strokeWidth={1.5} />
       </button>
@@ -131,12 +137,13 @@ export default function NoteActions({
         type="button"
         onClick={onMoveDown}
         disabled={!canMoveDown || isReordering}
-        className={`p-1 cursor-pointer rounded-lg border border-neutral-300 ${
+        className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-lg border border-neutral-300 ${
           !canMoveDown || isReordering
             ? "opacity-30 cursor-not-allowed"
             : "hover:bg-neutral-100 opacity-60 hover:opacity-100"
         } transition-all duration-300 ease-in-out`}
         title="Move note down"
+        aria-label="Move note down"
       >
         <IconArrowDown size={18} strokeWidth={1.5} />
       </button>
@@ -146,7 +153,7 @@ export default function NoteActions({
         <button
           onClick={onTogglePin}
           disabled={isPinUpdating}
-          className={`p-1 border ${
+          className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center border ${
             isPinned
               ? `text-neutral-100 hover:text-neutral-100 ${
                   isPrivate
@@ -158,6 +165,7 @@ export default function NoteActions({
             isPinUpdating ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
           }`}
           title={isPinned ? "Unpin this note" : "Pin this note"}
+          aria-label={isPinned ? "Unpin this note" : "Pin this note"}
         >
           {isPinned ? (
             <IconPinnedFilled size={18} strokeWidth={2} />
@@ -170,7 +178,7 @@ export default function NoteActions({
         <button
           onClick={onTogglePrivacy}
           disabled={isPrivacyUpdating}
-          className={`p-1 border rounded-lg transition-all duration-300 ease-in-out ${
+          className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center border rounded-lg transition-all duration-300 ease-in-out ${
             isPrivacyUpdating
               ? "opacity-50 cursor-not-allowed"
               : "cursor-pointer"
@@ -180,6 +188,7 @@ export default function NoteActions({
               : "border-neutral-400 hover:bg-neutral-200 text-neutral-500"
           }`}
           title={isPrivate ? "Make this note public" : "Make this note private"}
+          aria-label={isPrivate ? "Make this note public" : "Make this note private"}
         >
           {isPrivate ? (
             <IconLock size={18} strokeWidth={2} />

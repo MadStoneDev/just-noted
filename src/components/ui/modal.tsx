@@ -74,7 +74,7 @@ export function Modal({
 
       {/* Modal Content */}
       <div
-        className={`relative bg-white rounded-xl shadow-lg ${sizeClasses[size]} w-full animate-slide-up ${className}`}
+        className={`relative bg-white rounded-xl shadow-xl border border-neutral-100 ${sizeClasses[size]} w-full animate-slide-up ${className}`}
       >
         {/* Header */}
         {(title || showCloseButton) && (
@@ -87,7 +87,7 @@ export function Modal({
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className="p-1 rounded-full hover:bg-neutral-100 text-neutral-500 transition-colors"
+                className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-neutral-100 text-neutral-500 transition-colors"
                 aria-label="Close modal"
               >
                 <IconX size={20} strokeWidth={2} />

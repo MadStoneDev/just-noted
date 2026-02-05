@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect, useCallback } from "react";
 import { useNotesStore } from "@/stores/notes-store";
 import { buildHeadingTree, flattenHeadingTree, TocHeading } from "@/lib/toc-parser";
 import {
@@ -23,52 +23,87 @@ export default function TocPanel({ onScrollToHeading }: TocPanelProps) {
     return flattenHeadingTree(tree);
   }, [tocHeadings]);
 
-  if (!tocVisible) return null;
-
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setTocVisible(false);
-  };
+  }, [setTocVisible]);
+
+  // Handle click outside on mobile to close
+  const handleBackdropClick = useCallback(() => {
+    setTocVisible(false);
+  }, [setTocVisible]);
 
   const handleHeadingClick = (heading: TocHeading) => {
     onScrollToHeading(heading.id);
+    // Close on mobile after selecting
+    if (window.innerWidth < 640) {
+      setTocVisible(false);
+    }
   };
 
-  return (
-    <div className="w-64 border-l border-neutral-200 bg-white flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-200 bg-neutral-50">
-        <div className="flex items-center gap-2 text-sm font-medium text-neutral-700">
-          <IconList size={16} />
-          <span>Table of Contents</span>
-        </div>
-        <button
-          onClick={handleClose}
-          className="p-1 rounded hover:bg-neutral-200 text-neutral-500 hover:text-neutral-700 transition-colors"
-          title="Close"
-        >
-          <IconX size={16} />
-        </button>
-      </div>
+  // Handle escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && tocVisible) {
+        setTocVisible(false);
+      }
+    };
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto py-2">
-        {flatHeadings.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <nav className="px-2">
-            {flatHeadings.map((heading) => (
-              <TocItem
-                key={heading.id}
-                heading={heading}
-                depth={heading.depth}
-                isActive={heading.id === activeHeadingId}
-                onClick={() => handleHeadingClick(heading)}
-              />
-            ))}
-          </nav>
-        )}
+    if (tocVisible) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [tocVisible, setTocVisible]);
+
+  if (!tocVisible) return null;
+
+  return (
+    <>
+      {/* Mobile backdrop */}
+      <div
+        className="fixed inset-0 bg-black/30 z-40 sm:hidden"
+        onClick={handleBackdropClick}
+        aria-hidden="true"
+      />
+
+      {/* TOC Panel */}
+      <div className="fixed inset-y-0 right-0 w-full sm:w-64 sm:relative sm:inset-auto z-50 sm:z-auto border-l border-neutral-200 bg-white flex flex-col h-full">
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-200 bg-neutral-50">
+          <div className="flex items-center gap-2 text-sm font-medium text-neutral-700">
+            <IconList size={16} />
+            <span>Table of Contents</span>
+          </div>
+          <button
+            onClick={handleClose}
+            className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-neutral-200 text-neutral-500 hover:text-neutral-700 transition-colors"
+            title="Close"
+            aria-label="Close table of contents"
+          >
+            <IconX size={20} />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto py-2">
+          {flatHeadings.length === 0 ? (
+            <EmptyState />
+          ) : (
+            <nav className="px-2">
+              {flatHeadings.map((heading) => (
+                <TocItem
+                  key={heading.id}
+                  heading={heading}
+                  depth={heading.depth}
+                  isActive={heading.id === activeHeadingId}
+                  onClick={() => handleHeadingClick(heading)}
+                />
+              ))}
+            </nav>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -86,7 +121,7 @@ function TocItem({ heading, depth, isActive, onClick }: TocItemProps) {
     <button
       onClick={onClick}
       className={`
-        w-full text-left py-1.5 px-2 rounded text-sm transition-colors
+        w-full text-left py-2.5 px-2 min-h-[44px] rounded-lg text-sm transition-colors
         ${isActive
           ? "bg-mercedes-primary/10 text-mercedes-primary font-medium"
           : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-800"
@@ -124,7 +159,8 @@ export function TocToggleButton() {
       type="button"
       onClick={toggleToc}
       title={tocVisible ? "Hide Table of Contents" : "Show Table of Contents"}
-      className={`group/toc px-2 cursor-pointer flex-grow sm:flex-grow-0 flex items-center justify-center gap-1 w-fit min-w-10 h-10 rounded-lg border-1 relative ${
+      aria-label={tocVisible ? "Hide Table of Contents" : "Show Table of Contents"}
+      className={`group/toc px-2 cursor-pointer flex-grow sm:flex-grow-0 flex items-center justify-center gap-1 w-fit min-w-[44px] h-[44px] rounded-lg border-1 relative ${
         tocVisible
           ? "border-mercedes-primary bg-mercedes-primary text-white"
           : "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary text-neutral-800"

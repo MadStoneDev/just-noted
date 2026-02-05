@@ -7,6 +7,25 @@
     --color-mercedes-primary: #03BFB5;
     --color-mercedes-secondary: #004146;
     --color-mercedes-tertiary: #949398;
+
+    /* Border Radius Scale */
+    --radius-sm: 0.25rem;    /* 4px - badges, chips */
+    --radius-md: 0.5rem;     /* 8px - buttons, inputs */
+    --radius-lg: 0.75rem;    /* 12px - cards */
+    --radius-xl: 1rem;       /* 16px - modals */
+
+    /* Shadow/Elevation Scale (softer than current) */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+
+    /* Surface Colors */
+    --color-surface-base: #ffffff;
+    --color-surface-raised: #fafafa;
+    --color-surface-overlay: #f5f5f5;
+
+    /* Touch Target */
+    --tap-target-min: 44px;
 }
 
 body {
