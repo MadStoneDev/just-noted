@@ -111,7 +111,7 @@ export default function FaqBlock() {
   ];
 
   return (
-    <div className="my-10 pt-3 sm:text-center">
+    <div className="my-10 pt-3 px-3 sm:text-center">
       <h2 className="text-xl font-semibold">
         <span className="p-1 bg-mercedes-primary font-secondary">
           Just<span className="text-white">Noted</span>

@@ -6,6 +6,16 @@
   <component name="ChangeListManager">
     <list default="true" id="c964cf5b-c203-4783-b48d-35cd19ff7e4b" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/layout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/layout.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/faq-block.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/faq-block.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/global-header.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/global-header.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/lazy-text-block.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/lazy-text-block.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/note-block/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/note-block/index.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/note-block/note-statistics.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/note-block/note-statistics.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/note-block/sub-components/page-estimate-card.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/note-block/sub-components/page-estimate-card.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/note-wrapper.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/note-wrapper.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/sidebar/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/sidebar/index.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/text-block.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/text-block.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -90,6 +100,7 @@
       <workItem from="1770026364264" duration="700000" />
       <workItem from="1770070647516" duration="516000" />
       <workItem from="1770222312995" duration="2915000" />
+      <workItem from="1770297764191" duration="4246000" />
     </task>
     <servers />
   </component>

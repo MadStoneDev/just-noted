@@ -66,7 +66,7 @@ export default function NoteStatistics({
   };
 
   const hasNotebookCover = !!notebook;
-  const baseClasses = "p-3 col-span-12 sm:col-span-4 md:col-span-3 3xl:col-span-2 grid grid-cols-4 sm:flex sm:flex-col justify-start gap-3 rounded-xl relative overflow-hidden";
+  const baseClasses = "p-3 col-span-12 md:col-span-4 lg:col-span-3 3xl:col-span-2 grid grid-cols-4 sm:flex sm:flex-col justify-start gap-3 rounded-xl relative overflow-hidden";
 
   return (
     <div
@@ -85,7 +85,7 @@ export default function NoteStatistics({
       )}
 
       {/* Content wrapper for z-index */}
-      <div className={`relative z-10 col-span-4 sm:contents ${hasNotebookCover ? "text-white" : ""}`}>
+      <div className={`relative z-10 col-span-4 flex flex-col gap-2 sm:contents ${hasNotebookCover ? "text-white" : ""}`}>
         {/* In Notebook indicator */}
         {notebook && (
           <>

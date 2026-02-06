@@ -43,7 +43,7 @@ export default function PageEstimateCard({
         <IconBook size={20} />
       </div>
       <div className="flex-1 text-left">
-        <div className={`text-lg font-semibold ${
+        <div className={`flex flex-nowrap items-center text-lg font-semibold ${
           hasNotebookCover
             ? "text-neutral-800"
             : isPrivate
@@ -54,14 +54,14 @@ export default function PageEstimateCard({
         </div>
         <div className={`text-xs capitalize ${hasNotebookCover ? "text-neutral-600" : "text-neutral-500"}`}>{currentFormat}</div>
       </div>
-      <div className={`p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity ${
+      <div className={`p-1.5 rounded-full md:opacity-0 group-hover:opacity-100 transition-opacity ${
         hasNotebookCover
           ? "bg-neutral-700 text-neutral-200"
           : isPrivate
             ? "bg-violet-200 text-violet-700"
             : "bg-neutral-200 text-neutral-600"
       }`}>
-        <IconSettings size={14} />
+        <IconSettings size={20} />
       </div>
     </button>
   );

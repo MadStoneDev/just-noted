@@ -310,7 +310,7 @@ export default function NoteWrapper() {
       {/* Main content area */}
       <main id="main-content" className="relative" role="main" aria-label="Notes application">
         {/* Top bar with sidebar toggle and save indicator */}
-        <div className="sticky top-16 z-30 bg-white/80 backdrop-blur-sm border-b border-neutral-200 px-3 py-2 flex items-center justify-between">
+        <div className="sticky top-16 z-30 bg-white/80 backdrop-blur-sm border-b border-neutral-200 px-3 py-2 flex items-center justify-between shadow-xl shadow-black/10 ">
           <div className="flex items-center gap-2">
             <button
               onClick={toggleSidebar}

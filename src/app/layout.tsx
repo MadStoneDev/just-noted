@@ -62,7 +62,7 @@ export default function RootLayout({
       >
         <LogRocket>
           <ToastProvider>
-            <div className={`h-18 print:hidden`}></div>
+            <div className={`h-16 print:hidden`}></div>
 
             {children}
 

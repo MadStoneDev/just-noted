@@ -26,7 +26,7 @@ import {
   IconFilterOff,
   IconCheckbox,
   IconSquare,
-  IconSquareCheck,
+  IconSquareCheck, IconDevicesPc, IconDeviceDesktop,
 } from "@tabler/icons-react";
 
 interface SidebarProps {
@@ -543,7 +543,7 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
                 active={filterSource === "local"}
                 onClick={() => setFilterSource("local")}
               >
-                <IconDeviceFloppy size={14} />
+                <IconDeviceDesktop size={14} />
                 Local
               </FilterButton>
               {isAuthenticated && (
@@ -690,7 +690,7 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
                           {note.source === "supabase" ? (
                             <IconCloud size={16} className="text-blue-500" title="Cloud note" />
                           ) : (
-                            <IconDeviceFloppy size={16} className="text-orange-500" title="Local note" />
+                            <IconDeviceDesktop size={16} className="text-orange-500" title="Local note" />
                           )}
                         </div>
                       </div>

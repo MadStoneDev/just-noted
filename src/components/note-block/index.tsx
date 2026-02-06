@@ -969,7 +969,7 @@ export default function NoteBlock({
                 className={`col-span-12 ${
                   distractionFreeMode
                     ? ""
-                    : "sm:col-span-8 md:col-span-9 3xl:col-span-10"
+                    : "md:col-span-8 lg:col-span-9 3xl:col-span-10"
                 } rounded-xl overflow-hidden`}
               >
                 <LazyTextBlock

@@ -144,8 +144,8 @@ export default function LazyTextBlock({
   // Container class
   const editorContainerClass = useMemo(() => {
     return `tiptap-editor-container relative pb-1 ${
-      distractionFreeMode ? "h-full" : "min-h-[400px] max-h-[500px]"
-    } bg-white rounded-xl shadow-sm hover:shadow-md focus-within:shadow-md outline-2 outline-transparent focus-within:outline-mercedes-primary font-light overflow-hidden transition-shadow duration-300 ease-in-out overflow-y-auto ${className}`;
+      distractionFreeMode ? "" : "min-h-[400px] max-h-[500px]"
+    } h-full bg-white rounded-xl shadow-sm hover:shadow-md focus-within:shadow-md outline-2 outline-transparent focus-within:outline-mercedes-primary font-light overflow-hidden transition-shadow duration-300 ease-in-out overflow-y-auto ${className}`;
   }, [distractionFreeMode, className]);
 
   const previewContainerClass = useMemo(() => {

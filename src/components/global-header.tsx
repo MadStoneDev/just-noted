@@ -17,7 +17,7 @@ export default function GlobalHeader({ user }: GlobalHeaderProps) {
   return (
     <header className={`fixed w-full z-50 print:hidden`}>
       <section
-        className={`mb-4 px-4 md:px-8 py-4 flex items-center justify-between w-full h-16 bg-mercedes-primary font-secondary z-50`}
+        className={`px-4 md:px-8 py-4 flex items-center justify-between w-full h-16 bg-mercedes-primary font-secondary z-50`}
       >
         <Link href={`/`} className={`text-xl font-semibold`}>
           Just
