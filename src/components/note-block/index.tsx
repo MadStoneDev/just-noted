@@ -953,7 +953,7 @@ export default function NoteBlock({
           distractionFreeMode
             ? "flex-grow"
             : isContentExpanded
-              ? "max-h-[900px] md:max-h-[600px]"
+              ? "max-h-auto md:max-h-[600px]"
               : "max-h-0"
         }`}
       >
