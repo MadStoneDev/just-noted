@@ -35,7 +35,7 @@ export default function TocCard({ isPrivate, onScrollToHeading, hasNotebookCover
 
   return (
     <div
-      className={`col-span-4 flex flex-col rounded-xl overflow-hidden transition-all duration-300 ${
+      className={`my-1 col-span-4 flex flex-col rounded-xl overflow-hidden transition-all duration-300 ${
         hasNotebookCover
           ? "bg-white/20 text-white"
           : isPrivate

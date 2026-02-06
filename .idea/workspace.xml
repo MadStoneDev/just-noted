@@ -6,6 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="c964cf5b-c203-4783-b48d-35cd19ff7e4b" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/note-block/sub-components/toc-card.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/note-block/sub-components/toc-card.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
