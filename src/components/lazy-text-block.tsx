@@ -180,8 +180,8 @@ export default function LazyTextBlock({
         />
       </Suspense>
       {!isEditorReady && (
-        <div className="absolute inset-0 bg-white/50 pointer-events-none flex items-center justify-center">
-          <div className="animate-pulse text-neutral-500">Loading editor...</div>
+        <div className="absolute inset-0 bg-white pointer-events-none z-10">
+          <EditorSkeleton />
         </div>
       )}
     </div>
