@@ -851,7 +851,7 @@ export default function NoteBlock({
       ref={containerRef}
       data-note-id={details.id}
       onClick={() => setActiveNoteId(details.id)}
-      className={`py-2 px-4 relative col-span-12 flex flex-col gap-3 ${
+      className={`relative col-span-12 flex flex-col gap-3 bg-white rounded-xl border border-neutral-100 shadow-sm hover:shadow-md p-5 transition-all duration-200 hover:-translate-y-0.5 ${
         distractionFreeMode ? "h-full" : ""
       }`}
     >
@@ -958,8 +958,8 @@ export default function NoteBlock({
           distractionFreeMode
             ? "flex-grow"
             : isContentExpanded
-              ? "max-h-auto md:max-h-[600px]"
-              : "max-h-0"
+              ? "max-h-auto md:max-h-[600px] opacity-100"
+              : "max-h-0 opacity-0"
         }`}
       >
         {isContentVisible && (

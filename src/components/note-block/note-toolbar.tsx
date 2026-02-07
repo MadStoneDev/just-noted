@@ -120,12 +120,12 @@ export default function NoteToolbar({
 
       {/* Divider */}
       <div
-        className={`hidden sm:block flex-grow h-0.5 ${
+        className={`hidden sm:block flex-grow h-px ${
           isPrivate
-            ? "bg-violet-800"
+            ? "bg-violet-300/50"
             : isPinned
-              ? "bg-mercedes-primary"
-              : "bg-neutral-300"
+              ? "bg-mercedes-primary/30"
+              : "bg-neutral-200/60"
         } transition-all duration-300 ease-in-out`}
       ></div>
 

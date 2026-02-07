@@ -282,9 +282,9 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
     return (
       <div className="rounded-lg">
         {/* Toolbar */}
-        <div className="m-2 sticky top-2 left-0 right-0 border-b-4 border-neutral-200 p-2 bg-neutral-100 rounded-xl flex gap-1 items-center shadow-lg shadow-neutral-900/20 overflow-x-auto z-50">
+        <div className="m-2 sticky top-2 left-0 right-0 border border-neutral-200/60 p-2 bg-white/90 backdrop-blur-sm rounded-xl flex gap-1 items-center shadow-sm overflow-x-auto z-50">
           {/* Undo/Redo */}
-          <div className="flex gap-1 border-r border-neutral-300 pr-2 mr-2">
+          <div className="flex gap-1 border-r border-neutral-200/50 pr-2 mr-2">
             <ToolbarButton
               onClick={() => editor.chain().focus().undo().run()}
               disabled={!editor.can().undo()}
@@ -300,7 +300,7 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
           </div>
 
           {/* Text Formatting */}
-          <div className="flex gap-1 border-r border-neutral-300 pr-2 mr-2">
+          <div className="flex gap-1 border-r border-neutral-200/50 pr-2 mr-2">
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleBold().run()}
               isActive={editor.isActive("bold")}
@@ -339,7 +339,7 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
           </div>
 
           {/* Headings */}
-          <div className="flex gap-1 border-r border-neutral-300 pr-2 mr-2">
+          <div className="flex gap-1 border-r border-neutral-200/50 pr-2 mr-2">
             <ToolbarButton
               onClick={() =>
                 editor.chain().focus().toggleHeading({ level: 1 }).run()
@@ -367,7 +367,7 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
           </div>
 
           {/* Lists */}
-          <div className="flex gap-1 border-r border-neutral-300 pr-2 mr-2">
+          <div className="flex gap-1 border-r border-neutral-200/50 pr-2 mr-2">
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleBulletList().run()}
               isActive={editor.isActive("bulletList")}
@@ -389,7 +389,7 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
           </div>
 
           {/* Alignment */}
-          <div className="flex gap-1 border-r border-neutral-300 pr-2 mr-2">
+          <div className="flex gap-1 border-r border-neutral-200/50 pr-2 mr-2">
             <ToolbarButton
               onClick={() => editor.chain().focus().setTextAlign("left").run()}
               isActive={editor.isActive({ textAlign: "left" })}
@@ -413,7 +413,7 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
           </div>
 
           {/* Additional Tools */}
-          <div className="flex gap-1 border-r border-neutral-300 pr-2 mr-2">
+          <div className="flex gap-1 border-r border-neutral-200/50 pr-2 mr-2">
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleBlockquote().run()}
               isActive={editor.isActive("blockquote")}
@@ -434,7 +434,7 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
           </div>
 
           {/* Image & Link */}
-          <div className="flex gap-1 border-r border-neutral-300 pr-2 mr-2">
+          <div className="flex gap-1 border-r border-neutral-200/50 pr-2 mr-2">
             <ToolbarButton
               onClick={() => setShowImageUpload(true)}
               icon={<ImageIcon size={16} />}
@@ -503,10 +503,10 @@ const ToolbarButton: React.FC<{
     onClick={onClick}
     disabled={disabled}
     title={title}
-    className={`p-1.5 rounded hover:bg-neutral-200 transition-colors ${
+    className={`p-2 rounded-md hover:bg-neutral-100 transition-all duration-150 ${
       isActive
-        ? "bg-mercedes-primary/10 text-mercedes-primary"
-        : "text-neutral-700"
+        ? "bg-mercedes-primary/10 text-mercedes-primary shadow-sm"
+        : "text-neutral-500 hover:text-neutral-700"
     } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
   >
     {icon}

@@ -480,13 +480,13 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
       {/* Sidebar */}
       <aside
         ref={sidebarRef}
-        className={`fixed top-0 left-0 h-full w-[min(320px,calc(100vw-48px))] bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 h-full w-[min(320px,calc(100vw-48px))] bg-stone-50 shadow-lg z-50 transform transition-transform duration-300 ease-in-out ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-neutral-200">
+          <div className="flex items-center justify-between p-4 border-b border-neutral-100">
             <h2 className="text-lg font-semibold text-neutral-800">Notes</h2>
             <button
               onClick={() => setSidebarOpen(false)}
@@ -499,7 +499,7 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
 
           {/* Notebook Switcher (authenticated users only) */}
           {isAuthenticated && (
-            <div className="p-4 border-b border-neutral-200">
+            <div className="p-4 border-b border-neutral-100">
               <NotebookSwitcher
                 onNewNotebook={handleNewNotebook}
                 onEditNotebook={handleEditNotebook}
@@ -512,7 +512,7 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
           {isAuthenticated && activeNotebookId && <NotebookCoverHeader />}
 
           {/* Search */}
-          <div className="p-4 border-b border-neutral-200">
+          <div className="p-4 border-b border-neutral-100">
             <div className="relative">
               <IconSearch
                 size={18}
@@ -538,7 +538,7 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
           </div>
 
           {/* Filters */}
-          <div className="p-4 border-b border-neutral-200 space-y-3">
+          <div className="p-4 border-b border-neutral-100 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-neutral-600">Filters</span>
               {hasActiveFilters && (
@@ -639,7 +639,7 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
                 )}
               </div>
             ) : (
-              <ul className="divide-y divide-neutral-200/60">
+              <ul className="flex flex-col gap-1 p-2">
                 {filteredNotes.map((note) => {
                   const isSelected = selectedNoteIds.has(note.id);
                   const canSelect = selectMode && note.source === "supabase";
@@ -654,12 +654,12 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
                           handleNoteClick(note.id);
                         }
                       }}
-                      className={`w-full p-4 text-left hover:bg-neutral-50 transition-colors cursor-pointer ${
+                      className={`w-full p-3 text-left transition-colors cursor-pointer ${
                         isSelected
-                          ? "bg-mercedes-primary/20 border-l-[3px] border-mercedes-primary"
+                          ? "bg-mercedes-primary/15 rounded-lg ring-1 ring-mercedes-primary/30"
                           : activeNoteId === note.id
-                            ? "bg-mercedes-primary/10 border-l-[3px] border-mercedes-primary"
-                            : "border-l-[3px] border-transparent"
+                            ? "bg-mercedes-primary/8 rounded-lg ring-1 ring-mercedes-primary/20"
+                            : "rounded-lg hover:bg-white hover:shadow-sm"
                       }`}
                     >
                       <div className="flex items-start gap-2">
@@ -734,7 +734,7 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
 
           {/* Footer */}
           {!selectMode && (
-            <div className="p-4 border-t border-neutral-200 text-center text-xs text-neutral-500">
+            <div className="p-4 border-t border-neutral-100 text-center text-xs text-neutral-500">
               {notes.length} note{notes.length !== 1 ? "s" : ""} total
               {hasActiveFilters && ` • ${filteredNotes.length} shown`}
             </div>
@@ -767,10 +767,10 @@ function FilterButton({
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-2.5 min-h-[44px] text-xs rounded-lg flex items-center gap-1 transition-colors ${
+      className={`px-3 py-2.5 min-h-[44px] text-xs rounded-full flex items-center gap-1 transition-colors ${
         active
-          ? "bg-mercedes-primary text-white"
-          : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+          ? "bg-mercedes-primary text-white shadow-sm"
+          : "bg-white border border-neutral-200 text-neutral-500 hover:bg-neutral-50"
       }`}
     >
       {children}

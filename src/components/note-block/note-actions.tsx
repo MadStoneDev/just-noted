@@ -65,7 +65,7 @@ export default function NoteActions({
       <button
         type="button"
         onClick={onToggleVisibility}
-        className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-lg border border-neutral-300 hover:bg-neutral-100 opacity-60 hover:opacity-100 transition-all duration-300 ease-in-out`}
+        className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-all duration-300 ease-in-out`}
         title={isContentVisible ? "Hide note content" : "Show note content"}
         aria-label={isContentVisible ? "Hide note content" : "Show note content"}
       >
@@ -82,10 +82,10 @@ export default function NoteActions({
           type="button"
           onClick={onOpenDistractionFree}
           disabled={isSaving}
-          className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-lg border border-neutral-300 ${
+          className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-lg ${
             isSaving
-              ? "opacity-30 cursor-not-allowed"
-              : "hover:bg-neutral-100 opacity-60 hover:opacity-100"
+              ? "opacity-30 cursor-not-allowed text-neutral-400"
+              : "text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"
           } transition-all duration-300 ease-in-out`}
           title={
             isSaving ? "Saving... Please wait" : "Open Distraction-Free Mode"
@@ -104,10 +104,10 @@ export default function NoteActions({
           type="button"
           onClick={onOpenSplitView}
           disabled={isSaving}
-          className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-lg border border-neutral-300 ${
+          className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-lg ${
             isSaving
-              ? "opacity-30 cursor-not-allowed"
-              : "hover:bg-neutral-100 opacity-60 hover:opacity-100"
+              ? "opacity-30 cursor-not-allowed text-neutral-400"
+              : "text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"
           } transition-all duration-300 ease-in-out`}
           title={isSaving ? "Saving... Please wait" : "Open Split View"}
           aria-label={isSaving ? "Saving... Please wait" : "Open Split View"}
@@ -121,10 +121,10 @@ export default function NoteActions({
         type="button"
         onClick={onMoveUp}
         disabled={!canMoveUp || isReordering}
-        className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-lg border border-neutral-300 ${
+        className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-lg ${
           !canMoveUp || isReordering
-            ? "opacity-30 cursor-not-allowed"
-            : "hover:bg-neutral-100 opacity-60 hover:opacity-100"
+            ? "opacity-30 cursor-not-allowed text-neutral-400"
+            : "text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"
         } transition-all duration-300 ease-in-out`}
         title="Move note up"
         aria-label="Move note up"
@@ -137,10 +137,10 @@ export default function NoteActions({
         type="button"
         onClick={onMoveDown}
         disabled={!canMoveDown || isReordering}
-        className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-lg border border-neutral-300 ${
+        className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-lg ${
           !canMoveDown || isReordering
-            ? "opacity-30 cursor-not-allowed"
-            : "hover:bg-neutral-100 opacity-60 hover:opacity-100"
+            ? "opacity-30 cursor-not-allowed text-neutral-400"
+            : "text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"
         } transition-all duration-300 ease-in-out`}
         title="Move note down"
         aria-label="Move note down"

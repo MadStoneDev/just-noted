@@ -34,14 +34,14 @@ function ContentPreview({ content, className }: { content: string; className?: s
 
   if (!previewText.trim()) {
     return (
-      <div className={`p-4 text-neutral-400 italic ${className}`}>
+      <div className={`p-4 text-neutral-400/70 italic text-sm ${className}`}>
         Empty note - click to expand
       </div>
     );
   }
 
   return (
-    <div className={`p-4 text-neutral-600 line-clamp-3 ${className}`}>
+    <div className={`p-4 text-neutral-500 line-clamp-2 text-sm leading-relaxed ${className}`}>
       {previewText}
     </div>
   );
@@ -51,10 +51,10 @@ function ContentPreview({ content, className }: { content: string; className?: s
 function EditorSkeleton() {
   return (
     <div className="animate-pulse p-4 space-y-3">
-      <div className="h-4 bg-neutral-200 rounded w-3/4"></div>
-      <div className="h-4 bg-neutral-200 rounded w-full"></div>
-      <div className="h-4 bg-neutral-200 rounded w-5/6"></div>
-      <div className="h-4 bg-neutral-200 rounded w-2/3"></div>
+      <div className="h-4 bg-stone-200/60 rounded-md w-3/4"></div>
+      <div className="h-4 bg-stone-200/60 rounded-md w-full"></div>
+      <div className="h-4 bg-stone-200/60 rounded-md w-5/6"></div>
+      <div className="h-4 bg-stone-200/60 rounded-md w-2/3"></div>
     </div>
   );
 }
@@ -147,11 +147,11 @@ export default function LazyTextBlock({
   const editorContainerClass = useMemo(() => {
     return `tiptap-editor-container relative pb-1 ${
       distractionFreeMode ? "" : "min-h-[400px] max-h-[500px]"
-    } h-full bg-white rounded-xl shadow-sm hover:shadow-md focus-within:shadow-md outline-2 outline-transparent focus-within:outline-mercedes-primary font-light overflow-hidden transition-shadow duration-300 ease-in-out overflow-y-auto ${className}`;
+    } h-full bg-transparent rounded-xl focus-within:ring-1 focus-within:ring-mercedes-primary/30 font-light overflow-hidden transition-all duration-300 ease-in-out overflow-y-auto ${className}`;
   }, [distractionFreeMode, className]);
 
   const previewContainerClass = useMemo(() => {
-    return `relative bg-white rounded-xl shadow-sm hover:shadow-md font-light overflow-hidden transition-shadow duration-300 ease-in-out ${className}`;
+    return `relative bg-transparent rounded-xl font-light overflow-hidden transition-all duration-300 ease-in-out ${className}`;
   }, [className]);
 
   const isEmpty = !localValue || localValue.trim() === "";

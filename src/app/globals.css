@@ -119,6 +119,17 @@ body {
     }
 }
 
+@keyframes warm-shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+.warm-shimmer {
+    background: linear-gradient(90deg, #f5f5f4 25%, #fafaf9 50%, #f5f5f4 75%);
+    background-size: 200% 100%;
+    animation: warm-shimmer 1.5s ease-in-out infinite;
+}
+
 /* This ensures note containers have a proper stacking context */
 .note-container {
     position: relative;
@@ -151,7 +162,7 @@ body {
     
     font-family: var(--font-primary), sans-serif !important;
     line-height: 1.6 !important;
-    color: #374151 !important;
+    color: #44403c !important;
 }
 
 /* Placeholder styling */

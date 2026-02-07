@@ -155,7 +155,7 @@ export default function JustNotes({
             type="button"
             onClick={handleSyncAndRenumber}
             disabled={isSyncDisabled}
-            className={`px-2 py-1 cursor-pointer inline-flex items-center gap-2 rounded-xl border border-neutral-400 hover:border-blue-500 hover:bg-blue-500 hover:text-white transition-all duration-300 ease-in-out ${
+            className={`px-3 py-2 cursor-pointer inline-flex items-center gap-2 rounded-lg bg-white border border-neutral-200 text-neutral-600 hover:border-mercedes-primary/40 hover:text-mercedes-primary hover:shadow-sm transition-all duration-300 ease-in-out ${
               isSyncDisabled ? "opacity-50 cursor-not-allowed" : ""
             }`}
           >
@@ -180,7 +180,7 @@ export default function JustNotes({
             type="button"
             onClick={() => setShowTemplates(true)}
             disabled={isAddDisabled}
-            className={`px-2 py-1 cursor-pointer inline-flex items-center gap-2 rounded-xl border border-neutral-400 hover:border-blue-500 hover:bg-blue-500 hover:text-white transition-all duration-300 ease-in-out ${
+            className={`px-3 py-2 cursor-pointer inline-flex items-center gap-2 rounded-lg bg-white border border-neutral-200 text-neutral-600 hover:border-mercedes-primary/40 hover:text-mercedes-primary hover:shadow-sm transition-all duration-300 ease-in-out ${
               isAddDisabled ? "opacity-50 cursor-not-allowed" : ""
             }`}
             title="Create note from template"
@@ -193,7 +193,7 @@ export default function JustNotes({
             type="button"
             onClick={handleAddBlankNote}
             disabled={isAddDisabled}
-            className={`px-2 py-1 cursor-pointer inline-flex items-center gap-2 rounded-xl border border-neutral-400 hover:border-mercedes-primary hover:bg-mercedes-primary hover:text-white transition-all duration-300 ease-in-out ${
+            className={`px-3 py-2 cursor-pointer inline-flex items-center gap-2 rounded-lg bg-mercedes-primary/10 border border-mercedes-primary/20 text-mercedes-primary hover:bg-mercedes-primary hover:text-white transition-all duration-300 ease-in-out ${
               isAddDisabled ? "opacity-50 cursor-not-allowed" : ""
             }`}
           >

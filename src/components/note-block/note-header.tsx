@@ -153,15 +153,15 @@ export default function NoteHeader({
             <span className={`flex items-center gap-1 ml-2`}>
               {noteSource === "supabase" ? (
                 <span
-                  className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 border border-blue-300`}
+                  className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-500 border border-neutral-200/60`}
                 >
-                  <IconCloud size={20} /> CLOUD
+                  <IconCloud size={20} className="text-blue-500" /> CLOUD
                 </span>
               ) : (
                 <span
-                  className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 border border-orange-300`}
+                  className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-500 border border-neutral-200/60`}
                 >
-                  <IconDeviceDesktop size={20} /> LOCAL
+                  <IconDeviceDesktop size={20} className="text-orange-500" /> LOCAL
                 </span>
               )}
             </span>
@@ -171,12 +171,12 @@ export default function NoteHeader({
 
       {/* Divider */}
       <div
-        className={`flex-grow h-0.5 ${
+        className={`flex-grow h-px ${
           isPrivate
-            ? "bg-violet-800"
+            ? "bg-violet-300/50"
             : isPinned
-              ? "bg-mercedes-primary"
-              : "bg-neutral-300"
+              ? "bg-mercedes-primary/30"
+              : "bg-neutral-200/60"
         } transition-all duration-300 ease-in-out`}
       ></div>
 
