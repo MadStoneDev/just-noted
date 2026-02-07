@@ -169,7 +169,7 @@ export default function NoteWrapper() {
       }
 
       if (existingFiles && existingFiles.length > 0) {
-        const filesToDelete = existingFiles.map((f) => `${user.id}/${f.name}`);
+        const filesToDelete = existingFiles.map((f: { name: string }) => `${user.id}/${f.name}`);
         console.log("Deleting existing files:", filesToDelete);
         await supabase.storage.from("notebook-covers").remove(filesToDelete);
       }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { noteOperation } from "@/app/actions/notes";
 
 interface OnlineStatus {
   isOnline: boolean;
@@ -75,6 +76,7 @@ export function useOfflineQueue() {
   const [queue, setQueue] = useState<QueuedOperation[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const { isOnline } = useOnlineStatus();
+  const prevOnlineRef = useRef(isOnline);
 
   // Load queue from localStorage on mount
   useEffect(() => {
@@ -100,6 +102,95 @@ export function useOfflineQueue() {
       console.error("Failed to save offline queue:", e);
     }
   }, [queue]);
+
+  // Process queue: execute each operation in order, remove successful ones
+  const processQueue = useCallback(async () => {
+    if (isProcessing) return;
+
+    setIsProcessing(true);
+    try {
+      // Read the current queue from state
+      const currentQueue = [...queue].sort((a, b) => a.timestamp - b.timestamp);
+      const failedOps: QueuedOperation[] = [];
+
+      for (const op of currentQueue) {
+        try {
+          const { type, data } = op;
+          const storage = (data.source === "supabase" ? "supabase" : "redis") as "redis" | "supabase";
+
+          switch (type) {
+            case "create":
+              await noteOperation(storage, {
+                operation: "create",
+                userId: data.userId,
+                note: data.note,
+              });
+              break;
+            case "update":
+              await noteOperation(storage, {
+                operation: "update",
+                userId: data.userId,
+                noteId: op.noteId,
+                content: data.content,
+                goal: data.goal,
+                goalType: data.goalType,
+              });
+              break;
+            case "updateTitle":
+              await noteOperation(storage, {
+                operation: "updateTitle",
+                userId: data.userId,
+                noteId: op.noteId,
+                title: data.title,
+              });
+              break;
+            case "updatePin":
+              await noteOperation(storage, {
+                operation: "updatePin",
+                userId: data.userId,
+                noteId: op.noteId,
+                isPinned: data.isPinned,
+              });
+              break;
+            case "updatePrivacy":
+              await noteOperation(storage, {
+                operation: "updatePrivacy",
+                userId: data.userId,
+                noteId: op.noteId,
+                isPrivate: data.isPrivate,
+              });
+              break;
+            case "delete":
+              await noteOperation(storage, {
+                operation: "delete",
+                userId: data.userId,
+                noteId: op.noteId,
+              });
+              break;
+          }
+        } catch (error) {
+          console.error(`Failed to process queued operation ${op.id}:`, error);
+          failedOps.push(op);
+        }
+      }
+
+      // Keep only failed operations in the queue
+      setQueue(failedOps);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [queue, isProcessing]);
+
+  // Process queue when transitioning from offline to online
+  useEffect(() => {
+    const wasOffline = !prevOnlineRef.current;
+    const isNowOnline = isOnline;
+    prevOnlineRef.current = isOnline;
+
+    if (wasOffline && isNowOnline && queue.length > 0) {
+      processQueue();
+    }
+  }, [isOnline, queue.length, processQueue]);
 
   // Add operation to queue
   const addToQueue = useCallback((operation: Omit<QueuedOperation, "id" | "timestamp">) => {
@@ -140,7 +231,7 @@ export function useOfflineQueue() {
     clearQueue,
     pendingCount,
     isProcessing,
-    setIsProcessing,
     isOnline,
+    processQueue,
   };
 }

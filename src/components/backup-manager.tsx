@@ -2,8 +2,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, memo } from "react";
-import DOMPurify from "dompurify";
 import { useNotesBackup } from "@/utils/notes-backup";
+import { sanitizeHtml } from "@/utils/sanitize";
 import {
   Card,
   CardContent,
@@ -692,7 +692,7 @@ function BackupPreviewModal({
       <div className="overflow-auto max-h-[60vh]">
         <div
           className="prose max-w-none"
-          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content.content) }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(content.content) }}
         />
       </div>
     </Modal>

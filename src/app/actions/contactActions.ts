@@ -312,7 +312,7 @@ async function verifyRecaptcha(
     });
 
     if (data.success && data.score !== undefined) {
-      if (data.score < 0.5) {
+      if (data.score < 0.7) {
         return {
           success: false,
           score: data.score,

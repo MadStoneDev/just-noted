@@ -27,10 +27,15 @@ export function useNoteStatistics(
   goal: WordCountGoal | null = null,
 ): UseNoteStatisticsReturn {
   return useMemo(() => {
-    // Extract plain text from HTML
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = content;
-    const plainText = tempDiv.textContent || tempDiv.innerText || "";
+    // Extract plain text from HTML using regex (avoids DOM creation per keystroke)
+    const plainText = content
+      .replace(/<[^>]*>/g, " ")   // strip tags
+      .replace(/&nbsp;/gi, " ")    // decode common entities
+      .replace(/&amp;/gi, "&")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'");
 
     // Normalize text for word counting (preserve line breaks, collapse spaces)
     const normalizedText = plainText

@@ -300,6 +300,60 @@ export const deleteNote = async (noteId: string) => {
   }
 };
 
+export const getNoteMetadataByUserId = async () => {
+  try {
+    const { supabase, userId } = await getAuthenticatedUser();
+
+    const { data, error } = await supabase
+      .from("notes")
+      .select("id, title, author, is_pinned, is_private, is_collapsed, order, goal, goal_type, notebook_id, created_at, updated_at")
+      .eq("author", userId)
+      .order("is_pinned", { ascending: false })
+      .order("order", { ascending: true })
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Supabase metadata query error:", error);
+      throw error;
+    }
+
+    const notes = data.map((row: any) => supabaseToCombi({ ...row, content: "" }));
+    return { success: true, notes };
+  } catch (error) {
+    console.error("Failed to get note metadata:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      error: `Failed to retrieve note metadata: ${errorMessage}`,
+    };
+  }
+};
+
+export const getNoteContentsByUserId = async () => {
+  try {
+    const { supabase, userId } = await getAuthenticatedUser();
+
+    const { data, error } = await supabase
+      .from("notes")
+      .select("id, content")
+      .eq("author", userId);
+
+    if (error) {
+      console.error("Supabase contents query error:", error);
+      throw error;
+    }
+
+    return { success: true, contents: data as { id: string; content: string }[] };
+  } catch (error) {
+    console.error("Failed to get note contents:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      error: `Failed to retrieve note contents: ${errorMessage}`,
+    };
+  }
+};
+
 export const batchUpdateNoteOrders = async (
   updates: { id: string; order: number }[],
 ) => {

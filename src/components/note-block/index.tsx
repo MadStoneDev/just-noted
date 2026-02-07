@@ -407,7 +407,12 @@ export default function NoteBlock({
     }
 
     if (targetSource === "supabase" && !isAuthenticated) {
-      alert("You need to be signed in to save notes to the cloud.");
+      setStatus(
+        "Sign in required for cloud",
+        <IconCircleX className="text-red-700" />,
+        true,
+        3000,
+      );
       return;
     }
 

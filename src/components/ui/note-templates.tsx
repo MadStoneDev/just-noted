@@ -279,7 +279,7 @@ console.log(result);</code></pre>
     icon: <IconNotes size={24} />,
     category: "personal",
     content: `<h2>Quick Note</h2>
-<p><strong>Created:</strong> ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+<p><strong>Created:</strong> {{DATE}} at {{TIME}}</p>
 
 <p>[Start typing your note here...]</p>`,
   },
@@ -311,7 +311,11 @@ export default function NoteTemplates({ onSelectTemplate, onClose }: NoteTemplat
   });
 
   const handleSelect = (template: NoteTemplate) => {
-    onSelectTemplate(template.content, template.name);
+    const now = new Date();
+    const content = template.content
+      .replace(/\{\{DATE\}\}/g, now.toLocaleDateString())
+      .replace(/\{\{TIME\}\}/g, now.toLocaleTimeString());
+    onSelectTemplate(content, template.name);
     onClose();
   };
 

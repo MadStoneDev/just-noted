@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import DOMPurify from "dompurify";
 import { CombinedNote } from "@/types/combined-notes";
+import { sanitizeHtml } from "@/utils/sanitize";
+import { stripHtmlToText } from "@/utils/html-utils";
 import {
   IconHistory,
   IconClock,
@@ -193,7 +194,7 @@ export default function VersionHistory({
                   <h3 className="text-lg font-semibold mb-2">{selectedVersion.title}</h3>
                   <div
                     className="prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedVersion.content) }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedVersion.content) }}
                   />
                 </div>
               </>
@@ -236,10 +237,8 @@ export function useVersionHistory(noteId: string) {
     const versions = getVersions();
 
     // Calculate word count
-    const div = document.createElement("div");
-    div.innerHTML = note.content;
-    const text = div.textContent || div.innerText || "";
-    const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+    const text = stripHtmlToText(note.content);
+    const wordCount = text.split(/\s+/).filter(Boolean).length;
 
     // Don't save if content is identical to last version
     if (versions.length > 0 && versions[0].content === note.content) {

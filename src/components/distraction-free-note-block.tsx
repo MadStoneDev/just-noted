@@ -5,13 +5,14 @@ import React, { useMemo, useCallback } from "react";
 import NoteBlock from "@/components/note-block";
 import { CombinedNote } from "@/types/combined-notes";
 import { useNotesStore } from "@/stores/notes-store";
+import { NotesOperations } from "@/hooks/use-notes-operations";
 
 interface DistractionFreeNoteBlockProps {
   note?: CombinedNote | null;
   fullWidth?: boolean;
   userId: string | null;
   isAuthenticated: boolean;
-  notesOperations: any;
+  notesOperations: NotesOperations;
   registerNoteFlush: (noteId: string, flushFn: () => void) => void;
   unregisterNoteFlush: (noteId: string) => void;
 }

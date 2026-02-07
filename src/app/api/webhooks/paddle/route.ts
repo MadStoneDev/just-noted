@@ -37,8 +37,8 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get("paddle-signature") || "";
     const webhookSecret = process.env.PADDLE_WEBHOOK_SECRET;
 
-    // Verify signature in production
-    if (process.env.NODE_ENV === "production" && webhookSecret) {
+    // Verify signature when webhook secret is available
+    if (webhookSecret) {
       if (!verifyWebhookSignature(payload, signature, webhookSecret)) {
         console.error("Invalid Paddle webhook signature");
         return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
@@ -61,8 +61,8 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: "Missing userId" }, { status: 400 });
         }
 
-        // Determine tier from price ID (simplified - in production you'd look at line items)
-        const tier: SubscriptionTier = "pro"; // Default to pro for now
+        // Determine tier from price ID
+        const tier: SubscriptionTier = getTierFromPriceId(event.data.items?.[0]?.price?.id ?? "");
 
         await supabase.from("subscriptions").upsert({
           user_id: userId,

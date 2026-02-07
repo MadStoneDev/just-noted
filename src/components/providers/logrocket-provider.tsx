@@ -78,7 +78,7 @@ export default function LogRocketProvider({
     // Listen for auth state changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event: string, session: any) => {
       if (!initializedRef.current) return;
 
       if (event === "SIGNED_IN" && session?.user) {

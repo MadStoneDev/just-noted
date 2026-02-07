@@ -33,6 +33,7 @@ interface NotesStore {
   transferError: boolean;
   isSaving: Map<string, boolean>;
   isEditing: Map<string, boolean>;
+  saveError: Map<string, boolean>;
 
   // ========== Notebook State ==========
   notebooks: Notebook[];
@@ -79,6 +80,7 @@ interface NotesStore {
   setTransferError: (error: boolean) => void;
   setSaving: (noteId: string, saving: boolean) => void;
   setEditing: (noteId: string, editing: boolean) => void;
+  setSaveError: (noteId: string, hasError: boolean) => void;
 
   // ========== UI Actions ==========
   toggleSidebar: () => void;
@@ -150,6 +152,7 @@ export const useNotesStore = create<NotesStore>()(
     transferError: false,
     isSaving: new Map(),
     isEditing: new Map(),
+    saveError: new Map(),
 
     // ========== Initial Notebook State ==========
     notebooks: [],
@@ -177,7 +180,13 @@ export const useNotesStore = create<NotesStore>()(
       ? localStorage.getItem("referenceNoteEditable") === "true"
       : false,
     splitPaneSizes: typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("splitPaneSizes") || "[50, 50]")
+      ? (() => {
+          try {
+            return JSON.parse(localStorage.getItem("splitPaneSizes") || "[50, 50]") as [number, number];
+          } catch {
+            return [50, 50] as [number, number];
+          }
+        })()
       : [50, 50],
 
     // ========== Initial UI State ==========
@@ -246,6 +255,18 @@ export const useNotesStore = create<NotesStore>()(
           newEditing.delete(noteId);
         }
         return { isEditing: newEditing };
+      });
+    },
+
+    setSaveError: (noteId, hasError) => {
+      set((state) => {
+        const newSaveError = new Map(state.saveError);
+        if (hasError) {
+          newSaveError.set(noteId, true);
+        } else {
+          newSaveError.delete(noteId);
+        }
+        return { saveError: newSaveError };
       });
     },
 
@@ -528,8 +549,33 @@ export const useNotesStore = create<NotesStore>()(
   }))
 );
 
+// Memoized filtered notes cache
+let _filteredNotesCache: CombinedNote[] = [];
+let _filteredNotesCacheKey = "";
+
+function computeFilteredNotesCacheKey(state: {
+  notes: CombinedNote[];
+  searchQuery: string;
+  filterSource: string;
+  filterPinned: string;
+  activeNotebookId: string | null;
+}): string {
+  // Use a fingerprint of the inputs to detect changes
+  return `${state.notes.length}:${state.notes.map((n) => n.id + n.isPinned + n.source + n.notebookId + n.updatedAt).join(",")}:${state.searchQuery}:${state.filterSource}:${state.filterPinned}:${state.activeNotebookId}`;
+}
+
 // Selector hooks for better performance
-export const useFilteredNotes = () => useNotesStore((state) => state.getFilteredNotes());
+export const useFilteredNotes = () =>
+  useNotesStore((state) => {
+    const cacheKey = computeFilteredNotesCacheKey(state);
+    if (cacheKey === _filteredNotesCacheKey) {
+      return _filteredNotesCache;
+    }
+    const result = state.getFilteredNotes();
+    _filteredNotesCacheKey = cacheKey;
+    _filteredNotesCache = result;
+    return result;
+  });
 export const useNoteById = (noteId: string) =>
   useNotesStore((state) => state.notes.find((n) => n.id === noteId));
 export const useNotebooks = () => useNotesStore((state) => state.notebooks);

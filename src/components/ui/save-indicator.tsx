@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useNotesStore } from "@/stores/notes-store";
-import { IconCloud, IconCloudCheck, IconLoader2 } from "@tabler/icons-react";
+import { IconCloud, IconCloudCheck, IconCloudOff, IconLoader2 } from "@tabler/icons-react";
 
 interface SaveIndicatorProps {
   noteId: string;
@@ -12,6 +12,16 @@ interface SaveIndicatorProps {
 export default function SaveIndicator({ noteId, className = "" }: SaveIndicatorProps) {
   const isSaving = useNotesStore((state) => state.isSaving.has(noteId));
   const isEditing = useNotesStore((state) => state.isEditing.has(noteId));
+  const hasSaveError = useNotesStore((state) => state.saveError.has(noteId));
+
+  if (hasSaveError) {
+    return (
+      <div className={`flex items-center gap-1.5 text-xs text-red-600 ${className}`}>
+        <IconCloudOff size={14} />
+        <span>Save failed</span>
+      </div>
+    );
+  }
 
   if (isSaving) {
     return (

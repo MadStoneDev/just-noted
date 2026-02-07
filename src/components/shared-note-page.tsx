@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import DOMPurify from "dompurify";
+import { sanitizeHtml } from "@/utils/sanitize";
 import {
   IconArrowLeft,
   IconCalendarEvent,
@@ -66,8 +66,7 @@ export default function SharedNotePage({
 
   // Sanitize HTML content to prevent XSS attacks
   const sanitizeContent = (content: string): string => {
-    // Use DOMPurify to sanitize any potentially dangerous HTML
-    return DOMPurify.sanitize(content);
+    return sanitizeHtml(content);
   };
 
   useEffect(() => {

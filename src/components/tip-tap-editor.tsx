@@ -57,6 +57,12 @@ import FormatInspector from "@/components/ui/format-inspector";
  * Only allows http, https, and mailto protocols
  */
 function isValidUrl(url: string): boolean {
+  // Explicitly block dangerous protocols before parsing
+  const trimmed = url.trim().toLowerCase();
+  if (trimmed.startsWith("javascript:") || trimmed.startsWith("data:") || trimmed.startsWith("vbscript:")) {
+    return false;
+  }
+
   try {
     const parsed = new URL(url, window.location.origin);
     // Only allow safe protocols
@@ -442,7 +448,7 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
                   if (isValidUrl(url)) {
                     editor.chain().focus().setLink({ href: url }).run();
                   } else {
-                    alert("Invalid URL. Please enter a valid http, https, or mailto link.");
+                    console.warn("Invalid URL rejected:", url);
                   }
                 } else {
                   editor.chain().focus().unsetLink().run();
@@ -474,7 +480,7 @@ const TipTapEditor = forwardRef<TipTapEditorMethods, TipTapEditorProps>(
               if (isValidUrl(src)) {
                 editor.chain().focus().setImage({ src, alt }).run();
               } else {
-                alert("Invalid image URL. Please enter a valid http or https URL.");
+                console.warn("Invalid image URL rejected:", src);
               }
             }}
             onClose={() => setShowImageUpload(false)}

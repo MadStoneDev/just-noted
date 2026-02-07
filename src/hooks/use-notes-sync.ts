@@ -10,6 +10,8 @@ import { noteOperation } from "@/app/actions/notes";
 import {
   createNote as createSupabaseNote,
   getNotesByUserId as getSupabaseNotesByUserId,
+  getNoteMetadataByUserId,
+  getNoteContentsByUserId,
 } from "@/app/actions/supabaseActions";
 import {
   CombinedNote,
@@ -20,11 +22,14 @@ import {
   createNote,
 } from "@/types/combined-notes";
 import { generateNoteId } from "@/utils/general/notes";
+import { getCachedNotes, setCachedNotes, clearNotesCache } from "@/utils/notes-cache";
 import {
   USER_NOTE_COUNT_KEY,
   HAS_INITIALISED_KEY,
   ACTIVITY_TIMEOUT,
   REFRESH_INTERVAL,
+  AUTH_TIMEOUT,
+  LAST_ACCESS_DEBOUNCE,
 } from "@/constants/app";
 
 export function useNotesSync() {
@@ -44,9 +49,11 @@ export function useNotesSync() {
   } = useNotesStore();
 
   const hasInitialisedRef = useRef(false);
+  const isInitializingRef = useRef(false);
   const isMounted = useRef(true);
   const noteFlushFunctionsRef = useRef<Map<string, () => void>>(new Map());
   const lastUpdateTimestamp = useRef(Date.now());
+  const lastAccessTimestamp = useRef(0);
 
   // Load notes from Redis
   const loadNotesFromRedis = useCallback(async (): Promise<CombinedNote[]> => {
@@ -127,14 +134,22 @@ export function useNotesSync() {
   // Initialize
   useEffect(() => {
     isMounted.current = true;
-    if (hasInitialisedRef.current) return;
+    if (hasInitialisedRef.current || isInitializingRef.current) return;
 
-    // Mark as initialised immediately to prevent concurrent initializations
-    // (effect may re-run due to supabase client being recreated on each render)
-    hasInitialisedRef.current = true;
+    // Prevent concurrent initializations without blocking retry on failure
+    isInitializingRef.current = true;
 
     const initialize = async () => {
       try {
+        // Check client-side cache first for instant render
+        const cachedNotes = getCachedNotes();
+        if (cachedNotes && cachedNotes.length > 0) {
+          syncFromBackend(cachedNotes);
+          recalculateNotebookCounts();
+          setLoading(false);
+          // Continue loading fresh data in background below
+        }
+
         // Get or create user ID
         const newUserId = getUserId();
         setUserId(newUserId);
@@ -143,16 +158,27 @@ export function useNotesSync() {
           throw new Error("Failed to get user ID");
         }
 
-        // Check authentication status
-        const { data: authData } = await supabase.auth.getUser();
-        const authenticated = !!authData?.user;
+        // Check authentication status with timeout to avoid infinite hang
+        let authenticated = false;
+        try {
+          const authResult = await Promise.race([
+            supabase.auth.getUser(),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error("Auth timeout")), AUTH_TIMEOUT)
+            ),
+          ]);
+          authenticated = !!authResult.data?.user;
+        } catch (authError) {
+          console.warn("Auth check failed or timed out, proceeding as unauthenticated:", authError);
+          authenticated = false;
+        }
         setAuthenticated(authenticated);
 
-        // Load notes from both sources
-        const [redisResult, supabaseResult] = await Promise.allSettled([
+        // Phase 1: Load Redis notes (full) + Supabase metadata (no content) in parallel
+        const [redisResult, supabaseMetadataResult] = await Promise.allSettled([
           noteOperation("redis", { operation: "getAll", userId: newUserId }),
           authenticated
-            ? getSupabaseNotesByUserId()
+            ? getNoteMetadataByUserId()
             : Promise.resolve({ success: true, notes: [] }),
         ]);
 
@@ -163,14 +189,14 @@ export function useNotesSync() {
             ? redisResult.value.notes.map(redisToCombi)
             : [];
 
-        const supabaseNotes =
-          supabaseResult.status === "fulfilled" &&
-          supabaseResult.value.success &&
-          supabaseResult.value.notes
-            ? supabaseResult.value.notes
+        const supabaseNotesMetadata =
+          supabaseMetadataResult.status === "fulfilled" &&
+          supabaseMetadataResult.value.success &&
+          supabaseMetadataResult.value.notes
+            ? supabaseMetadataResult.value.notes
             : [];
 
-        let allNotes = [...redisNotes, ...supabaseNotes];
+        let allNotes = [...redisNotes, ...supabaseNotesMetadata];
 
         // Create default note if none exist
         if (allNotes.length === 0) {
@@ -208,11 +234,45 @@ export function useNotesSync() {
         const normalizedNotes = normaliseOrdering(allNotes);
         const sortedNotes = sortNotes(normalizedNotes, null);
 
+        // Render immediately with metadata (note list visible, content empty for Supabase notes)
         syncFromBackend(sortedNotes);
         recalculateNotebookCounts();
+        setCachedNotes(sortedNotes);
+
+        // Phase 2: Backfill Supabase content in background
+        if (authenticated && supabaseNotesMetadata.length > 0) {
+          getNoteContentsByUserId().then((contentsResult) => {
+            if (!isMounted.current || !contentsResult.success || !contentsResult.contents) return;
+
+            const contentMap = new Map(
+              contentsResult.contents.map((c: { id: string; content: string }) => [c.id, c.content])
+            );
+
+            const currentNotes = useNotesStore.getState().notes;
+            const updatedNotes = currentNotes.map((note) => {
+              const content = contentMap.get(note.id);
+              if (content !== undefined && note.source === "supabase") {
+                return { ...note, content };
+              }
+              return note;
+            });
+
+            if (isMounted.current) {
+              syncFromBackend(updatedNotes);
+              setCachedNotes(updatedNotes);
+            }
+          }).catch((error) => {
+            console.error("Failed to backfill Supabase content:", error);
+          });
+        }
+
+        // Mark as initialised only after successful completion
+        hasInitialisedRef.current = true;
       } catch (error) {
         console.error("Initialization error:", error);
+        // Allow retry on next effect run by not setting hasInitialisedRef
       } finally {
+        isInitializingRef.current = false;
         setLoading(false);
       }
     };
@@ -223,7 +283,7 @@ export function useNotesSync() {
   // Auth change listener
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (_, session) => {
+      async (_: string, session: any) => {
         const wasAuthenticated = useNotesStore.getState().isAuthenticated;
         const nowAuthenticated = !!session?.user;
 
@@ -254,11 +314,36 @@ export function useNotesSync() {
       if (timeSinceLastUpdate > ACTIVITY_TIMEOUT && !isAnyNoteActive) {
         refreshNotes();
       }
-      updateLastAccess();
     }, REFRESH_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [refreshNotes, updateLastAccess]);
+  }, [refreshNotes]);
+
+  // Update last access on user activity (throttled to 5 minutes)
+  useEffect(() => {
+    if (!hasInitialisedRef.current) return;
+
+    const throttledUpdateLastAccess = () => {
+      const now = Date.now();
+      if (now - lastAccessTimestamp.current >= LAST_ACCESS_DEBOUNCE) {
+        lastAccessTimestamp.current = now;
+        updateLastAccess();
+      }
+    };
+
+    window.addEventListener("mousemove", throttledUpdateLastAccess);
+    window.addEventListener("keydown", throttledUpdateLastAccess);
+    window.addEventListener("click", throttledUpdateLastAccess);
+
+    // Fire once on mount
+    throttledUpdateLastAccess();
+
+    return () => {
+      window.removeEventListener("mousemove", throttledUpdateLastAccess);
+      window.removeEventListener("keydown", throttledUpdateLastAccess);
+      window.removeEventListener("click", throttledUpdateLastAccess);
+    };
+  }, [updateLastAccess]);
 
   // Cleanup
   useEffect(() => {

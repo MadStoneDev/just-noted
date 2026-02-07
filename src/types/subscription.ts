@@ -101,5 +101,10 @@ export interface PaddleWebhookEvent {
     custom_data?: {
       userId?: string;
     };
+    items?: Array<{
+      price?: {
+        id?: string;
+      };
+    }>;
   };
 }

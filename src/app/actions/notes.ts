@@ -19,6 +19,7 @@ import {
   validateNoteTitle,
   validateNoteContentLength,
   validateNoteTitleLength,
+  isValidUUID,
 } from "@/utils/validation";
 import {
   NOTES_KEY_PREFIX,
@@ -70,6 +71,19 @@ type NoteOperationParams =
 // ===========================
 // UTILITY FUNCTIONS
 // ===========================
+
+/**
+ * Validates Redis userId: must be non-empty AND valid UUID format.
+ * Prevents key injection and limits attack surface to UUID guessing (2^122 entropy).
+ * @throws Error if userId is invalid
+ */
+function validateRedisUserId(userId: string): void {
+  validateUserId(userId);
+  if (!isValidUUID(userId)) {
+    throw new Error("Invalid user ID format: must be a valid UUID");
+  }
+}
+
 async function isBotRequest(action: string): Promise<boolean> {
   try {
     const headersList = await headers();
@@ -156,7 +170,7 @@ async function updateRedisNoteField<K extends keyof RedisNote>(
   value: RedisNote[K],
 ): Promise<{ success: boolean; notes?: RedisNote[]; error?: string }> {
   try {
-    validateUserId(userId);
+    validateRedisUserId(userId);
 
     const currentNotes = await getNotesWithRetry(userId);
     const noteIndex = currentNotes.findIndex((note) => note.id === noteId);
@@ -193,6 +207,10 @@ async function updateRedisNoteField<K extends keyof RedisNote>(
 // ===========================
 // REDIS OPERATIONS
 // ===========================
+// LIMITATION (H9): All notes for a user are stored as a single JSON key in Redis.
+// Every read-modify-write fetches ALL notes, modifies one, and writes ALL back.
+// The proper fix is Redis hashes: HSET notes:{userId} {noteId} {json}
+// This requires migrating to self-hosted Redis (Upstash REST API doesn't support HSET well).
 async function handleRedisOperation(params: NoteOperationParams) {
   const { operation } = params;
 
@@ -204,7 +222,7 @@ async function handleRedisOperation(params: NoteOperationParams) {
     switch (operation) {
       case "create": {
         const { userId, note } = params;
-        validateUserId(userId);
+        validateRedisUserId(userId);
 
         if (!note?.id?.trim()) {
           return {
@@ -230,7 +248,7 @@ async function handleRedisOperation(params: NoteOperationParams) {
 
       case "update": {
         const { userId, noteId, content, goal = 0, goalType = "" } = params;
-        validateUserId(userId);
+        validateRedisUserId(userId);
 
         if (!validateNoteContent(content)) {
           return {
@@ -322,7 +340,7 @@ async function handleRedisOperation(params: NoteOperationParams) {
 
       case "delete": {
         const { userId, noteId } = params;
-        validateUserId(userId);
+        validateRedisUserId(userId);
 
         const currentNotes = await getNotesWithRetry(userId);
         const noteToDelete = currentNotes.find((note) => note.id === noteId);
@@ -344,14 +362,14 @@ async function handleRedisOperation(params: NoteOperationParams) {
 
       case "getAll": {
         const { userId } = params;
-        validateUserId(userId);
+        validateRedisUserId(userId);
         const notes = await getNotesWithRetry(userId);
         return { success: true, notes };
       }
 
       case "batchUpdateOrders": {
         const { userId, updates } = params;
-        validateUserId(userId);
+        validateRedisUserId(userId);
 
         // Validate all orders first
         const invalidOrder = updates.find(

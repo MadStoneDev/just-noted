@@ -95,8 +95,17 @@ export async function createNotebook(
     }
 
     const currentCount = count || 0;
-    // TODO: Check user's subscription tier for limit
-    const limit = NOTEBOOK_LIMITS.free;
+
+    // Check user's subscription tier for notebook limit
+    let limit: number = NOTEBOOK_LIMITS.free;
+    const { data: subData } = await supabase
+      .from("subscriptions")
+      .select("tier, status")
+      .eq("user_id", userId)
+      .single();
+    if (subData?.status === "active" && subData?.tier === "pro") {
+      limit = NOTEBOOK_LIMITS.premium;
+    }
 
     if (currentCount >= limit) {
       return {

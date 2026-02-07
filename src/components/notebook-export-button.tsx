@@ -120,7 +120,7 @@ export default function NotebookExportButton({
   // Export notebook
   const exportNotebook = async (format: ExportFormat) => {
     if (notebookNotes.length === 0) {
-      alert("No notes to export in this notebook");
+      console.warn("No notes to export in this notebook");
       return;
     }
 
@@ -218,7 +218,7 @@ export default function NotebookExportButton({
       setIsOpen(false);
     } catch (error) {
       console.error("Export failed:", error);
-      alert("Failed to export notebook");
+      console.error("Failed to export notebook");
     } finally {
       setIsExporting(false);
     }

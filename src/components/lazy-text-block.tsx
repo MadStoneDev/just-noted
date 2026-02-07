@@ -10,6 +10,7 @@ import React, {
   lazy,
 } from "react";
 import { useNotesStore } from "@/stores/notes-store";
+import { getPlainTextPreview } from "@/utils/html-utils";
 
 // Lazy load TipTapEditor - only loads when actually needed
 const TipTapEditor = lazy(() => import("./tip-tap-editor"));
@@ -28,12 +29,7 @@ interface Props {
 // Simple content preview for collapsed notes (no TipTap overhead)
 function ContentPreview({ content, className }: { content: string; className?: string }) {
   const previewText = useMemo(() => {
-    // Strip HTML and get plain text preview
-    const div = document.createElement("div");
-    div.innerHTML = content;
-    const text = div.textContent || div.innerText || "";
-    // Limit to first 200 characters
-    return text.slice(0, 200) + (text.length > 200 ? "..." : "");
+    return getPlainTextPreview(content, 200);
   }, [content]);
 
   if (!previewText.trim()) {
@@ -81,11 +77,17 @@ export default function LazyTextBlock({
   const changeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastExternalValueRef = useRef(value);
   const isInternalChangeRef = useRef(false);
+  const onChangeRef = useRef(onChange);
 
   // Check if this note is being edited
   const isEditing = useNotesStore((state) =>
     noteId ? state.isEditing.has(noteId) : false
   );
+
+  // Keep onChange ref in sync to avoid stale closures
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   // Track if note has ever been expanded (to keep editor loaded)
   useEffect(() => {
@@ -94,7 +96,7 @@ export default function LazyTextBlock({
     }
   }, [isCollapsed, hasBeenExpanded]);
 
-  // Stable change handler
+  // Stable change handler — uses ref to avoid stale closure
   const handleChange = useCallback(
     (newContent: string) => {
       isInternalChangeRef.current = true;
@@ -107,13 +109,13 @@ export default function LazyTextBlock({
       }
 
       changeTimeoutRef.current = setTimeout(() => {
-        if (onChange) {
-          onChange(newContent);
+        if (onChangeRef.current) {
+          onChangeRef.current(newContent);
         }
         isInternalChangeRef.current = false;
       }, 100);
     },
-    [onChange]
+    []
   );
 
   // Sync external value changes

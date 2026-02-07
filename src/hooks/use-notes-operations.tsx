@@ -28,6 +28,27 @@ import {
   CombinedNote,
 } from "@/types/combined-notes";
 import { generateNoteId } from "@/utils/general/notes";
+
+export interface NotesOperations {
+  addNote: (templateContent?: string, templateTitle?: string) => Promise<void>;
+  updatePinStatus: (noteId: string, isPinned: boolean) => Promise<void>;
+  updatePrivacyStatus: (noteId: string, isPrivate: boolean) => Promise<void>;
+  updateCollapsedStatus: (noteId: string, isCollapsed: boolean) => void;
+  reorderNote: (noteId: string, direction: "up" | "down") => Promise<void>;
+  transferNote: (noteId: string, targetSource: NoteSource) => Promise<void>;
+  syncAndRenumberNotes: () => Promise<void>;
+  deleteNote: (noteId: string) => Promise<void>;
+  restoreNote: () => Promise<void>;
+  saveNoteContent: (
+    noteId: string,
+    content: string,
+    goal: number,
+    goalType: "" | "words" | "characters",
+  ) => Promise<{ success: boolean }>;
+  saveNoteTitle: (noteId: string, title: string) => Promise<{ success: boolean }>;
+  refreshSingleNote: (noteId: string) => Promise<CombinedNote | null>;
+  transferringNoteId: string | null;
+}
 import { USER_NOTE_COUNT_KEY, HAS_INITIALISED_KEY } from "@/constants/app";
 
 export function useNotesOperations(
@@ -53,6 +74,7 @@ export function useNotesOperations(
   } = useNotesStore();
 
   const transferLockRef = useRef<Set<string>>(new Set());
+  const newNoteTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const debouncedTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   // Add Note (with optional template content)
@@ -115,8 +137,12 @@ export function useNotesOperations(
 
       // After successful save, trigger a re-sort to move below pinned notes
       // But keep the visual feedback for a moment
-      setTimeout(() => {
+      if (newNoteTimeoutRef.current) {
+        clearTimeout(newNoteTimeoutRef.current);
+      }
+      newNoteTimeoutRef.current = setTimeout(() => {
         setNewNoteId(null); // This will trigger re-sort on next render
+        newNoteTimeoutRef.current = null;
       }, 2000); // Keep "new note" indicator for 2 seconds
     } catch (error) {
       console.error("Failed to create note:", error);
@@ -352,13 +378,17 @@ export function useNotesOperations(
       if (!localNote || localNote.source === targetSource) return;
 
       if (targetSource === "supabase" && !isAuthenticated) {
-        alert("You must be signed in to save notes to the cloud.");
+        console.warn("Transfer blocked: user not authenticated for cloud save");
         return;
       }
 
-      // Lock this transfer
+      // Lock this transfer with 30-second fallback timeout
       transferLockRef.current.add(noteId);
       setTransferring(noteId);
+      const transferTimeout = setTimeout(() => {
+        transferLockRef.current.delete(noteId);
+        setTransferring(null);
+      }, 30000);
 
       try {
         // Clone the note with new source and ID
@@ -415,6 +445,7 @@ export function useNotesOperations(
         setTransferError(true); // ADD THIS
         await refreshNotes();
       } finally {
+        clearTimeout(transferTimeout);
         setTransferring(null);
         transferLockRef.current.delete(noteId);
       }
@@ -521,9 +552,6 @@ export function useNotesOperations(
       if (!targetNote) return;
 
       if (notes.length === 1) {
-        alert(
-          "You must have at least one note. Create a new note before deleting this one.",
-        );
         return;
       }
 
@@ -543,6 +571,10 @@ export function useNotesOperations(
           }
         } catch (error) {
           console.error("Failed to delete note:", error);
+          // Restore note on delete failure so user doesn't lose data
+          const { restoreDeletedNote: restoreFromStore } = useNotesStore.getState();
+          restoreFromStore();
+          return;
         }
         clearRecentlyDeleted();
       }, 10000);
@@ -594,7 +626,7 @@ export function useNotesOperations(
       }
 
       // Get store methods
-      const { setSaving, setEditing } = useNotesStore.getState();
+      const { setSaving, setEditing, setSaveError } = useNotesStore.getState();
 
       // Mark as saving (and stop editing since we're saving now)
       setSaving(noteId, true);
@@ -619,10 +651,17 @@ export function useNotesOperations(
           result = await updateSupabaseNote(noteId, content, goal, goalType);
         }
 
+        // Clear error on success, set on failure
+        if (result.success) {
+          setSaveError(noteId, false);
+        } else {
+          setSaveError(noteId, true);
+        }
+
         return result;
       } catch (error) {
         console.error("Failed to save note content:", error);
-        // Optionally revert optimistic update on error
+        setSaveError(noteId, true);
         await refreshNotes();
         return { success: false };
       } finally {
@@ -721,6 +760,10 @@ export function useNotesOperations(
       // Clear all pending debounced updates
       debouncedTimeouts.current.forEach((timeout) => clearTimeout(timeout));
       debouncedTimeouts.current.clear();
+      // Clear newNote timeout
+      if (newNoteTimeoutRef.current) {
+        clearTimeout(newNoteTimeoutRef.current);
+      }
     };
   }, []);
 

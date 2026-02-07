@@ -6,6 +6,7 @@ import NoteBlock from "@/components/note-block";
 import NoteTemplates from "@/components/ui/note-templates";
 import { CombinedNote, NoteSource } from "@/types/combined-notes";
 import { useNotesStore } from "@/stores/notes-store";
+import { NotesOperations } from "@/hooks/use-notes-operations";
 
 import { IconSquareRoundedPlus, IconRefresh, IconTemplate } from "@tabler/icons-react";
 
@@ -14,7 +15,7 @@ interface JustNotesProps {
   openSplitViewNote?: (note: CombinedNote) => void;
   userId: string | null;
   isAuthenticated: boolean;
-  notesOperations: any;
+  notesOperations: NotesOperations;
   registerNoteFlush: (noteId: string, flushFn: () => void) => void;
   unregisterNoteFlush: (noteId: string) => void;
 }

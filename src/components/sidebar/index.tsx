@@ -16,6 +16,7 @@ import NotebookModal from "@/components/notebook-modal";
 import { NotebookCoverHeader } from "@/components/notebook-breadcrumb";
 import BulkActionBar from "@/components/bulk-action-bar";
 import { getCoverPreviewStyle } from "@/lib/notebook-covers";
+import { getPlainTextPreview as getPlainTextPreviewUtil } from "@/utils/html-utils";
 import {
   IconX,
   IconSearch,
@@ -198,15 +199,38 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
     [setActiveNoteId, onNoteClick, setSidebarOpen]
   );
 
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
+
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      setSearchQuery(e.target.value);
+      const value = e.target.value;
+      setLocalSearchQuery(value);
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+      searchDebounceRef.current = setTimeout(() => {
+        setSearchQuery(value);
+      }, 300);
     },
     [setSearchQuery]
   );
 
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, []);
+
   const handleClearSearch = useCallback(() => {
+    setLocalSearchQuery("");
     setSearchQuery("");
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
     searchInputRef.current?.focus();
   }, [setSearchQuery]);
 
@@ -307,7 +331,7 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
       }
 
       if (existingFiles && existingFiles.length > 0) {
-        const filesToDelete = existingFiles.map((f) => `${userId}/${f.name}`);
+        const filesToDelete = existingFiles.map((f: { name: string }) => `${userId}/${f.name}`);
         console.log("Deleting existing files:", filesToDelete);
         const { error: deleteError } = await supabase.storage.from("notebook-covers").remove(filesToDelete);
         if (deleteError) {
@@ -438,12 +462,9 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
     }
   }, [editingNotebook, removeNotebook, recalculateNotebookCounts]);
 
-  // Strip HTML tags for preview
-  const getPlainTextPreview = (html: string, maxLength = 60) => {
-    const div = document.createElement("div");
-    div.innerHTML = html;
-    const text = div.textContent || div.innerText || "";
-    return text.length > maxLength ? text.slice(0, maxLength) + "..." : text;
+  // Strip HTML tags for preview - uses shared utility
+  const getPreview = (html: string, maxLength = 60) => {
+    return getPlainTextPreviewUtil(html, maxLength);
   };
 
   return (
@@ -501,11 +522,11 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
                 ref={searchInputRef}
                 type="text"
                 placeholder="Search notes..."
-                value={searchQuery}
+                value={localSearchQuery}
                 onChange={handleSearchChange}
                 className="w-full pl-10 pr-10 py-2 bg-neutral-100 rounded-lg border border-transparent focus:border-mercedes-primary focus:bg-white focus:outline-none transition-all"
               />
-              {searchQuery && (
+              {localSearchQuery && (
                 <button
                   onClick={handleClearSearch}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
@@ -683,7 +704,7 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
                             </h3>
                           </div>
                           <p className="text-sm text-neutral-400/70 truncate mt-1">
-                            {getPlainTextPreview(note.content) || "Empty note"}
+                            {getPreview(note.content) || "Empty note"}
                           </p>
                         </div>
                         <div className="flex-shrink-0">

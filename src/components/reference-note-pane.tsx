@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useCallback, useMemo } from "react";
-import DOMPurify from "dompurify";
 import { useNotesStore } from "@/stores/notes-store";
+import { sanitizeHtml } from "@/utils/sanitize";
 import ReferenceNoteSelector from "./reference-note-selector";
 import LazyTextBlock from "./lazy-text-block";
 import {
@@ -130,7 +130,7 @@ export default function ReferenceNotePane({ onClose }: ReferenceNotePaneProps) {
               ) : (
                 <div
                   className="prose prose-sm max-w-none p-4 bg-white rounded-lg shadow-sm"
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(referenceNote.content) }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(referenceNote.content) }}
                 />
               )}
             </div>

@@ -54,7 +54,17 @@ export interface CreateNoteInput {
 
 // Convert RedisNote to CombinedNote
 export function redisToCombi(note: RedisNote): CombinedNote {
+  if (!note || !note.id) {
+    throw new Error("Invalid RedisNote: missing id");
+  }
   const now = Date.now();
+
+  // Validate goal_type
+  const validGoalTypes = ["words", "characters", ""];
+  const goalType = validGoalTypes.includes(note.goal_type as any)
+    ? (note.goal_type as "words" | "characters" | "")
+    : "";
+
   return {
     id: note.id,
     author: note.author || "",
@@ -67,7 +77,7 @@ export function redisToCombi(note: RedisNote): CombinedNote {
     createdAt: note.createdAt ?? now,
     updatedAt: note.updatedAt ?? now,
     goal: note.goal || 0,
-    goal_type: note.goal_type || "",
+    goal_type: goalType,
     source: "redis",
   };
 }
@@ -92,6 +102,9 @@ export function combiToRedis(note: CombinedNote): RedisNote {
 
 // Convert SupabaseNote to CombinedNote
 export function supabaseToCombi(note: SupabaseNote): CombinedNote {
+  if (!note || !note.id) {
+    throw new Error("Invalid SupabaseNote: missing id");
+  }
   const now = Date.now();
 
   // Validate goal_type from database
