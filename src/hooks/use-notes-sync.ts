@@ -231,10 +231,25 @@ export function useNotesSync() {
           }
         }
 
-        const normalizedNotes = normaliseOrdering(allNotes);
+        // Preserve cached content for Supabase notes during metadata-only phase
+        const existingNotes = useNotesStore.getState().notes;
+        const existingContentMap = new Map(
+          existingNotes
+            .filter((n) => n.source === "supabase" && n.content)
+            .map((n) => [n.id, n.content])
+        );
+
+        const notesWithPreservedContent = allNotes.map((note) => {
+          if (note.source === "supabase" && !note.content && existingContentMap.has(note.id)) {
+            return { ...note, content: existingContentMap.get(note.id)! };
+          }
+          return note;
+        });
+
+        const normalizedNotes = normaliseOrdering(notesWithPreservedContent);
         const sortedNotes = sortNotes(normalizedNotes, null);
 
-        // Render immediately with metadata (note list visible, content empty for Supabase notes)
+        // Render immediately with metadata + preserved cached content
         syncFromBackend(sortedNotes);
         recalculateNotebookCounts();
         setCachedNotes(sortedNotes);
