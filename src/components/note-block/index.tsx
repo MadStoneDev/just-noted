@@ -963,76 +963,76 @@ export default function NoteBlock({
         }`}
       >
         {isContentVisible && (
-          <>
-            <article
-              className={`grid grid-cols-12 gap-4 ${
-                distractionFreeMode ? "h-full" : ""
-              }`}
+          <article
+            className={`grid grid-cols-12 gap-4 ${
+              distractionFreeMode ? "h-full" : ""
+            }`}
+          >
+            {/* Editor */}
+            <div
+              className={`col-span-12 ${
+                distractionFreeMode
+                  ? ""
+                  : "md:col-span-8 lg:col-span-9 3xl:col-span-10"
+              } rounded-xl overflow-hidden`}
             >
-              {/* Editor */}
-              <div
-                className={`col-span-12 ${
-                  distractionFreeMode
-                    ? ""
-                    : "md:col-span-8 lg:col-span-9 3xl:col-span-10"
-                } rounded-xl overflow-hidden`}
-              >
-                <LazyTextBlock
-                  noteId={details.id}
-                  value={noteContent}
-                  onChange={handleChange}
-                  distractionFreeMode={distractionFreeMode}
-                  isCollapsed={!isContentExpanded}
-                  placeholder="Just start typing..."
-                />
-              </div>
+              <LazyTextBlock
+                noteId={details.id}
+                value={noteContent}
+                onChange={handleChange}
+                distractionFreeMode={distractionFreeMode}
+                isCollapsed={!isContentExpanded}
+                placeholder="Just start typing..."
+              />
+            </div>
 
-              {/* Statistics */}
-              {!distractionFreeMode && (
-                <NoteStatistics
-                  wordCount={wordCount}
-                  charCount={charCount}
-                  readingTime={readingTime}
-                  pageEstimate={pageEstimate}
-                  currentPageFormat={currentPageFormat}
-                  progressPercentage={progressPercentage}
-                  wordCountGoal={wordCountGoal}
-                  isPrivate={isPrivate}
-                  notebook={noteNotebook ? {
-                    name: noteNotebook.name,
-                    coverType: noteNotebook.coverType,
-                    coverValue: noteNotebook.coverValue,
-                  } : null}
-                  onOpenPageEstimateModal={() => setShowPageEstimateModal(true)}
-                  onOpenWordCountGoalModal={() =>
-                    setShowWordCountGoalModal(true)
-                  }
-                  onScrollToHeading={handleScrollToHeading}
-                />
-              )}
-            </article>
-
-            {/* Toolbar */}
-            <NoteToolbar
-              noteId={details.id}
-              userId={userId}
-              noteTitle={noteTitle}
-              noteSource={noteSource}
-              note={currentNote}
-              isPrivate={isPrivate}
-              isPinned={isPinned}
-              isPending={isPending}
-              isAuthenticated={isAuthenticated}
-              showDelete={showDelete}
-              onTransfer={onTransferNote ? handleTransferNote : undefined}
-              onManualSave={handleManualSave}
-              onDelete={onDelete}
-              onShowVersionHistory={handleShowVersionHistory}
-              onReplaceContent={handleReplaceContent}
-            />
-          </>
+            {/* Statistics */}
+            {!distractionFreeMode && (
+              <NoteStatistics
+                wordCount={wordCount}
+                charCount={charCount}
+                readingTime={readingTime}
+                pageEstimate={pageEstimate}
+                currentPageFormat={currentPageFormat}
+                progressPercentage={progressPercentage}
+                wordCountGoal={wordCountGoal}
+                isPrivate={isPrivate}
+                notebook={noteNotebook ? {
+                  name: noteNotebook.name,
+                  coverType: noteNotebook.coverType,
+                  coverValue: noteNotebook.coverValue,
+                } : null}
+                onOpenPageEstimateModal={() => setShowPageEstimateModal(true)}
+                onOpenWordCountGoalModal={() =>
+                  setShowWordCountGoalModal(true)
+                }
+                onScrollToHeading={handleScrollToHeading}
+              />
+            )}
+          </article>
         )}
       </div>
+
+      {/* Toolbar — outside overflow-hidden wrapper so dropdowns aren't clipped */}
+      {isContentVisible && (
+        <NoteToolbar
+          noteId={details.id}
+          userId={userId}
+          noteTitle={noteTitle}
+          noteSource={noteSource}
+          note={currentNote}
+          isPrivate={isPrivate}
+          isPinned={isPinned}
+          isPending={isPending}
+          isAuthenticated={isAuthenticated}
+          showDelete={showDelete}
+          onTransfer={onTransferNote ? handleTransferNote : undefined}
+          onManualSave={handleManualSave}
+          onDelete={onDelete}
+          onShowVersionHistory={handleShowVersionHistory}
+          onReplaceContent={handleReplaceContent}
+        />
+      )}
 
       {/* Modals */}
       {showPageEstimateModal && (
