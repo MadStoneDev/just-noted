@@ -8,7 +8,8 @@ import {
   IconCode,
   IconMarkdown,
   IconFileTypeTxt,
-  IconChevronDown,
+  IconChevronRight,
+  IconX,
 } from "@tabler/icons-react";
 
 interface ExportMenuProps {
@@ -236,32 +237,29 @@ export default function ExportMenu({ note, className = "" }: ExportMenuProps) {
   const menuItems = [
     {
       format: "txt" as ExportFormat,
-      label: "Plain Text",
-      icon: <IconFileTypeTxt size={16} />,
-      description: ".txt - Simple text format",
+      label: "TXT",
+      icon: <IconFileTypeTxt size={18} />,
     },
     {
       format: "md" as ExportFormat,
-      label: "Markdown",
-      icon: <IconMarkdown size={16} />,
-      description: ".md - Formatted text",
+      label: "MD",
+      icon: <IconMarkdown size={18} />,
     },
     {
       format: "html" as ExportFormat,
       label: "HTML",
-      icon: <IconCode size={16} />,
-      description: ".html - Web page format",
+      icon: <IconCode size={18} />,
     },
     {
       format: "json" as ExportFormat,
       label: "JSON",
-      icon: <IconFileText size={16} />,
-      description: ".json - Data format",
+      icon: <IconFileText size={18} />,
     },
   ];
 
   return (
-    <div ref={menuRef} className={`relative ${className}`}>
+    <div ref={menuRef} className={`relative flex items-center ${className}`}>
+      {/* Export trigger button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center gap-1 rounded-lg hover:bg-neutral-100 transition-colors text-neutral-600 ${
@@ -271,30 +269,68 @@ export default function ExportMenu({ note, className = "" }: ExportMenuProps) {
         aria-label="Export Note"
       >
         <IconDownload size={18} />
-        <IconChevronDown
+        <IconChevronRight
           size={14}
-          className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
+          className={`transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
         />
       </button>
 
+      {/* Desktop: inline expanding options */}
+      <div
+        className={`hidden md:flex items-center gap-1 overflow-hidden transition-all duration-300 ease-in-out ${
+          isOpen ? "max-w-[300px] opacity-100 ml-1" : "max-w-0 opacity-0"
+        }`}
+      >
+        {menuItems.map((item) => (
+          <button
+            key={item.format}
+            onClick={() => exportNote(item.format)}
+            title={`Export as ${item.label}`}
+            className="flex items-center gap-1.5 px-2.5 py-2 min-h-[44px] rounded-lg text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 transition-colors whitespace-nowrap text-xs font-medium"
+          >
+            {item.icon}
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Mobile: slide-in overlay panel */}
       {isOpen && (
-        <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-xl border border-neutral-200 py-1 min-w-[200px] z-50">
-          <div className="px-3 py-1.5 text-xs font-medium text-neutral-500 border-b border-neutral-100">
-            Export As
+        <div className="md:hidden fixed inset-0 z-50">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/30"
+            onClick={() => setIsOpen(false)}
+          />
+
+          {/* Panel from right */}
+          <div className="absolute top-0 right-0 bottom-0 w-[min(280px,80vw)] bg-white shadow-xl flex flex-col animate-slide-in-right">
+            {/* Panel header */}
+            <div className="flex items-center justify-between p-4 border-b border-neutral-100">
+              <h3 className="font-semibold text-neutral-800">Export As</h3>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-neutral-100 transition-colors"
+                aria-label="Close export menu"
+              >
+                <IconX size={20} />
+              </button>
+            </div>
+
+            {/* Panel options */}
+            <div className="flex flex-col p-2">
+              {menuItems.map((item) => (
+                <button
+                  key={item.format}
+                  onClick={() => exportNote(item.format)}
+                  className="flex items-center gap-3 px-4 py-3 min-h-[44px] rounded-lg text-neutral-600 hover:bg-neutral-50 transition-colors"
+                >
+                  <span className="text-neutral-400">{item.icon}</span>
+                  <span className="font-medium">{item.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
-          {menuItems.map((item) => (
-            <button
-              key={item.format}
-              onClick={() => exportNote(item.format)}
-              className="w-full px-3 py-2 text-left hover:bg-neutral-50 flex items-center gap-3 transition-colors"
-            >
-              <span className="text-neutral-500">{item.icon}</span>
-              <div>
-                <div className="text-sm font-medium">{item.label}</div>
-                <div className="text-xs text-neutral-400">{item.description}</div>
-              </div>
-            </button>
-          ))}
         </div>
       )}
     </div>
