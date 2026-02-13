@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { noteOperation } from "@/app/actions/notes";
+import { useState, useEffect, useRef } from "react";
+import { getQueueSize, processQueue, subscribe } from "@/utils/offline-queue";
+import { QUEUE_RETRY_INTERVAL } from "@/constants/app";
 
 interface OnlineStatus {
   isOnline: boolean;
@@ -57,181 +58,40 @@ export function useOnlineStatus(): OnlineStatus {
   return status;
 }
 
-// Storage key for offline queue
-const OFFLINE_QUEUE_KEY = "justnoted_offline_queue";
-
-interface QueuedOperation {
-  id: string;
-  type: "create" | "update" | "delete" | "updateTitle" | "updatePin" | "updatePrivacy";
-  noteId: string;
-  data: Record<string, any>;
-  timestamp: number;
-}
-
 /**
- * Hook to manage offline operations queue
- * Queues operations when offline and processes them when back online
+ * Hook to manage offline operations queue.
+ * Thin React wrapper over the IDB-backed queue in src/utils/offline-queue.ts.
  */
 export function useOfflineQueue() {
-  const [queue, setQueue] = useState<QueuedOperation[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const { isOnline } = useOnlineStatus();
   const prevOnlineRef = useRef(isOnline);
 
-  // Load queue from localStorage on mount
+  // Subscribe to queue size changes
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    try {
-      const stored = localStorage.getItem(OFFLINE_QUEUE_KEY);
-      if (stored) {
-        setQueue(JSON.parse(stored));
-      }
-    } catch (e) {
-      console.error("Failed to load offline queue:", e);
-    }
+    getQueueSize().then(setPendingCount);
+    return subscribe((count) => setPendingCount(count));
   }, []);
 
-  // Save queue to localStorage whenever it changes
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    try {
-      localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
-    } catch (e) {
-      console.error("Failed to save offline queue:", e);
-    }
-  }, [queue]);
-
-  // Process queue: execute each operation in order, remove successful ones
-  const processQueue = useCallback(async () => {
-    if (isProcessing) return;
-
-    setIsProcessing(true);
-    try {
-      // Read the current queue from state
-      const currentQueue = [...queue].sort((a, b) => a.timestamp - b.timestamp);
-      const failedOps: QueuedOperation[] = [];
-
-      for (const op of currentQueue) {
-        try {
-          const { type, data } = op;
-          const storage = (data.source === "supabase" ? "supabase" : "redis") as "redis" | "supabase";
-
-          switch (type) {
-            case "create":
-              await noteOperation(storage, {
-                operation: "create",
-                userId: data.userId,
-                note: data.note,
-              });
-              break;
-            case "update":
-              await noteOperation(storage, {
-                operation: "update",
-                userId: data.userId,
-                noteId: op.noteId,
-                content: data.content,
-                goal: data.goal,
-                goalType: data.goalType,
-              });
-              break;
-            case "updateTitle":
-              await noteOperation(storage, {
-                operation: "updateTitle",
-                userId: data.userId,
-                noteId: op.noteId,
-                title: data.title,
-              });
-              break;
-            case "updatePin":
-              await noteOperation(storage, {
-                operation: "updatePin",
-                userId: data.userId,
-                noteId: op.noteId,
-                isPinned: data.isPinned,
-              });
-              break;
-            case "updatePrivacy":
-              await noteOperation(storage, {
-                operation: "updatePrivacy",
-                userId: data.userId,
-                noteId: op.noteId,
-                isPrivate: data.isPrivate,
-              });
-              break;
-            case "delete":
-              await noteOperation(storage, {
-                operation: "delete",
-                userId: data.userId,
-                noteId: op.noteId,
-              });
-              break;
-          }
-        } catch (error) {
-          console.error(`Failed to process queued operation ${op.id}:`, error);
-          failedOps.push(op);
-        }
-      }
-
-      // Keep only failed operations in the queue
-      setQueue(failedOps);
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [queue, isProcessing]);
-
-  // Process queue when transitioning from offline to online
+  // Process on offline→online transition
   useEffect(() => {
     const wasOffline = !prevOnlineRef.current;
-    const isNowOnline = isOnline;
     prevOnlineRef.current = isOnline;
-
-    if (wasOffline && isNowOnline && queue.length > 0) {
-      processQueue();
+    if (wasOffline && isOnline) {
+      setIsProcessing(true);
+      processQueue().finally(() => setIsProcessing(false));
     }
-  }, [isOnline, queue.length, processQueue]);
+  }, [isOnline]);
 
-  // Add operation to queue
-  const addToQueue = useCallback((operation: Omit<QueuedOperation, "id" | "timestamp">) => {
-    const newOp: QueuedOperation = {
-      ...operation,
-      id: `op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: Date.now(),
-    };
+  // Periodic retry while online with pending ops
+  useEffect(() => {
+    if (!isOnline || pendingCount === 0) return;
+    const interval = setInterval(() => {
+      processQueue();
+    }, QUEUE_RETRY_INTERVAL);
+    return () => clearInterval(interval);
+  }, [isOnline, pendingCount]);
 
-    setQueue((prev) => {
-      // Deduplicate: remove older operations for the same note/type
-      const filtered = prev.filter(
-        (op) => !(op.noteId === newOp.noteId && op.type === newOp.type)
-      );
-      return [...filtered, newOp];
-    });
-
-    return newOp.id;
-  }, []);
-
-  // Remove operation from queue
-  const removeFromQueue = useCallback((operationId: string) => {
-    setQueue((prev) => prev.filter((op) => op.id !== operationId));
-  }, []);
-
-  // Clear entire queue
-  const clearQueue = useCallback(() => {
-    setQueue([]);
-  }, []);
-
-  // Get pending operations count
-  const pendingCount = queue.length;
-
-  return {
-    queue,
-    addToQueue,
-    removeFromQueue,
-    clearQueue,
-    pendingCount,
-    isProcessing,
-    isOnline,
-    processQueue,
-  };
+  return { pendingCount, isProcessing, isOnline };
 }

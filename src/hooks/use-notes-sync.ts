@@ -24,6 +24,7 @@ import {
 } from "@/types/combined-notes";
 import { generateNoteId } from "@/utils/general/notes";
 import { getAllLocalNotes, saveAllNotesToLocal, clearLocalNotes } from "@/utils/notes-idb-cache";
+import { processQueue, clearQueue } from "@/utils/offline-queue";
 import {
   USER_NOTE_COUNT_KEY,
   HAS_INITIALISED_KEY,
@@ -232,6 +233,7 @@ export function useNotesSync() {
         // One-time cleanup of old localStorage cache
         localStorage.removeItem("justnoted_notes_cache");
         localStorage.removeItem("justnoted_notes_cache_ts");
+        localStorage.removeItem("justnoted_offline_queue");
 
         // Get or create user ID
         const newUserId = getUserId();
@@ -369,6 +371,9 @@ export function useNotesSync() {
 
         // Mark as initialised only after successful completion
         hasInitialisedRef.current = true;
+
+        // Drain any queued offline operations from previous session
+        processQueue().catch(() => {});
       } catch (error) {
         console.error("Initialization error:", error);
         // Allow retry on next effect run by not setting hasInitialisedRef
@@ -391,9 +396,10 @@ export function useNotesSync() {
         setAuthenticated(nowAuthenticated);
 
         if (hasInitialisedRef.current && wasAuthenticated !== nowAuthenticated) {
-          // Clear IDB cache on logout to prevent data leaking to next user
+          // Clear IDB cache and offline queue on logout to prevent data leaking to next user
           if (wasAuthenticated && !nowAuthenticated) {
             clearLocalNotes().catch(() => {});
+            clearQueue().catch(() => {});
           }
           await refreshNotes();
         }

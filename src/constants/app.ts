@@ -61,5 +61,12 @@ export const PAGE_FORMATS = {
   A5: { name: "a5", wordsPerPage: 300 },
 } as const;
 
+// Offline Queue Constants (separate DB from NotesCacheDB)
+export const OFFLINE_QUEUE_DB_NAME = "OfflineQueueDB";
+export const OFFLINE_QUEUE_DB_VERSION = 1;
+export const OFFLINE_QUEUE_STORE_NAME = "operations";
+export const MAX_QUEUE_RETRIES = 5;
+export const QUEUE_RETRY_INTERVAL = 30000; // 30 seconds
+
 // Other
 export const MOBILE_BREAKPOINT = 768;

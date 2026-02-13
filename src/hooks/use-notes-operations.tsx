@@ -29,6 +29,7 @@ import {
 } from "@/types/combined-notes";
 import { generateNoteId } from "@/utils/general/notes";
 import { saveNoteToLocal, saveAllNotesToLocal, deleteLocalNote } from "@/utils/notes-idb-cache";
+import { enqueue } from "@/utils/offline-queue";
 
 export interface NotesOperations {
   addNote: (templateContent?: string, templateTitle?: string) => Promise<void>;
@@ -149,10 +150,14 @@ export function useNotesOperations(
         newNoteTimeoutRef.current = null;
       }, 2000); // Keep "new note" indicator for 2 seconds
     } catch (error) {
-      console.error("Failed to create note:", error);
-      setCreationError(true);
-      optimisticDeleteNote(newNote.id);
-      await refreshNotes();
+      console.error("Failed to create note, queuing for retry:", error);
+      enqueue({
+        type: "create",
+        noteId: newNote.id,
+        source: noteSource,
+        userId,
+        note: noteSource === "redis" ? combiToRedis(newNote) : newNote,
+      });
     } finally {
       setAnimating(false);
     }
@@ -161,12 +166,9 @@ export function useNotesOperations(
     isAuthenticated,
     notes,
     optimisticUpdateNote,
-    optimisticDeleteNote,
     optimisticReorderNotes,
     setAnimating,
     setNewNoteId,
-    setCreationError,
-    refreshNotes,
   ]);
 
   // Update Pin Status
@@ -206,11 +208,17 @@ export function useNotesOperations(
           await updateSupabaseNotePinStatus(noteId, isPinned);
         }
       } catch (error) {
-        console.error("Failed to update pin status:", error);
-        await refreshNotes();
+        console.error("Failed to update pin status, queuing for retry:", error);
+        enqueue({
+          type: "updatePin",
+          noteId,
+          source: targetNote.source,
+          userId,
+          isPinned,
+        });
       }
     },
-    [userId, notes, optimisticUpdateNote, optimisticReorderNotes, refreshNotes],
+    [userId, notes, optimisticUpdateNote, optimisticReorderNotes],
   );
 
   // Update Privacy Status
@@ -240,11 +248,17 @@ export function useNotesOperations(
           await updateSupabaseNotePrivacyStatus(noteId, isPrivate);
         }
       } catch (error) {
-        console.error("Failed to update privacy status:", error);
-        await refreshNotes();
+        console.error("Failed to update privacy status, queuing for retry:", error);
+        enqueue({
+          type: "updatePrivacy",
+          noteId,
+          source: targetNote.source,
+          userId,
+          isPrivate,
+        });
       }
     },
-    [userId, notes, optimisticUpdateNote, refreshNotes],
+    [userId, notes, optimisticUpdateNote],
   );
 
   // Update Collapsed Status
@@ -281,7 +295,14 @@ export function useNotesOperations(
             await updateSupabaseNoteCollapsedStatus(noteId, isCollapsed);
           }
         } catch (error) {
-          console.error("Failed to update collapsed status:", error);
+          console.error("Failed to update collapsed status, queuing for retry:", error);
+          enqueue({
+            type: "updateCollapsed",
+            noteId,
+            source: targetNote.source,
+            userId,
+            isCollapsed,
+          });
         } finally {
           debouncedTimeouts.current.delete(noteId);
         }
@@ -586,11 +607,13 @@ export function useNotesOperations(
             await deleteSupabaseNote(noteId);
           }
         } catch (error) {
-          console.error("Failed to delete note:", error);
-          // Restore note on delete failure so user doesn't lose data
-          const { restoreDeletedNote: restoreFromStore } = useNotesStore.getState();
-          restoreFromStore();
-          return;
+          console.error("Failed to delete note, queuing for retry:", error);
+          enqueue({
+            type: "delete",
+            noteId,
+            source: targetNote.source,
+            userId,
+          });
         }
         clearRecentlyDeleted();
       }, 10000);
@@ -679,16 +702,24 @@ export function useNotesOperations(
 
         return result;
       } catch (error) {
-        console.error("Failed to save note content:", error);
+        console.error("Failed to save note content, queuing for retry:", error);
         setSaveError(noteId, true);
-        await refreshNotes();
+        enqueue({
+          type: "update",
+          noteId,
+          source: targetNote.source,
+          userId,
+          content,
+          goal,
+          goalType,
+        });
         return { success: false };
       } finally {
         // Mark as done saving
         setSaving(noteId, false);
       }
     },
-    [userId, notes, optimisticUpdateNote, refreshNotes],
+    [userId, notes, optimisticUpdateNote],
   );
 
   // Save Note Title
@@ -724,14 +755,20 @@ export function useNotesOperations(
 
         return result;
       } catch (error) {
-        console.error("Failed to save note title:", error);
-        await refreshNotes();
+        console.error("Failed to save note title, queuing for retry:", error);
+        enqueue({
+          type: "updateTitle",
+          noteId,
+          source: targetNote.source,
+          userId,
+          title,
+        });
         return { success: false };
       } finally {
         setSaving(noteId, false);
       }
     },
-    [userId, notes, optimisticUpdateNote, setSaving, refreshNotes],
+    [userId, notes, optimisticUpdateNote, setSaving],
   );
 
   const refreshSingleNote = useCallback(
