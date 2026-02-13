@@ -125,7 +125,7 @@ body {
 }
 
 .warm-shimmer {
-    background: linear-gradient(90deg, #f5f5f4 25%, #fafaf9 50%, #f5f5f4 75%);
+    background: linear-gradient(90deg, #e7e5e4 25%, #efeceb 50%, #e7e5e4 75%);
     background-size: 200% 100%;
     animation: warm-shimmer 1.5s ease-in-out infinite;
 }

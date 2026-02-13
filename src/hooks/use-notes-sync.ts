@@ -12,6 +12,7 @@ import {
   getNotesByUserId as getSupabaseNotesByUserId,
   getNoteMetadataByUserId,
   getNoteContentsByUserId,
+  updateNote as updateSupabaseNote,
 } from "@/app/actions/supabaseActions";
 import {
   CombinedNote,
@@ -22,7 +23,7 @@ import {
   createNote,
 } from "@/types/combined-notes";
 import { generateNoteId } from "@/utils/general/notes";
-import { getCachedNotes, setCachedNotes, clearNotesCache } from "@/utils/notes-cache";
+import { getAllLocalNotes, saveAllNotesToLocal, clearLocalNotes } from "@/utils/notes-idb-cache";
 import {
   USER_NOTE_COUNT_KEY,
   HAS_INITIALISED_KEY,
@@ -31,6 +32,83 @@ import {
   AUTH_TIMEOUT,
   LAST_ACCESS_DEBOUNCE,
 } from "@/constants/app";
+
+const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+
+/**
+ * Merge local IDB cache with server notes.
+ * Server wins on tie (>=). Local wins only if strictly newer.
+ * Local-only notes created within 24h are kept (assumed offline-created).
+ * Local-only notes older than 24h are dropped (assumed deleted on server).
+ * Returns the merged note list and queues server pushes for local-winning notes.
+ */
+function mergeLocalWithServer(
+  serverNotes: CombinedNote[],
+  localNotes: CombinedNote[],
+  userId: string,
+  isAuthenticated: boolean,
+): CombinedNote[] {
+  const serverMap = new Map(serverNotes.map((n) => [n.id, n]));
+  const localMap = new Map(localNotes.map((n) => [n.id, n]));
+  const merged: CombinedNote[] = [];
+  const now = Date.now();
+
+  // Process all server notes
+  for (const serverNote of serverNotes) {
+    const localNote = localMap.get(serverNote.id);
+    if (!localNote) {
+      // No local version — use server
+      merged.push(serverNote);
+    } else if (localNote.updatedAt > serverNote.updatedAt) {
+      // Local is strictly newer — use local, push to server in background
+      merged.push(localNote);
+      pushNoteToServer(localNote, userId, isAuthenticated).catch(() => {});
+    } else {
+      // Server wins (>=)
+      merged.push(serverNote);
+    }
+  }
+
+  // Process local-only notes (in IDB but not on server)
+  for (const localNote of localNotes) {
+    if (!serverMap.has(localNote.id)) {
+      if (now - localNote.createdAt < TWENTY_FOUR_HOURS) {
+        // Recently created — assume created offline, keep + push to server
+        merged.push(localNote);
+        pushNoteToServer(localNote, userId, isAuthenticated).catch(() => {});
+      }
+      // Else: old note not on server — assume deleted, drop it
+    }
+  }
+
+  return merged;
+}
+
+/**
+ * Push a local-winning note to the server.
+ */
+async function pushNoteToServer(
+  note: CombinedNote,
+  userId: string,
+  isAuthenticated: boolean,
+): Promise<void> {
+  try {
+    if (note.source === "redis") {
+      await noteOperation("redis", {
+        operation: "update",
+        userId,
+        noteId: note.id,
+        content: note.content,
+        goal: note.goal,
+        goalType: note.goal_type,
+      });
+    } else if (isAuthenticated) {
+      await updateSupabaseNote(note.id, note.content, note.goal ?? 0, note.goal_type ?? "");
+    }
+  } catch (error) {
+    console.error("Failed to push local note to server:", error);
+  }
+}
 
 export function useNotesSync() {
   const supabase = createClient();
@@ -125,6 +203,7 @@ export function useNotesSync() {
         recalculateNotebookCounts();
         markUpdated();
         lastUpdateTimestamp.current = Date.now();
+        saveAllNotesToLocal(sortedNotes).catch(() => {});
       }
     } catch (error) {
       console.error("Failed to refresh notes:", error);
@@ -141,14 +220,18 @@ export function useNotesSync() {
 
     const initialize = async () => {
       try {
-        // Check client-side cache first for instant render
-        const cachedNotes = getCachedNotes();
-        if (cachedNotes && cachedNotes.length > 0) {
+        // Check IDB cache first for instant render
+        const cachedNotes = await getAllLocalNotes();
+        if (cachedNotes.length > 0) {
           syncFromBackend(cachedNotes);
           recalculateNotebookCounts();
           setLoading(false);
           // Continue loading fresh data in background below
         }
+
+        // One-time cleanup of old localStorage cache
+        localStorage.removeItem("justnoted_notes_cache");
+        localStorage.removeItem("justnoted_notes_cache_ts");
 
         // Get or create user ID
         const newUserId = getUserId();
@@ -249,10 +332,13 @@ export function useNotesSync() {
         const normalizedNotes = normaliseOrdering(notesWithPreservedContent);
         const sortedNotes = sortNotes(normalizedNotes, null);
 
+        // Merge IDB cache with server — local wins if newer
+        const mergedNotes = mergeLocalWithServer(sortedNotes, cachedNotes, newUserId, authenticated);
+
         // Render immediately with metadata + preserved cached content
-        syncFromBackend(sortedNotes);
+        syncFromBackend(mergedNotes);
         recalculateNotebookCounts();
-        setCachedNotes(sortedNotes);
+        saveAllNotesToLocal(mergedNotes).catch(() => {});
 
         // Phase 2: Backfill Supabase content in background
         if (authenticated && supabaseNotesMetadata.length > 0) {
@@ -274,7 +360,7 @@ export function useNotesSync() {
 
             if (isMounted.current) {
               syncFromBackend(updatedNotes);
-              setCachedNotes(updatedNotes);
+              saveAllNotesToLocal(updatedNotes).catch(() => {});
             }
           }).catch((error) => {
             console.error("Failed to backfill Supabase content:", error);
@@ -305,6 +391,10 @@ export function useNotesSync() {
         setAuthenticated(nowAuthenticated);
 
         if (hasInitialisedRef.current && wasAuthenticated !== nowAuthenticated) {
+          // Clear IDB cache on logout to prevent data leaking to next user
+          if (wasAuthenticated && !nowAuthenticated) {
+            clearLocalNotes().catch(() => {});
+          }
           await refreshNotes();
         }
       }

@@ -22,6 +22,11 @@ export const STORE_NAME = "backups";
 export const MAX_BACKUPS = 50;
 export const ENCRYPTION_KEY_NAME = "notes-backup-key";
 
+// IDB Cache Constants (separate DB from backups — different purpose/lifecycle)
+export const IDB_CACHE_DB_NAME = "NotesCacheDB";
+export const IDB_CACHE_DB_VERSION = 1;
+export const IDB_CACHE_STORE_NAME = "notes";
+
 // Validation Constants
 export const VALID_GOAL_TYPES = ["words", "characters", ""] as const;
 export type GoalType = (typeof VALID_GOAL_TYPES)[number];

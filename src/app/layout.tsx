@@ -58,7 +58,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`bg-stone-100 min-h-dvh print:min-h-0 flex flex-col ${outfit.variable} ${playfair.variable} antialiased`}
+        className={`bg-stone-200 min-h-dvh print:min-h-0 flex flex-col ${outfit.variable} ${playfair.variable} antialiased`}
       >
         <LogRocket>
           <ToastProvider>

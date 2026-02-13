@@ -28,6 +28,7 @@ import {
   CombinedNote,
 } from "@/types/combined-notes";
 import { generateNoteId } from "@/utils/general/notes";
+import { saveNoteToLocal, saveAllNotesToLocal, deleteLocalNote } from "@/utils/notes-idb-cache";
 
 export interface NotesOperations {
   addNote: (templateContent?: string, templateTitle?: string) => Promise<void>;
@@ -113,6 +114,9 @@ export function useNotesOperations(
     const sortedNotes = sortNotes(updatedNotes, newNote.id);
     optimisticReorderNotes(sortedNotes);
 
+    // Persist to IDB cache immediately
+    saveNoteToLocal(newNote).catch(() => {});
+
     // Background save
     try {
       let result;
@@ -176,6 +180,9 @@ export function useNotesOperations(
       // Optimistic update
       optimisticUpdateNote(noteId, { isPinned });
 
+      // Persist to IDB cache
+      saveNoteToLocal({ ...targetNote, isPinned, updatedAt: Date.now() }).catch(() => {});
+
       // If pin status changed, re-sort
       const updatedNotes = notes.map((note) =>
         note.id === noteId ? { ...note, isPinned } : note,
@@ -217,6 +224,9 @@ export function useNotesOperations(
       // Optimistic update
       optimisticUpdateNote(noteId, { isPrivate });
 
+      // Persist to IDB cache
+      saveNoteToLocal({ ...targetNote, isPrivate, updatedAt: Date.now() }).catch(() => {});
+
       // Background save
       try {
         if (targetNote.source === "redis") {
@@ -247,6 +257,9 @@ export function useNotesOperations(
 
       // Optimistic update
       optimisticUpdateNote(noteId, { isCollapsed });
+
+      // Persist to IDB cache
+      saveNoteToLocal({ ...targetNote, isCollapsed, updatedAt: Date.now() }).catch(() => {});
 
       // Clear existing timeout
       const existingTimeout = debouncedTimeouts.current.get(noteId);
@@ -560,6 +573,9 @@ export function useNotesOperations(
       // Optimistic update
       optimisticDeleteNote(noteId);
 
+      // Remove from IDB cache
+      deleteLocalNote(noteId).catch(() => {});
+
       // Set up undo - will auto-clear after 10 seconds
       const timeoutId = setTimeout(async () => {
         // Actually delete from backend after timeout
@@ -635,6 +651,9 @@ export function useNotesOperations(
       // Optimistic update
       optimisticUpdateNote(noteId, { content, goal, goal_type: goalType });
 
+      // Persist to IDB cache immediately
+      saveNoteToLocal({ ...targetNote, content, goal, goal_type: goalType, updatedAt: Date.now() }).catch(() => {});
+
       // Background save
       try {
         let result;
@@ -685,6 +704,9 @@ export function useNotesOperations(
 
       // Optimistic update
       optimisticUpdateNote(noteId, { title });
+
+      // Persist to IDB cache
+      saveNoteToLocal({ ...targetNote, title, updatedAt: Date.now() }).catch(() => {});
 
       // Background save
       try {
