@@ -997,6 +997,7 @@ export default function NoteBlock({
                 progressPercentage={progressPercentage}
                 wordCountGoal={wordCountGoal}
                 isPrivate={isPrivate}
+                noteContent={noteContent}
                 notebook={noteNotebook ? {
                   name: noteNotebook.name,
                   coverType: noteNotebook.coverType,

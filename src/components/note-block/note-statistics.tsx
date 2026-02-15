@@ -28,6 +28,7 @@ interface NoteStatisticsProps {
   progressPercentage: number;
   wordCountGoal: WordCountGoal | null;
   isPrivate: boolean;
+  noteContent: string;
   notebook?: NotebookInfo | null;
   onOpenPageEstimateModal: () => void;
   onOpenWordCountGoalModal: () => void;
@@ -48,6 +49,7 @@ export default function NoteStatistics({
   progressPercentage,
   wordCountGoal,
   isPrivate,
+  noteContent,
   notebook,
   onOpenPageEstimateModal,
   onOpenWordCountGoalModal,
@@ -109,7 +111,7 @@ export default function NoteStatistics({
         )}
 
         {/* Table of Contents - at the top */}
-        <TocCard isPrivate={isPrivate} onScrollToHeading={onScrollToHeading} hasNotebookCover={hasNotebookCover} />
+        <TocCard isPrivate={isPrivate} noteContent={noteContent} onScrollToHeading={onScrollToHeading} hasNotebookCover={hasNotebookCover} />
 
         {/* Divider */}
         <div className={`col-span-4 h-px ${hasNotebookCover ? "bg-white/30" : isPrivate ? "bg-violet-200" : "bg-neutral-200"}`} />

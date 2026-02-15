@@ -1,27 +1,29 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { useNotesStore } from "@/stores/notes-store";
-import { buildHeadingTree, flattenHeadingTree, TocHeading } from "@/lib/toc-parser";
+import { parseHeadings, buildHeadingTree, flattenHeadingTree, TocHeading } from "@/lib/toc-parser";
 import { IconList, IconChevronDown } from "@tabler/icons-react";
 
 interface TocCardProps {
   isPrivate: boolean;
+  noteContent: string;
   onScrollToHeading: (heading: TocHeading) => void;
   hasNotebookCover?: boolean;
 }
 
-export default function TocCard({ isPrivate, onScrollToHeading, hasNotebookCover }: TocCardProps) {
+export default function TocCard({ isPrivate, noteContent, onScrollToHeading, hasNotebookCover }: TocCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const { tocHeadings, activeHeadingId } = useNotesStore();
+
+  // Parse headings from this note's own content
+  const headings = useMemo(() => parseHeadings(noteContent), [noteContent]);
 
   // Build hierarchical tree for display
   const flatHeadings = useMemo(() => {
-    const tree = buildHeadingTree(tocHeadings);
+    const tree = buildHeadingTree(headings);
     return flattenHeadingTree(tree);
-  }, [tocHeadings]);
+  }, [headings]);
 
-  const hasHeadings = tocHeadings.length > 0;
+  const hasHeadings = headings.length > 0;
 
   const handleToggle = () => {
     if (hasHeadings) {
@@ -69,7 +71,7 @@ export default function TocCard({ isPrivate, onScrollToHeading, hasNotebookCover
                   ? "bg-violet-200 text-violet-700"
                   : "bg-neutral-200 text-neutral-600"
             }`}>
-              {tocHeadings.length}
+              {headings.length}
             </span>
             <IconChevronDown
               size={14}
@@ -84,22 +86,15 @@ export default function TocCard({ isPrivate, onScrollToHeading, hasNotebookCover
         <div className={`border-t max-h-48 overflow-y-auto ${hasNotebookCover ? "border-white/20" : "border-black/10"}`}>
           {flatHeadings.map((heading) => {
             const paddingLeft = 12 + heading.depth * 12;
-            const isActive = heading.id === activeHeadingId;
 
             return (
               <button
                 key={heading.id}
                 onClick={() => handleHeadingClick(heading)}
                 className={`w-full text-left py-1.5 px-2 text-xs transition-colors ${
-                  isActive
-                    ? hasNotebookCover
-                      ? "bg-white/30 font-medium"
-                      : isPrivate
-                        ? "bg-violet-200/70 font-medium"
-                        : "bg-mercedes-primary/20 font-medium"
-                    : hasNotebookCover
-                      ? "hover:bg-white/10"
-                      : "hover:bg-black/5"
+                  hasNotebookCover
+                    ? "hover:bg-white/10"
+                    : "hover:bg-black/5"
                 }`}
                 style={{ paddingLeft }}
                 title={heading.text}
