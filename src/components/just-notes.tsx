@@ -203,7 +203,7 @@ export default function JustNotes({
         </div>
       </section>
 
-      <div className="col-span-12 grid grid-cols-12 gap-4 note-container">
+      <div className={`px-4 col-span-12 grid grid-cols-12 gap-4 note-container`}>
         {notes.map((note) => {
           const positionInfo = getNotePositionInfo(note.id);
           const noteKey = `${note.source}-${note.id}`;

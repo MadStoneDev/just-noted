@@ -17,7 +17,8 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nUpdate The What and The How pages with new features\n\n- Add paragraph about notebooks, split view, and ToC to The What page\n- Emphasize that JustNoted stays simple by default\n- Add new sections to The How page:\n  - Organising with Notebooks\n  - Split View for Referencing Notes\n  - Table of Contents\n  - Bulk Actions\n  - Exporting Notebooks\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git commit:*)",
       "Bash(git restore:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(ls:*)"
     ]
   }
 }
