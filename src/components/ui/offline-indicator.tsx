@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { IconWifi, IconWifiOff, IconCloudUpload, IconX } from "@tabler/icons-react";
 import { useOnlineStatus, useOfflineQueue } from "@/hooks/use-online-status";
+import { subscribeDrops } from "@/utils/offline-queue";
+import { useToast } from "@/components/ui/toast";
 
 /**
  * Offline indicator that shows when the user is offline
@@ -11,8 +13,16 @@ import { useOnlineStatus, useOfflineQueue } from "@/hooks/use-online-status";
 export default function OfflineIndicator() {
   const { isOnline, lastOfflineAt } = useOnlineStatus();
   const { pendingCount } = useOfflineQueue();
+  const { showError } = useToast();
   const [showBanner, setShowBanner] = useState(false);
   const [wasOffline, setWasOffline] = useState(false);
+
+  // Notify user when an operation is permanently dropped
+  useEffect(() => {
+    return subscribeDrops(() => {
+      showError("A note save was discarded after multiple retries.");
+    });
+  }, [showError]);
 
   // Show banner when going offline
   useEffect(() => {

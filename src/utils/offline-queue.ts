@@ -124,6 +124,21 @@ export function subscribe(cb: Listener): () => void {
   };
 }
 
+// Drop notification channel — fires when an op is permanently discarded
+type DropListener = (payload: QueuedOperationPayload) => void;
+const dropListeners = new Set<DropListener>();
+
+function notifyDropListeners(payload: QueuedOperationPayload) {
+  dropListeners.forEach((cb) => cb(payload));
+}
+
+export function subscribeDrops(cb: DropListener): () => void {
+  dropListeners.add(cb);
+  return () => {
+    dropListeners.delete(cb);
+  };
+}
+
 // ===========================
 // IDB HELPERS
 // ===========================
@@ -423,10 +438,14 @@ export async function processQueue(): Promise<void> {
 
         if (op.retryCount >= MAX_QUEUE_RETRIES) {
           console.warn(`Dropping queued op ${op.id} after ${MAX_QUEUE_RETRIES} retries:`, op.payload.type, op.payload.noteId);
+          notifyDropListeners(op.payload);
           await deleteOp(op.id);
         } else {
           await putOp(op);
         }
+
+        // Stop processing — retry remaining ops next cycle
+        break;
       }
     }
   } finally {

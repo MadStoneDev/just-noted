@@ -25,6 +25,7 @@ import {
 import { generateNoteId } from "@/utils/general/notes";
 import { getAllLocalNotes, saveAllNotesToLocal, clearLocalNotes } from "@/utils/notes-idb-cache";
 import { processQueue, clearQueue } from "@/utils/offline-queue";
+import { stripHtmlToText } from "@/utils/html-utils";
 import {
   USER_NOTE_COUNT_KEY,
   HAS_INITIALISED_KEY,
@@ -35,6 +36,15 @@ import {
 } from "@/constants/app";
 
 const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+
+const DEFAULT_TITLE_PATTERN = /^New Note #\d+$/;
+
+function isEmptyDefaultNote(note: CombinedNote): boolean {
+  if (note.source !== "redis") return false;
+  if (!DEFAULT_TITLE_PATTERN.test(note.title)) return false;
+  const plainText = stripHtmlToText(note.content);
+  return plainText.length === 0;
+}
 
 /**
  * Merge local IDB cache with server notes.
@@ -402,6 +412,29 @@ export function useNotesSync() {
             clearQueue().catch(() => {});
           }
           await refreshNotes();
+
+          // Clean up empty default notes when logging in
+          if (!wasAuthenticated && nowAuthenticated) {
+            const currentNotes = useNotesStore.getState().notes;
+            const hasSupabaseNotes = currentNotes.some((n) => n.source === "supabase");
+
+            if (hasSupabaseNotes) {
+              const emptyDefaults = currentNotes.filter(isEmptyDefaultNote);
+              if (emptyDefaults.length > 0) {
+                const filtered = currentNotes.filter((n) => !isEmptyDefaultNote(n));
+                syncFromBackend(filtered);
+                recalculateNotebookCounts();
+
+                // Delete empty Redis notes in background
+                for (const note of emptyDefaults) {
+                  const currentUserId = useNotesStore.getState().userId;
+                  if (currentUserId) {
+                    noteOperation("redis", { operation: "delete", userId: currentUserId, noteId: note.id }).catch(() => {});
+                  }
+                }
+              }
+            }
+          }
         }
       }
     );
@@ -409,7 +442,7 @@ export function useNotesSync() {
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [supabase, refreshNotes, setAuthenticated]);
+  }, [supabase, refreshNotes, setAuthenticated, syncFromBackend, recalculateNotebookCounts]);
 
   // Periodic refresh - only when user is not actively editing
   useEffect(() => {
