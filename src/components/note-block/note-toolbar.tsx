@@ -1,5 +1,5 @@
-import React, { useCallback } from "react";
-import { IconHistory, IconPrinter } from "@tabler/icons-react";
+import React, { useCallback, useState, useRef, useEffect } from "react";
+import { IconDotsVertical, IconHistory, IconPrinter } from "@tabler/icons-react";
 import ExportMenu from "@/components/ui/export-menu";
 import TransferButton from "./sub-components/transfer-button";
 import MoveToNotebookButton from "./sub-components/move-to-notebook-button";
@@ -136,90 +136,175 @@ export default function NoteToolbar({
     printWindow.document.close();
   }, [note]);
 
+  // Mobile overflow menu state
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+
+  // Close overflow menu on outside click
+  useEffect(() => {
+    if (!moreOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [moreOpen]);
+
+  // Collect overflow items for mobile menu
+  const overflowItems: { label: string; icon: React.ReactNode; onClick: () => void }[] = [];
+
+  overflowItems.push({
+    label: "Print",
+    icon: <IconPrinter size={16} />,
+    onClick: handlePrint,
+  });
+
+  if (onShowVersionHistory) {
+    overflowItems.push({
+      label: "History",
+      icon: <IconHistory size={16} />,
+      onClick: onShowVersionHistory,
+    });
+  }
+
+  if (isAuthenticated && onTransfer) {
+    overflowItems.push({
+      label: noteSource === "supabase" ? "Move to Local" : "Move to Cloud",
+      icon: <IconPrinter size={16} className="opacity-0" />, // spacer for alignment
+      onClick: () => onTransfer(noteSource === "supabase" ? "redis" : "supabase"),
+    });
+  }
+
   return (
     <article
-      className={`mt-3 flex gap-2 items-center justify-between sm:justify-start`}
+      className={`mt-2 md:mt-3 flex gap-1.5 md:gap-2 items-center justify-between sm:justify-start`}
     >
-      {/* Export menu with multiple formats */}
+      {/* Export menu — always visible */}
       <ExportMenu note={note} />
 
-      {/* Print button */}
-      <button
-        type="button"
-        onClick={handlePrint}
-        title="Print note"
-        aria-label="Print note"
-        className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-neutral-100 transition-colors text-neutral-600"
-      >
-        <IconPrinter size={18} />
-      </button>
-
-      {/* Version History button */}
-      {onShowVersionHistory && (
+      {/* Desktop-only: Print, History, Transfer, Notebook, Share shown inline */}
+      <div className="hidden md:contents">
+        {/* Print button */}
         <button
           type="button"
-          onClick={onShowVersionHistory}
-          title="View version history"
-          aria-label="View version history"
-          className={`group/history px-2 cursor-pointer flex-grow sm:flex-grow-0 flex items-center justify-center gap-1 w-fit min-w-[44px] h-[44px] rounded-lg border-1 ${
-            isPrivate
-              ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
-              : "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary"
-          } text-neutral-800 overflow-hidden transition-all duration-300 ease-in-out`}
+          onClick={handlePrint}
+          title="Print note"
+          aria-label="Print note"
+          className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-neutral-100 transition-colors text-neutral-600"
         >
-          <IconHistory size={20} strokeWidth={2} />
-          <span
-            className={`w-fit max-w-0 sm:group-hover/history:max-w-52 opacity-0 md:group-hover/history:opacity-100 overflow-hidden transition-all duration-300 ease-in-out`}
-          >
-            History
-          </span>
+          <IconPrinter size={18} />
         </button>
-      )}
 
-      {/* AI Analysis button - temporarily disabled */}
-      {/* <AIAnalysisButton
-        userId={isAuthenticated ? userId : null}
-        note={note}
-        isPrivate={isPrivate}
-        onReplaceContent={onReplaceContent}
-      /> */}
+        {/* Version History button */}
+        {onShowVersionHistory && (
+          <button
+            type="button"
+            onClick={onShowVersionHistory}
+            title="View version history"
+            aria-label="View version history"
+            className={`group/history px-2 cursor-pointer flex-grow sm:flex-grow-0 flex items-center justify-center gap-1 w-fit min-w-[44px] h-[44px] rounded-lg border-1 ${
+              isPrivate
+                ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
+                : "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary"
+            } text-neutral-800 overflow-hidden transition-all duration-300 ease-in-out`}
+          >
+            <IconHistory size={20} strokeWidth={2} />
+            <span
+              className={`w-fit max-w-0 sm:group-hover/history:max-w-52 opacity-0 md:group-hover/history:opacity-100 overflow-hidden transition-all duration-300 ease-in-out`}
+            >
+              History
+            </span>
+          </button>
+        )}
 
-      {/* Authenticated user actions */}
-      {isAuthenticated && (
-        <>
-          {/* Transfer button */}
-          {onTransfer && (
-            <TransferButton
-              noteSource={noteSource}
-              onTransfer={onTransfer}
-              isPrivate={isPrivate}
-            />
-          )}
-
-          {/* Move to Notebook button (cloud notes only) */}
-          {noteSource === "supabase" && (
-            <MoveToNotebookButton
+        {/* Authenticated user actions */}
+        {isAuthenticated && (
+          <>
+            {onTransfer && (
+              <TransferButton
+                noteSource={noteSource}
+                onTransfer={onTransfer}
+                isPrivate={isPrivate}
+              />
+            )}
+            {noteSource === "supabase" && (
+              <MoveToNotebookButton
+                noteId={noteId}
+                currentNotebookId={note.notebookId}
+                isPrivate={isPrivate}
+              />
+            )}
+            <ShareNoteButton
               noteId={noteId}
-              currentNotebookId={note.notebookId}
+              noteTitle={noteTitle}
+              noteSource={noteSource}
               isPrivate={isPrivate}
+              isAuthenticated={isAuthenticated}
+              userId={userId}
             />
-          )}
+          </>
+        )}
+      </div>
 
-          {/* Share button */}
-          <ShareNoteButton
-            noteId={noteId}
-            noteTitle={noteTitle}
-            noteSource={noteSource}
-            isPrivate={isPrivate}
-            isAuthenticated={isAuthenticated}
-            userId={userId}
-          />
-        </>
-      )}
+      {/* Mobile-only: overflow menu for secondary actions */}
+      <div className="md:hidden relative" ref={moreRef}>
+        <button
+          type="button"
+          onClick={() => setMoreOpen((v) => !v)}
+          className="p-2 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100 transition-colors"
+          title="More actions"
+          aria-label="More actions"
+        >
+          <IconDotsVertical size={18} />
+        </button>
+        {moreOpen && (
+          <div className="absolute bottom-full mb-1 left-0 z-20 bg-white rounded-lg shadow-lg border border-neutral-200 py-1 min-w-[160px]">
+            {overflowItems.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => {
+                  item.onClick();
+                  setMoreOpen(false);
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+              >
+                {item.icon}
+                {item.label}
+              </button>
+            ))}
 
-      {/* Divider */}
+            {/* Mobile auth actions inline in overflow */}
+            {isAuthenticated && noteSource === "supabase" && (
+              <div className="border-t border-neutral-100 mt-1 pt-1">
+                <MoveToNotebookButton
+                  noteId={noteId}
+                  currentNotebookId={note.notebookId}
+                  isPrivate={isPrivate}
+                />
+              </div>
+            )}
+            {isAuthenticated && (
+              <div className={`${noteSource !== "supabase" && isAuthenticated ? "border-t border-neutral-100 mt-1 pt-1" : ""}`}>
+                <ShareNoteButton
+                  noteId={noteId}
+                  noteTitle={noteTitle}
+                  noteSource={noteSource}
+                  isPrivate={isPrivate}
+                  isAuthenticated={isAuthenticated}
+                  userId={userId}
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Divider — desktop only */}
       <div
-        className={`hidden sm:block flex-grow h-px ${
+        className={`hidden md:block flex-grow h-px ${
           isPrivate
             ? "bg-violet-300/50"
             : isPinned
@@ -228,14 +313,14 @@ export default function NoteToolbar({
         } transition-all duration-300 ease-in-out`}
       ></div>
 
-      {/* Manual save button */}
+      {/* Manual save button — always visible */}
       <SaveButton
         onClick={onManualSave}
         isPending={isPending}
         isPrivate={isPrivate}
       />
 
-      {/* Delete button */}
+      {/* Delete button — always visible */}
       {showDelete && (
         <DeleteButton
           noteId={noteId}

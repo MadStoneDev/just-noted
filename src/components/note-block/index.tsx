@@ -856,7 +856,7 @@ export default function NoteBlock({
       ref={containerRef}
       data-note-id={details.id}
       onClick={() => setActiveNoteId(details.id)}
-      className={`relative col-span-12 flex flex-col gap-3 bg-white rounded-xl border border-neutral-100 shadow-sm hover:shadow-md p-5 transition-all duration-200 hover:-translate-y-0.5 ${
+      className={`relative col-span-12 flex flex-col gap-2 md:gap-3 bg-white rounded-xl border border-neutral-100 shadow-sm hover:shadow-md p-3 md:p-5 transition-all duration-200 hover:-translate-y-0.5 ${
         distractionFreeMode ? "h-full" : ""
       }`}
     >

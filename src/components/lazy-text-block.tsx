@@ -146,7 +146,7 @@ export default function LazyTextBlock({
   // Container class
   const editorContainerClass = useMemo(() => {
     return `tiptap-editor-container relative pb-1 ${
-      distractionFreeMode ? "" : "min-h-[400px] max-h-[500px]"
+      distractionFreeMode ? "" : "min-h-[300px] md:min-h-[400px] max-h-[500px]"
     } h-full bg-transparent rounded-xl focus-within:ring-1 focus-within:ring-mercedes-primary/30 font-light overflow-hidden transition-all duration-300 ease-in-out overflow-y-auto ${className}`;
   }, [distractionFreeMode, className]);
 

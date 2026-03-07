@@ -76,13 +76,13 @@ export default function NoteActions({
         )}
       </button>
 
-      {/* Distraction-free mode */}
+      {/* Distraction-free mode — hidden on mobile */}
       {onOpenDistractionFree && (
         <button
           type="button"
           onClick={onOpenDistractionFree}
           disabled={isSaving}
-          className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-lg ${
+          className={`hidden md:flex p-2.5 min-w-[44px] min-h-[44px] items-center justify-center cursor-pointer rounded-lg ${
             isSaving
               ? "opacity-30 cursor-not-allowed text-neutral-400"
               : "text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"
@@ -98,13 +98,13 @@ export default function NoteActions({
         </button>
       )}
 
-      {/* Split view mode */}
+      {/* Split view mode — hidden on mobile */}
       {onOpenSplitView && (
         <button
           type="button"
           onClick={onOpenSplitView}
           disabled={isSaving}
-          className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-lg ${
+          className={`hidden md:flex p-2.5 min-w-[44px] min-h-[44px] items-center justify-center cursor-pointer rounded-lg ${
             isSaving
               ? "opacity-30 cursor-not-allowed text-neutral-400"
               : "text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"
@@ -116,12 +116,12 @@ export default function NoteActions({
         </button>
       )}
 
-      {/* Move up */}
+      {/* Move up — hidden on mobile */}
       <button
         type="button"
         onClick={onMoveUp}
         disabled={!canMoveUp || isReordering}
-        className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-lg ${
+        className={`hidden md:flex p-2.5 min-w-[44px] min-h-[44px] items-center justify-center cursor-pointer rounded-lg ${
           !canMoveUp || isReordering
             ? "opacity-30 cursor-not-allowed text-neutral-400"
             : "text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"
@@ -132,12 +132,12 @@ export default function NoteActions({
         <IconArrowUp size={18} strokeWidth={1.5} />
       </button>
 
-      {/* Move down */}
+      {/* Move down — hidden on mobile */}
       <button
         type="button"
         onClick={onMoveDown}
         disabled={!canMoveDown || isReordering}
-        className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-lg ${
+        className={`hidden md:flex p-2.5 min-w-[44px] min-h-[44px] items-center justify-center cursor-pointer rounded-lg ${
           !canMoveDown || isReordering
             ? "opacity-30 cursor-not-allowed text-neutral-400"
             : "text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"
