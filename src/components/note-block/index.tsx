@@ -536,17 +536,17 @@ export default function NoteBlock({
         content: string,
         isManualSave?: boolean,
         forceUpdate?: boolean,
-      ) => Promise<void> | undefined
+      ) => Promise<boolean> | undefined
     >(undefined);
 
   const saveContent = useCallback(
-    async (content: string, isManual = false) => {
+    async (content: string, isManual = false): Promise<boolean> => {
       const safeContent = content
         .replace(/<p><br\s*\/?><\/p>/gi, "<p>&nbsp;</p>")
         .replace(/<p>\s*<\/p>/gi, "<p>&nbsp;</p>");
 
       if (safeContent === lastSavedContentRef.current && !isManual) {
-        return;
+        return true; // Nothing to save — treat as success
       }
 
       setStatus(
@@ -588,11 +588,13 @@ export default function NoteBlock({
           }
         }
 
-        const elapsed = Date.now() - startTime;
-        const remainingDelay = Math.max(0, 1000 - elapsed);
-
-        if (remainingDelay > 0) {
-          await new Promise((resolve) => setTimeout(resolve, remainingDelay));
+        // Only add cosmetic delay for manual saves, not auto-saves
+        if (isManual) {
+          const elapsed = Date.now() - startTime;
+          const remainingDelay = Math.max(0, 1000 - elapsed);
+          if (remainingDelay > 0) {
+            await new Promise((resolve) => setTimeout(resolve, remainingDelay));
+          }
         }
 
         if (result.success) {
@@ -607,6 +609,7 @@ export default function NoteBlock({
             false,
             2000,
           );
+          return true;
         } else {
           setStatus(
             "Failed to save",
@@ -614,6 +617,7 @@ export default function NoteBlock({
             true,
             3000,
           );
+          return false;
         }
       } catch (error) {
         setStatus(
@@ -622,6 +626,7 @@ export default function NoteBlock({
           true,
           3000,
         );
+        return false;
       } finally {
         setIsPending(false);
       }

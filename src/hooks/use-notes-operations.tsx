@@ -658,7 +658,9 @@ export function useNotesOperations(
     ) => {
       if (!userId) return { success: false };
 
-      const targetNote = notes.find((note) => note.id === noteId);
+      // Read notes from store directly to avoid stale closure
+      const currentNotes = useNotesStore.getState().notes;
+      const targetNote = currentNotes.find((note) => note.id === noteId);
       if (!targetNote) {
         console.error("❌ Note not found for saving:", noteId);
         return { success: false };
@@ -719,7 +721,7 @@ export function useNotesOperations(
         setSaving(noteId, false);
       }
     },
-    [userId, notes, optimisticUpdateNote],
+    [userId, optimisticUpdateNote],
   );
 
   // Save Note Title
@@ -727,7 +729,9 @@ export function useNotesOperations(
     async (noteId: string, title: string) => {
       if (!userId) return { success: false };
 
-      const targetNote = notes.find((note) => note.id === noteId);
+      // Read notes from store directly to avoid stale closure
+      const currentNotes = useNotesStore.getState().notes;
+      const targetNote = currentNotes.find((note) => note.id === noteId);
       if (!targetNote) return { success: false };
 
       // Mark as saving
@@ -768,7 +772,7 @@ export function useNotesOperations(
         setSaving(noteId, false);
       }
     },
-    [userId, notes, optimisticUpdateNote, setSaving],
+    [userId, optimisticUpdateNote, setSaving],
   );
 
   const refreshSingleNote = useCallback(

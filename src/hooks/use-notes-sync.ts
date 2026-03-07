@@ -18,7 +18,9 @@ import {
   CombinedNote,
   NoteSource,
   CreateNoteInput,
+  SupabaseNote,
   redisToCombi,
+  supabaseToCombi,
   combiToRedis,
   createNote,
 } from "@/types/combined-notes";
@@ -443,6 +445,58 @@ export function useNotesSync() {
       authListener.subscription.unsubscribe();
     };
   }, [supabase, refreshNotes, setAuthenticated, syncFromBackend, recalculateNotebookCounts]);
+
+  // Supabase Realtime — listen for cross-device changes to cloud notes
+  useEffect(() => {
+    if (!isAuthenticated || !hasInitialisedRef.current) return;
+
+    const channel = supabase
+      .channel("notes-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "notes" },
+        (payload: any) => {
+          if (!isMounted.current) return;
+
+          const { isEditing, isSaving, notes, optimisticUpdateNote, optimisticAddNote, optimisticDeleteNote } =
+            useNotesStore.getState();
+
+          if (payload.eventType === "UPDATE") {
+            const updated = payload.new as SupabaseNote;
+            // Skip if we're currently editing or saving this note (our own write)
+            if (isEditing.has(updated.id) || isSaving.has(updated.id)) return;
+
+            const combiNote = supabaseToCombi(updated);
+            const existing = notes.find((n) => n.id === updated.id);
+            if (!existing) return;
+
+            // Only apply if the server version is newer
+            if (combiNote.updatedAt > existing.updatedAt) {
+              optimisticUpdateNote(updated.id, combiNote);
+            }
+          } else if (payload.eventType === "INSERT") {
+            const inserted = payload.new as SupabaseNote;
+            // Skip if we already have this note (our own create)
+            if (notes.some((n) => n.id === inserted.id)) return;
+
+            const combiNote = supabaseToCombi(inserted);
+            optimisticAddNote(combiNote);
+          } else if (payload.eventType === "DELETE") {
+            const deleted = payload.old as { id: string };
+            if (!deleted?.id) return;
+            // Skip if we already removed it
+            if (!notes.some((n) => n.id === deleted.id)) return;
+
+            optimisticDeleteNote(deleted.id);
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, isAuthenticated]);
 
   // Periodic refresh - only when user is not actively editing
   useEffect(() => {
