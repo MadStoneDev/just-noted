@@ -34,6 +34,8 @@ import {
   ACTIVITY_TIMEOUT,
   REFRESH_INTERVAL,
   AUTH_TIMEOUT,
+  AUTH_MAX_RETRIES,
+  INIT_RETRY_DELAYS,
   LAST_ACCESS_DEBOUNCE,
 } from "@/constants/app";
 
@@ -142,6 +144,8 @@ export function useNotesSync() {
   const hasInitialisedRef = useRef(false);
   const isInitializingRef = useRef(false);
   const isMounted = useRef(true);
+  const initRetryCount = useRef(0);
+  const initRetryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const noteFlushFunctionsRef = useRef<Map<string, () => void>>(new Map());
   const lastUpdateTimestamp = useRef(Date.now());
   const lastAccessTimestamp = useRef(0);
@@ -196,12 +200,31 @@ export function useNotesSync() {
     }
   }, []);
 
-  // Refresh notes from backend
+  // Refresh notes from backend (re-checks auth to recover from earlier timeouts)
   const refreshNotes = useCallback(async () => {
     const currentUserId = useNotesStore.getState().userId;
     if (!currentUserId || !isMounted.current) return;
 
     try {
+      // Re-check auth status to recover from init-time auth timeouts
+      const wasAuthenticated = useNotesStore.getState().isAuthenticated;
+      if (!wasAuthenticated) {
+        try {
+          const authResult = await Promise.race([
+            supabase.auth.getUser(),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error("Auth timeout")), AUTH_TIMEOUT)
+            ),
+          ]);
+          const nowAuthenticated = !!authResult.data?.user;
+          if (nowAuthenticated) {
+            setAuthenticated(true);
+          }
+        } catch {
+          // Auth still failing — continue with current state
+        }
+      }
+
       const [redisNotes, supabaseNotes] = await Promise.all([
         loadNotesFromRedis(),
         loadNotesFromSupabase(),
@@ -221,7 +244,7 @@ export function useNotesSync() {
     } catch (error) {
       console.error("Failed to refresh notes:", error);
     }
-  }, [loadNotesFromRedis, loadNotesFromSupabase, mergeWithBackend, markUpdated, recalculateNotebookCounts]);
+  }, [supabase, loadNotesFromRedis, loadNotesFromSupabase, mergeWithBackend, markUpdated, recalculateNotebookCounts, setAuthenticated]);
 
   // Initialize
   useEffect(() => {
@@ -255,19 +278,25 @@ export function useNotesSync() {
           throw new Error("Failed to get user ID");
         }
 
-        // Check authentication status with timeout to avoid infinite hang
+        // Check authentication status with retries to handle slow/flaky connections
         let authenticated = false;
-        try {
-          const authResult = await Promise.race([
-            supabase.auth.getUser(),
-            new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error("Auth timeout")), AUTH_TIMEOUT)
-            ),
-          ]);
-          authenticated = !!authResult.data?.user;
-        } catch (authError) {
-          console.warn("Auth check failed or timed out, proceeding as unauthenticated:", authError);
-          authenticated = false;
+        for (let attempt = 0; attempt < AUTH_MAX_RETRIES; attempt++) {
+          try {
+            const authResult = await Promise.race([
+              supabase.auth.getUser(),
+              new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error("Auth timeout")), AUTH_TIMEOUT)
+              ),
+            ]);
+            authenticated = !!authResult.data?.user;
+            break; // Success — stop retrying
+          } catch (authError) {
+            console.warn(`Auth check attempt ${attempt + 1}/${AUTH_MAX_RETRIES} failed:`, authError);
+            if (attempt < AUTH_MAX_RETRIES - 1) {
+              // Brief pause before retry (500ms, 1000ms)
+              await new Promise((r) => setTimeout(r, (attempt + 1) * 500));
+            }
+          }
         }
         setAuthenticated(authenticated);
 
@@ -354,41 +383,68 @@ export function useNotesSync() {
         recalculateNotebookCounts();
         saveAllNotesToLocal(mergedNotes).catch(() => {});
 
-        // Phase 2: Backfill Supabase content in background
+        // Phase 2: Backfill Supabase content in background (with retry)
         if (authenticated && supabaseNotesMetadata.length > 0) {
-          getNoteContentsByUserId().then((contentsResult) => {
-            if (!isMounted.current || !contentsResult.success || !contentsResult.contents) return;
-
-            const contentMap = new Map(
-              contentsResult.contents.map((c: { id: string; content: string }) => [c.id, c.content])
-            );
-
-            const currentNotes = useNotesStore.getState().notes;
-            const updatedNotes = currentNotes.map((note) => {
-              const content = contentMap.get(note.id);
-              if (content !== undefined && note.source === "supabase") {
-                return { ...note, content };
+          const backfillContent = async (attempt = 0): Promise<void> => {
+            try {
+              const contentsResult = await getNoteContentsByUserId();
+              if (!isMounted.current || !contentsResult.success || !contentsResult.contents) {
+                // Retry on failure (non-success response)
+                if (isMounted.current && !contentsResult.success && attempt < 2) {
+                  await new Promise((r) => setTimeout(r, (attempt + 1) * 2000));
+                  return backfillContent(attempt + 1);
+                }
+                return;
               }
-              return note;
-            });
 
-            if (isMounted.current) {
-              syncFromBackend(updatedNotes);
-              saveAllNotesToLocal(updatedNotes).catch(() => {});
+              const contentMap = new Map(
+                contentsResult.contents.map((c: { id: string; content: string }) => [c.id, c.content])
+              );
+
+              const currentNotes = useNotesStore.getState().notes;
+              const updatedNotes = currentNotes.map((note) => {
+                const content = contentMap.get(note.id);
+                if (content !== undefined && note.source === "supabase") {
+                  return { ...note, content };
+                }
+                return note;
+              });
+
+              if (isMounted.current) {
+                syncFromBackend(updatedNotes);
+                saveAllNotesToLocal(updatedNotes).catch(() => {});
+              }
+            } catch (error) {
+              console.error(`Content backfill attempt ${attempt + 1} failed:`, error);
+              if (isMounted.current && attempt < 2) {
+                await new Promise((r) => setTimeout(r, (attempt + 1) * 2000));
+                return backfillContent(attempt + 1);
+              }
             }
-          }).catch((error) => {
-            console.error("Failed to backfill Supabase content:", error);
-          });
+          };
+          backfillContent();
         }
 
         // Mark as initialised only after successful completion
         hasInitialisedRef.current = true;
+        initRetryCount.current = 0;
 
         // Drain any queued offline operations from previous session
         processQueue().catch(() => {});
       } catch (error) {
         console.error("Initialization error:", error);
-        // Allow retry on next effect run by not setting hasInitialisedRef
+        // Schedule retry with exponential backoff
+        if (isMounted.current && initRetryCount.current < INIT_RETRY_DELAYS.length) {
+          const delay = INIT_RETRY_DELAYS[initRetryCount.current];
+          console.log(`Scheduling init retry ${initRetryCount.current + 1} in ${delay}ms`);
+          initRetryCount.current += 1;
+          initRetryTimer.current = setTimeout(() => {
+            if (isMounted.current && !hasInitialisedRef.current) {
+              isInitializingRef.current = false;
+              initialize();
+            }
+          }, delay);
+        }
       } finally {
         isInitializingRef.current = false;
         setLoading(false);
@@ -396,6 +452,12 @@ export function useNotesSync() {
     };
 
     initialize();
+
+    return () => {
+      if (initRetryTimer.current) {
+        clearTimeout(initRetryTimer.current);
+      }
+    };
   }, [supabase, syncFromBackend, setLoading, setUserId, setAuthenticated, recalculateNotebookCounts]);
 
   // Auth change listener
@@ -547,6 +609,9 @@ export function useNotesSync() {
   useEffect(() => {
     return () => {
       isMounted.current = false;
+      if (initRetryTimer.current) {
+        clearTimeout(initRetryTimer.current);
+      }
     };
   }, []);
 
