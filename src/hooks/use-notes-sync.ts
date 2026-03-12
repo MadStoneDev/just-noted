@@ -10,8 +10,6 @@ import { noteOperation } from "@/app/actions/notes";
 import {
   createNote as createSupabaseNote,
   getNotesByUserId as getSupabaseNotesByUserId,
-  getNoteMetadataByUserId,
-  getNoteContentsByUserId,
   updateNote as updateSupabaseNote,
 } from "@/app/actions/supabaseActions";
 import {
@@ -26,7 +24,7 @@ import {
 } from "@/types/combined-notes";
 import { generateNoteId } from "@/utils/general/notes";
 import { getAllLocalNotes, saveAllNotesToLocal, clearLocalNotes } from "@/utils/notes-idb-cache";
-import { processQueue, clearQueue } from "@/utils/offline-queue";
+import { clearQueue } from "@/utils/offline-queue";
 import { stripHtmlToText } from "@/utils/html-utils";
 import {
   USER_NOTE_COUNT_KEY,
@@ -300,11 +298,11 @@ export function useNotesSync() {
         }
         setAuthenticated(authenticated);
 
-        // Phase 1: Load Redis notes (full) + Supabase metadata (no content) in parallel
-        const [redisResult, supabaseMetadataResult] = await Promise.allSettled([
+        // Load Redis notes (full) + Supabase notes (full) in parallel
+        const [redisResult, supabaseResult] = await Promise.allSettled([
           noteOperation("redis", { operation: "getAll", userId: newUserId }),
           authenticated
-            ? getNoteMetadataByUserId()
+            ? getSupabaseNotesByUserId()
             : Promise.resolve({ success: true, notes: [] }),
         ]);
 
@@ -315,14 +313,14 @@ export function useNotesSync() {
             ? redisResult.value.notes.map(redisToCombi)
             : [];
 
-        const supabaseNotesMetadata =
-          supabaseMetadataResult.status === "fulfilled" &&
-          supabaseMetadataResult.value.success &&
-          supabaseMetadataResult.value.notes
-            ? supabaseMetadataResult.value.notes
+        const supabaseNotes =
+          supabaseResult.status === "fulfilled" &&
+          supabaseResult.value.success &&
+          supabaseResult.value.notes
+            ? supabaseResult.value.notes
             : [];
 
-        let allNotes = [...redisNotes, ...supabaseNotesMetadata];
+        let allNotes = [...redisNotes, ...supabaseNotes];
 
         // Create default note if none exist
         if (allNotes.length === 0) {
@@ -357,22 +355,7 @@ export function useNotesSync() {
           }
         }
 
-        // Preserve cached content for Supabase notes during metadata-only phase
-        const existingNotes = useNotesStore.getState().notes;
-        const existingContentMap = new Map(
-          existingNotes
-            .filter((n) => n.source === "supabase" && n.content)
-            .map((n) => [n.id, n.content])
-        );
-
-        const notesWithPreservedContent = allNotes.map((note) => {
-          if (note.source === "supabase" && !note.content && existingContentMap.has(note.id)) {
-            return { ...note, content: existingContentMap.get(note.id)! };
-          }
-          return note;
-        });
-
-        const normalizedNotes = normaliseOrdering(notesWithPreservedContent);
+        const normalizedNotes = normaliseOrdering(allNotes);
         const sortedNotes = sortNotes(normalizedNotes, null);
 
         // Merge IDB cache with server — local wins if newer
@@ -383,54 +366,12 @@ export function useNotesSync() {
         recalculateNotebookCounts();
         saveAllNotesToLocal(mergedNotes).catch(() => {});
 
-        // Phase 2: Backfill Supabase content in background (with retry)
-        if (authenticated && supabaseNotesMetadata.length > 0) {
-          const backfillContent = async (attempt = 0): Promise<void> => {
-            try {
-              const contentsResult = await getNoteContentsByUserId();
-              if (!isMounted.current || !contentsResult.success || !contentsResult.contents) {
-                // Retry on failure (non-success response)
-                if (isMounted.current && !contentsResult.success && attempt < 2) {
-                  await new Promise((r) => setTimeout(r, (attempt + 1) * 2000));
-                  return backfillContent(attempt + 1);
-                }
-                return;
-              }
-
-              const contentMap = new Map(
-                contentsResult.contents.map((c: { id: string; content: string }) => [c.id, c.content])
-              );
-
-              const currentNotes = useNotesStore.getState().notes;
-              const updatedNotes = currentNotes.map((note) => {
-                const content = contentMap.get(note.id);
-                if (content !== undefined && note.source === "supabase") {
-                  return { ...note, content };
-                }
-                return note;
-              });
-
-              if (isMounted.current) {
-                syncFromBackend(updatedNotes);
-                saveAllNotesToLocal(updatedNotes).catch(() => {});
-              }
-            } catch (error) {
-              console.error(`Content backfill attempt ${attempt + 1} failed:`, error);
-              if (isMounted.current && attempt < 2) {
-                await new Promise((r) => setTimeout(r, (attempt + 1) * 2000));
-                return backfillContent(attempt + 1);
-              }
-            }
-          };
-          backfillContent();
-        }
-
         // Mark as initialised only after successful completion
         hasInitialisedRef.current = true;
         initRetryCount.current = 0;
 
-        // Drain any queued offline operations from previous session
-        processQueue().catch(() => {});
+        // Clear stale offline queue — state is now reconciled from server
+        clearQueue().catch(() => {});
       } catch (error) {
         console.error("Initialization error:", error);
         // Schedule retry with exponential backoff
@@ -510,7 +451,7 @@ export function useNotesSync() {
 
   // Supabase Realtime — listen for cross-device changes to cloud notes
   useEffect(() => {
-    if (!isAuthenticated || !hasInitialisedRef.current) return;
+    if (!isAuthenticated) return;
 
     const channel = supabase
       .channel("notes-realtime")

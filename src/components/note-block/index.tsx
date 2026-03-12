@@ -663,10 +663,11 @@ export default function NoteBlock({
   const handleChange = useCallback(
     (value: string) => {
       setNoteContent(value);
-
+      // Mark as editing so refreshes/Realtime don't overwrite unsaved content
+      useNotesStore.getState().setEditing(details.id, true);
       debouncedSave();
     },
-    [debouncedSave],
+    [details.id, debouncedSave],
   );
 
   // Manual save function
