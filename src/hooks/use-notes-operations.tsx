@@ -16,6 +16,7 @@ import {
   updateNoteTitle as updateSupabaseNoteTitle,
   createNote as createSupabaseNote,
   getNotesByUserId as getSupabaseNotesByUserId,
+  getNoteById as getSupabaseNoteById,
 } from "@/app/actions/supabaseActions";
 import {
   NoteSource,
@@ -496,14 +497,14 @@ export function useNotesOperations(
     ],
   );
 
-  // Sync and Renumber Notes
+  // Sync and Renumber Notes — fetches fresh data from server, then renumbers
   const syncAndRenumberNotes = useCallback(async () => {
     if (!userId) return;
 
     setReordering(true);
 
     try {
-      // Flush all pending saves
+      // Flush all pending saves before fetching
       const flushPromises: Promise<void>[] = [];
       noteFlushFunctions.current.forEach((flushFn, noteId) => {
         flushPromises.push(
@@ -524,14 +525,20 @@ export function useNotesOperations(
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
-      // Normalize ordering
-      const renumberedNotes = normaliseOrdering(notes);
+      // Fetch fresh data from server (Redis + Supabase)
+      await refreshNotes();
+
+      // Read the now-fresh notes from the store
+      const freshNotes = useNotesStore.getState().notes;
+
+      // Normalize ordering on fresh data
+      const renumberedNotes = normaliseOrdering(freshNotes);
       const sortedNotes = sortNotes(renumberedNotes);
 
       // Optimistic update
       optimisticReorderNotes(sortedNotes);
 
-      // Batch update backend
+      // Batch update backend with renumbered orders
       const redisUpdates = sortedNotes
         .filter((note) => note.source === "redis")
         .map((note) => ({ id: note.id, order: note.order }));
@@ -564,13 +571,11 @@ export function useNotesOperations(
       }
     } catch (error) {
       console.error("Failed to sync and renumber notes:", error);
-      await refreshNotes();
     } finally {
       setReordering(false);
     }
   }, [
     userId,
-    notes,
     optimisticReorderNotes,
     setReordering,
     noteFlushFunctions,
@@ -779,13 +784,15 @@ export function useNotesOperations(
     async (noteId: string): Promise<CombinedNote | null> => {
       if (!userId) return null;
 
-      const targetNote = notes.find((note) => note.id === noteId);
+      const currentNotes = useNotesStore.getState().notes;
+      const targetNote = currentNotes.find((note) => note.id === noteId);
       if (!targetNote) return null;
 
       try {
         let updatedNote: CombinedNote | null = null;
 
         if (targetNote.source === "redis") {
+          // Redis stores all notes as one blob — must fetch all
           const result = await noteOperation("redis", {
             operation: "getAll",
             userId,
@@ -797,15 +804,14 @@ export function useNotesOperations(
             }
           }
         } else {
-          const result = await getSupabaseNotesByUserId();
-          if (result.success && result.notes) {
-            updatedNote =
-              result.notes.find((note) => note.id === noteId) || null;
+          // Supabase — fetch just this one note
+          const result = await getSupabaseNoteById(noteId);
+          if (result.success && result.note) {
+            updatedNote = result.note;
           }
         }
 
         if (updatedNote) {
-          // Only update this specific note
           optimisticUpdateNote(noteId, updatedNote);
           return updatedNote;
         }
@@ -815,7 +821,7 @@ export function useNotesOperations(
 
       return null;
     },
-    [userId, notes, optimisticUpdateNote],
+    [userId, optimisticUpdateNote],
   );
 
   useEffect(() => {
