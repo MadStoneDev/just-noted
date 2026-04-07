@@ -131,6 +131,33 @@ export const updateNoteTitle = async (noteId: string, title: string) => {
   }
 };
 
+export const getNoteById = async (noteId: string) => {
+  try {
+    const { supabase, userId } = await getAuthenticatedUser();
+
+    const { data, error } = await supabase
+      .from("notes")
+      .select("*")
+      .eq("id", noteId)
+      .eq("author", userId)
+      .single();
+
+    if (error) {
+      console.error("Supabase query error:", error);
+      throw error;
+    }
+
+    return { success: true, note: supabaseToCombi(data) };
+  } catch (error) {
+    console.error("Failed to get note:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      error: `Failed to retrieve note: ${errorMessage}`,
+    };
+  }
+};
+
 export const getNotesByUserId = async () => {
   try {
     const { supabase, userId } = await getAuthenticatedUser();
