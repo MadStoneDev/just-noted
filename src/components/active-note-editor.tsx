@@ -450,11 +450,14 @@ function NoteEditor({
             <div className="mb-4 flex items-center gap-2 animate-fade-in">
               <label className="text-[10px] text-[var(--color-text-tertiary)] opacity-80">Goal:</label>
               <input
-                type="number"
-                min={0}
-                placeholder="0"
+                type="text"
+                inputMode="numeric"
+                placeholder="e.g. 50000"
                 value={goalInput}
-                onChange={(e) => setGoalInput(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^0-9]/g, "");
+                  setGoalInput(v);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     handleGoalSave();
@@ -462,7 +465,7 @@ function NoteEditor({
                   }
                 }}
                 autoFocus
-                className="w-16 h-6 px-2 text-[10px] bg-[var(--color-bg-tertiary)] border border-[var(--color-border-primary)] rounded-[var(--radius-sm)] text-[var(--color-text-primary)] focus:border-[var(--color-border-focus)] focus:outline-none"
+                className="w-24 h-7 px-2.5 text-xs bg-[var(--color-bg-tertiary)] border border-[var(--color-border-primary)] rounded-[var(--radius-md)] text-[var(--color-text-primary)] focus:border-[var(--color-border-focus)] focus:outline-none"
               />
               {(["words", "characters"] as const).map((t) => (
                 <button

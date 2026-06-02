@@ -72,8 +72,8 @@ export function useKeyboardShortcuts({
           return;
         }
 
-        // Ctrl/Cmd + N - New note (works even while typing)
-        if (e.key === "n" || e.key === "N") {
+        // Ctrl/Cmd + Shift + N - New note (works even while typing)
+        if (e.shiftKey && (e.key === "n" || e.key === "N")) {
           e.preventDefault();
           onNewNote?.();
           return;
@@ -116,7 +116,7 @@ export function useKeyboardShortcuts({
 
 // Export a list of shortcuts for help display
 export const KEYBOARD_SHORTCUTS = [
-  { keys: ["Ctrl", "N"], description: "Create new note" },
+  { keys: ["Ctrl", "Shift", "N"], description: "Create new note" },
   { keys: ["Ctrl", "S"], description: "Save current note" },
   { keys: ["Ctrl", "K"], description: "Open search" },
   { keys: ["Ctrl", "B"], description: "Toggle sidebar" },

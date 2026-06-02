@@ -33,6 +33,7 @@ import {
   IconTrash,
   IconNotebook,
   IconGripVertical,
+  IconPlus,
 } from "@tabler/icons-react";
 import { Dropdown, DropdownItem, DropdownSeparator, DropdownLabel } from "@/components/ds/dropdown";
 import { ConfirmModal } from "@/components/ds/modal";
@@ -57,9 +58,10 @@ interface SidebarProps {
   onDeleteNote?: (noteId: string) => void;
   onMoveNote?: (noteId: string, notebookId: string | null) => void;
   onOpenTrash?: () => void;
+  onNewNote?: () => void;
 }
 
-export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMoveNote, onOpenTrash }: SidebarProps) {
+export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMoveNote, onOpenTrash, onNewNote }: SidebarProps) {
   const {
     sidebarOpen,
     setSidebarOpen,
@@ -441,13 +443,23 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
           {/* Header */}
           <div className="flex items-center justify-between px-3 py-3 border-b border-[var(--color-border-secondary)]">
             <h2 className="text-sm font-semibold text-[var(--color-text-primary)] tracking-tight">Notes</h2>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors duration-[var(--duration-fast)] text-[var(--color-text-tertiary)]"
-              aria-label="Collapse sidebar"
-            >
-              <IconLayoutSidebarLeftCollapse size={16} />
-            </button>
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={onNewNote}
+                className="p-2 flex items-center justify-center rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors duration-[var(--duration-fast)] text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)]"
+                aria-label="New note"
+                title="New note"
+              >
+                <IconPlus size={16} />
+              </button>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="p-2 flex items-center justify-center rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors duration-[var(--duration-fast)] text-[var(--color-text-tertiary)]"
+                aria-label="Collapse sidebar"
+              >
+                <IconLayoutSidebarLeftCollapse size={16} />
+              </button>
+            </div>
           </div>
 
           {/* Notebook Switcher (authenticated users only) */}

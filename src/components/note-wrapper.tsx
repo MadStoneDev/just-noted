@@ -251,6 +251,7 @@ export default function NoteWrapper() {
             });
           }}
           onOpenTrash={() => setShowTrash(true)}
+          onNewNote={() => notesOperations.addNote()}
         />
 
         {/* Main editor area */}
