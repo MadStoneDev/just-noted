@@ -34,7 +34,7 @@ import {
   IconNotebook,
   IconX,
 } from "@tabler/icons-react";
-import { Dropdown, DropdownItem, DropdownSeparator } from "@/components/ds/dropdown";
+import { Dropdown, DropdownItem, DropdownSeparator, DropdownLabel } from "@/components/ds/dropdown";
 import { Modal, ConfirmModal } from "@/components/ds/modal";
 import VersionHistoryPanel from "@/components/version-history-panel";
 import GoalSuggestionsModal from "@/components/goal-suggestions-modal";
@@ -367,22 +367,26 @@ function NoteEditor({
 
           <div className="w-px h-3 bg-[var(--color-border-secondary)] mx-0.5" />
 
-          <IconButton
-            label={wideMode ? "Narrow view" : "Wide view"}
-            size="sm"
-            onClick={() => setWideMode((w) => !w)}
-          >
-            {wideMode ? <IconViewportNarrow size={14} /> : <IconViewportWide size={14} />}
-          </IconButton>
+          <span className="hidden md:inline-flex">
+            <IconButton
+              label={wideMode ? "Narrow view" : "Wide view"}
+              size="sm"
+              onClick={() => setWideMode((w) => !w)}
+            >
+              {wideMode ? <IconViewportNarrow size={14} /> : <IconViewportWide size={14} />}
+            </IconButton>
+          </span>
 
           {onToggleSplit && (
-            <IconButton
-              label="Split view"
-              size="sm"
-              onClick={onToggleSplit}
-            >
-              <IconLayoutColumns size={14} />
-            </IconButton>
+            <span className="hidden md:inline-flex">
+              <IconButton
+                label="Split view"
+                size="sm"
+                onClick={onToggleSplit}
+              >
+                <IconLayoutColumns size={14} />
+              </IconButton>
+            </span>
           )}
 
           <div className="w-px h-3 bg-[var(--color-border-secondary)] mx-0.5" />
@@ -429,6 +433,46 @@ function NoteEditor({
               </IconButton>
             }
           >
+            {isAuthenticated && notebooks.length > 0 && (
+              <>
+                <DropdownLabel>Move to</DropdownLabel>
+                {note.notebookId && (
+                  <DropdownItem
+                    icon={<IconX size={14} />}
+                    onClick={() => {
+                      const { optimisticUpdateNote, recalculateNotebookCounts } = useNotesStore.getState();
+                      optimisticUpdateNote(note.id, { notebookId: null });
+                      recalculateNotebookCounts();
+                      import("@/app/actions/notebookActions").then(({ bulkAssignNotesToNotebook }) => {
+                        bulkAssignNotesToNotebook([note.id], null);
+                      });
+                    }}
+                  >
+                    Remove from notebook
+                  </DropdownItem>
+                )}
+                {notebooks
+                  .filter((nb) => nb.id !== note.notebookId)
+                  .map((nb) => (
+                    <DropdownItem
+                      key={nb.id}
+                      icon={<IconNotebook size={14} />}
+                      onClick={() => {
+                        const { optimisticUpdateNote, recalculateNotebookCounts } = useNotesStore.getState();
+                        optimisticUpdateNote(note.id, { notebookId: nb.id });
+                        recalculateNotebookCounts();
+                        import("@/app/actions/notebookActions").then(({ bulkAssignNotesToNotebook }) => {
+                          bulkAssignNotesToNotebook([note.id], nb.id);
+                        });
+                      }}
+                    >
+                      {nb.name}
+                    </DropdownItem>
+                  ))
+                }
+                <DropdownSeparator />
+              </>
+            )}
             <DropdownItem
               icon={<IconTrash size={14} />}
               destructive

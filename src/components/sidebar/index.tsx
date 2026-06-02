@@ -416,13 +416,14 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
 
   return (
     <>
-      {/* Overlay for mobile — visual only, no click-to-close */}
+      {/* Overlay for mobile — tap to close */}
       <div
-        className={`fixed inset-0 z-40 md:hidden transition-opacity duration-[var(--duration-slow)] pointer-events-none ${
+        className={`fixed inset-0 z-40 md:hidden transition-opacity duration-[var(--duration-slow)] ${
           sidebarOpen
             ? "bg-[var(--color-bg-overlay)] opacity-100"
-            : "opacity-0"
+            : "opacity-0 pointer-events-none"
         }`}
+        onClick={() => setSidebarOpen(false)}
       />
 
       {/* Sidebar — single element, animates between 48px (rail) and 248px (expanded) on desktop */}
@@ -455,9 +456,10 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
               <button
                 onClick={() => setSidebarOpen(false)}
                 className="p-2 flex items-center justify-center rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors duration-[var(--duration-fast)] text-[var(--color-text-tertiary)]"
-                aria-label="Collapse sidebar"
+                aria-label="Close sidebar"
               >
-                <IconLayoutSidebarLeftCollapse size={16} />
+                <IconX size={16} className="md:hidden" />
+                <IconLayoutSidebarLeftCollapse size={16} className="hidden md:block" />
               </button>
             </div>
           </div>

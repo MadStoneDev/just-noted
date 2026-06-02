@@ -94,7 +94,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-6 md:p-4"
       onClick={handleBackdropClick}
       role="dialog"
       aria-modal="true"
@@ -106,7 +106,7 @@ export function Modal({
       <div
         ref={contentRef}
         className={cn(
-          "relative w-full bg-[var(--color-bg-elevated)] rounded-[var(--radius-xl)] shadow-[var(--shadow-modal)] border border-[var(--color-border-secondary)] animate-scale-in",
+          "relative w-full max-h-[calc(100dvh-48px)] overflow-y-auto bg-[var(--color-bg-elevated)] rounded-[var(--radius-xl)] shadow-[var(--shadow-modal)] border border-[var(--color-border-secondary)] animate-scale-in",
           sizeClasses[size],
           className,
         )}

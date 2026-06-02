@@ -243,9 +243,8 @@ export default function NoteWrapper() {
           role="main"
           aria-label="Note editor"
         >
-          {/* Mobile top bar */}
-          {!sidebarOpen && (
-            <div className="md:hidden flex items-center justify-between px-3 py-2 border-b border-[var(--color-border-secondary)]">
+          {/* Mobile top bar — always visible on mobile */}
+          <div className="md:hidden flex items-center justify-between px-3 py-2 border-b border-[var(--color-border-secondary)]">
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setSidebarOpen(true)}
@@ -282,7 +281,6 @@ export default function NoteWrapper() {
                 </button>
               </div>
             </div>
-          )}
           <ActiveNoteEditor
             userId={userId || ""}
             isAuthenticated={isAuthenticated}
