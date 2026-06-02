@@ -121,27 +121,27 @@ function ToastItem({
     info: <IconInfoCircle size={20} />,
   };
 
-  const colors = {
-    success: "bg-[var(--color-success)] text-white",
-    error: "bg-[var(--color-danger-subtle)]0 text-white",
-    warning: "bg-[var(--color-warning)] text-white",
-    info: "bg-[var(--color-info)] text-white",
+  const styles = {
+    success: "bg-[var(--color-bg-elevated)] border-l-[3px] border-[var(--color-success)] text-[var(--color-text-primary)] [&_[data-icon]]:text-[var(--color-success)]",
+    error: "bg-[var(--color-bg-elevated)] border-l-[3px] border-[var(--color-danger)] text-[var(--color-text-primary)] [&_[data-icon]]:text-[var(--color-danger)]",
+    warning: "bg-[var(--color-bg-elevated)] border-l-[3px] border-[var(--color-warning)] text-[var(--color-text-primary)] [&_[data-icon]]:text-[var(--color-warning)]",
+    info: "bg-[var(--color-bg-elevated)] border-l-[3px] border-[var(--color-accent)] text-[var(--color-text-primary)] [&_[data-icon]]:text-[var(--color-accent)]",
   };
 
   return (
     <div
       className={`${
-        colors[toast.type]
-      } px-4 py-3 rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] flex items-center gap-3 min-w-[300px] animate-slide-in-right`}
+        styles[toast.type]
+      } px-4 py-3 rounded-[var(--radius-lg)] shadow-lg flex items-center gap-3 min-w-[280px] max-w-sm animate-slide-in-right`}
     >
-      {icons[toast.type]}
-      <span className="flex-grow">{toast.message}</span>
+      <span data-icon className="shrink-0">{icons[toast.type]}</span>
+      <span className="flex-grow text-sm">{toast.message}</span>
       <button
         onClick={() => onRemove(toast.id)}
-        className="hover:opacity-80 transition-opacity"
+        className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors shrink-0"
         aria-label="Close notification"
       >
-        <IconX size={16} />
+        <IconX size={14} />
       </button>
     </div>
   );

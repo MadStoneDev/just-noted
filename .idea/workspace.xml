@@ -5,25 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="c964cf5b-c203-4783-b48d-35cd19ff7e4b" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/database.types.ts" beforeDir="false" afterPath="$PROJECT_DIR$/database.types.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/app/globals.css" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/globals.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/faq-item.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/reference-note-pane.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/toc-panel.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/ui/lazy-note-render.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/ui/note-templates.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/ui/save-indicator.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/ui/share-note-modal.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/ui/tags-input.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/ui/upgrade-modal.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/hooks/use-mobile.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/hooks/use-subscription.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/hooks/use-window-size.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/hooks/useTocScrollSync.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/actions/sharing.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/actions/sharing.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/ui/toast.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/ui/toast.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -114,7 +98,7 @@
       <workItem from="1770222312995" duration="2915000" />
       <workItem from="1771159730256" duration="897000" />
       <workItem from="1774799458282" duration="1283000" />
-      <workItem from="1780266213176" duration="13457000" />
+      <workItem from="1780266213176" duration="14577000" />
     </task>
     <servers />
   </component>

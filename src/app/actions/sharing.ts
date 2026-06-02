@@ -1,7 +1,7 @@
 ﻿"use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/utils/supabase/server";
+import { createClient, createServiceRoleClient } from "@/utils/supabase/server";
 import { NOTES_KEY_PREFIX } from "@/constants/app";
 
 // ===========================
@@ -203,6 +203,10 @@ export async function sharingOperation(params: SharingOperationParams) {
   const supabase = await createClient();
   const { operation } = params;
 
+  // Get authenticated user — more reliable than client-passed userId
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+  const authenticatedUserId = authUser?.id || null;
+
   try {
     switch (operation) {
       case "share": {
@@ -217,11 +221,13 @@ export async function sharingOperation(params: SharingOperationParams) {
           expiresAt = null,
         } = params;
 
-        // Verify note ownership
+        // Use server-side auth for ownership — more reliable than client-passed ID
+        const ownerId = authenticatedUserId || currentUserId;
+
         const noteExists =
           storage === "supabase"
-            ? await verifySupabaseNoteOwnership(supabase, noteId, currentUserId)
-            : await verifyRedisNoteOwnership(noteId, currentUserId);
+            ? await verifySupabaseNoteOwnership(supabase, noteId, ownerId)
+            : await verifyRedisNoteOwnership(noteId, ownerId);
 
         if (!noteExists) {
           return {
@@ -235,7 +241,7 @@ export async function sharingOperation(params: SharingOperationParams) {
           .from("shared_notes")
           .select("id, shortcode")
           .eq("note_id", noteId)
-          .eq("note_owner_id", currentUserId);
+          .eq("note_owner_id", authenticatedUserId || currentUserId);
 
         let shortcode: string;
         let shareId: string;
@@ -250,7 +256,7 @@ export async function sharingOperation(params: SharingOperationParams) {
             .from("shared_notes")
             .insert({
               note_id: noteId,
-              note_owner_id: currentUserId,
+              note_owner_id: ownerId,
               shortcode,
               is_public: isPublic,
               storage,
@@ -293,7 +299,7 @@ export async function sharingOperation(params: SharingOperationParams) {
             .from("shared_notes")
             .update(updateData)
             .eq("id", shareId)
-            .eq("note_owner_id", currentUserId);
+            .eq("note_owner_id", authenticatedUserId || currentUserId);
 
           if (updateError) {
             return { success: false, error: "Failed to update share" };
@@ -353,7 +359,7 @@ export async function sharingOperation(params: SharingOperationParams) {
           .from("shared_notes")
           .select("id, shortcode, is_public, storage, is_anonymous, password_hash, expires_at, view_count")
           .eq("note_id", noteId)
-          .eq("note_owner_id", currentUserId)
+          .eq("note_owner_id", authenticatedUserId || currentUserId)
           .single();
 
         if (!shareData) {
@@ -394,7 +400,9 @@ export async function sharingOperation(params: SharingOperationParams) {
       case "getByShortcode": {
         const { shortcode, currentUsername, password: providedPassword = null } = params;
 
-        const { data: shareData, error: shareError } = await supabase
+        // Use service role — viewers aren't the owner, RLS would block
+        const viewClient = createServiceRoleClient();
+        const { data: shareData, error: shareError } = await viewClient
           .from("shared_notes")
           .select("*")
           .eq("shortcode", shortcode)
@@ -443,7 +451,7 @@ export async function sharingOperation(params: SharingOperationParams) {
             };
           }
 
-          const { data: readerData } = await supabase
+          const { data: readerData } = await viewClient
             .from("shared_notes_readers")
             .select("id")
             .eq("shared_note", shareData.id)
@@ -459,9 +467,11 @@ export async function sharingOperation(params: SharingOperationParams) {
         }
 
         const storage = shareData.storage || "supabase";
+        // Use service role to bypass RLS — we've already verified access above
+        const serviceClient = createServiceRoleClient();
         const noteResult =
           storage === "supabase"
-            ? await fetchSupabaseNote(supabase, shareData.note_id)
+            ? await fetchSupabaseNote(serviceClient, shareData.note_id)
             : await fetchRedisNote(shareData.note_id, shareData.note_owner_id);
 
         if (!noteResult.success || !noteResult.note) {
@@ -475,10 +485,10 @@ export async function sharingOperation(params: SharingOperationParams) {
           avatar_url: null,
         };
         if (!isAnonymous) {
-          authorInfo = await fetchAuthorInfo(supabase, noteResult.note.author);
+          authorInfo = await fetchAuthorInfo(serviceClient, noteResult.note.author);
         }
 
-        supabase.rpc("increment_view_count", { shortcode_param: shortcode });
+        viewClient.rpc("increment_view_count", { shortcode_param: shortcode });
 
         return {
           success: true,
@@ -506,7 +516,7 @@ export async function sharingOperation(params: SharingOperationParams) {
           .from("shared_notes")
           .select("id")
           .eq("note_id", noteId)
-          .eq("note_owner_id", currentUserId)
+          .eq("note_owner_id", authenticatedUserId || currentUserId)
           .single();
 
         if (!shareData) {
@@ -537,7 +547,7 @@ export async function sharingOperation(params: SharingOperationParams) {
           .from("shared_notes")
           .delete()
           .eq("note_id", noteId)
-          .eq("note_owner_id", currentUserId);
+          .eq("note_owner_id", authenticatedUserId || currentUserId);
 
         if (error) {
           return { success: false, error: "Failed to stop sharing" };
