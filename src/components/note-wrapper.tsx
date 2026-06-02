@@ -273,6 +273,15 @@ export default function NoteWrapper() {
           onBulkDelete={(noteIds) => {
             noteIds.forEach((id) => notesOperations.deleteNote(id));
           }}
+          onDeleteNote={(noteId) => notesOperations.deleteNote(noteId)}
+          onMoveNote={(noteId, notebookId) => {
+            const { optimisticUpdateNote, recalculateNotebookCounts } = useNotesStore.getState();
+            optimisticUpdateNote(noteId, { notebookId });
+            recalculateNotebookCounts();
+            import("@/app/actions/notebookActions").then(({ bulkAssignNotesToNotebook }) => {
+              bulkAssignNotesToNotebook([noteId], notebookId);
+            });
+          }}
         />
 
         {/* Main editor area */}

@@ -23,21 +23,28 @@ import {
   IconPin,
   IconPinFilled,
   IconCloud,
-  IconDeviceFloppy,
   IconFilterOff,
   IconCheckbox,
   IconSquare,
   IconSquareCheck,
   IconDeviceDesktop,
   IconLayoutSidebarLeftCollapse,
+  IconDots,
+  IconTrash,
+  IconNotebook,
+  IconGripVertical,
 } from "@tabler/icons-react";
+import { Dropdown, DropdownItem, DropdownSeparator, DropdownLabel } from "@/components/ds/dropdown";
+import { ConfirmModal } from "@/components/ds/modal";
 
 interface SidebarProps {
   onNoteClick?: (noteId: string) => void;
   onBulkDelete?: (noteIds: string[]) => void;
+  onDeleteNote?: (noteId: string) => void;
+  onMoveNote?: (noteId: string, notebookId: string | null) => void;
 }
 
-export default function Sidebar({ onNoteClick, onBulkDelete }: SidebarProps) {
+export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMoveNote }: SidebarProps) {
   const {
     sidebarOpen,
     setSidebarOpen,
@@ -71,13 +78,20 @@ export default function Sidebar({ onNoteClick, onBulkDelete }: SidebarProps) {
   // Modal state
   const [isNotebookModalOpen, setIsNotebookModalOpen] = useState(false);
   const [editingNotebook, setEditingNotebook] = useState<Notebook | null>(null);
+  // Drag and drop for note reordering
+  const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
+  const [dragOverNoteId, setDragOverNoteId] = useState<string | null>(null);
 
   // Multi-select state
   const [selectMode, setSelectMode] = useState(false);
   const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set());
 
+  // Delete confirmation
+  const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null);
+
   const filteredNotes = getFilteredNotes();
   const hasActiveFilters = searchQuery || filterSource !== "all" || filterPinned !== "all" || activeNotebookId !== null;
+  const deleteNoteTitle = deleteNoteId ? filteredNotes.find(n => n.id === deleteNoteId)?.title || "this note" : "";
 
   const hasLoadedNotebooks = useRef(false);
 
@@ -652,16 +666,41 @@ export default function Sidebar({ onNoteClick, onBulkDelete }: SidebarProps) {
                   const isActive = activeNoteId === note.id;
 
                   return (
-                  <li key={note.id}>
+                  <li
+                    key={note.id}
+                    draggable={!selectMode}
+                    onDragStart={(e) => {
+                      setDraggedNoteId(note.id);
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      if (draggedNoteId && note.id !== draggedNoteId) setDragOverNoteId(note.id);
+                    }}
+                    onDragLeave={() => setDragOverNoteId(null)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragOverNoteId(null);
+                      if (!draggedNoteId || draggedNoteId === note.id) return;
+                      // Reorder: move dragged note to this position
+                      const { notes: allNotes, optimisticReorderNotes } = useNotesStore.getState();
+                      const from = allNotes.findIndex(n => n.id === draggedNoteId);
+                      const to = allNotes.findIndex(n => n.id === note.id);
+                      if (from !== -1 && to !== -1) {
+                        const reordered = [...allNotes];
+                        const [moved] = reordered.splice(from, 1);
+                        reordered.splice(to, 0, moved);
+                        optimisticReorderNotes(reordered.map((n, i) => ({ ...n, order: i })));
+                      }
+                      setDraggedNoteId(null);
+                    }}
+                    onDragEnd={() => { setDraggedNoteId(null); setDragOverNoteId(null); }}
+                    className={dragOverNoteId === note.id ? "border-t border-[var(--color-accent)]" : ""}
+                  >
                     <div
-                      onClick={() => {
-                        if (canSelect) {
-                          handleToggleNoteSelection(note.id);
-                        } else {
-                          handleNoteClick(note.id);
-                        }
-                      }}
-                      className={`relative w-full px-3 py-2.5 text-left transition-colors duration-[var(--duration-fast)] cursor-pointer rounded-[var(--radius-md)] ${
+                      className={`group/note relative w-full px-3 py-2.5 text-left transition-colors duration-[var(--duration-fast)] rounded-[var(--radius-md)] ${
+                        draggedNoteId === note.id ? "opacity-40" : ""
+                      } ${
                         isSelected
                           ? "bg-[var(--color-selected)]"
                           : isActive
@@ -669,13 +708,18 @@ export default function Sidebar({ onNoteClick, onBulkDelete }: SidebarProps) {
                             : "hover:bg-[var(--color-hover)]"
                       }`}
                     >
-                      {/* Active indicator */}
                       {isActive && !selectMode && (
                         <div className="absolute left-0 top-2 bottom-2 w-[2px] rounded-full bg-[var(--color-accent)]" />
                       )}
-                      <div className="flex items-start gap-2">
+                      <div className="flex items-start gap-1.5">
+                        {/* Drag handle */}
+                        {!selectMode && (
+                          <div className="flex-shrink-0 pt-1 cursor-grab opacity-0 group-hover/note:opacity-40 transition-opacity">
+                            <IconGripVertical size={10} />
+                          </div>
+                        )}
                         {selectMode && (
-                          <div className="flex-shrink-0 pt-0.5">
+                          <div className="flex-shrink-0 pt-0.5" onClick={() => handleToggleNoteSelection(note.id)}>
                             {note.source === "supabase" ? (
                               isSelected ? (
                                 <IconSquareCheck size={16} className="text-[var(--color-accent)]" />
@@ -687,7 +731,16 @@ export default function Sidebar({ onNoteClick, onBulkDelete }: SidebarProps) {
                             )}
                           </div>
                         )}
-                        <div className="flex-1 min-w-0">
+                        <div
+                          className="flex-1 min-w-0"
+                          onClick={() => {
+                            if (selectMode && canSelect) {
+                              handleToggleNoteSelection(note.id);
+                            } else {
+                              handleNoteClick(note.id);
+                            }
+                          }}
+                        >
                           <div className="flex items-center gap-1.5">
                             {note.isPinned && (
                               <IconPinFilled size={10} className="text-[var(--color-accent)] flex-shrink-0" />
@@ -711,13 +764,53 @@ export default function Sidebar({ onNoteClick, onBulkDelete }: SidebarProps) {
                             {getPreview(note.content) || "Empty note"}
                           </p>
                         </div>
-                        <div className="flex-shrink-0 mt-0.5">
-                          {note.source === "supabase" ? (
-                            <IconCloud size={12} className="text-[var(--color-info)]" title="Cloud" />
-                          ) : (
-                            <IconDeviceDesktop size={12} className="text-[var(--color-warning)]" title="Local" />
-                          )}
-                        </div>
+                        {/* Actions menu */}
+                        {!selectMode && (
+                          <div className="flex-shrink-0 opacity-0 group-hover/note:opacity-100 transition-opacity">
+                            <Dropdown
+                              trigger={
+                                <button className="p-0.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] rounded transition-colors">
+                                  <IconDots size={12} />
+                                </button>
+                              }
+                              placement="bottom-end"
+                            >
+                              {isAuthenticated && notebooks.length > 0 && (
+                                <>
+                                  <DropdownLabel>Move to</DropdownLabel>
+                                  {note.notebookId && (
+                                    <DropdownItem
+                                      icon={<IconX size={12} />}
+                                      onClick={() => onMoveNote?.(note.id, null)}
+                                    >
+                                      Remove from notebook
+                                    </DropdownItem>
+                                  )}
+                                  {notebooks
+                                    .filter(nb => nb.id !== note.notebookId)
+                                    .map(nb => (
+                                      <DropdownItem
+                                        key={nb.id}
+                                        icon={<IconNotebook size={12} />}
+                                        onClick={() => onMoveNote?.(note.id, nb.id)}
+                                      >
+                                        {nb.name}
+                                      </DropdownItem>
+                                    ))
+                                  }
+                                  <DropdownSeparator />
+                                </>
+                              )}
+                              <DropdownItem
+                                icon={<IconTrash size={12} />}
+                                destructive
+                                onClick={() => setDeleteNoteId(note.id)}
+                              >
+                                Delete
+                              </DropdownItem>
+                            </Dropdown>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </li>
@@ -754,6 +847,21 @@ export default function Sidebar({ onNoteClick, onBulkDelete }: SidebarProps) {
         notebook={editingNotebook}
         onSave={handleSaveNotebook}
         onDelete={editingNotebook ? handleDeleteNotebook : undefined}
+      />
+
+      <ConfirmModal
+        open={!!deleteNoteId}
+        onClose={() => setDeleteNoteId(null)}
+        onConfirm={() => {
+          if (deleteNoteId) {
+            onDeleteNote?.(deleteNoteId);
+            setDeleteNoteId(null);
+          }
+        }}
+        title="Delete note"
+        message={`Delete "${deleteNoteTitle}"? This can't be undone.`}
+        confirmText="Delete"
+        destructive
       />
     </>
   );
