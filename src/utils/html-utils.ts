@@ -1,7 +1,4 @@
-/**
- * Shared HTML-to-text utilities.
- * Centralises the most common stripping patterns used across the codebase.
- */
+import type { ContentFormat } from "@/types/combined-notes";
 
 /**
  * Fast regex-based HTML → plain text.
@@ -21,10 +18,51 @@ export function stripHtmlToText(html: string): string {
 }
 
 /**
+ * Fast regex-based Markdown → plain text.
+ * Safe to call on every keystroke (no DOM allocation).
+ */
+export function stripMarkdownToText(markdown: string): string {
+  return markdown
+    .replace(/^#{1,6}\s+/gm, "")           // headings
+    .replace(/\*\*(.+?)\*\*/g, "$1")        // bold
+    .replace(/\*(.+?)\*/g, "$1")            // italic
+    .replace(/~~(.+?)~~/g, "$1")            // strikethrough
+    .replace(/==(.+?)==/g, "$1")            // highlight
+    .replace(/`{3}[\s\S]*?`{3}/g, " ")     // code blocks
+    .replace(/`(.+?)`/g, "$1")              // inline code
+    .replace(/\[(.+?)\]\(.*?\)/g, "$1")     // links
+    .replace(/!\[.*?\]\(.*?\)/g, " ")       // images
+    .replace(/^>\s+/gm, "")                 // blockquotes
+    .replace(/^[-*+]\s+/gm, "")             // unordered list markers
+    .replace(/^\d+\.\s+/gm, "")             // ordered list markers
+    .replace(/^- \[[ x]\]\s*/gm, "")        // task list markers
+    .replace(/---+/g, " ")                  // horizontal rules
+    .replace(/<\/?[^>]+>/g, "")             // remaining HTML tags
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Strip content to plain text, auto-detecting format.
+ */
+export function stripContentToText(
+  content: string,
+  format: ContentFormat = "html",
+): string {
+  if (!content) return "";
+  if (format === "markdown") return stripMarkdownToText(content);
+  return stripHtmlToText(content);
+}
+
+/**
  * Truncated preview suitable for sidebar / collapsed notes.
  */
-export function getPlainTextPreview(html: string, maxLength = 200): string {
-  const text = stripHtmlToText(html);
+export function getPlainTextPreview(
+  content: string,
+  maxLength = 200,
+  format: ContentFormat = "html",
+): string {
+  const text = stripContentToText(content, format);
   if (!text) return "";
   return text.length > maxLength ? text.slice(0, maxLength) + "..." : text;
 }

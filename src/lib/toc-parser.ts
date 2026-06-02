@@ -1,7 +1,4 @@
-/**
- * Table of Contents Parser
- * Extracts headings from HTML content for navigation
- */
+import type { ContentFormat } from "@/types/combined-notes";
 
 export interface TocHeading {
   id: string;
@@ -17,12 +14,48 @@ export interface TocTree {
 }
 
 /**
- * Parse HTML content and extract headings
+ * Parse content and extract headings, auto-detecting format.
  */
-export function parseHeadings(htmlContent: string): TocHeading[] {
-  if (!htmlContent || typeof window === "undefined") {
-    return [];
+export function parseHeadings(
+  content: string,
+  format: ContentFormat = "html",
+): TocHeading[] {
+  if (!content) return [];
+  if (format === "markdown") return parseMarkdownHeadings(content);
+  return parseHtmlHeadings(content);
+}
+
+function parseMarkdownHeadings(markdown: string): TocHeading[] {
+  const headings: TocHeading[] = [];
+  const usedIds = new Set<string>();
+  const headingRegex = /^(#{1,6})\s+(.+)$/gm;
+  let match: RegExpExecArray | null;
+  let index = 0;
+
+  while ((match = headingRegex.exec(markdown)) !== null) {
+    const text = match[2].trim();
+    if (!text) continue;
+
+    const level = match[1].length as 1 | 2 | 3 | 4 | 5 | 6;
+
+    let baseId = generateSlug(text);
+    let id = baseId;
+    let counter = 1;
+    while (usedIds.has(id)) {
+      id = `${baseId}-${counter}`;
+      counter++;
+    }
+    usedIds.add(id);
+
+    headings.push({ id, text, level, position: index });
+    index++;
   }
+
+  return headings;
+}
+
+function parseHtmlHeadings(htmlContent: string): TocHeading[] {
+  if (typeof window === "undefined") return [];
 
   const parser = new DOMParser();
   const doc = parser.parseFromString(htmlContent, "text/html");
@@ -33,27 +66,20 @@ export function parseHeadings(htmlContent: string): TocHeading[] {
 
   headingElements.forEach((el, index) => {
     const text = el.textContent?.trim() || "";
-    if (!text) return; // Skip empty headings
+    if (!text) return;
 
     const level = parseInt(el.tagName[1]) as 1 | 2 | 3 | 4 | 5 | 6;
 
-    // Generate unique ID
     let baseId = generateSlug(text);
     let id = baseId;
     let counter = 1;
-
     while (usedIds.has(id)) {
       id = `${baseId}-${counter}`;
       counter++;
     }
     usedIds.add(id);
 
-    headings.push({
-      id,
-      text,
-      level,
-      position: index,
-    });
+    headings.push({ id, text, level, position: index });
   });
 
   return headings;

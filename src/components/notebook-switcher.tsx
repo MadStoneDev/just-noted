@@ -4,7 +4,6 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNotesStore, useNotebooks, useActiveNotebook } from "@/stores/notes-store";
 import { Notebook, NOTEBOOK_LIMITS } from "@/types/notebook";
 import { reorderNotebooks } from "@/app/actions/notebookActions";
-import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import {
   IconChevronDown,
   IconNotebook,
@@ -46,40 +45,19 @@ export default function NotebookSwitcher({
     setNotebooks,
   } = useNotesStore();
 
-  // Calculate total notes count
   const totalNotesCount = notes.filter((n) => n.source === "supabase").length;
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
     };
-
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
+    if (isOpen) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
-  // Close on escape
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
-        setIsOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen]);
-
-  // Don't show for non-authenticated users
-  if (!isAuthenticated) {
-    return null;
-  }
+  if (!isAuthenticated) return null;
 
   const handleSelect = (id: string | null) => {
     setActiveNotebookId(id);
@@ -87,326 +65,160 @@ export default function NotebookSwitcher({
   };
 
   const getDisplayName = () => {
-    if (activeNotebookId === null) {
-      return "All Notes";
-    }
-    if (activeNotebookId === "loose") {
-      return "Loose Notes";
-    }
+    if (activeNotebookId === null) return "All Notes";
+    if (activeNotebookId === "loose") return "Loose Notes";
     return activeNotebook?.name || "Unknown";
-  };
-
-  const getDisplayIcon = () => {
-    if (activeNotebookId === null) {
-      return <IconNotebook size={18} className="text-neutral-600" />;
-    }
-    if (activeNotebookId === "loose") {
-      return <IconFileOff size={18} className="text-neutral-500" />;
-    }
-    if (activeNotebook) {
-      return (
-        <div
-          className="w-4 h-4 rounded-sm flex-shrink-0"
-          style={getCoverPreviewStyle(
-            activeNotebook.coverType,
-            activeNotebook.coverValue
-          )}
-        />
-      );
-    }
-    return <IconNotebook size={18} className="text-neutral-600" />;
   };
 
   const notebookLimitReached = notebooks.length >= NOTEBOOK_LIMITS.free;
 
-  // Drag and drop handlers
-  const handleDragStart = (e: React.DragEvent, notebookId: string) => {
-    setDraggedId(notebookId);
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedId(id);
     e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", notebookId);
   };
 
-  const handleDragOver = (e: React.DragEvent, notebookId: string) => {
+  const handleDragOver = (e: React.DragEvent, id: string) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    if (draggedId && notebookId !== draggedId) {
-      setDragOverId(notebookId);
-    }
-  };
-
-  const handleDragLeave = () => {
-    setDragOverId(null);
+    if (draggedId && id !== draggedId) setDragOverId(id);
   };
 
   const handleDrop = async (e: React.DragEvent, targetId: string) => {
     e.preventDefault();
     setDragOverId(null);
+    if (!draggedId || draggedId === targetId) { setDraggedId(null); return; }
 
-    if (!draggedId || draggedId === targetId) {
-      setDraggedId(null);
-      return;
-    }
+    const from = notebooks.findIndex((nb) => nb.id === draggedId);
+    const to = notebooks.findIndex((nb) => nb.id === targetId);
+    if (from === -1 || to === -1) { setDraggedId(null); return; }
 
-    // Find indices
-    const draggedIndex = notebooks.findIndex((nb) => nb.id === draggedId);
-    const targetIndex = notebooks.findIndex((nb) => nb.id === targetId);
+    const reordered = [...notebooks];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    const updated = reordered.map((nb, i) => ({ ...nb, displayOrder: i }));
 
-    if (draggedIndex === -1 || targetIndex === -1) {
-      setDraggedId(null);
-      return;
-    }
-
-    // Reorder locally (optimistic update)
-    const newNotebooks = [...notebooks];
-    const [removed] = newNotebooks.splice(draggedIndex, 1);
-    newNotebooks.splice(targetIndex, 0, removed);
-
-    // Update display orders
-    const updatedNotebooks = newNotebooks.map((nb, index) => ({
-      ...nb,
-      displayOrder: index,
-    }));
-
-    setNotebooks(updatedNotebooks);
+    setNotebooks(updated);
     setDraggedId(null);
-
-    // Persist to database
-    const updates = updatedNotebooks.map((nb) => ({
-      id: nb.id,
-      order: nb.displayOrder,
-    }));
-
-    const result = await reorderNotebooks(updates);
-    if (!result.success) {
-      console.error("Failed to reorder notebooks:", result.error);
-      // Could revert here, but for now just log
-    }
-  };
-
-  const handleDragEnd = () => {
-    setDraggedId(null);
-    setDragOverId(null);
+    await reorderNotebooks(updated.map((nb) => ({ id: nb.id, order: nb.displayOrder })));
   };
 
   return (
     <div ref={dropdownRef} className="relative">
-      {/* Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         disabled={notebooksLoading}
-        className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-neutral-100 hover:bg-neutral-200 rounded-lg transition-colors disabled:opacity-70"
+        className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 bg-[var(--color-bg-tertiary)] hover:bg-[var(--color-active)] rounded-[var(--radius-md)] transition-colors duration-[var(--duration-fast)] disabled:opacity-50"
       >
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-1.5 min-w-0">
           {notebooksLoading ? (
-            <IconLoader2 size={18} className="text-neutral-500 animate-spin" />
+            <IconLoader2 size={13} className="text-[var(--color-text-tertiary)] animate-spin" />
           ) : (
-            getDisplayIcon()
+            <IconNotebook size={13} className="text-[var(--color-text-tertiary)]" />
           )}
-          <span className="font-medium text-neutral-800 truncate">
+          <span className="text-xs font-medium text-[var(--color-text-primary)] truncate">
             {notebooksLoading ? "Loading..." : getDisplayName()}
           </span>
         </div>
         <IconChevronDown
-          size={18}
-          className={`text-neutral-500 transition-transform ${isOpen ? "rotate-180" : ""}`}
+          size={12}
+          className={`text-[var(--color-text-tertiary)] transition-transform ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
 
-      {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-neutral-200 z-50 overflow-hidden">
-          {/* All Notes option */}
+        <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--color-bg-elevated)] rounded-[var(--radius-md)] shadow-lg border border-[var(--color-border-primary)] z-50 overflow-hidden">
           <button
             onClick={() => handleSelect(null)}
-            className="w-full flex items-center justify-between px-3 py-2 hover:bg-neutral-50 transition-colors"
+            className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-[var(--color-hover)] transition-colors"
           >
-            <div className="flex items-center gap-2">
-              <IconNotebook size={18} className="text-neutral-600" />
-              <span className="text-neutral-800">All Notes</span>
-              <span className="text-xs text-neutral-400">({totalNotesCount})</span>
+            <div className="flex items-center gap-1.5">
+              <IconNotebook size={12} className="text-[var(--color-text-tertiary)]" />
+              <span className="text-xs text-[var(--color-text-primary)]">All Notes</span>
+              <span className="text-[10px] text-[var(--color-text-tertiary)]">{totalNotesCount}</span>
             </div>
-            {activeNotebookId === null && (
-              <IconCheck size={16} className="text-mercedes-primary" />
-            )}
+            {activeNotebookId === null && <IconCheck size={12} className="text-[var(--color-accent)]" />}
           </button>
 
-          {/* Loose Notes option */}
           <button
             onClick={() => handleSelect("loose")}
-            className="w-full flex items-center justify-between px-3 py-2 hover:bg-neutral-50 transition-colors"
+            className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-[var(--color-hover)] transition-colors"
           >
-            <div className="flex items-center gap-2">
-              <IconFileOff size={18} className="text-neutral-500" />
-              <span className="text-neutral-800">Loose Notes</span>
-              <span className="text-xs text-neutral-400">({looseNotesCount})</span>
+            <div className="flex items-center gap-1.5">
+              <IconFileOff size={12} className="text-[var(--color-text-tertiary)]" />
+              <span className="text-xs text-[var(--color-text-primary)]">Loose Notes</span>
+              <span className="text-[10px] text-[var(--color-text-tertiary)]">{looseNotesCount}</span>
             </div>
-            {activeNotebookId === "loose" && (
-              <IconCheck size={16} className="text-mercedes-primary" />
-            )}
+            {activeNotebookId === "loose" && <IconCheck size={12} className="text-[var(--color-accent)]" />}
           </button>
 
-          {/* Divider */}
-          <div className="border-t border-neutral-200 my-1" />
+          {notebooks.length > 0 && <div className="h-px bg-[var(--color-border-secondary)] my-0.5" />}
 
-          {/* Notebooks list */}
           {notebooksLoading ? (
-            <div className="px-3 py-4 text-center text-sm text-neutral-500">
-              <IconLoader2 size={18} className="inline animate-spin mr-2" />
-              Loading notebooks...
+            <div className="px-2.5 py-3 text-center text-[10px] text-[var(--color-text-tertiary)]">
+              Loading...
             </div>
-          ) : notebooks.length > 0 ? (
+          ) : (
             notebooks.map((notebook) => (
-              <NotebookOption
+              <div
                 key={notebook.id}
-                notebook={notebook}
-                isActive={activeNotebookId === notebook.id}
-                count={notebookCounts[notebook.id] || 0}
-                onSelect={() => handleSelect(notebook.id)}
-                onEdit={() => {
-                  setIsOpen(false);
-                  onEditNotebook(notebook);
-                }}
-                onDelete={() => {
-                  setIsOpen(false);
-                  onDeleteNotebook(notebook);
-                }}
-                isDragging={draggedId === notebook.id}
-                isDragOver={dragOverId === notebook.id}
+                draggable
                 onDragStart={(e) => handleDragStart(e, notebook.id)}
                 onDragOver={(e) => handleDragOver(e, notebook.id)}
-                onDragLeave={handleDragLeave}
+                onDragLeave={() => setDragOverId(null)}
                 onDrop={(e) => handleDrop(e, notebook.id)}
-                onDragEnd={handleDragEnd}
-              />
+                onDragEnd={() => { setDraggedId(null); setDragOverId(null); }}
+                className={`group/nb flex items-center ${
+                  draggedId === notebook.id ? "opacity-40" : ""
+                } ${dragOverId === notebook.id ? "bg-[var(--color-accent-subtle)]" : ""}`}
+              >
+                <div className="pl-1 py-1.5 cursor-grab text-[var(--color-text-tertiary)] opacity-0 group-hover/nb:opacity-50">
+                  <IconGripVertical size={10} />
+                </div>
+                <button
+                  onClick={() => handleSelect(notebook.id)}
+                  className="flex-1 flex items-center justify-between px-1.5 py-1.5 hover:bg-[var(--color-hover)] transition-colors min-w-0"
+                >
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-xs text-[var(--color-text-primary)] truncate">{notebook.name}</span>
+                    <span className="text-[10px] text-[var(--color-text-tertiary)]">{notebookCounts[notebook.id] || 0}</span>
+                  </div>
+                  {activeNotebookId === notebook.id && <IconCheck size={12} className="text-[var(--color-accent)] flex-shrink-0" />}
+                </button>
+                <div className="flex items-center pr-1.5 opacity-0 group-hover/nb:opacity-100 transition-opacity">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setIsOpen(false); onEditNotebook(notebook); }}
+                    className="p-0.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] rounded transition-colors"
+                    title="Edit"
+                  >
+                    <IconSettings size={11} />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setIsOpen(false); onDeleteNotebook(notebook); }}
+                    className="p-0.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] rounded transition-colors"
+                    title="Delete"
+                  >
+                    <IconTrash size={11} />
+                  </button>
+                </div>
+              </div>
             ))
-          ) : (
-            <div className="px-3 py-3 text-center text-sm text-neutral-400 italic">
-              No notebooks yet
-            </div>
           )}
 
-          {/* Divider */}
-          <div className="border-t border-neutral-200 my-1" />
+          <div className="h-px bg-[var(--color-border-secondary)] my-0.5" />
 
-          {/* New Notebook */}
           <button
-            onClick={() => {
-              setIsOpen(false);
-              onNewNotebook();
-            }}
+            onClick={() => { setIsOpen(false); onNewNotebook(); }}
             disabled={notebookLimitReached}
-            className={`w-full flex items-center gap-2 px-3 py-2 transition-colors ${
+            className={`w-full flex items-center gap-1.5 px-2.5 py-1.5 text-xs transition-colors ${
               notebookLimitReached
-                ? "text-neutral-400 cursor-not-allowed"
-                : "text-mercedes-primary hover:bg-neutral-50"
+                ? "text-[var(--color-text-tertiary)] cursor-not-allowed"
+                : "text-[var(--color-accent)] hover:bg-[var(--color-hover)]"
             }`}
           >
-            <IconPlus size={18} />
-            <span>New Notebook</span>
-            {notebookLimitReached && (
-              <span className="text-xs text-neutral-400 ml-auto">
-                Limit reached
-              </span>
-            )}
+            <IconPlus size={12} />
+            New Notebook
           </button>
-
-          {/* Limit warning */}
-          {notebookLimitReached && (
-            <div className="px-3 py-2 bg-amber-50 text-xs text-amber-700 border-t border-amber-100">
-              You&apos;ve reached the free limit of {NOTEBOOK_LIMITS.free} notebooks.
-              Upgrade for more.
-            </div>
-          )}
         </div>
       )}
-    </div>
-  );
-}
-
-// Individual notebook option in the dropdown
-function NotebookOption({
-  notebook,
-  isActive,
-  count,
-  onSelect,
-  onEdit,
-  onDelete,
-  isDragging,
-  isDragOver,
-  onDragStart,
-  onDragOver,
-  onDragLeave,
-  onDrop,
-  onDragEnd,
-}: {
-  notebook: Notebook;
-  isActive: boolean;
-  count: number;
-  onSelect: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-  isDragging: boolean;
-  isDragOver: boolean;
-  onDragStart: (e: React.DragEvent) => void;
-  onDragOver: (e: React.DragEvent) => void;
-  onDragLeave: () => void;
-  onDrop: (e: React.DragEvent) => void;
-  onDragEnd: () => void;
-}) {
-  const previewStyle = getCoverPreviewStyle(notebook.coverType, notebook.coverValue);
-
-  return (
-    <div
-      draggable
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
-      onDragEnd={onDragEnd}
-      className={`group/notebook flex items-center transition-all ${
-        isDragging ? "opacity-50" : ""
-      } ${isDragOver ? "bg-mercedes-primary/10 border-t-2 border-mercedes-primary" : ""}`}
-    >
-      <div className="px-1 py-2 cursor-grab text-neutral-400 hover:text-neutral-600">
-        <IconGripVertical size={14} />
-      </div>
-      <button
-        onClick={onSelect}
-        className="flex-1 flex items-center justify-between px-2 py-2 hover:bg-neutral-50 transition-colors min-w-0"
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <div
-            className="w-4 h-4 rounded-sm flex-shrink-0"
-            style={previewStyle}
-          />
-          <span className="text-neutral-800 truncate">{notebook.name}</span>
-          <span className="text-xs text-neutral-400">({count})</span>
-        </div>
-        {isActive && <IconCheck size={16} className="text-mercedes-primary flex-shrink-0" />}
-      </button>
-      {/* Edit and delete buttons */}
-      <div className="flex items-center gap-0.5 pr-2 opacity-0 group-hover/notebook:opacity-100 transition-opacity">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onEdit();
-          }}
-          className="p-1 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded transition-colors"
-          title="Edit notebook"
-        >
-          <IconSettings size={14} />
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          className="p-1 text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-          title="Delete notebook"
-        >
-          <IconTrash size={14} />
-        </button>
-      </div>
     </div>
   );
 }

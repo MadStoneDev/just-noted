@@ -154,6 +154,7 @@ export default function NoteBlock({
   // ========== STATE ==========
   const [noteTitle, setNoteTitle] = useState(currentNote.title);
   const [noteContent, setNoteContent] = useState(currentNote.content);
+  const [noteContentFormat, setNoteContentFormat] = useState(currentNote.contentFormat || "html");
   const [editingTitle, setEditingTitle] = useState(false);
   const [transferComplete, setTransferComplete] = useState(false);
   const [isContentVisible, setIsContentVisible] = useState(true);
@@ -541,9 +542,13 @@ export default function NoteBlock({
 
   const saveContent = useCallback(
     async (content: string, isManual = false): Promise<boolean> => {
-      const safeContent = content
-        .replace(/<p><br\s*\/?><\/p>/gi, "<p>&nbsp;</p>")
-        .replace(/<p>\s*<\/p>/gi, "<p>&nbsp;</p>");
+      // Only apply HTML cleanup when content is HTML format
+      const safeContent =
+        noteContentFormat === "html"
+          ? content
+              .replace(/<p><br\s*\/?><\/p>/gi, "<p>&nbsp;</p>")
+              .replace(/<p>\s*<\/p>/gi, "<p>&nbsp;</p>")
+          : content;
 
       if (safeContent === lastSavedContentRef.current && !isManual) {
         return true; // Nothing to save — treat as success
@@ -663,7 +668,7 @@ export default function NoteBlock({
   const handleChange = useCallback(
     (value: string) => {
       setNoteContent(value);
-      // Mark as editing so refreshes/Realtime don't overwrite unsaved content
+      setNoteContentFormat("markdown");
       useNotesStore.getState().setEditing(details.id, true);
       debouncedSave();
     },
@@ -857,38 +862,18 @@ export default function NoteBlock({
       ref={containerRef}
       data-note-id={details.id}
       onClick={() => setActiveNoteId(details.id)}
-      className={`relative col-span-12 flex flex-col gap-2 md:gap-3 bg-white rounded-xl border border-neutral-100 shadow-sm hover:shadow-md p-3 md:p-5 transition-all duration-200 hover:-translate-y-0.5 ${
+      className={`relative col-span-12 flex flex-col gap-2 md:gap-3 bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] border border-[var(--color-border-secondary)] p-3 md:p-5 transition-all duration-[var(--duration-normal)] hover:border-[var(--color-border-primary)] ${
         distractionFreeMode ? "h-full" : ""
       }`}
     >
       {/* Transfer Loading Overlay */}
       {isTransferring && (
-        <div className="absolute inset-0 bg-neutral-900/50 bg-opacity-25 flex items-center justify-center rounded-xl z-10">
-          <div className="bg-white px-4 py-2 rounded-lg shadow-lg">
-            <span className="flex items-center gap-2">
-              <svg
-                className={`animate-spin h-5 w-5 ${
-                  noteSource === "supabase"
-                    ? "text-orange-600"
-                    : "text-blue-600"
-                }`}
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
+        <div className="absolute inset-0 bg-[var(--color-bg-overlay)] flex items-center justify-center rounded-[var(--radius-lg)] z-10">
+          <div className="bg-[var(--color-bg-elevated)] px-4 py-2 rounded-[var(--radius-md)] shadow-lg">
+            <span className="flex items-center gap-2 text-sm text-[var(--color-text-primary)]">
+              <svg className="animate-spin h-4 w-4 text-[var(--color-accent)]" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
               Transferring...
             </span>
@@ -985,6 +970,7 @@ export default function NoteBlock({
               <LazyTextBlock
                 noteId={details.id}
                 value={noteContent}
+                contentFormat={details.contentFormat}
                 onChange={handleChange}
                 distractionFreeMode={distractionFreeMode}
                 isCollapsed={!isContentExpanded}

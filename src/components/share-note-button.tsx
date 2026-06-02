@@ -1,22 +1,24 @@
-﻿// src/components/share-note-button.tsx
 "use client";
 
-import React, { useState, useEffect, useReducer, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   IconShare2,
-  IconUsers,
-  IconWorld,
-  IconUserCheck,
-  IconUserX,
   IconCopy,
   IconCheck,
-  IconLink,
+  IconWorld,
+  IconUsers,
+  IconEye,
+  IconEyeOff,
+  IconLock,
+  IconClock,
   IconX,
+  IconUserPlus,
+  IconTrash,
 } from "@tabler/icons-react";
-import { Modal } from "@/components/ui/modal";
+import { Modal } from "@/components/ds/modal";
+import { IconButton } from "@/components/ds/icon-button";
 import { useToast } from "@/components/ui/toast";
 import { sharingOperation } from "@/app/actions/sharing";
-import { createClient } from "@/utils/supabase/client";
 
 interface ShareNoteButtonProps {
   noteId: string;
@@ -27,453 +29,372 @@ interface ShareNoteButtonProps {
   userId: string;
 }
 
-// State type
-interface ShareState {
-  isModalOpen: boolean;
+interface ShareInfo {
   isPublic: boolean;
-  username: string;
-  isSharing: boolean;
-  isLoadingInfo: boolean;
-  isRemovingUser: boolean;
   shortcode: string | null;
-  sharedUsers: string[];
-  isCopied: boolean;
-  confirmRemoveUser: string | null;
+  users: string[];
+  isAnonymous: boolean;
+  hasPassword: boolean;
+  expiresAt: string | null;
+  viewCount: number;
 }
-
-// Action types
-type ShareAction =
-  | { type: "OPEN_MODAL" }
-  | { type: "CLOSE_MODAL" }
-  | { type: "SET_PUBLIC"; payload: boolean }
-  | { type: "SET_USERNAME"; payload: string }
-  | { type: "SET_SHARING"; payload: boolean }
-  | { type: "SET_LOADING_INFO"; payload: boolean }
-  | { type: "SET_REMOVING_USER"; payload: boolean }
-  | { type: "SET_SHORTCODE"; payload: string | null }
-  | { type: "SET_SHARED_USERS"; payload: string[] }
-  | { type: "ADD_SHARED_USER"; payload: string }
-  | { type: "REMOVE_SHARED_USER"; payload: string }
-  | { type: "SET_COPIED"; payload: boolean }
-  | { type: "SET_CONFIRM_REMOVE"; payload: string | null }
-  | { type: "RESET_MODAL" }
-  | {
-      type: "LOAD_SHARE_INFO";
-      payload: { isPublic: boolean; shortcode: string; users: string[] };
-    };
-
-// Reducer
-function shareReducer(state: ShareState, action: ShareAction): ShareState {
-  switch (action.type) {
-    case "OPEN_MODAL":
-      return { ...state, isModalOpen: true };
-    case "CLOSE_MODAL":
-      return { ...state, isModalOpen: false };
-    case "SET_PUBLIC":
-      return { ...state, isPublic: action.payload };
-    case "SET_USERNAME":
-      return { ...state, username: action.payload };
-    case "SET_SHARING":
-      return { ...state, isSharing: action.payload };
-    case "SET_LOADING_INFO":
-      return { ...state, isLoadingInfo: action.payload };
-    case "SET_REMOVING_USER":
-      return { ...state, isRemovingUser: action.payload };
-    case "SET_SHORTCODE":
-      return { ...state, shortcode: action.payload };
-    case "SET_SHARED_USERS":
-      return { ...state, sharedUsers: action.payload };
-    case "ADD_SHARED_USER":
-      return {
-        ...state,
-        sharedUsers: [...state.sharedUsers, action.payload],
-      };
-    case "REMOVE_SHARED_USER":
-      return {
-        ...state,
-        sharedUsers: state.sharedUsers.filter((u) => u !== action.payload),
-      };
-    case "SET_COPIED":
-      return { ...state, isCopied: action.payload };
-    case "SET_CONFIRM_REMOVE":
-      return { ...state, confirmRemoveUser: action.payload };
-    case "RESET_MODAL":
-      return {
-        ...state,
-        username: "",
-        isSharing: false,
-        confirmRemoveUser: null,
-      };
-    case "LOAD_SHARE_INFO":
-      return {
-        ...state,
-        isPublic: action.payload.isPublic,
-        shortcode: action.payload.shortcode,
-        sharedUsers: action.payload.users,
-        isLoadingInfo: false,
-      };
-    default:
-      return state;
-  }
-}
-
-// Initial state
-const initialState: ShareState = {
-  isModalOpen: false,
-  isPublic: true,
-  username: "",
-  isSharing: false,
-  isLoadingInfo: false,
-  isRemovingUser: false,
-  shortcode: null,
-  sharedUsers: [],
-  isCopied: false,
-  confirmRemoveUser: null,
-};
 
 export default function ShareNoteButton({
   noteId,
   noteTitle,
   noteSource,
+  isPrivate,
   isAuthenticated,
-  isPrivate = false,
   userId,
 }: ShareNoteButtonProps) {
-  const [state, dispatch] = useReducer(shareReducer, initialState);
-  const [currentUserId, setCurrentUserId] = useState<string>(userId);
-  const { showSuccess, showError } = useToast();
-  const supabase = createClient();
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [info, setInfo] = useState<ShareInfo>({
+    isPublic: true,
+    shortcode: null,
+    users: [],
+    isAnonymous: false,
+    hasPassword: false,
+    expiresAt: null,
+    viewCount: 0,
+  });
 
-  // Get correct user ID
-  useEffect(() => {
-    const getCurrentUserId = async () => {
-      if (noteSource === "supabase" && isAuthenticated) {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (user?.id) {
-          setCurrentUserId(user.id);
-        }
-      } else {
-        setCurrentUserId(userId);
-      }
-    };
+  // Form state
+  const [isPublic, setIsPublic] = useState(true);
+  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [password, setPassword] = useState("");
+  const [usePassword, setUsePassword] = useState(false);
+  const [expiresAt, setExpiresAt] = useState("");
+  const [useExpiry, setUseExpiry] = useState(false);
+  const [newUsername, setNewUsername] = useState("");
 
-    getCurrentUserId();
-  }, [noteSource, isAuthenticated, userId, supabase]);
+  const toast = useToast();
 
-  // Fetch initial share status
-  useEffect(() => {
-    const fetchInitialShareStatus = async () => {
-      if (isAuthenticated && noteId && currentUserId) {
-        try {
-          const result = await sharingOperation({
-            operation: "getUsers",
-            noteId,
-            currentUserId,
-          });
-
-          if (result.success && result.shortcode) {
-            dispatch({ type: "SET_SHORTCODE", payload: result.shortcode });
-          }
-        } catch (error) {
-          console.error("Error fetching initial share status:", error);
-        }
-      }
-    };
-
-    fetchInitialShareStatus();
-  }, [isAuthenticated, noteId, currentUserId]);
-
-  // Open modal and load share info
-  const handleOpenModal = useCallback(async () => {
-    dispatch({ type: "OPEN_MODAL" });
-    dispatch({ type: "RESET_MODAL" });
-    dispatch({ type: "SET_LOADING_INFO", payload: true });
-
-    if (isAuthenticated) {
-      try {
-        const result = await sharingOperation({
-          operation: "getUsers",
-          noteId,
-          currentUserId,
+  const loadShareInfo = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await sharingOperation({
+        operation: "getUsers",
+        noteId,
+        currentUserId: userId,
+      });
+      if (result.success) {
+        const data = result as any;
+        setInfo({
+          isPublic: data.isPublic ?? true,
+          shortcode: data.shortcode ?? null,
+          users: data.users ?? [],
+          isAnonymous: data.isAnonymous ?? false,
+          hasPassword: data.hasPassword ?? false,
+          expiresAt: data.expiresAt ?? null,
+          viewCount: data.viewCount ?? 0,
         });
-
-        if (result.success) {
-          dispatch({
-            type: "LOAD_SHARE_INFO",
-            payload: {
-              isPublic: result.isPublic || false,
-              shortcode: result.shortcode || null,
-              users: result.users || [],
-            },
-          });
-        } else {
-          dispatch({ type: "SET_LOADING_INFO", payload: false });
+        setIsPublic(data.isPublic ?? true);
+        setIsAnonymous(data.isAnonymous ?? false);
+        setUsePassword(data.hasPassword ?? false);
+        if (data.expiresAt) {
+          setUseExpiry(true);
+          setExpiresAt(data.expiresAt.split("T")[0]);
         }
-      } catch (error) {
-        console.error("Error fetching share info:", error);
-        dispatch({ type: "SET_LOADING_INFO", payload: false });
       }
-    } else {
-      dispatch({ type: "SET_LOADING_INFO", payload: false });
+    } finally {
+      setLoading(false);
     }
-  }, [isAuthenticated, noteId, currentUserId]);
+  }, [noteId, userId]);
 
-  const handleCloseModal = useCallback(() => {
-    dispatch({ type: "CLOSE_MODAL" });
-  }, []);
+  useEffect(() => {
+    if (open) loadShareInfo();
+  }, [open, loadShareInfo]);
 
-  // Handle share type change
-  const handleTypeChange = useCallback((isPublic: boolean) => {
-    dispatch({ type: "SET_PUBLIC", payload: isPublic });
-  }, []);
-
-  // Handle username input
-  const handleUsernameChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      dispatch({ type: "SET_USERNAME", payload: e.target.value });
-    },
-    [],
-  );
-
-  // Handle share note
-  const handleShareNote = useCallback(async () => {
-    if (!isAuthenticated) {
-      showError("You must be signed in to share notes");
-      return;
-    }
-
-    dispatch({ type: "SET_SHARING", payload: true });
-
+  const handleShare = useCallback(async () => {
+    setSaving(true);
     try {
       const result = await sharingOperation({
         operation: "share",
         noteId,
-        isPublic: state.isPublic,
-        username: state.isPublic ? null : state.username,
-        currentUserId: currentUserId,
+        isPublic,
+        currentUserId: userId,
         storage: noteSource,
+        isAnonymous,
+        password: usePassword ? password : null,
+        expiresAt: useExpiry && expiresAt ? new Date(expiresAt).toISOString() : null,
       });
-
       if (result.success) {
-        showSuccess(
-          state.isPublic
-            ? "Note shared publicly!"
-            : `Note shared with ${state.username}!`,
-        );
-        dispatch({ type: "SET_SHORTCODE", payload: result.shortcode });
-
-        // Update shared users list if sharing privately
-        if (!state.isPublic && state.username) {
-          dispatch({ type: "ADD_SHARED_USER", payload: state.username });
-          dispatch({ type: "SET_USERNAME", payload: "" });
-        }
+        toast.showSuccess("Share settings updated");
+        await loadShareInfo();
+        setPassword("");
       } else {
-        showError(result.error || "Failed to share note");
+        toast.showError((result as any).error || "Failed to update share settings");
       }
-    } catch (error) {
-      console.error("Error sharing note:", error);
-      showError("An unexpected error occurred");
     } finally {
-      dispatch({ type: "SET_SHARING", payload: false });
+      setSaving(false);
     }
-  }, [
-    isAuthenticated,
-    noteId,
-    state.isPublic,
-    state.username,
-    currentUserId,
-    noteSource,
-    showSuccess,
-    showError,
-  ]);
+  }, [noteId, isPublic, userId, noteSource, isAnonymous, usePassword, password, useExpiry, expiresAt, toast, loadShareInfo]);
 
-  // Handle remove user
-  const handleRemoveUserClick = useCallback((username: string) => {
-    dispatch({ type: "SET_CONFIRM_REMOVE", payload: username });
-  }, []);
-
-  const handleRemoveUserConfirm = useCallback(async () => {
-    const username = state.confirmRemoveUser;
-    if (!username || !isAuthenticated || !currentUserId) {
-      showError("You must be signed in to manage shared notes");
-      return;
-    }
-
-    dispatch({ type: "SET_REMOVING_USER", payload: true });
-
+  const handleAddUser = useCallback(async () => {
+    if (!newUsername.trim()) return;
+    setSaving(true);
     try {
       const result = await sharingOperation({
-        operation: "removeUser",
+        operation: "share",
         noteId,
-        username,
-        currentUserId: currentUserId,
+        isPublic: false,
+        username: newUsername.trim(),
+        currentUserId: userId,
+        storage: noteSource,
       });
-
       if (result.success) {
-        dispatch({ type: "REMOVE_SHARED_USER", payload: username });
-        showSuccess(`Access removed for ${username}`);
+        setNewUsername("");
+        await loadShareInfo();
       } else {
-        showError(result.error || "Failed to remove user");
+        toast.showError((result as any).error || "Failed to add user");
       }
-    } catch (error) {
-      console.error("Error removing user:", error);
-      showError("An unexpected error occurred");
     } finally {
-      dispatch({ type: "SET_REMOVING_USER", payload: false });
-      dispatch({ type: "SET_CONFIRM_REMOVE", payload: null });
+      setSaving(false);
     }
-  }, [
-    state.confirmRemoveUser,
-    isAuthenticated,
-    currentUserId,
-    noteId,
-    showSuccess,
-    showError,
-  ]);
+  }, [noteId, newUsername, userId, noteSource, toast, loadShareInfo]);
 
-  const handleRemoveUserCancel = useCallback(() => {
-    dispatch({ type: "SET_CONFIRM_REMOVE", payload: null });
-  }, []);
+  const handleRemoveUser = useCallback(async (username: string) => {
+    const result = await sharingOperation({
+      operation: "removeUser",
+      noteId,
+      username,
+      currentUserId: userId,
+    });
+    if (result.success) {
+      await loadShareInfo();
+    } else {
+      toast.showError("Failed to remove user");
+    }
+  }, [noteId, userId, toast, loadShareInfo]);
 
-  // Copy link to clipboard
+  const handleStopSharing = useCallback(async () => {
+    const result = await sharingOperation({
+      operation: "stopSharing",
+      noteId,
+      currentUserId: userId,
+    });
+    if (result.success) {
+      setInfo((prev) => ({ ...prev, shortcode: null, users: [] }));
+      toast.showSuccess("Sharing stopped");
+      setOpen(false);
+    }
+  }, [noteId, userId, toast]);
+
   const handleCopyLink = useCallback(() => {
-    if (!state.shortcode) return;
+    if (!info.shortcode) return;
+    const url = `${window.location.origin}/n/${info.shortcode}`;
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [info.shortcode]);
 
-    const shareUrl = `${window.location.origin}/${state.shortcode}`;
-    navigator.clipboard.writeText(shareUrl);
-    dispatch({ type: "SET_COPIED", payload: true });
-    setTimeout(() => {
-      dispatch({ type: "SET_COPIED", payload: false });
-    }, 2000);
-  }, [state.shortcode]);
+  const shareUrl = info.shortcode
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/n/${info.shortcode}`
+    : null;
 
-  const canShare = isAuthenticated;
+  if (!isAuthenticated) return null;
 
   return (
     <>
-      <button
-        type="button"
-        onClick={handleOpenModal}
-        disabled={!canShare}
-        className={`group/share px-2 cursor-pointer flex-grow sm:flex-grow-0 flex items-center justify-center gap-0 md:hover:gap-2 w-fit min-w-[44px] h-[44px] rounded-lg border-1 ${
-          isPrivate
-            ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
-            : canShare
-              ? state.shortcode
-                ? "bg-white border-mercedes-primary text-mercedes-primary hover:bg-mercedes-primary hover:text-white"
-                : "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary text-neutral-800"
-              : "opacity-50 cursor-not-allowed border-neutral-300"
-        } overflow-hidden transition-all duration-300 ease-in-out`}
-        title={!canShare ? "Sign in to share notes" : "Share this note"}
+      <IconButton
+        label="Share note"
+        size="sm"
+        onClick={() => setOpen(true)}
       >
-        <IconShare2 size={20} strokeWidth={2} />
-        <span className="w-fit max-w-0 md:group-hover/share:max-w-52 opacity-0 md:group-hover/share:opacity-100 overflow-hidden transition-all duration-300 ease-in-out">
-          Share Note
-        </span>
-      </button>
+        <IconShare2 size={14} className={info.shortcode ? "text-[var(--color-accent)]" : ""} />
+      </IconButton>
 
-      {/* Share Modal */}
       <Modal
-        isOpen={state.isModalOpen}
-        onClose={handleCloseModal}
-        title="Share Note"
-        size="md"
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Share"
+        size="sm"
       >
-        {state.isLoadingInfo ? (
-          <div className="flex justify-center py-6">
-            <div className="animate-spin h-8 w-8 border-4 border-mercedes-primary border-t-transparent rounded-full"></div>
-          </div>
+        {loading ? (
+          <div className="py-8 text-center text-sm text-[var(--color-text-tertiary)]">Loading...</div>
         ) : (
           <div className="space-y-4">
-            <p className="text-sm text-gray-600">
-              Sharing <strong>{noteTitle}</strong>
-            </p>
-
-            {/* Share Type Selection */}
-            <div className="flex justify-center space-x-4">
-              <ShareTypeButton
-                type="public"
-                icon={<IconWorld size={24} />}
-                label="Public"
-                isActive={state.isPublic}
-                onClick={() => handleTypeChange(true)}
-              />
-              <ShareTypeButton
-                type="private"
-                icon={<IconUsers size={24} />}
-                label="Specific Users"
-                isActive={!state.isPublic}
-                onClick={() => handleTypeChange(false)}
-              />
-            </div>
-
-            {/* Share Link */}
-            {state.shortcode && (
-              <ShareLinkDisplay
-                shortcode={state.shortcode}
-                isCopied={state.isCopied}
-                onCopy={handleCopyLink}
-              />
+            {/* Share link */}
+            {info.shortcode ? (
+              <div className="flex items-center gap-2">
+                <input
+                  readOnly
+                  value={shareUrl || ""}
+                  className="flex-1 h-9 px-3 text-xs bg-[var(--color-bg-tertiary)] rounded-[var(--radius-md)] border border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] truncate"
+                />
+                <button
+                  onClick={handleCopyLink}
+                  className="h-9 px-3 flex items-center gap-1.5 text-xs font-medium bg-[var(--color-accent)] text-[var(--color-text-on-accent)] rounded-[var(--radius-md)] hover:bg-[var(--color-accent-hover)] transition-colors"
+                >
+                  {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              </div>
+            ) : (
+              <p className="text-xs text-[var(--color-text-tertiary)]">
+                Share this note to get a link
+              </p>
             )}
 
-            {/* User Input for Private Sharing */}
-            {!state.isPublic && (
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Share with username:
+            {/* Visibility */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider">
+                Access
+              </label>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => setIsPublic(true)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium rounded-[var(--radius-md)] transition-colors ${
+                    isPublic
+                      ? "bg-[var(--color-accent)] text-[var(--color-text-on-accent)]"
+                      : "bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-active)]"
+                  }`}
+                >
+                  <IconWorld size={13} />
+                  Public
+                </button>
+                <button
+                  onClick={() => setIsPublic(false)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium rounded-[var(--radius-md)] transition-colors ${
+                    !isPublic
+                      ? "bg-[var(--color-accent)] text-[var(--color-text-on-accent)]"
+                      : "bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-active)]"
+                  }`}
+                >
+                  <IconUsers size={13} />
+                  Specific people
+                </button>
+              </div>
+            </div>
+
+            {/* Options */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider">
+                Options
+              </label>
+
+              {/* Anonymous */}
+              <ToggleRow
+                icon={<IconEyeOff size={14} />}
+                label="Share anonymously"
+                description="Hide your name and avatar"
+                checked={isAnonymous}
+                onChange={setIsAnonymous}
+              />
+
+              {/* Password */}
+              <ToggleRow
+                icon={<IconLock size={14} />}
+                label="Password protect"
+                checked={usePassword}
+                onChange={(v) => {
+                  setUsePassword(v);
+                  if (!v) setPassword("");
+                }}
+              />
+              {usePassword && (
+                <input
+                  type="password"
+                  placeholder={info.hasPassword ? "Leave blank to keep current" : "Enter password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full h-9 px-3 text-xs bg-[var(--color-bg-primary)] border border-[var(--color-border-primary)] rounded-[var(--radius-md)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--color-border-focus)] focus:outline-none"
+                />
+              )}
+
+              {/* Expiration */}
+              <ToggleRow
+                icon={<IconClock size={14} />}
+                label="Set expiration"
+                checked={useExpiry}
+                onChange={(v) => {
+                  setUseExpiry(v);
+                  if (!v) setExpiresAt("");
+                }}
+              />
+              {useExpiry && (
+                <input
+                  type="date"
+                  value={expiresAt}
+                  onChange={(e) => setExpiresAt(e.target.value)}
+                  min={new Date().toISOString().split("T")[0]}
+                  className="w-full h-9 px-3 text-xs bg-[var(--color-bg-primary)] border border-[var(--color-border-primary)] rounded-[var(--radius-md)] text-[var(--color-text-primary)] focus:border-[var(--color-border-focus)] focus:outline-none"
+                />
+              )}
+            </div>
+
+            {/* Save button */}
+            <button
+              onClick={handleShare}
+              disabled={saving}
+              className="w-full h-9 text-xs font-medium bg-[var(--color-accent)] text-[var(--color-text-on-accent)] rounded-[var(--radius-md)] hover:bg-[var(--color-accent-hover)] transition-colors disabled:opacity-50"
+            >
+              {saving ? "Saving..." : info.shortcode ? "Update" : "Create share link"}
+            </button>
+
+            {/* Shared users (private mode) */}
+            {!isPublic && info.shortcode && (
+              <div className="space-y-2 pt-2 border-t border-[var(--color-border-secondary)]">
+                <label className="text-[11px] font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider">
+                  People with access
                 </label>
-                <div className="flex">
+                <div className="flex gap-1.5">
                   <input
                     type="text"
-                    value={state.username}
-                    onChange={handleUsernameChange}
-                    placeholder="Enter username"
-                    className="flex-grow p-2 border rounded-l-md"
+                    placeholder="Username"
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleAddUser()}
+                    className="flex-1 h-8 px-3 text-xs bg-[var(--color-bg-primary)] border border-[var(--color-border-primary)] rounded-[var(--radius-md)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--color-border-focus)] focus:outline-none"
                   />
                   <button
-                    onClick={handleShareNote}
-                    disabled={state.isSharing || !state.username.trim()}
-                    className={`p-2 bg-mercedes-primary text-white rounded-r-md ${
-                      state.isSharing || !state.username.trim()
-                        ? "opacity-50"
-                        : ""
-                    }`}
+                    onClick={handleAddUser}
+                    disabled={saving || !newUsername.trim()}
+                    className="h-8 px-2.5 flex items-center gap-1 text-xs font-medium bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] rounded-[var(--radius-md)] hover:bg-[var(--color-active)] disabled:opacity-50 transition-colors"
                   >
-                    {state.isSharing ? "Sharing..." : "Share"}
+                    <IconUserPlus size={13} />
+                    Add
                   </button>
                 </div>
+                {info.users.length > 0 && (
+                  <ul className="space-y-1">
+                    {info.users.map((user) => (
+                      <li
+                        key={user}
+                        className="flex items-center justify-between px-2.5 py-1.5 text-xs bg-[var(--color-bg-tertiary)] rounded-[var(--radius-md)]"
+                      >
+                        <span className="text-[var(--color-text-primary)]">{user}</span>
+                        <button
+                          onClick={() => handleRemoveUser(user)}
+                          className="text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] transition-colors"
+                        >
+                          <IconX size={12} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
 
-            {/* Shared Users List */}
-            {state.sharedUsers.length > 0 && (
-              <SharedUsersList
-                users={state.sharedUsers}
-                confirmRemoveUser={state.confirmRemoveUser}
-                isRemovingUser={state.isRemovingUser}
-                onRemoveClick={handleRemoveUserClick}
-                onRemoveConfirm={handleRemoveUserConfirm}
-                onRemoveCancel={handleRemoveUserCancel}
-              />
-            )}
-
-            {/* Action Button for Public Sharing */}
-            {state.isPublic && (
-              <button
-                onClick={handleShareNote}
-                disabled={state.isSharing}
-                className={`w-full py-2 px-4 bg-mercedes-primary text-white rounded-md ${
-                  state.isSharing ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-              >
-                {state.isSharing
-                  ? "Sharing..."
-                  : state.shortcode
-                    ? "Update Public Share"
-                    : "Share Publicly"}
-              </button>
+            {/* Stats + stop sharing */}
+            {info.shortcode && (
+              <div className="flex items-center justify-between pt-2 border-t border-[var(--color-border-secondary)]">
+                <span className="text-[10px] text-[var(--color-text-tertiary)]">
+                  <IconEye size={11} className="inline mr-1" />
+                  {info.viewCount} view{info.viewCount !== 1 ? "s" : ""}
+                </span>
+                <button
+                  onClick={handleStopSharing}
+                  className="flex items-center gap-1 text-[10px] text-[var(--color-danger)] hover:text-[var(--color-danger)]/80 transition-colors"
+                >
+                  <IconTrash size={11} />
+                  Stop sharing
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -482,136 +403,43 @@ export default function ShareNoteButton({
   );
 }
 
-// Extracted Sub-Components
-
-const ShareTypeButton = React.memo(function ShareTypeButton({
-  type,
+function ToggleRow({
   icon,
   label,
-  isActive,
-  onClick,
+  description,
+  checked,
+  onChange,
 }: {
-  type: "public" | "private";
   icon: React.ReactNode;
   label: string;
-  isActive: boolean;
-  onClick: () => void;
+  description?: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
 }) {
   return (
     <button
-      onClick={onClick}
-      className={`flex flex-col items-center p-3 rounded-lg border ${
-        isActive
-          ? "border-mercedes-primary bg-mercedes-primary/10"
-          : "border-gray-200"
-      }`}
+      type="button"
+      onClick={() => onChange(!checked)}
+      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors text-left"
     >
-      <div className={isActive ? "text-mercedes-primary" : "text-gray-500"}>
-        {icon}
+      <span className="text-[var(--color-text-tertiary)]">{icon}</span>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium text-[var(--color-text-primary)]">{label}</p>
+        {description && (
+          <p className="text-[10px] text-[var(--color-text-tertiary)] leading-tight">{description}</p>
+        )}
       </div>
-      <span
-        className={`text-sm mt-1 ${
-          isActive ? "text-mercedes-primary" : "text-gray-500"
+      <div
+        className={`w-8 h-[18px] rounded-full transition-colors duration-[var(--duration-fast)] relative ${
+          checked ? "bg-[var(--color-accent)]" : "bg-[var(--color-border-primary)]"
         }`}
       >
-        {label}
-      </span>
+        <div
+          className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white shadow-xs transition-transform duration-[var(--duration-fast)] ${
+            checked ? "translate-x-[16px]" : "translate-x-[2px]"
+          }`}
+        />
+      </div>
     </button>
   );
-});
-
-const ShareLinkDisplay = React.memo(function ShareLinkDisplay({
-  shortcode,
-  isCopied,
-  onCopy,
-}: {
-  shortcode: string;
-  isCopied: boolean;
-  onCopy: () => void;
-}) {
-  return (
-    <div className="p-3 bg-gray-100 rounded-lg">
-      <p className="text-sm font-medium mb-2">Share Link:</p>
-      <div className="flex items-center">
-        <input
-          readOnly
-          value={`${process.env.NEXT_PUBLIC_APP_URL}/${shortcode}`}
-          className="flex-grow p-2 border rounded-l-md text-sm bg-white"
-        />
-        <button
-          onClick={onCopy}
-          className="p-2 bg-mercedes-primary text-white rounded-r-md"
-        >
-          {isCopied ? <IconCheck size={18} /> : <IconCopy size={18} />}
-        </button>
-      </div>
-    </div>
-  );
-});
-
-const SharedUsersList = React.memo(function SharedUsersList({
-  users,
-  confirmRemoveUser,
-  isRemovingUser,
-  onRemoveClick,
-  onRemoveConfirm,
-  onRemoveCancel,
-}: {
-  users: string[];
-  confirmRemoveUser: string | null;
-  isRemovingUser: boolean;
-  onRemoveClick: (username: string) => void;
-  onRemoveConfirm: () => void;
-  onRemoveCancel: () => void;
-}) {
-  return (
-    <div className="border-t pt-3">
-      <h4 className="text-sm font-medium mb-2">Shared with:</h4>
-      <ul className="space-y-1">
-        {users.map((username) => (
-          <li
-            key={username}
-            className="flex items-center justify-between text-sm bg-gray-50 px-3 py-1.5 rounded"
-          >
-            <span>{username}</span>
-
-            {confirmRemoveUser === username ? (
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={onRemoveCancel}
-                  className="text-gray-500 hover:text-gray-700 p-0.5"
-                  disabled={isRemovingUser}
-                >
-                  <IconX size={16} />
-                </button>
-                <button
-                  onClick={onRemoveConfirm}
-                  className="text-red-500 hover:text-red-700 p-0.5"
-                  disabled={isRemovingUser}
-                >
-                  <IconCheck size={16} />
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => onRemoveClick(username)}
-                className="text-gray-400 hover:text-red-500 p-0.5"
-                disabled={isRemovingUser}
-              >
-                <IconUserX size={16} />
-              </button>
-            )}
-          </li>
-        ))}
-      </ul>
-
-      <div className="mt-2 text-xs text-gray-500 flex items-center">
-        <IconLink size={14} className="mr-1" />
-
-        <a href={"/profile"} className="text-mercedes-primary hover:underline">
-          Go to your profile to manage all shared notes
-        </a>
-      </div>
-    </div>
-  );
-});
+}

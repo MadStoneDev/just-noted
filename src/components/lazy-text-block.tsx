@@ -11,13 +11,15 @@ import React, {
 } from "react";
 import { useNotesStore } from "@/stores/notes-store";
 import { getPlainTextPreview } from "@/utils/html-utils";
+import { SkeletonText } from "@/components/ds/skeleton";
+import type { ContentFormat } from "@/types/combined-notes";
 
-// Lazy load TipTapEditor - only loads when actually needed
-const TipTapEditor = lazy(() => import("./tip-tap-editor"));
+const MilkdownEditor = lazy(() => import("./editor/milkdown-editor"));
 
 interface Props {
   noteId?: string;
   value: string;
+  contentFormat?: ContentFormat;
   onChange?: (value: string) => void;
   placeholder?: string;
   distractionFreeMode?: boolean;
@@ -26,35 +28,42 @@ interface Props {
   [key: string]: any;
 }
 
-// Simple content preview for collapsed notes (no TipTap overhead)
-function ContentPreview({ content, className }: { content: string; className?: string }) {
+function ContentPreview({
+  content,
+  contentFormat = "html",
+  className,
+}: {
+  content: string;
+  contentFormat?: ContentFormat;
+  className?: string;
+}) {
   const previewText = useMemo(() => {
-    return getPlainTextPreview(content, 200);
-  }, [content]);
+    return getPlainTextPreview(content, 200, contentFormat);
+  }, [content, contentFormat]);
 
   if (!previewText.trim()) {
     return (
-      <div className={`p-4 text-neutral-400/70 italic text-sm ${className}`}>
+      <div
+        className={`p-4 text-[var(--color-text-tertiary)] italic text-sm ${className}`}
+      >
         Empty note - click to expand
       </div>
     );
   }
 
   return (
-    <div className={`p-4 text-neutral-500 line-clamp-2 text-sm leading-relaxed ${className}`}>
+    <div
+      className={`p-4 text-[var(--color-text-secondary)] line-clamp-2 text-sm leading-relaxed ${className}`}
+    >
       {previewText}
     </div>
   );
 }
 
-// Loading placeholder for editor
 function EditorSkeleton() {
   return (
-    <div className="animate-pulse p-4 space-y-3">
-      <div className="h-4 bg-stone-200/60 rounded-md w-3/4"></div>
-      <div className="h-4 bg-stone-200/60 rounded-md w-full"></div>
-      <div className="h-4 bg-stone-200/60 rounded-md w-5/6"></div>
-      <div className="h-4 bg-stone-200/60 rounded-md w-2/3"></div>
+    <div className="p-4">
+      <SkeletonText lines={4} />
     </div>
   );
 }
@@ -62,128 +71,96 @@ function EditorSkeleton() {
 export default function LazyTextBlock({
   noteId,
   value,
+  contentFormat = "html",
   onChange,
   placeholder = "Start typing...",
   distractionFreeMode = false,
   className = "",
   isCollapsed = false,
-  ...props
 }: Props) {
   const [localValue, setLocalValue] = useState(value);
-  const [isEditorReady, setIsEditorReady] = useState(false);
+  const [localFormat, setLocalFormat] = useState<ContentFormat>(contentFormat);
   const [hasBeenExpanded, setHasBeenExpanded] = useState(!isCollapsed);
 
-  const editorRef = useRef<any>(null);
-  const changeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const changeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastExternalValueRef = useRef(value);
   const isInternalChangeRef = useRef(false);
   const onChangeRef = useRef(onChange);
 
-  // Check if this note is being edited
   const isEditing = useNotesStore((state) =>
-    noteId ? state.isEditing.has(noteId) : false
+    noteId ? state.isEditing.has(noteId) : false,
   );
 
-  // Keep onChange ref in sync to avoid stale closures
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
 
-  // Track if note has ever been expanded (to keep editor loaded)
   useEffect(() => {
     if (!isCollapsed && !hasBeenExpanded) {
       setHasBeenExpanded(true);
     }
   }, [isCollapsed, hasBeenExpanded]);
 
-  // Stable change handler — uses ref to avoid stale closure
-  const handleChange = useCallback(
-    (newContent: string) => {
-      isInternalChangeRef.current = true;
+  const handleChange = useCallback((newContent: string) => {
+    isInternalChangeRef.current = true;
 
-      setLocalValue(newContent);
-      lastExternalValueRef.current = newContent;
+    setLocalValue(newContent);
+    setLocalFormat("markdown");
+    lastExternalValueRef.current = newContent;
 
-      if (changeTimeoutRef.current) {
-        clearTimeout(changeTimeoutRef.current);
-      }
-
-      changeTimeoutRef.current = setTimeout(() => {
-        if (onChangeRef.current) {
-          onChangeRef.current(newContent);
-        }
-        isInternalChangeRef.current = false;
-      }, 100);
-    },
-    []
-  );
-
-  // Sync external value changes
-  useEffect(() => {
-    if (isEditing || isInternalChangeRef.current) {
-      return;
+    if (changeTimeoutRef.current) {
+      clearTimeout(changeTimeoutRef.current);
     }
+
+    changeTimeoutRef.current = setTimeout(() => {
+      onChangeRef.current?.(newContent);
+      isInternalChangeRef.current = false;
+    }, 100);
+  }, []);
+
+  useEffect(() => {
+    if (isEditing || isInternalChangeRef.current) return;
 
     if (value !== lastExternalValueRef.current) {
       setLocalValue(value);
+      setLocalFormat(contentFormat);
       lastExternalValueRef.current = value;
     }
-  }, [value, isEditing]);
+  }, [value, contentFormat, isEditing]);
 
-  const handleEditorReady = useCallback(() => {
-    setIsEditorReady(true);
-  }, []);
-
-  // Cleanup
   useEffect(() => {
     return () => {
-      if (changeTimeoutRef.current) {
-        clearTimeout(changeTimeoutRef.current);
-      }
+      if (changeTimeoutRef.current) clearTimeout(changeTimeoutRef.current);
     };
   }, []);
 
-  // Container class
   const editorContainerClass = useMemo(() => {
-    return `tiptap-editor-container relative pb-1 ${
+    return `relative ${
       distractionFreeMode ? "" : "min-h-[300px] md:min-h-[400px] max-h-[500px]"
-    } h-full bg-transparent rounded-xl focus-within:ring-1 focus-within:ring-mercedes-primary/30 font-light overflow-hidden transition-all duration-300 ease-in-out overflow-y-auto ${className}`;
+    } h-full bg-transparent rounded-[var(--radius-lg)] overflow-hidden overflow-y-auto ${className}`;
   }, [distractionFreeMode, className]);
 
-  const previewContainerClass = useMemo(() => {
-    return `relative bg-transparent rounded-xl font-light overflow-hidden transition-all duration-300 ease-in-out ${className}`;
-  }, [className]);
-
-  const isEmpty = !localValue || localValue.trim() === "";
-
-  // For collapsed notes that have never been expanded, show preview only
   if (isCollapsed && !hasBeenExpanded) {
     return (
-      <div className={previewContainerClass}>
-        <ContentPreview content={localValue} />
+      <div className={`relative bg-transparent rounded-[var(--radius-lg)] overflow-hidden ${className}`}>
+        <ContentPreview content={localValue} contentFormat={localFormat} />
       </div>
     );
   }
 
-  // Once expanded, always render the editor (but hide when collapsed)
   return (
-    <div className={editorContainerClass} style={{ display: isCollapsed ? "none" : "block" }}>
+    <div
+      className={editorContainerClass}
+      style={{ display: isCollapsed ? "none" : "block" }}
+    >
       <Suspense fallback={<EditorSkeleton />}>
-        <TipTapEditor
-          ref={editorRef}
-          noteId={noteId}
-          markdown={isEmpty ? "" : localValue}
+        <MilkdownEditor
+          content={localValue}
+          contentFormat={localFormat}
           onChange={handleChange}
-          onReady={handleEditorReady}
           placeholder={placeholder}
-          {...props}
         />
       </Suspense>
-      {!isEditorReady && (
-        <div className="absolute inset-0 bg-white pointer-events-none z-10">
-          <EditorSkeleton />
-        </div>
-      )}
     </div>
   );
 }

@@ -190,7 +190,7 @@ export const useNotesStore = create<NotesStore>()(
       : [50, 50],
 
     // ========== Initial UI State ==========
-    sidebarOpen: false,
+    sidebarOpen: true,
     activeNoteId: null,
     searchQuery: "",
     filterSource: "all",

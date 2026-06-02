@@ -44,8 +44,10 @@ const DEFAULT_TITLE_PATTERN = /^New Note #\d+$/;
 function isEmptyDefaultNote(note: CombinedNote): boolean {
   if (note.source !== "redis") return false;
   if (!DEFAULT_TITLE_PATTERN.test(note.title)) return false;
-  const plainText = stripHtmlToText(note.content);
-  return plainText.length === 0;
+  const content = note.content?.trim() || "";
+  if (content.length === 0) return true;
+  const plainText = stripHtmlToText(content);
+  return plainText.trim().length === 0;
 }
 
 /**
@@ -148,8 +150,8 @@ export function useNotesSync() {
   const lastUpdateTimestamp = useRef(Date.now());
   const lastAccessTimestamp = useRef(0);
 
-  // Load notes from Redis
-  const loadNotesFromRedis = useCallback(async (): Promise<CombinedNote[]> => {
+  // Load notes from Redis (returns null on failure to distinguish from "no notes")
+  const loadNotesFromRedis = useCallback(async (): Promise<CombinedNote[] | null> => {
     const currentUserId = useNotesStore.getState().userId;
     if (!currentUserId) return [];
 
@@ -161,14 +163,18 @@ export function useNotesSync() {
       if (result.success && result.notes) {
         return result.notes.map(redisToCombi);
       }
+      if (result.success) return [];
+      // Explicit failure from the server action
+      console.error("Redis load returned failure:", (result as any).error);
+      return null;
     } catch (error) {
       console.error("Failed to load Redis notes:", error);
+      return null;
     }
-    return [];
   }, []);
 
-  // Load notes from Supabase
-  const loadNotesFromSupabase = useCallback(async (): Promise<CombinedNote[]> => {
+  // Load notes from Supabase (returns null on failure to distinguish from "no notes")
+  const loadNotesFromSupabase = useCallback(async (): Promise<CombinedNote[] | null> => {
     const currentIsAuthenticated = useNotesStore.getState().isAuthenticated;
     if (!currentIsAuthenticated) return [];
 
@@ -177,10 +183,13 @@ export function useNotesSync() {
       if (result.success && result.notes) {
         return result.notes;
       }
+      if (result.success) return [];
+      console.error("Supabase load returned failure:", result.error);
+      return null;
     } catch (error) {
       console.error("Failed to load Supabase notes:", error);
+      return null;
     }
-    return [];
   }, []);
 
   // Update last access timestamp
@@ -228,8 +237,31 @@ export function useNotesSync() {
         loadNotesFromSupabase(),
       ]);
 
-      const allNotes = [...redisNotes, ...supabaseNotes];
-      const normalisedNotes = normaliseOrdering(allNotes);
+      // If BOTH sources failed, don't touch the store — keep what we have
+      if (redisNotes === null && supabaseNotes === null) {
+        console.warn("Both note sources failed to load — keeping existing notes");
+        return;
+      }
+
+      // Build the merged list, preserving existing notes from any source that failed
+      const existingNotes = useNotesStore.getState().notes;
+      const freshNotes: CombinedNote[] = [];
+
+      if (redisNotes !== null) {
+        freshNotes.push(...redisNotes);
+      } else {
+        // Redis failed — keep existing Redis notes
+        freshNotes.push(...existingNotes.filter((n) => n.source === "redis"));
+      }
+
+      if (supabaseNotes !== null) {
+        freshNotes.push(...supabaseNotes);
+      } else {
+        // Supabase failed — keep existing Supabase notes
+        freshNotes.push(...existingNotes.filter((n) => n.source === "supabase"));
+      }
+
+      const normalisedNotes = normaliseOrdering(freshNotes);
       const sortedNotes = sortNotes(normalisedNotes, null);
 
       if (isMounted.current) {
@@ -306,21 +338,34 @@ export function useNotesSync() {
             : Promise.resolve({ success: true, notes: [] }),
         ]);
 
+        const redisOk =
+          redisResult.status === "fulfilled" && redisResult.value.success;
         const redisNotes =
-          redisResult.status === "fulfilled" &&
-          redisResult.value.success &&
-          redisResult.value.notes
+          redisOk && redisResult.value.notes
             ? redisResult.value.notes.map(redisToCombi)
             : [];
 
+        const supabaseOk =
+          supabaseResult.status === "fulfilled" && supabaseResult.value.success;
         const supabaseNotes =
-          supabaseResult.status === "fulfilled" &&
-          supabaseResult.value.success &&
-          supabaseResult.value.notes
+          supabaseOk && supabaseResult.value.notes
             ? supabaseResult.value.notes
             : [];
 
-        let allNotes = [...redisNotes, ...supabaseNotes];
+        // Build note list, preserving cached notes from any source that failed
+        let allNotes: CombinedNote[] = [];
+        if (redisOk) {
+          allNotes.push(...redisNotes);
+        } else {
+          // Redis failed — keep cached Redis notes so they don't vanish
+          allNotes.push(...cachedNotes.filter((n) => n.source === "redis"));
+        }
+        if (supabaseOk) {
+          allNotes.push(...supabaseNotes);
+        } else if (authenticated) {
+          // Supabase failed — keep cached Supabase notes so they don't vanish
+          allNotes.push(...cachedNotes.filter((n) => n.source === "supabase"));
+        }
 
         // Create default note if none exist
         if (allNotes.length === 0) {
@@ -421,21 +466,16 @@ export function useNotesSync() {
           // Clean up empty default notes when logging in
           if (!wasAuthenticated && nowAuthenticated) {
             const currentNotes = useNotesStore.getState().notes;
-            const hasSupabaseNotes = currentNotes.some((n) => n.source === "supabase");
+            const emptyDefaults = currentNotes.filter(isEmptyDefaultNote);
+            if (emptyDefaults.length > 0) {
+              const filtered = currentNotes.filter((n) => !isEmptyDefaultNote(n));
+              syncFromBackend(filtered);
+              recalculateNotebookCounts();
 
-            if (hasSupabaseNotes) {
-              const emptyDefaults = currentNotes.filter(isEmptyDefaultNote);
-              if (emptyDefaults.length > 0) {
-                const filtered = currentNotes.filter((n) => !isEmptyDefaultNote(n));
-                syncFromBackend(filtered);
-                recalculateNotebookCounts();
-
-                // Delete empty Redis notes in background
-                for (const note of emptyDefaults) {
-                  const currentUserId = useNotesStore.getState().userId;
-                  if (currentUserId) {
-                    noteOperation("redis", { operation: "delete", userId: currentUserId, noteId: note.id }).catch(() => {});
-                  }
+              for (const note of emptyDefaults) {
+                const currentUserId = useNotesStore.getState().userId;
+                if (currentUserId) {
+                  noteOperation("redis", { operation: "delete", userId: currentUserId, noteId: note.id }).catch(() => {});
                 }
               }
             }
@@ -451,13 +491,20 @@ export function useNotesSync() {
 
   // Supabase Realtime — listen for cross-device changes to cloud notes
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !userId) return;
+
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
     const channel = supabase
       .channel("notes-realtime")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "notes" },
+        {
+          event: "*",
+          schema: "public",
+          table: "notes",
+          filter: `author=eq.${userId}`,
+        },
         (payload: any) => {
           if (!isMounted.current) return;
 
@@ -494,12 +541,28 @@ export function useNotesSync() {
           }
         },
       )
-      .subscribe();
+      .subscribe((status: string, err?: Error) => {
+        if (status === "SUBSCRIBED") {
+          console.log("Realtime: subscribed to notes changes");
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.error("Realtime subscription error:", status, err);
+          // Attempt reconnection after 5 seconds
+          reconnectTimer = setTimeout(() => {
+            if (isMounted.current) {
+              console.log("Realtime: attempting reconnection...");
+              channel.subscribe();
+            }
+          }, 5000);
+        } else if (status === "CLOSED") {
+          console.log("Realtime: channel closed");
+        }
+      });
 
     return () => {
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       supabase.removeChannel(channel);
     };
-  }, [supabase, isAuthenticated]);
+  }, [supabase, isAuthenticated, userId]);
 
   // Periodic refresh - only when user is not actively editing
   useEffect(() => {

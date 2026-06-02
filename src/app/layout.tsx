@@ -1,17 +1,17 @@
 import "./globals.css";
 
 import { GoogleAnalytics } from "@next/third-parties/google";
-import { Outfit, Playfair_Display } from "next/font/google";
+import { Inter, Playfair_Display } from "next/font/google";
 
 import React, { ReactNode } from "react";
 import LogRocket from "@/components/providers/logrocket-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import { ConsentBanner } from "@/components/ui/consent-banner";
 
-const outfit = Outfit({
-  variable: "--font-outfit",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
-  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
+  weight: ["400", "500", "600", "700"],
 });
 
 const playfair = Playfair_Display({
@@ -58,11 +58,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`bg-stone-200 min-h-dvh print:min-h-0 flex flex-col ${outfit.variable} ${playfair.variable} antialiased`}
+        className={`min-h-dvh print:min-h-0 flex flex-col ${inter.variable} ${playfair.variable} antialiased`}
+        style={{ backgroundColor: "var(--color-bg-secondary)", color: "var(--color-text-primary)" }}
       >
         <LogRocket>
           <ToastProvider>
-            <div className={`h-16 print:hidden`}></div>
+            <div className="h-14 print:hidden" />
 
             {children}
 

@@ -27,7 +27,9 @@ import {
   IconFilterOff,
   IconCheckbox,
   IconSquare,
-  IconSquareCheck, IconDevicesPc, IconDeviceDesktop,
+  IconSquareCheck,
+  IconDeviceDesktop,
+  IconLayoutSidebarLeftCollapse,
 } from "@tabler/icons-react";
 
 interface SidebarProps {
@@ -148,20 +150,6 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [sidebarOpen, setSidebarOpen]);
 
-  // Click outside to close
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (sidebarRef.current && !sidebarRef.current.contains(e.target as Node)) {
-        setSidebarOpen(false);
-      }
-    };
-
-    if (sidebarOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [sidebarOpen, setSidebarOpen]);
 
   const handleNoteClick = useCallback(
     (noteId: string) => {
@@ -469,37 +457,45 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
 
   return (
     <>
-      {/* Overlay for mobile */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/30 z-40 md:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+      {/* Overlay for mobile — visual only, no click-to-close */}
+      <div
+        className={`fixed inset-0 z-40 md:hidden transition-opacity duration-[var(--duration-slow)] pointer-events-none ${
+          sidebarOpen
+            ? "bg-[var(--color-bg-overlay)] opacity-100"
+            : "opacity-0"
+        }`}
+      />
 
-      {/* Sidebar */}
+      {/* Sidebar — single element, animates between 48px (rail) and 248px (expanded) on desktop */}
       <aside
         ref={sidebarRef}
-        className={`fixed top-0 left-0 h-full w-[min(320px,calc(100vw-48px))] bg-stone-50 shadow-lg z-50 transform transition-transform duration-300 ease-in-out ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className="fixed md:relative top-0 left-0 h-full z-50 md:z-auto bg-[var(--color-bg-secondary)] border-r border-[var(--color-border-secondary)] transition-all duration-[var(--duration-slow)] overflow-hidden"
+        style={{
+          transitionTimingFunction: "var(--ease-spring)",
+          flexShrink: 0,
+          width: sidebarOpen ? 248 : 0,
+        }}
       >
-        <div className="flex flex-col h-full">
+        {/* Mobile: slide off-screen when closed. Desktop: handled by width. */}
+        <div
+          className="flex flex-col h-full"
+          style={{ width: 248, minWidth: 248 }}
+        >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-neutral-100">
-            <h2 className="text-lg font-semibold text-neutral-800">Notes</h2>
+          <div className="flex items-center justify-between px-3 py-3 border-b border-[var(--color-border-secondary)]">
+            <h2 className="text-sm font-semibold text-[var(--color-text-primary)] tracking-tight">Notes</h2>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="p-3 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-neutral-100 transition-colors"
-              aria-label="Close sidebar"
+              className="p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors duration-[var(--duration-fast)] text-[var(--color-text-tertiary)]"
+              aria-label="Collapse sidebar"
             >
-              <IconX size={20} />
+              <IconLayoutSidebarLeftCollapse size={16} />
             </button>
           </div>
 
           {/* Notebook Switcher (authenticated users only) */}
           {isAuthenticated && (
-            <div className="p-4 border-b border-neutral-100">
+            <div className="px-3 py-3 border-b border-[var(--color-border-secondary)]">
               <NotebookSwitcher
                 onNewNotebook={handleNewNotebook}
                 onEditNotebook={handleEditNotebook}
@@ -512,11 +508,11 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
           {isAuthenticated && activeNotebookId && <NotebookCoverHeader />}
 
           {/* Search */}
-          <div className="p-4 border-b border-neutral-100">
+          <div className="px-3 py-3 border-b border-[var(--color-border-secondary)]">
             <div className="relative">
               <IconSearch
-                size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+                size={15}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)]"
               />
               <input
                 ref={searchInputRef}
@@ -524,29 +520,29 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
                 placeholder="Search notes..."
                 value={localSearchQuery}
                 onChange={handleSearchChange}
-                className="w-full pl-10 pr-10 py-2 bg-neutral-100 rounded-lg border border-transparent focus:border-mercedes-primary focus:bg-white focus:outline-none transition-all"
+                className="w-full pl-9 pr-9 py-2 text-sm bg-[var(--color-bg-tertiary)] rounded-[var(--radius-md)] border border-transparent focus:border-[var(--color-border-focus)] focus:bg-[var(--color-bg-primary)] focus:outline-none transition-all duration-[var(--duration-fast)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]"
               />
               {localSearchQuery && (
                 <button
                   onClick={handleClearSearch}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
                 >
-                  <IconX size={16} />
+                  <IconX size={14} />
                 </button>
               )}
             </div>
           </div>
 
           {/* Filters */}
-          <div className="p-4 border-b border-neutral-100 space-y-3">
+          <div className="px-3 py-3 border-b border-[var(--color-border-secondary)] space-y-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-neutral-600">Filters</span>
+              <span className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider">Filters</span>
               {hasActiveFilters && (
                 <button
                   onClick={clearFilters}
-                  className="text-xs text-mercedes-primary hover:underline flex items-center gap-1"
+                  className="text-xs text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] flex items-center gap-1 transition-colors"
                 >
-                  <IconFilterOff size={14} />
+                  <IconFilterOff size={12} />
                   Clear
                 </button>
               )}
@@ -602,47 +598,48 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
               </FilterButton>
             </div>
 
-            {/* Select mode toggle (authenticated + cloud notes only) */}
+            {/* Select mode toggle */}
             {isAuthenticated && (
-              <div className="pt-2 border-t border-neutral-100">
+              <div className="pt-2 border-t border-[var(--color-border-secondary)]">
                 <button
                   onClick={handleToggleSelectMode}
-                  className={`flex items-center gap-2 px-3 py-2.5 min-h-[44px] text-xs rounded-lg transition-colors ${
+                  className={`flex items-center gap-2 px-3 py-2 text-xs rounded-[var(--radius-md)] transition-colors duration-[var(--duration-fast)] ${
                     selectMode
-                      ? "bg-mercedes-primary text-white"
-                      : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                      ? "bg-[var(--color-accent)] text-[var(--color-text-on-accent)]"
+                      : "bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-active)]"
                   }`}
                 >
                   <IconCheckbox size={14} />
-                  {selectMode ? "Exit Select Mode" : "Select Multiple"}
+                  {selectMode ? "Done" : "Bulk Actions"}
                 </button>
               </div>
             )}
           </div>
 
           {/* Notes List */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto scrollbar-thin">
             {filteredNotes.length === 0 ? (
-              <div className="p-4 text-center text-neutral-500">
+              <div className="p-6 text-center">
                 {hasActiveFilters ? (
                   <>
-                    <p>No notes match your filters</p>
+                    <p className="text-sm text-[var(--color-text-tertiary)]">No notes match your filters</p>
                     <button
                       onClick={clearFilters}
-                      className="mt-2 text-sm text-mercedes-primary hover:underline"
+                      className="mt-2 text-xs text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] transition-colors"
                     >
                       Clear filters
                     </button>
                   </>
                 ) : (
-                  <p>No notes yet</p>
+                  <p className="text-sm text-[var(--color-text-tertiary)]">No notes yet</p>
                 )}
               </div>
             ) : (
-              <ul className="flex flex-col gap-1 p-2">
+              <ul className="flex flex-col p-1.5">
                 {filteredNotes.map((note) => {
                   const isSelected = selectedNoteIds.has(note.id);
                   const canSelect = selectMode && note.source === "supabase";
+                  const isActive = activeNoteId === note.id;
 
                   return (
                   <li key={note.id}>
@@ -654,64 +651,61 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
                           handleNoteClick(note.id);
                         }
                       }}
-                      className={`w-full p-3 text-left transition-colors cursor-pointer ${
+                      className={`relative w-full px-3 py-2.5 text-left transition-colors duration-[var(--duration-fast)] cursor-pointer rounded-[var(--radius-md)] ${
                         isSelected
-                          ? "bg-mercedes-primary/15 rounded-lg ring-1 ring-mercedes-primary/30"
-                          : activeNoteId === note.id
-                            ? "bg-mercedes-primary/8 rounded-lg ring-1 ring-mercedes-primary/20"
-                            : "rounded-lg hover:bg-white hover:shadow-sm"
+                          ? "bg-[var(--color-selected)]"
+                          : isActive
+                            ? "bg-[var(--color-selected)]"
+                            : "hover:bg-[var(--color-hover)]"
                       }`}
                     >
+                      {/* Active indicator */}
+                      {isActive && !selectMode && (
+                        <div className="absolute left-0 top-2 bottom-2 w-[2px] rounded-full bg-[var(--color-accent)]" />
+                      )}
                       <div className="flex items-start gap-2">
-                        {/* Checkbox for select mode */}
                         {selectMode && (
                           <div className="flex-shrink-0 pt-0.5">
                             {note.source === "supabase" ? (
                               isSelected ? (
-                                <IconSquareCheck size={18} className="text-mercedes-primary" />
+                                <IconSquareCheck size={16} className="text-[var(--color-accent)]" />
                               ) : (
-                                <IconSquare size={18} className="text-neutral-400" />
+                                <IconSquare size={16} className="text-[var(--color-text-tertiary)]" />
                               )
                             ) : (
-                              <IconSquare size={18} className="text-neutral-200" />
+                              <IconSquare size={16} className="text-[var(--color-border-primary)]" />
                             )}
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             {note.isPinned && (
-                              <IconPinFilled size={14} className="text-mercedes-primary flex-shrink-0" />
+                              <IconPinFilled size={10} className="text-[var(--color-accent)] flex-shrink-0" />
                             )}
-                            {/* Notebook indicator */}
-                            {note.notebookId && (() => {
-                              const notebook = notebooks.find((nb) => nb.id === note.notebookId);
-                              if (notebook) {
-                                return (
-                                  <div
-                                    className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
-                                    style={getCoverPreviewStyle(
-                                      notebook.coverType,
-                                      notebook.coverValue
-                                    )}
-                                    title={notebook.name}
-                                  />
-                                );
-                              }
-                              return null;
-                            })()}
-                            <h3 className="font-medium text-neutral-800 truncate">
+                            <h3 className="text-[13px] font-medium text-[var(--color-text-primary)] truncate">
                               {note.title}
                             </h3>
                           </div>
-                          <p className="text-sm text-neutral-400/70 truncate mt-1">
+                          {note.notebookId && (() => {
+                            const notebook = notebooks.find((nb) => nb.id === note.notebookId);
+                            if (notebook) {
+                              return (
+                                <span className="inline-block mt-0.5 px-1.5 py-px text-[9px] font-medium rounded-[var(--radius-sm)] bg-[var(--color-accent-subtle)] text-[var(--color-accent)] truncate max-w-[120px]">
+                                  {notebook.name}
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                          <p className="text-[11px] text-[var(--color-text-tertiary)] truncate mt-0.5 leading-relaxed">
                             {getPreview(note.content) || "Empty note"}
                           </p>
                         </div>
-                        <div className="flex-shrink-0">
+                        <div className="flex-shrink-0 mt-0.5">
                           {note.source === "supabase" ? (
-                            <IconCloud size={16} className="text-blue-500" title="Cloud note" />
+                            <IconCloud size={12} className="text-[var(--color-info)]" title="Cloud" />
                           ) : (
-                            <IconDeviceDesktop size={16} className="text-orange-500" title="Local note" />
+                            <IconDeviceDesktop size={12} className="text-[var(--color-warning)]" title="Local" />
                           )}
                         </div>
                       </div>
@@ -734,9 +728,9 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
 
           {/* Footer */}
           {!selectMode && (
-            <div className="p-4 border-t border-neutral-100 text-center text-xs text-neutral-500">
-              {notes.length} note{notes.length !== 1 ? "s" : ""} total
-              {hasActiveFilters && ` • ${filteredNotes.length} shown`}
+            <div className="px-3 py-3 border-t border-[var(--color-border-secondary)] text-center text-[10px] text-[var(--color-text-tertiary)] tracking-wide">
+              {notes.length} note{notes.length !== 1 ? "s" : ""}
+              {hasActiveFilters && ` · ${filteredNotes.length} shown`}
             </div>
           )}
         </div>
@@ -767,10 +761,10 @@ function FilterButton({
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-2.5 min-h-[44px] text-xs rounded-full flex items-center gap-1 transition-colors ${
+      className={`px-2.5 py-1.5 text-xs rounded-[var(--radius-md)] flex items-center gap-1 transition-colors duration-[var(--duration-fast)] ${
         active
-          ? "bg-mercedes-primary text-white shadow-sm"
-          : "bg-white border border-neutral-200 text-neutral-500 hover:bg-neutral-50"
+          ? "bg-[var(--color-accent)] text-[var(--color-text-on-accent)]"
+          : "bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-active)]"
       }`}
     >
       {children}

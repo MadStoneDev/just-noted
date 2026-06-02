@@ -1,6 +1,7 @@
 ﻿import { Tables } from "../../database.types";
 
 export type NoteSource = "redis" | "supabase";
+export type ContentFormat = "html" | "markdown";
 
 // Unified note interface for the application
 export interface CombinedNote {
@@ -17,7 +18,8 @@ export interface CombinedNote {
   goal?: number;
   goal_type?: "words" | "characters" | "";
   source: NoteSource;
-  notebookId?: string | null; // Reference to parent notebook (Supabase users only)
+  notebookId?: string | null;
+  contentFormat: ContentFormat;
 }
 
 // Redis note format (matches your current Redis structure)
@@ -34,6 +36,7 @@ export interface RedisNote {
   updatedAt?: number;
   goal?: number;
   goal_type?: "words" | "characters" | "";
+  contentFormat?: ContentFormat;
 }
 
 // Supabase note type (from your database)
@@ -50,6 +53,7 @@ export interface CreateNoteInput {
   isPrivate?: boolean;
   isCollapsed?: boolean;
   order?: number;
+  contentFormat?: ContentFormat;
 }
 
 // Convert RedisNote to CombinedNote
@@ -79,6 +83,7 @@ export function redisToCombi(note: RedisNote): CombinedNote {
     goal: note.goal || 0,
     goal_type: goalType,
     source: "redis",
+    contentFormat: note.contentFormat || "html",
   };
 }
 
@@ -97,6 +102,7 @@ export function combiToRedis(note: CombinedNote): RedisNote {
     updatedAt: note.updatedAt,
     goal: note.goal,
     goal_type: note.goal_type,
+    contentFormat: note.contentFormat,
   };
 }
 
@@ -128,6 +134,7 @@ export function supabaseToCombi(note: SupabaseNote): CombinedNote {
     goal_type: goalType,
     source: "supabase",
     notebookId: (note as any).notebook_id ?? null,
+    contentFormat: ((note as any).content_format as ContentFormat) || "html",
   };
 }
 
@@ -147,6 +154,7 @@ export function combiToSupabase(note: CombinedNote): Partial<SupabaseNote> {
     created_at: new Date(note.createdAt).toISOString(),
     updated_at: new Date(note.updatedAt).toISOString(),
     notebook_id: note.notebookId,
+    content_format: note.contentFormat,
   } as Partial<SupabaseNote>;
 }
 
@@ -170,6 +178,7 @@ export function createNote(
     goal: input.goal || 0,
     goal_type: input.goal_type || "",
     source,
+    contentFormat: input.contentFormat || "markdown",
   };
 }
 
@@ -218,6 +227,7 @@ export function safeConvertNote(
     goal_type: sourceNote.goal_type || "",
     source: targetSource,
     notebookId: sourceNote.notebookId ?? sourceNote.notebook_id ?? null,
+    contentFormat: sourceNote.contentFormat ?? sourceNote.content_format ?? "html",
   };
 
   // Handle timestamps based on source format

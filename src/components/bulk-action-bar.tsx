@@ -3,160 +3,139 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNotesStore } from "@/stores/notes-store";
 import { bulkAssignNotesToNotebook } from "@/app/actions/notebookActions";
-import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import {
   IconX,
   IconNotebook,
-  IconCheck,
   IconFileOff,
   IconLoader2,
+  IconTrash,
 } from "@tabler/icons-react";
 
 interface BulkActionBarProps {
   selectedNoteIds: Set<string>;
   onClearSelection: () => void;
   onAssignComplete: () => void;
+  onBulkDelete?: (noteIds: string[]) => void;
 }
 
 export default function BulkActionBar({
   selectedNoteIds,
   onClearSelection,
   onAssignComplete,
+  onBulkDelete,
 }: BulkActionBarProps) {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [showMoveMenu, setShowMoveMenu] = useState(false);
   const [isAssigning, setIsAssigning] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  const {
-    notebooks,
-    optimisticUpdateNote,
-    recalculateNotebookCounts,
-  } = useNotesStore();
+  const { notebooks, optimisticUpdateNote, recalculateNotebookCounts } =
+    useNotesStore();
 
-  const selectedCount = selectedNoteIds.size;
+  const count = selectedNoteIds.size;
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsDropdownOpen(false);
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMoveMenu(false);
       }
     };
-
-    if (isDropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
+    if (showMoveMenu) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isDropdownOpen]);
+  }, [showMoveMenu]);
 
   const handleAssign = async (notebookId: string | null) => {
-    if (selectedCount === 0) return;
-
+    if (count === 0) return;
     setIsAssigning(true);
-    setIsDropdownOpen(false);
+    setShowMoveMenu(false);
 
     const noteIds = Array.from(selectedNoteIds);
-
-    // Optimistic update
-    noteIds.forEach((noteId) => {
-      optimisticUpdateNote(noteId, { notebookId });
-    });
+    noteIds.forEach((id) => optimisticUpdateNote(id, { notebookId }));
 
     try {
       const result = await bulkAssignNotesToNotebook(noteIds, notebookId);
-
       if (result.success) {
         recalculateNotebookCounts();
         onAssignComplete();
         onClearSelection();
-      } else {
-        // Revert on failure - would need original values to properly revert
-        console.error("Failed to assign notes:", result.error);
       }
-    } catch (error) {
-      console.error("Failed to assign notes:", error);
     } finally {
       setIsAssigning(false);
     }
   };
 
-  if (selectedCount === 0) {
-    return null;
-  }
+  const handleDelete = async () => {
+    if (count === 0 || !onBulkDelete) return;
+    setIsDeleting(true);
+    onBulkDelete(Array.from(selectedNoteIds));
+    onClearSelection();
+    setIsDeleting(false);
+  };
+
+  if (count === 0) return null;
 
   return (
-    <div className="sticky bottom-0 left-0 right-0 p-3 bg-mercedes-primary text-white shadow-lg border-t border-mercedes-primary/20">
+    <div className="sticky bottom-0 left-0 right-0 px-3 py-2 bg-[var(--color-bg-tertiary)] border-t border-[var(--color-border-secondary)]">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="font-medium">
-            {selectedCount} note{selectedCount !== 1 ? "s" : ""} selected
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">
+            {count} selected
           </span>
           <button
             onClick={onClearSelection}
-            className="p-1 rounded hover:bg-white/20 transition-colors"
-            title="Clear selection"
+            className="p-0.5 rounded text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
+            title="Clear"
           >
-            <IconX size={16} />
+            <IconX size={11} />
           </button>
         </div>
 
-        <div ref={dropdownRef} className="relative">
-          <button
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            disabled={isAssigning}
-            className="flex items-center gap-2 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg transition-colors disabled:opacity-50"
-          >
-            {isAssigning ? (
-              <IconLoader2 size={16} className="animate-spin" />
-            ) : (
-              <IconNotebook size={16} />
-            )}
-            <span>Move to Notebook</span>
-          </button>
+        <div className="flex items-center gap-1">
+          {/* Move */}
+          <div ref={menuRef} className="relative">
+            <button
+              onClick={() => setShowMoveMenu(!showMoveMenu)}
+              disabled={isAssigning}
+              className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium bg-[var(--color-bg-primary)] border border-[var(--color-border-primary)] rounded-[var(--radius-sm)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover)] transition-colors disabled:opacity-50"
+            >
+              {isAssigning ? <IconLoader2 size={11} className="animate-spin" /> : <IconNotebook size={11} />}
+              Move
+            </button>
 
-          {isDropdownOpen && (
-            <div className="absolute bottom-full right-0 mb-2 bg-white rounded-lg shadow-lg border border-neutral-200 min-w-48 overflow-hidden z-50">
-              {/* Remove from notebook */}
-              <button
-                onClick={() => handleAssign(null)}
-                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-neutral-50 transition-colors text-left text-neutral-700"
-              >
-                <IconFileOff size={16} className="text-neutral-500" />
-                <span className="text-sm">Remove from notebook</span>
-              </button>
-
-              {notebooks.length > 0 && (
-                <div className="border-t border-neutral-200" />
-              )}
-
-              {/* Notebooks list */}
-              <div className="max-h-48 overflow-y-auto">
-                {notebooks.map((notebook) => {
-                  const previewStyle = getCoverPreviewStyle(
-                    notebook.coverType,
-                    notebook.coverValue
-                  );
-
-                  return (
+            {showMoveMenu && (
+              <div className="absolute bottom-full right-0 mb-1 bg-[var(--color-bg-elevated)] rounded-[var(--radius-md)] shadow-lg border border-[var(--color-border-primary)] min-w-[140px] overflow-hidden z-50">
+                <button
+                  onClick={() => handleAssign(null)}
+                  className="w-full flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-[var(--color-hover)] transition-colors text-left"
+                >
+                  <IconFileOff size={11} className="text-[var(--color-text-tertiary)]" />
+                  <span className="text-[11px] text-[var(--color-text-primary)]">Remove from notebook</span>
+                </button>
+                {notebooks.length > 0 && <div className="h-px bg-[var(--color-border-secondary)]" />}
+                <div className="max-h-32 overflow-y-auto">
+                  {notebooks.map((nb) => (
                     <button
-                      key={notebook.id}
-                      onClick={() => handleAssign(notebook.id)}
-                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-neutral-50 transition-colors text-left"
+                      key={nb.id}
+                      onClick={() => handleAssign(nb.id)}
+                      className="w-full flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-[var(--color-hover)] transition-colors text-left"
                     >
-                      <div
-                        className="w-4 h-4 rounded-sm flex-shrink-0"
-                        style={previewStyle}
-                      />
-                      <span className="text-sm text-neutral-800 truncate">
-                        {notebook.name}
-                      </span>
+                      <span className="text-[11px] text-[var(--color-text-primary)] truncate">{nb.name}</span>
                     </button>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+
+          {/* Delete */}
+          <button
+            onClick={handleDelete}
+            disabled={isDeleting}
+            className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium bg-[var(--color-danger-subtle)] border border-transparent rounded-[var(--radius-sm)] text-[var(--color-danger)] hover:bg-[var(--color-danger)] hover:text-white transition-colors disabled:opacity-50"
+          >
+            <IconTrash size={11} />
+            Delete
+          </button>
         </div>
       </div>
     </div>

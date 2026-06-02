@@ -678,11 +678,11 @@ export function useNotesOperations(
       setSaving(noteId, true);
       setEditing(noteId, false);
 
-      // Optimistic update
-      optimisticUpdateNote(noteId, { content, goal, goal_type: goalType });
+      // Optimistic update — mark as markdown since the editor always emits markdown
+      optimisticUpdateNote(noteId, { content, goal, goal_type: goalType, contentFormat: "markdown" });
 
       // Persist to IDB cache immediately
-      saveNoteToLocal({ ...targetNote, content, goal, goal_type: goalType, updatedAt: Date.now() }).catch(() => {});
+      saveNoteToLocal({ ...targetNote, content, goal, goal_type: goalType, contentFormat: "markdown", updatedAt: Date.now() }).catch(() => {});
 
       // Background save
       try {

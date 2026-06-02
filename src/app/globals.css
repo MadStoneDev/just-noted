@@ -1,567 +1,665 @@
 @import "tailwindcss";
 
+/* ============================================
+   DESIGN TOKENS
+   Tailwind v4 @theme block — defines tokens
+   that become utility classes automatically.
+   ============================================ */
+
 @theme {
-    --breakpoint-xs: 30rem;
-    --font-primary: "Outfit", sans-serif;
-    --font-secondary: "Playfair Display", serif;
-    --color-mercedes-primary: #03BFB5;
-    --color-mercedes-secondary: #004146;
-    --color-mercedes-tertiary: #949398;
+  --breakpoint-xs: 30rem;
 
-    /* Border Radius Scale */
-    --radius-sm: 0.25rem;    /* 4px - badges, chips */
-    --radius-md: 0.5rem;     /* 8px - buttons, inputs */
-    --radius-lg: 0.75rem;    /* 12px - cards */
-    --radius-xl: 1rem;       /* 16px - modals */
+  /* Typography */
+  --font-primary: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-secondary: "Playfair Display", serif;
+  --font-brand: "Playfair Display", serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "Monaco", "Menlo", "Ubuntu Mono", monospace;
 
-    /* Shadow/Elevation Scale (softer than current) */
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+  /* Brand */
+  --color-accent: #03BFB5;
+  --color-accent-hover: #02A69E;
+  --color-accent-muted: #03BFB540;
+  --color-accent-subtle: #03BFB514;
 
-    /* Surface Colors */
-    --color-surface-base: #ffffff;
-    --color-surface-raised: #fafafa;
-    --color-surface-overlay: #f5f5f5;
+  /* Legacy aliases (used in 220+ places, migrate in Phase 3) */
+  --color-mercedes-primary: #03BFB5;
+  --color-mercedes-secondary: #004146;
+  --color-mercedes-tertiary: #949398;
 
-    /* Touch Target */
-    --tap-target-min: 44px;
+  /* Semantic */
+  --color-danger: #DC2626;
+  --color-danger-subtle: #DC262614;
+  --color-warning: #F59E0B;
+  --color-warning-subtle: #F59E0B14;
+  --color-success: #10B981;
+  --color-success-subtle: #10B98114;
+  --color-info: #3B82F6;
+
+  /* Radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-full: 9999px;
+
+  /* Shadows (light) */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.04);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.06), 0 4px 6px -4px rgb(0 0 0 / 0.04);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.06);
+
+  /* Animation */
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Layout */
+  --content-width: 720px;
+  --sidebar-width: 248px;
+  --header-height: 56px;
+  --tap-target-min: 44px;
 }
+
+/* ============================================
+   SEMANTIC COLOR TOKENS
+   These use CSS custom properties outside
+   @theme so they can change with dark mode.
+   ============================================ */
+
+:root {
+  /* Surfaces */
+  --color-bg-primary: #FFFFFF;
+  --color-bg-secondary: #FAFAFA;
+  --color-bg-tertiary: #F5F5F5;
+  --color-bg-editor: #FFFFFF;
+  --color-bg-elevated: #FFFFFF;
+  --color-bg-overlay: rgba(0, 0, 0, 0.5);
+
+  /* Text */
+  --color-text-primary: #1A1A1A;
+  --color-text-secondary: #6B6B6B;
+  --color-text-tertiary: #9A9A9A;
+  --color-text-inverse: #FFFFFF;
+  --color-text-on-accent: #FFFFFF;
+
+  /* Borders */
+  --color-border-primary: #E5E5E5;
+  --color-border-secondary: #F0F0F0;
+  --color-border-focus: #03BFB5;
+
+  /* Interactive */
+  --color-hover: rgba(0, 0, 0, 0.04);
+  --color-active: rgba(0, 0, 0, 0.08);
+  --color-selected: rgba(3, 191, 181, 0.08);
+
+  /* Code */
+  --color-code-bg: #F5F5F5;
+  --color-code-text: #1A1A1A;
+  --color-code-block-bg: #1E293B;
+  --color-code-block-text: #E2E8F0;
+
+  /* Editor-specific */
+  --color-highlight: #FEF08A;
+  --color-blockquote-border: #03BFB5;
+  --color-blockquote-bg: #F8FAFB;
+  --color-selection: rgba(3, 191, 181, 0.15);
+
+  /* Shadows (overridable) */
+  --shadow-modal: 0 25px 50px -12px rgb(0 0 0 / 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --color-bg-primary: #1A1A1A;
+    --color-bg-secondary: #141414;
+    --color-bg-tertiary: #242424;
+    --color-bg-editor: #1E1E1E;
+    --color-bg-elevated: #2A2A2A;
+    --color-bg-overlay: rgba(0, 0, 0, 0.7);
+
+    --color-text-primary: #E8E8E8;
+    --color-text-secondary: #A0A0A0;
+    --color-text-tertiary: #707070;
+    --color-text-inverse: #1A1A1A;
+
+    --color-border-primary: #333333;
+    --color-border-secondary: #2A2A2A;
+    --color-border-focus: #03BFB5;
+
+    --color-hover: rgba(255, 255, 255, 0.06);
+    --color-active: rgba(255, 255, 255, 0.1);
+    --color-selected: rgba(3, 191, 181, 0.12);
+
+    --color-code-bg: #2A2A2A;
+    --color-code-text: #E2E8F0;
+    --color-code-block-bg: #0F172A;
+    --color-code-block-text: #E2E8F0;
+
+    --color-highlight: #854D0E;
+    --color-blockquote-bg: #242424;
+    --color-selection: rgba(3, 191, 181, 0.2);
+
+    --shadow-modal: 0 25px 50px -12px rgb(0 0 0 / 0.4);
+  }
+}
+
+.dark {
+  --color-bg-primary: #1A1A1A;
+  --color-bg-secondary: #141414;
+  --color-bg-tertiary: #242424;
+  --color-bg-editor: #1E1E1E;
+  --color-bg-elevated: #2A2A2A;
+  --color-bg-overlay: rgba(0, 0, 0, 0.7);
+
+  --color-text-primary: #E8E8E8;
+  --color-text-secondary: #A0A0A0;
+  --color-text-tertiary: #707070;
+  --color-text-inverse: #1A1A1A;
+
+  --color-border-primary: #333333;
+  --color-border-secondary: #2A2A2A;
+  --color-border-focus: #03BFB5;
+
+  --color-hover: rgba(255, 255, 255, 0.06);
+  --color-active: rgba(255, 255, 255, 0.1);
+  --color-selected: rgba(3, 191, 181, 0.12);
+
+  --color-code-bg: #2A2A2A;
+  --color-code-text: #E2E8F0;
+  --color-code-block-bg: #0F172A;
+  --color-code-block-text: #E2E8F0;
+
+  --color-highlight: #854D0E;
+  --color-blockquote-bg: #242424;
+  --color-selection: rgba(3, 191, 181, 0.2);
+
+  --shadow-modal: 0 25px 50px -12px rgb(0 0 0 / 0.4);
+}
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
 
 body {
-    font-family: var(--font-primary), sans-serif;
+  font-family: var(--font-primary), sans-serif;
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-secondary);
 }
 
-.animate-slide-in {
-    animation: slideInFromTop 0.3s ease-out forwards;
+::selection {
+  background-color: var(--color-selection);
 }
 
-.animate-shift-down {
-    animation: shiftDown 0.3s ease-in-out forwards;
-}
-
-.animate-fadeOut {
-    animation: fadeOut 1.5s ease-in-out;
-}
+/* ============================================
+   KEYFRAME ANIMATIONS
+   ============================================ */
 
 @keyframes fade-in {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 @keyframes slide-up {
-    from {
-        transform: translateY(20px);
-        opacity: 0;
-    }
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-down {
+  from {
+    transform: translateY(-8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 @keyframes slide-in-right {
-    from {
-        transform: translateX(100%);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
+@keyframes scale-in {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Animation utility classes */
 .animate-fade-in {
-    animation: fade-in 0.2s ease-out;
+  animation: fade-in var(--duration-fast) var(--ease-out);
+}
+
+.animate-fade-out {
+  animation: fade-out var(--duration-fast) var(--ease-out);
 }
 
 .animate-slide-up {
-    animation: slide-up 0.3s ease-out;
+  animation: slide-up var(--duration-slow) var(--ease-spring);
+}
+
+.animate-slide-down {
+  animation: slide-down var(--duration-slow) var(--ease-spring);
 }
 
 .animate-slide-in-right {
-    animation: slide-in-right 0.3s ease-out;
+  animation: slide-in-right var(--duration-slow) var(--ease-spring);
 }
 
-@keyframes fadeOut {
-    0%, 75% {
-        opacity: 1;
-    }
-    100% {
-        opacity: 0;
-    }
+.animate-scale-in {
+  animation: scale-in var(--duration-normal) var(--ease-spring);
 }
 
-@keyframes shiftDown {
-    0% {
-        transform: translateY(0);
-    }
-    25% {
-        transform: translateY(40px);
-    }
-    100% {
-        transform: translateY(0);
-    }
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-tertiary) 25%,
+    var(--color-bg-secondary) 50%,
+    var(--color-bg-tertiary) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
 }
 
-@keyframes slideInFromTop {
-    0% {
-        transform: translateX(100%);
-        opacity: 0;
-    }
-    100% {
-        transform: translateX(0);
-        opacity: 1;
-    }
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
 }
 
-@keyframes warm-shimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
+/* ============================================
+   EDITOR & CONTENT STYLING
+   .milkdown = shared note read-only render
+   .milkdown = live editor wrapper
+   [data-milkdown-root] = Milkdown's own root
+   .ProseMirror = ProseMirror's editor div
+   ============================================ */
+
+.milkdown,
+.milkdown .ProseMirror,
+.milkdown [data-milkdown-root] .ProseMirror {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  font-family: var(--font-primary), sans-serif;
+  color: var(--color-text-primary);
+  line-height: 1.7;
+  min-height: 300px;
+  padding: 0.5rem 0;
 }
 
-.warm-shimmer {
-    background: linear-gradient(90deg, #e7e5e4 25%, #efeceb 50%, #e7e5e4 75%);
-    background-size: 200% 100%;
-    animation: warm-shimmer 1.5s ease-in-out infinite;
+.milkdown [data-milkdown-root] {
+  outline: none !important;
 }
 
-/* This ensures note containers have a proper stacking context */
+.milkdown h1 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 1.5rem 0 0.75rem;
+  color: var(--color-text-primary);
+}
+
+.milkdown h2 {
+  font-size: 1.5rem;
+  font-weight: 650;
+  line-height: 1.35;
+  margin: 1.25rem 0 0.5rem;
+  color: var(--color-text-primary);
+}
+
+.milkdown h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 1rem 0 0.5rem;
+  color: var(--color-text-primary);
+}
+
+.milkdown :is(h4, h5, h6) {
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 0.75rem 0 0.25rem;
+  color: var(--color-text-primary);
+}
+
+.milkdown p {
+  margin: 0.5rem 0;
+  line-height: 1.7;
+}
+
+.milkdown strong {
+  font-weight: 650;
+}
+
+.milkdown a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color var(--duration-fast);
+}
+
+.milkdown a:hover {
+  color: var(--color-accent-hover);
+}
+
+.milkdown img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-lg);
+  margin: 1rem 0;
+}
+
+/* Lists */
+.milkdown :is(ul, ol) {
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.milkdown li {
+  margin-bottom: 0.25rem;
+  line-height: 1.7;
+}
+
+.milkdown li::marker {
+  color: var(--color-accent);
+}
+
+/* Task lists — Milkdown uses li[data-item-type="task"][data-checked] */
+.milkdown li[data-item-type="task"] {
+  list-style: none;
+  position: relative;
+  padding-left: 1.6rem;
+}
+
+.milkdown li[data-item-type="task"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.35rem;
+  width: 1rem;
+  height: 1rem;
+  border: 1.5px solid var(--color-border-primary);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-primary);
+  cursor: pointer;
+}
+
+.milkdown li[data-item-type="task"][data-checked="true"]::before {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  background-size: 10px;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.milkdown li[data-item-type="task"][data-checked="true"] > p {
+  text-decoration: line-through;
+  color: var(--color-text-tertiary);
+}
+
+/* Also handle input[type=checkbox] if GFM renders them */
+.milkdown li input[type="checkbox"] {
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  border: 1.5px solid var(--color-border-primary);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-right: 0.4rem;
+  position: relative;
+  vertical-align: middle;
+}
+
+.milkdown li input[type="checkbox"]:checked {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  background-size: 10px;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* Blockquotes */
+.milkdown blockquote {
+  border-left: 3px solid var(--color-accent);
+  padding: 0.5rem 0 0.5rem 1rem;
+  margin: 1rem 0;
+  color: var(--color-text-secondary);
+  background: var(--color-blockquote-bg);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.milkdown blockquote p {
+  margin: 0.25rem 0;
+}
+
+/* Code */
+.milkdown code {
+  background: var(--color-code-bg);
+  padding: 0.15rem 0.35rem;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  color: var(--color-accent);
+}
+
+.milkdown pre {
+  background: var(--color-code-block-bg);
+  color: var(--color-code-block-text);
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+  margin: 1rem 0;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.milkdown pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+/* Horizontal rules */
+.milkdown hr {
+  border: none;
+  height: 1px;
+  background: var(--color-border-primary);
+  margin: 2rem 0;
+}
+
+/* Tables */
+.milkdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+
+.milkdown :is(th, td) {
+  border: 1px solid var(--color-border-primary);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.milkdown th {
+  background: var(--color-bg-tertiary);
+  font-weight: 600;
+}
+
+/* Mark/highlight */
+.milkdown mark {
+  background: var(--color-highlight);
+  padding: 0.1rem 0.2rem;
+  border-radius: var(--radius-sm);
+}
+
+/* Selection */
+.milkdown ::selection {
+  background: var(--color-selection);
+}
+
+/* Placeholder — shown when editor has a single empty paragraph */
+.milkdown .ProseMirror > p:only-child:has(> br:only-child) {
+  position: relative;
+}
+
+.milkdown .ProseMirror > p:only-child:has(> br:only-child)::before {
+  content: "Start writing...";
+  color: var(--color-text-tertiary);
+  opacity: 0.4;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* Readonly mode */
+[data-readonly] .ProseMirror {
+  cursor: default;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .milkdown {
+    min-height: 200px;
+  }
+
+  .milkdown h1 {
+    font-size: 1.5rem;
+  }
+
+  .milkdown h2 {
+    font-size: 1.25rem;
+  }
+}
+
+/* Legacy animation classes (used by existing components, remove during Phase 3 rebuild) */
+.animate-slide-in {
+  animation: slide-in-right var(--duration-slow) var(--ease-spring);
+}
+
+.animate-fadeOut {
+  animation: fade-out 1.5s ease-in-out;
+}
+
 .note-container {
-    position: relative;
-    z-index: 10;
+  position: relative;
+  z-index: 10;
 }
 
 /* ============================================
-   TIPTAP EDITOR STYLING
+   SKELETON LOADING
    ============================================ */
 
-/* Base TipTap editor container */
-.tiptap-editor-container {
-    position: relative !important;
-    z-index: 0 !important;
-}
-
-/* TipTap toolbar styling */
-.tiptap-toolbar {
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 10 !important;
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-/* TipTap editor content area (ProseMirror) */
-.ProseMirror {
-    min-height: 325px !important;
-    outline: none !important;
-    
-    font-family: var(--font-primary), sans-serif !important;
-    line-height: 1.6 !important;
-    color: #44403c !important;
-}
-
-/* Placeholder styling */
-.ProseMirror p.is-editor-empty:first-child::before {
-    content: attr(data-placeholder) !important;
-    float: left !important;
-    color: #9ca3af !important;
-    pointer-events: none !important;
-    height: 0 !important;
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-tertiary) 25%,
+    var(--color-border-secondary) 50%,
+    var(--color-bg-tertiary) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-md);
 }
 
 /* ============================================
-   HEADING STYLES
+   FOCUS STYLES
    ============================================ */
 
-.ProseMirror h1 {
-    font-size: 2rem !important;
-    font-weight: 900 !important;
-    line-height: 1.2 !important;
-    margin: 1.5rem 0 0.75rem 0 !important;
-    /*color: var(--color-mercedes-primary) !important;*/
+.focus-ring {
+  outline: none;
 }
 
-.ProseMirror h2 {
-    font-size: 1.6rem !important;
-    font-weight: 800 !important;
-    line-height: 1.3 !important;
-    margin: 1.25rem 0 0.5rem 0 !important;
-    /*color: var(--color-mercedes-primary) !important;*/
-}
-
-.ProseMirror h3 {
-    font-size: 1.4rem !important;
-    font-weight: 700 !important;
-    line-height: 1.4 !important;
-    margin: 1rem 0 0.5rem 0 !important;
-    /*color: var(--color-mercedes-primary) !important;*/
-}
-
-.ProseMirror h4 {
-    font-size: 1.25rem !important;
-    font-weight: 600 !important;
-    line-height: 1.4 !important;
-    margin: 0.75rem 0 0.25rem 0 !important;
-    /*color: var(--color-mercedes-primary) !important;*/
-}
-
-.ProseMirror h5 {
-    font-size: 1.15rem !important;
-    font-weight: 600 !important;
-    line-height: 1.5 !important;
-    margin: 0.75rem 0 0.25rem 0 !important;
-/*    color: var(--color-mercedes-primary) !important;*/
+.focus-ring:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
 }
 
 /* ============================================
-   PARAGRAPH AND TEXT STYLES
+   SCROLLBAR STYLING
    ============================================ */
 
-.ProseMirror p {
-    margin: 0.75rem 0 !important;
-    line-height: 1.6 !important;
-    /*color: var(--color-neutral-700) !important;*/
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-primary) transparent;
 }
 
-.ProseMirror strong {
-    font-weight: 800 !important;
-    /*color: var(--color-neutral-800) !important;*/
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-.ProseMirror em {
-    font-style: italic !important;
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.ProseMirror u {
-    text-decoration: underline !important;
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--color-border-primary);
+  border-radius: var(--radius-full);
 }
 
-.ProseMirror s {
-    text-decoration: line-through !important;
-}
-
-.ProseMirror mark {
-    background-color: #fef08a !important;
-    padding: 0.125rem 0.25rem !important;
-    border-radius: 0.25rem !important;
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-tertiary);
 }
 
 /* ============================================
-   LINK STYLES
+   REDUCED MOTION
    ============================================ */
 
-.ProseMirror a {
-    padding: 0.1rem 0.2rem !important;
-    
-    color: var(--color-mercedes-primary) !important;
-    text-decoration: underline !important;
-    cursor: pointer !important;
-    transition: color 0.2s ease !important;
-}
-
-.ProseMirror a:hover {
-    color: white !important;
-    background-color: var(--color-mercedes-primary) !important;
-}
-
-/* ============================================
-   IMAGE STYLES
-   ============================================ */
-
-.ProseMirror img {
-    max-width: 100% !important;
-    height: auto !important;
-    border-radius: 0.5rem !important;
-    margin: 1rem 0 !important;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
-}
-
-/* ============================================
-   LIST STYLING - UNORDERED LISTS (UL)
-   ============================================ */
-
-.ProseMirror ul {
-    margin: 1rem 0 !important;
-    padding-left: 0 !important;
-    list-style: none !important;
-}
-
-/* Level 1 - Bullet points */
-.ProseMirror ul > li {
-    position: relative !important;
-    padding-left: 1.5rem !important;
-    margin-bottom: 0.25rem !important;
-    line-height: 1.6 !important;
-}
-
-.ProseMirror ul > li::before {
-    content: "•" !important;
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    color: var(--color-mercedes-primary) !important;
-    font-weight: bold !important;
-    font-size: 1.2em !important;
-}
-
-/* Level 2 - Dashes */
-.ProseMirror ul ul > li {
-    padding-left: 1.5rem !important;
-    margin-left: 1rem !important;
-}
-
-.ProseMirror ul ul > li::before {
-    content: "–" !important;
-    color: var(--color-neutral-700) !important;
-    font-size: 1em !important;
-}
-
-/* Level 3 - Plus signs */
-.ProseMirror ul ul ul > li {
-    padding-left: 1.5rem !important;
-    margin-left: 1rem !important;
-}
-
-.ProseMirror ul ul ul > li::before {
-    content: "+" !important;
-    color: var(--color-mercedes-tertiary) !important;
-    font-size: 1em !important;
-}
-
-/* ============================================
-   LIST STYLING - ORDERED LISTS (OL)
-   ============================================ */
-
-.ProseMirror ol {
-    margin: 1rem 0 !important;
-    padding-left: 0 !important;
-    list-style: none !important;
-    counter-reset: list-counter !important;
-}
-
-/* Level 1 - Numbers */
-.ProseMirror ol > li {
-    position: relative !important;
-    padding-left: 2rem !important;
-    margin-bottom: 0.5rem !important;
-    line-height: 1.6 !important;
-    counter-increment: list-counter !important;
-}
-
-.ProseMirror ol > li::before {
-    content: counter(list-counter) "." !important;
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    color: var(--color-mercedes-primary) !important;
-    font-weight: 600 !important;
-    min-width: 1.5rem !important;
-}
-
-/* Level 2 - Letters */
-.ProseMirror ol ol {
-    counter-reset: list-counter-alpha !important;
-}
-
-.ProseMirror ol ol > li {
-    padding-left: 2rem !important;
-    margin-left: 1rem !important;
-    counter-increment: list-counter-alpha !important;
-}
-
-.ProseMirror ol ol > li::before {
-    content: "(" counter(list-counter-alpha, lower-alpha) ")" !important;
-    color: var(--color-mercedes-primary) !important;
-    font-weight: 500 !important;
-}
-
-/* Level 3 - Roman numerals */
-.ProseMirror ol ol ol {
-    counter-reset: list-counter-roman !important;
-}
-
-.ProseMirror ol ol ol > li {
-    padding-left: 2rem !important;
-    margin-left: 1rem !important;
-    counter-increment: list-counter-roman !important;
-}
-
-.ProseMirror ol ol ol > li::before {
-    content: counter(list-counter-roman, lower-roman) "." !important;
-    color: var(--color-mercedes-tertiary) !important;
-    font-weight: 400 !important;
-}
-
-/* ============================================
-   TASK LIST STYLING (CHECKBOXES)
-   ============================================ */
-
-.ProseMirror ul[data-type="taskList"] {
-    list-style: none !important;
-    padding: 0 !important;
-}
-
-.ProseMirror ul[data-type="taskList"] li {
-    display: flex !important;
-    align-items: flex-start !important;
-    padding: 0 !important;
-    list-style: none !important;
-}
-
-/* Remove any bullet points from task items */
-.ProseMirror ul[data-type="taskList"] li::before {
-    display: none !important;
-    content: none !important;
-}
-
-/* Ensure nested task lists don't inherit bullet styles */
-.ProseMirror ul[data-type="taskList"] ul[data-type="taskList"] li::before {
-    display: none !important;
-    content: none !important;
-}
-
-/* Checkbox styling */
-.ProseMirror ul[data-type="taskList"] li label {
-    display: flex !important;
-    align-items: center !important;
-    margin-right: 0.5rem !important;
-    cursor: pointer !important;
-}
-
-.ProseMirror ul[data-type="taskList"] li input[type="checkbox"] {
-    appearance: none !important;
-    top: 0.25rem !important;
-    width: 1.15rem !important;
-    height: 1.15rem !important;
-    border: 1px solid #64748b !important;
-    border-radius: 0.25rem !important;
-    background-color: white !important;
-    cursor: pointer !important;
-    position: relative !important;
-    margin: 0 !important;
-    flex-shrink: 0 !important;
-}
-
-.ProseMirror ul[data-type="taskList"] li input[type="checkbox"]:checked {
-    background-color: var(--color-mercedes-primary) !important;
-    border-color: var(--color-mercedes-primary) !important;
-}
-
-.ProseMirror ul[data-type="taskList"] li input[type="checkbox"]:checked::after {
-    content: "" !important;
-    position: absolute !important;
-    left: 0.345rem !important;
-    top: 0.14rem !important;
-    width: 0.3rem !important;
-    height: 0.6rem !important;
-    border: solid white !important;
-    border-width: 0 2px 2px 0 !important;
-    transform: rotate(45deg) !important;
-}
-
-/* Task item text */
-.ProseMirror ul[data-type="taskList"] li div {
-    flex: 1 !important;
-    line-height: 1.6 !important;
-}
-
-.ProseMirror ul[data-type="taskList"] li div p {
-    margin: 0 !important;
-}
-
-.ProseMirror ul[data-type="taskList"] li[data-checked="true"] div {
-    text-decoration: line-through !important;
-    color: #64748b !important;
-}
-
-/* ============================================
-   BLOCKQUOTE STYLES
-   ============================================ */
-
-.ProseMirror blockquote {
-    border-left: 4px solid var(--color-mercedes-primary) !important;
-    padding: 1rem 0 1rem 1.5rem !important;
-    margin: 1.5rem 0 !important;
-    background-color: #f8fafc !important;
-    font-style: italic !important;
-    color: var(--color-mercedes-primary) !important;
-}
-
-/* ============================================
-   CODE STYLES
-   ============================================ */
-
-.ProseMirror code {
-    background-color: #f1f5f9 !important;
-    padding: 0.125rem 0.25rem !important;
-    border-radius: 0.25rem !important;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
-    font-size: 0.875em !important;
-    color: var(--color-mercedes-primary) !important;
-}
-
-.ProseMirror pre {
-    background-color: #1e293b !important;
-    color: #e2e8f0 !important;
-    padding: 1rem !important;
-    border-radius: 0.5rem !important;
-    overflow-x: auto !important;
-    margin: 1rem 0 !important;
-}
-
-.ProseMirror pre code {
-    background-color: transparent !important;
-    padding: 0 !important;
-    color: inherit !important;
-}
-
-/* ============================================
-   HORIZONTAL RULE
-   ============================================ */
-
-.ProseMirror hr {
-    border: none !important;
-    height: 2px !important;
-    background: linear-gradient(90deg, var(--color-mercedes-primary), var(--color-mercedes-tertiary)) !important;
-    margin: 2rem 0 !important;
-    border-radius: 1px !important;
-}
-
-/* ============================================
-   TEXT ALIGNMENT
-   ============================================ */
-
-.ProseMirror [style*="text-align: left"] {
-    text-align: left !important;
-}
-
-.ProseMirror [style*="text-align: center"] {
-    text-align: center !important;
-}
-
-.ProseMirror [style*="text-align: right"] {
-    text-align: right !important;
-}
-
-.ProseMirror [style*="text-align: justify"] {
-    text-align: justify !important;
-}
-
-/* ============================================
-   SELECTION STYLES
-   ============================================ */
-
-.ProseMirror::selection {
-    background-color: rgba(3, 191, 181, 0.2) !important;
-}
-
-.ProseMirror *::selection {
-    background-color: rgba(3, 191, 181, 0.2) !important;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* ============================================
@@ -569,104 +667,53 @@ body {
    ============================================ */
 
 @page {
-    margin: 1.5cm;
-    size: A4;
+  margin: 1.5cm;
+  size: A4;
 }
 
 @media print {
-    /* Reset body and html for print */
-    html, body {
-        margin: 0 !important;
-        padding: 0 !important;
-        height: auto !important;
-        overflow: visible !important;
-    }
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+    color: black !important;
+  }
 
-    /* Hide elements that shouldn't print */
-    [class*="print:hidden"],
-    header,
-    footer,
-    nav {
-        display: none !important;
-        height: 0 !important;
-        overflow: hidden !important;
-        visibility: hidden !important;
-    }
+  [class*="print:hidden"],
+  header,
+  footer,
+  nav {
+    display: none !important;
+  }
 
-    /* Ensure main content starts at top */
-    main {
-        margin-top: 0 !important;
-        padding-top: 0 !important;
-    }
+  main {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+  }
 
-    .ProseMirror,
-    .shared-note-content {
-        padding: 0 !important;
-        min-height: auto !important;
-    }
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
 
-    .ProseMirror li,
-    .shared-note-content li {
-        page-break-inside: avoid !important;
-        break-inside: avoid !important;
-    }
+  p, blockquote, pre {
+    orphans: 3 !important;
+    widows: 3 !important;
+  }
 
-    .ProseMirror ul ul,
-    .ProseMirror ol ol,
-    .ProseMirror ul ol,
-    .ProseMirror ol ul {
-        page-break-before: avoid !important;
-        break-before: avoid !important;
-    }
+  li {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
 
-    /* Checkbox print styling */
-    .ProseMirror ul[data-type="taskList"] li input[type="checkbox"],
-    .shared-note-content ul[data-type="taskList"] li input[type="checkbox"] {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-    }
+  a {
+    text-decoration: underline !important;
+  }
 
-    /* Ensure colors print properly */
-    * {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-    }
-
-    /* Prevent page breaks inside important elements */
-    h1, h2, h3, h4, h5, h6 {
-        page-break-after: avoid !important;
-        break-after: avoid !important;
-    }
-
-    p, blockquote, pre {
-        orphans: 3 !important;
-        widows: 3 !important;
-    }
-
-    /* Links in print */
-    a {
-        text-decoration: underline !important;
-    }
-}
-
-/* ============================================
-   RESPONSIVE DESIGN
-   ============================================ */
-
-@media (max-width: 768px) {
-    .ProseMirror {
-        padding: 0.75rem !important;
-    }
-
-    .ProseMirror h1 {
-        font-size: 1.75rem !important;
-    }
-
-    .ProseMirror h2 {
-        font-size: 1.5rem !important;
-    }
-
-    .ProseMirror h3 {
-        font-size: 1.25rem !important;
-    }
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 }

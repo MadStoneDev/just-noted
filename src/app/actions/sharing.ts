@@ -16,12 +16,16 @@ type SharingOperationParams =
       username?: string | null;
       currentUserId: string;
       storage: "redis" | "supabase";
+      isAnonymous?: boolean;
+      password?: string | null;
+      expiresAt?: string | null;
     }
   | { operation: "getUsers"; noteId: string; currentUserId: string }
   | {
       operation: "getByShortcode";
       shortcode: string;
       currentUsername: string | null;
+      password?: string | null;
     }
   | {
       operation: "removeUser";
@@ -45,6 +49,23 @@ interface NormalizedNote {
 // ===========================
 // UTILITIES
 // ===========================
+
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password + "justnoted_share_salt");
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function verifyPassword(
+  password: string,
+  hash: string,
+): Promise<boolean> {
+  const computed = await hashPassword(password);
+  return computed === hash;
+}
 
 function generateShortcode(length = 9): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -195,6 +216,9 @@ export async function sharingOperation(params: SharingOperationParams) {
           username = null,
           currentUserId,
           storage = "supabase",
+          isAnonymous = false,
+          password = null,
+          expiresAt = null,
         } = params;
 
         // Verify note ownership
@@ -224,6 +248,8 @@ export async function sharingOperation(params: SharingOperationParams) {
           // Create new share
           shortcode = generateShortcode();
 
+          const passwordHash = password ? await hashPassword(password) : null;
+
           const { data: newShare, error: insertError } = await supabase
             .from("shared_notes")
             .insert({
@@ -232,7 +258,10 @@ export async function sharingOperation(params: SharingOperationParams) {
               shortcode,
               is_public: isPublic,
               storage,
-            })
+              is_anonymous: isAnonymous,
+              password_hash: passwordHash,
+              expires_at: expiresAt,
+            } as any)
             .select("id")
             .single();
 
@@ -252,12 +281,21 @@ export async function sharingOperation(params: SharingOperationParams) {
           shortcode = existingShare.shortcode;
           shareId = existingShare.id;
 
+          const updateData: Record<string, any> = {
+            is_public: isPublic,
+            is_anonymous: isAnonymous,
+            expires_at: expiresAt,
+            updated_at: new Date().toISOString(),
+          };
+          if (password !== undefined) {
+            updateData.password_hash = password
+              ? await hashPassword(password)
+              : null;
+          }
+
           const { error: updateError } = await supabase
             .from("shared_notes")
-            .update({
-              is_public: isPublic,
-              updated_at: new Date().toISOString(),
-            })
+            .update(updateData)
             .eq("id", shareId)
             .eq("note_owner_id", currentUserId);
 
@@ -317,7 +355,7 @@ export async function sharingOperation(params: SharingOperationParams) {
 
         const { data: shareData } = await supabase
           .from("shared_notes")
-          .select("id, shortcode, is_public, storage")
+          .select("id, shortcode, is_public, storage, is_anonymous, password_hash, expires_at, view_count")
           .eq("note_id", noteId)
           .eq("note_owner_id", currentUserId)
           .single();
@@ -329,6 +367,10 @@ export async function sharingOperation(params: SharingOperationParams) {
             shortcode: null,
             storage: "supabase",
             users: [],
+            isAnonymous: false,
+            hasPassword: false,
+            expiresAt: null,
+            viewCount: 0,
           };
         }
 
@@ -342,17 +384,20 @@ export async function sharingOperation(params: SharingOperationParams) {
 
         return {
           success: true,
-          isPublic: shareData.is_public,
-          shortcode: shareData.shortcode,
-          storage: shareData.storage || "supabase",
+          isPublic: (shareData as any).is_public,
+          shortcode: (shareData as any).shortcode,
+          storage: (shareData as any).storage || "supabase",
           users,
+          isAnonymous: (shareData as any).is_anonymous || false,
+          hasPassword: !!(shareData as any).password_hash,
+          expiresAt: (shareData as any).expires_at,
+          viewCount: (shareData as any).view_count || 0,
         };
       }
 
       case "getByShortcode": {
-        const { shortcode, currentUsername } = params;
+        const { shortcode, currentUsername, password: providedPassword = null } = params;
 
-        // Fetch share record
         const { data: shareData, error: shareError } = await supabase
           .from("shared_notes")
           .select("*")
@@ -361,6 +406,36 @@ export async function sharingOperation(params: SharingOperationParams) {
 
         if (shareError || !shareData) {
           return { success: false, error: "Shared note not found" };
+        }
+
+        // Check expiration
+        if ((shareData as any).expires_at) {
+          const expiresAt = new Date((shareData as any).expires_at);
+          if (expiresAt < new Date()) {
+            return { success: false, error: "This shared link has expired" };
+          }
+        }
+
+        // Check password
+        if ((shareData as any).password_hash) {
+          if (!providedPassword) {
+            return {
+              success: false,
+              error: "PASSWORD_REQUIRED",
+              requiresPassword: true,
+            };
+          }
+          const passwordValid = await verifyPassword(
+            providedPassword,
+            (shareData as any).password_hash,
+          );
+          if (!passwordValid) {
+            return {
+              success: false,
+              error: "Incorrect password",
+              requiresPassword: true,
+            };
+          }
         }
 
         // Check access permissions
@@ -387,7 +462,6 @@ export async function sharingOperation(params: SharingOperationParams) {
           }
         }
 
-        // Fetch the note
         const storage = shareData.storage || "supabase";
         const noteResult =
           storage === "supabase"
@@ -398,13 +472,16 @@ export async function sharingOperation(params: SharingOperationParams) {
           return { success: false, error: noteResult.error };
         }
 
-        // Fetch author info
-        const authorInfo = await fetchAuthorInfo(
-          supabase,
-          noteResult.note.author,
-        );
+        const isAnonymous = (shareData as any).is_anonymous || false;
 
-        // Increment view count (non-critical)
+        let authorInfo: { username: string; avatar_url: string | null } = {
+          username: "Anonymous",
+          avatar_url: null,
+        };
+        if (!isAnonymous) {
+          authorInfo = await fetchAuthorInfo(supabase, noteResult.note.author);
+        }
+
         supabase.rpc("increment_view_count", { shortcode_param: shortcode });
 
         return {
@@ -412,10 +489,12 @@ export async function sharingOperation(params: SharingOperationParams) {
           note: {
             ...noteResult.note,
             authorUsername: authorInfo.username,
-            authorAvatar: authorInfo.avatar_url,
+            authorAvatar: isAnonymous ? null : authorInfo.avatar_url,
+            content_format: (noteResult.note as any).content_format,
             shareInfo: {
               shortcode: shareData.shortcode,
               isPublic: shareData.is_public,
+              isAnonymous,
               storage: shareData.storage,
               createdAt: shareData.created_at,
               viewCount: shareData.view_count || 0,

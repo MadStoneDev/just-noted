@@ -266,6 +266,45 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          id: string
+          user_id: string
+          tier: string
+          status: string
+          paddle_subscription_id: string | null
+          paddle_customer_id: string | null
+          current_period_end: string | null
+          cancel_at_period_end: boolean | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          tier?: string
+          status?: string
+          paddle_subscription_id?: string | null
+          paddle_customer_id?: string | null
+          current_period_end?: string | null
+          cancel_at_period_end?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          tier?: string
+          status?: string
+          paddle_subscription_id?: string | null
+          paddle_customer_id?: string | null
+          current_period_end?: string | null
+          cancel_at_period_end?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       shared_notes_readers: {
         Row: {
           created_at: string | null

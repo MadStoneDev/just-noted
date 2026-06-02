@@ -138,9 +138,12 @@ export default function JustNotes({
 
   if (isLoading) {
     return (
-      <div className="col-span-12 text-center py-10">
-        <div className="inline-flex items-center gap-2">
-          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-mercedes-primary"></div>
+      <div className="max-w-[var(--content-width)] mx-auto w-full py-16 text-center">
+        <div className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+          <svg className="animate-spin h-4 w-4 text-[var(--color-accent)]" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
           Loading your notes...
         </div>
       </div>
@@ -148,19 +151,19 @@ export default function JustNotes({
   }
 
   return (
-    <main className="relative grid grid-cols-12 gap-3">
-      <section className="px-3 col-span-12 flex items-center justify-between">
+    <main className="relative flex flex-col gap-3">
+      <section className="max-w-[var(--content-width)] mx-auto w-full px-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={handleSyncAndRenumber}
             disabled={isSyncDisabled}
-            className={`px-3 py-2 cursor-pointer inline-flex items-center gap-2 rounded-lg bg-white border border-neutral-200 text-neutral-600 hover:border-mercedes-primary/40 hover:text-mercedes-primary hover:shadow-sm transition-all duration-300 ease-in-out ${
+            className={`px-2.5 py-1.5 cursor-pointer inline-flex items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border-primary)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent-muted)] hover:text-[var(--color-accent)] text-sm transition-colors duration-[var(--duration-fast)] ${
               isSyncDisabled ? "opacity-50 cursor-not-allowed" : ""
             }`}
           >
-            <IconRefresh size={24} strokeWidth={1.5} />
-            <span className="hidden md:flex">Sync Notes</span>
+            <IconRefresh size={16} strokeWidth={1.5} />
+            <span className="hidden md:flex">Sync</span>
           </button>
 
           {isReorderingInProgress && (
@@ -180,30 +183,30 @@ export default function JustNotes({
             type="button"
             onClick={() => setShowTemplates(true)}
             disabled={isAddDisabled}
-            className={`px-3 py-2 cursor-pointer inline-flex items-center gap-2 rounded-lg bg-white border border-neutral-200 text-neutral-600 hover:border-mercedes-primary/40 hover:text-mercedes-primary hover:shadow-sm transition-all duration-300 ease-in-out ${
+            className={`px-2.5 py-1.5 cursor-pointer inline-flex items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border-primary)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent-muted)] hover:text-[var(--color-accent)] text-sm transition-colors duration-[var(--duration-fast)] ${
               isAddDisabled ? "opacity-50 cursor-not-allowed" : ""
             }`}
             title="Create note from template"
           >
-            <IconTemplate size={24} strokeWidth={1.5} />
-            <span className="hidden lg:flex">From Template</span>
+            <IconTemplate size={16} strokeWidth={1.5} />
+            <span className="hidden lg:flex">Template</span>
           </button>
 
           <button
             type="button"
             onClick={handleAddBlankNote}
             disabled={isAddDisabled}
-            className={`px-3 py-2 cursor-pointer inline-flex items-center gap-2 rounded-lg bg-mercedes-primary/10 border border-mercedes-primary/20 text-mercedes-primary hover:bg-mercedes-primary hover:text-white transition-all duration-300 ease-in-out ${
+            className={`px-2.5 py-1.5 cursor-pointer inline-flex items-center gap-1.5 rounded-[var(--radius-md)] bg-[var(--color-accent)] text-[var(--color-text-on-accent)] hover:bg-[var(--color-accent-hover)] text-sm font-medium transition-colors duration-[var(--duration-fast)] ${
               isAddDisabled ? "opacity-50 cursor-not-allowed" : ""
             }`}
           >
-            <IconSquareRoundedPlus size={30} strokeWidth={1.5} />
+            <IconSquareRoundedPlus size={16} strokeWidth={2} />
             <span className="hidden md:flex">{addButtonText}</span>
           </button>
         </div>
       </section>
 
-      <div className={`px-4 col-span-12 grid grid-cols-12 gap-4 note-container`}>
+      <div className="max-w-[var(--content-width)] mx-auto w-full px-4 flex flex-col gap-4 note-container">
         {notes.map((note) => {
           const positionInfo = getNotePositionInfo(note.id);
           const noteKey = `${note.source}-${note.id}`;

@@ -11,84 +11,65 @@ interface ErrorProps {
 
 export default function Error({ error, reset }: ErrorProps) {
   useEffect(() => {
-    // Log the error to console
     console.error("Application error:", error);
 
-    // Log to LogRocket
     try {
       LogRocket.captureException(error, {
-        tags: {
-          errorType: "page-error",
-        },
+        tags: { errorType: "page-error" },
         extra: {
           digest: error.digest || "No digest",
           errorPage: "error.tsx",
           errorMessage: error.message,
         },
       });
-    } catch (logRocketError) {
-      console.error("Failed to log error to LogRocket:", logRocketError);
-    }
+    } catch {}
   }, [error]);
 
   return (
-    <div className="min-h-screen bg-neutral-200 flex items-center justify-center px-4">
-      <div className="max-w-md w-full">
-        <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-          {/* Icon */}
-          <div className="flex justify-center mb-4">
-            <div className="p-3 bg-red-100 rounded-full">
-              <IconAlertTriangle
-                size={48}
-                className="text-red-600"
-                strokeWidth={1.5}
-              />
-            </div>
-          </div>
-
-          {/* Title */}
-          <h1 className="text-2xl font-semibold text-neutral-900 mb-2">
-            Something went wrong
-          </h1>
-
-          {/* Description */}
-          <p className="text-neutral-600 mb-6">
-            We encountered an unexpected error. Don't worry, your notes are
-            safe. Try refreshing the page or return home.
-          </p>
-
-          {/* Error details (only in development) */}
-          {process.env.NODE_ENV === "development" && (
-            <div className="mb-6 p-4 bg-neutral-100 rounded-lg text-left">
-              <p className="text-xs font-mono text-neutral-700 break-all">
-                {error.message}
-              </p>
-            </div>
-          )}
-
-          {/* Action buttons */}
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <button
-              onClick={reset}
-              className="px-6 py-3 bg-mercedes-primary hover:bg-mercedes-primary/90 text-white rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2"
-            >
-              <IconRefresh size={20} strokeWidth={1.5} />
-              Try Again
-            </button>
-
-            <a
-              href="/"
-              className="px-6 py-3 bg-white hover:bg-neutral-50 text-neutral-900 border border-neutral-300 rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2"
-            >
-              <IconHome size={20} strokeWidth={1.5} />
-              Go Home
-            </a>
+    <div className="min-h-[80vh] flex items-center justify-center px-4">
+      <div className="max-w-sm w-full text-center">
+        <div className="flex justify-center mb-5">
+          <div className="p-3 bg-[var(--color-danger-subtle)] rounded-full">
+            <IconAlertTriangle size={32} className="text-[var(--color-danger)]" strokeWidth={1.5} />
           </div>
         </div>
 
-        {/* Additional help text */}
-        <p className="text-center text-sm text-neutral-600 mt-4">
-          If this problem persists, please contact support
+        <h1 className="text-xl font-semibold text-[var(--color-text-primary)] mb-2">
+          Something went wrong
+        </h1>
+
+        <p className="text-sm text-[var(--color-text-secondary)] mb-6 leading-relaxed">
+          We hit an unexpected error. Your notes are safe — try refreshing.
+        </p>
+
+        {process.env.NODE_ENV === "development" && (
+          <div className="mb-6 p-3 bg-[var(--color-bg-tertiary)] rounded-[var(--radius-md)] text-left">
+            <p className="text-xs font-mono text-[var(--color-text-secondary)] break-all">
+              {error.message}
+            </p>
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row gap-2 justify-center">
+          <button
+            onClick={reset}
+            className="px-4 py-2.5 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-text-on-accent)] rounded-[var(--radius-md)] text-sm font-medium transition-colors duration-[var(--duration-fast)] flex items-center justify-center gap-2"
+          >
+            <IconRefresh size={16} strokeWidth={1.5} />
+            Try Again
+          </button>
+
+          <a
+            href="/"
+            className="px-4 py-2.5 bg-[var(--color-bg-primary)] hover:bg-[var(--color-hover)] text-[var(--color-text-primary)] border border-[var(--color-border-primary)] rounded-[var(--radius-md)] text-sm font-medium transition-colors duration-[var(--duration-fast)] flex items-center justify-center gap-2"
+          >
+            <IconHome size={16} strokeWidth={1.5} />
+            Go Home
+          </a>
+        </div>
+
+        <p className="text-xs text-[var(--color-text-tertiary)] mt-6">
+          If this persists, please contact support
         </p>
       </div>
     </div>
