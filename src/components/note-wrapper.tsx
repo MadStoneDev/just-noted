@@ -253,8 +253,8 @@ export default function NoteWrapper() {
                 >
                   <IconLayoutSidebarLeftCollapse size={18} className="rotate-180" />
                 </button>
-                <span className="text-xs font-semibold text-[var(--color-text-primary)]">
-                  <span className="text-[var(--color-accent)]">Just</span>Noted
+                <span className="text-sm font-semibold text-[var(--color-text-primary)]">
+                  <span className="text-[var(--color-accent)]">Just</span><span className="font-brand">Noted</span>
                 </span>
               </div>
               <div className="flex items-center gap-0.5">

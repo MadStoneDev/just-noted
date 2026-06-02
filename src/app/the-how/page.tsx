@@ -41,8 +41,8 @@ export default async function TheHowPage() {
   return (
     <>
       <GlobalHeader user={user} />
-      <main className={`mt-2 flex-grow w-full overflow-hidden`}>
-        <div className={`pt-3`}>
+      <main className="flex-grow w-full pt-14">
+        <div className="max-w-2xl mx-auto px-6 py-10">
           <h1 className={`text-xl font-semibold sm:text-center`}>
             How does{" "}
             <span className={`p-1 bg-[var(--color-accent)] font-secondary`}>

@@ -21,8 +21,8 @@ export default async function TheWhatPage() {
   return (
     <>
       <GlobalHeader user={user} />
-      <main className={`mt-2 flex-grow w-full overflow-hidden`}>
-        <div className={`pt-3 sm:text-center`}>
+      <main className="flex-grow w-full pt-14">
+        <div className="max-w-2xl mx-auto px-6 py-10 sm:text-center">
           <h1 className={`text-xl font-semibold`}>
             What is{" "}
             <span className={`p-1 bg-[var(--color-accent)] font-secondary`}>

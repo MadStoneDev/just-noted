@@ -29,7 +29,8 @@ export default async function PrivacyPolicyPage() {
     <>
       <GlobalHeader user={user} />
 
-      <div className={`pt-3`}>
+      <main className="flex-grow w-full pt-14">
+      <div className="max-w-2xl mx-auto px-6 py-10">
         <h1 className={`text-xl font-semibold sm:text-center`}>
           Privacy Policy for{" "}
           <span className={`p-1 bg-[var(--color-accent)] font-secondary`}>
@@ -183,6 +184,7 @@ export default async function PrivacyPolicyPage() {
           </p>
         </section>
       </div>
+      </main>
 
       <GlobalFooter />
     </>

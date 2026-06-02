@@ -58,7 +58,11 @@ export default async function ProfilePage() {
   return (
     <>
       <GlobalHeader user={user} />
-      <ProfileBlock user={user} authorData={authorData} />
+      <main className="flex-grow w-full pt-14">
+        <div className="max-w-2xl mx-auto px-6 py-10">
+          <ProfileBlock user={user} authorData={authorData} />
+        </div>
+      </main>
       <GlobalFooter />
     </>
   );

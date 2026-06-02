@@ -30,7 +30,7 @@ export default async function WelcomePage() {
     <>
       <GlobalHeader user={user} />
 
-      <main className="flex-grow">
+      <main className="flex-grow pt-14">
         {/* Hero */}
         <section className="max-w-3xl mx-auto px-6 pt-20 pb-16 text-center">
           <h1 className="text-4xl md:text-5xl font-bold text-[var(--color-text-primary)] tracking-tight leading-tight">
