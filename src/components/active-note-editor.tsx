@@ -36,6 +36,7 @@ import {
 import { Dropdown, DropdownItem, DropdownSeparator } from "@/components/ds/dropdown";
 import { Modal, ConfirmModal } from "@/components/ds/modal";
 import VersionHistoryPanel from "@/components/version-history-panel";
+import GoalSuggestionsModal from "@/components/goal-suggestions-modal";
 import { saveVersion } from "@/app/actions/versionActions";
 import { IconButton } from "@/components/ds/icon-button";
 import ShareNoteButton from "@/components/share-note-button";
@@ -150,6 +151,7 @@ function NoteEditor({
   const [showHelp, setShowHelp] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
+  const [showGoalSuggestions, setShowGoalSuggestions] = useState(false);
   const lastVersionRef = useRef<number>(0);
   const [goalInput, setGoalInput] = useState(String(note.goal || ""));
 
@@ -486,6 +488,12 @@ function NoteEditor({
                   {t}
                 </button>
               ))}
+              <button
+                onClick={() => setShowGoalSuggestions(true)}
+                className="px-2 py-0.5 text-[10px] text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] underline decoration-dotted underline-offset-2 transition-colors"
+              >
+                suggestions
+              </button>
             </div>
           )}
 
@@ -537,6 +545,19 @@ function NoteEditor({
           </p>
         </div>
       </Modal>
+
+      {/* Goal suggestions */}
+      <GoalSuggestionsModal
+        open={showGoalSuggestions}
+        onClose={() => setShowGoalSuggestions(false)}
+        onSelect={(value, type) => {
+          setGoalInput(String(value));
+          setGoalTarget(value);
+          setGoalType(type);
+          notesOperations.saveNoteContent(note.id, content, value, type);
+          setShowGoalPicker(false);
+        }}
+      />
 
       {/* Version history */}
       <VersionHistoryPanel

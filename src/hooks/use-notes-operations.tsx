@@ -106,6 +106,9 @@ export function useNotesOperations(
     setAnimating(true);
     setNewNoteId(newNote.id);
 
+    // Select the new note immediately
+    useNotesStore.getState().setActiveNoteId(newNote.id);
+
     // Add note and immediately re-sort with newNoteId priority
     const updatedNotes = [newNote, ...notes];
     const sortedNotes = sortNotes(updatedNotes, newNote.id);
