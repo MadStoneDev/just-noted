@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { Editor } from "@milkdown/core";
 import { callCommand } from "@milkdown/utils";
+import { editorViewCtx } from "@milkdown/core";
 import {
   toggleStrongCommand,
   toggleEmphasisCommand,
@@ -51,6 +52,32 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
       if (!editor) return;
       try {
         editor.action(callCommand(cmd, payload));
+      } catch {}
+    },
+    [getEditor],
+  );
+
+  const toggleHeading = useCallback(
+    (level: number) => {
+      const editor = getEditor();
+      if (!editor) return;
+      try {
+        editor.action((ctx) => {
+          const view = ctx.get(editorViewCtx);
+          const { state } = view;
+          const { $from } = state.selection;
+          const currentNode = $from.parent;
+
+          if (currentNode.type.name === "heading" && currentNode.attrs.level === level) {
+            const paragraphType = state.schema.nodes.paragraph;
+            if (paragraphType) {
+              const tr = state.tr.setBlockType($from.before($from.depth), $from.after($from.depth), paragraphType);
+              view.dispatch(tr);
+            }
+          } else {
+            callCommand(wrapInHeadingCommand.key, level)(ctx);
+          }
+        });
       } catch {}
     },
     [getEditor],
@@ -108,6 +135,7 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
         left: `${pos.x}px`,
         top: `${pos.y - 8}px`,
         transform: "translate(-50%, -100%)",
+        maxWidth: 240,
       }}
       onMouseDown={(e) => e.preventDefault()}
     >
@@ -126,13 +154,13 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
 
       <div className={sep} />
 
-      <button className={btn} onClick={() => run(wrapInHeadingCommand.key, 1)} title="Heading 1">
+      <button className={btn} onClick={() => toggleHeading(1)} title="Heading 1">
         <IconH1 size={14} />
       </button>
-      <button className={btn} onClick={() => run(wrapInHeadingCommand.key, 2)} title="Heading 2">
+      <button className={btn} onClick={() => toggleHeading(2)} title="Heading 2">
         <IconH2 size={14} />
       </button>
-      <button className={btn} onClick={() => run(wrapInHeadingCommand.key, 3)} title="Heading 3">
+      <button className={btn} onClick={() => toggleHeading(3)} title="Heading 3">
         <IconH3 size={14} />
       </button>
 
