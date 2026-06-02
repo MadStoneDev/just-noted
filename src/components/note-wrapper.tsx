@@ -22,6 +22,7 @@ import {
   IconLayoutSidebarLeftCollapse,
   IconSearch,
   IconPlus,
+  IconMenu2,
 } from "@tabler/icons-react";
 
 import { CombinedNote } from "@/types/combined-notes";
@@ -236,6 +237,34 @@ export default function NoteWrapper() {
           role="main"
           aria-label="Note editor"
         >
+          {/* Mobile top bar — shows when sidebar is collapsed */}
+          {!sidebarOpen && (
+            <div className="md:hidden flex items-center justify-between px-3 py-2 border-b border-[var(--color-border-secondary)]">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="p-2 rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors text-[var(--color-text-secondary)]"
+                aria-label="Open sidebar"
+              >
+                <IconMenu2 size={18} />
+              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setShowSearch(true)}
+                  className="p-2 rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors text-[var(--color-text-tertiary)]"
+                  aria-label="Search"
+                >
+                  <IconSearch size={16} />
+                </button>
+                <button
+                  onClick={() => notesOperations.addNote()}
+                  className="p-2 rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors text-[var(--color-text-tertiary)]"
+                  aria-label="New note"
+                >
+                  <IconPlus size={16} />
+                </button>
+              </div>
+            </div>
+          )}
           <ActiveNoteEditor
             userId={userId || ""}
             isAuthenticated={isAuthenticated}
