@@ -303,13 +303,6 @@ async function verifyRecaptcha(
 
     const data = await response.json();
 
-    console.log("reCaptcha verification:", {
-      success: data.success,
-      score: data.score,
-      action: data.action,
-      hostname: data.hostname,
-      errors: data[`error-codes`],
-    });
 
     if (data.success && data.score !== undefined) {
       if (data.score < 0.7) {

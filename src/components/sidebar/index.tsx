@@ -315,11 +315,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
 
       // If there's a pending file, upload it first
       if (data.pendingFile) {
-        console.log("=== UPLOAD START ===");
-        console.log("Notebook ID:", editingNotebook.id);
-        console.log("File:", data.pendingFile.name, data.pendingFile.size, data.pendingFile.type);
         const uploadedUrl = await uploadNotebookCover(editingNotebook.id, data.pendingFile);
-        console.log("=== UPLOAD RESULT ===", uploadedUrl);
         if (uploadedUrl) {
           finalCoverType = "custom";
           finalCoverValue = uploadedUrl;
@@ -328,13 +324,11 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
         }
       }
 
-      console.log("=== SAVING NOTEBOOK ===", { name: data.name, coverType: finalCoverType, coverValue: finalCoverValue?.slice(0, 60) });
       const result = await updateNotebook(editingNotebook.id, {
         name: data.name,
         coverType: finalCoverType,
         coverValue: finalCoverValue,
       });
-      console.log("=== SAVE RESULT ===", result);
 
       if (result.success && result.notebook) {
         updateNotebookInStore(editingNotebook.id, result.notebook);
@@ -355,7 +349,6 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
 
         // If there's a pending file, upload it now
         if (data.pendingFile) {
-          console.log("Uploading pending file for new notebook:", result.notebook.id);
           const uploadedUrl = await uploadNotebookCover(result.notebook.id, data.pendingFile);
           if (uploadedUrl) {
             // Update notebook with uploaded cover
@@ -369,7 +362,6 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 coverType: "custom",
                 coverValue: uploadedUrl,
               });
-              console.log("Notebook updated with custom cover:", uploadedUrl);
             } else {
               console.error("Failed to update notebook with cover:", updateResult.error);
             }

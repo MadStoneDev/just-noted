@@ -404,7 +404,6 @@ export function useNotesSync() {
         // Schedule retry with exponential backoff
         if (isMounted.current && initRetryCount.current < INIT_RETRY_DELAYS.length) {
           const delay = INIT_RETRY_DELAYS[initRetryCount.current];
-          console.log(`Scheduling init retry ${initRetryCount.current + 1} in ${delay}ms`);
           initRetryCount.current += 1;
           initRetryTimer.current = setTimeout(() => {
             if (isMounted.current && !hasInitialisedRef.current) {
@@ -525,18 +524,15 @@ export function useNotesSync() {
       )
       .subscribe((status: string, err?: Error) => {
         if (status === "SUBSCRIBED") {
-          console.log("Realtime: subscribed to notes changes");
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           console.error("Realtime subscription error:", status, err);
           // Attempt reconnection after 5 seconds
           reconnectTimer = setTimeout(() => {
             if (isMounted.current) {
-              console.log("Realtime: attempting reconnection...");
               channel.subscribe();
             }
           }, 5000);
         } else if (status === "CLOSED") {
-          console.log("Realtime: channel closed");
         }
       });
 

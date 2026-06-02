@@ -5,7 +5,7 @@ export { Input, Textarea } from "./input";
 export { Modal, ConfirmModal } from "./modal";
 export { Badge, badgeVariants } from "./badge";
 export { Skeleton, SkeletonText, SkeletonNote } from "./skeleton";
-export { ToastProvider, useToast } from "./toast";
+export { ToastProvider as DSToastProvider, useToast as useDSToast } from "./toast";
 export { Dropdown, DropdownItem, DropdownSeparator, DropdownLabel } from "./dropdown";
 export { ScrollArea, ScrollBar } from "./scroll-area";
 export { ThemeToggle, useTheme } from "./theme-toggle";
