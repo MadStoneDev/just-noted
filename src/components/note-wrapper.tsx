@@ -23,7 +23,13 @@ import {
   IconSearch,
   IconPlus,
   IconMenu2,
+  IconDots,
+  IconUser,
+  IconInfoCircle,
+  IconMail,
 } from "@tabler/icons-react";
+import { Dropdown, DropdownItem, DropdownSeparator, DropdownLabel } from "@/components/ds/dropdown";
+import { ThemeToggle } from "@/components/ds/theme-toggle";
 
 import { CombinedNote } from "@/types/combined-notes";
 import { NotesErrorBoundary } from "@/components/error-boundary";
@@ -240,14 +246,19 @@ export default function NoteWrapper() {
           {/* Mobile top bar — shows when sidebar is collapsed */}
           {!sidebarOpen && (
             <div className="md:hidden flex items-center justify-between px-3 py-2 border-b border-[var(--color-border-secondary)]">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="p-2 rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors text-[var(--color-text-secondary)]"
-                aria-label="Open sidebar"
-              >
-                <IconMenu2 size={18} />
-              </button>
               <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="p-2 rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors text-[var(--color-text-secondary)]"
+                  aria-label="Open sidebar"
+                >
+                  <IconMenu2 size={18} />
+                </button>
+                <span className="text-xs font-semibold text-[var(--color-text-primary)]">
+                  <span className="text-[var(--color-accent)]">Just</span>Noted
+                </span>
+              </div>
+              <div className="flex items-center gap-0.5">
                 <button
                   onClick={() => setShowSearch(true)}
                   className="p-2 rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors text-[var(--color-text-tertiary)]"
@@ -262,6 +273,28 @@ export default function NoteWrapper() {
                 >
                   <IconPlus size={16} />
                 </button>
+                <Dropdown
+                  trigger={
+                    <button className="p-2 rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors text-[var(--color-text-tertiary)]" aria-label="Menu">
+                      <IconDots size={16} />
+                    </button>
+                  }
+                  placement="bottom-end"
+                >
+                  <DropdownItem icon={<IconInfoCircle size={14} />} onClick={() => window.location.href = "/welcome"}>
+                    About
+                  </DropdownItem>
+                  <DropdownItem icon={<IconMail size={14} />} onClick={() => window.location.href = "/contact"}>
+                    Contact
+                  </DropdownItem>
+                  <DropdownItem icon={<IconUser size={14} />} onClick={() => window.location.href = "/profile"}>
+                    Profile
+                  </DropdownItem>
+                  <DropdownSeparator />
+                  <div className="px-3 py-2">
+                    <ThemeToggle />
+                  </div>
+                </Dropdown>
               </div>
             </div>
           )}
