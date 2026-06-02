@@ -474,9 +474,9 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
     }
   }, [editingNotebook, removeNotebook, recalculateNotebookCounts]);
 
-  // Strip HTML tags for preview - uses shared utility
-  const getPreview = (html: string, maxLength = 60) => {
-    return getPlainTextPreviewUtil(html, maxLength);
+  const getPreview = (content: string, maxLength = 60) => {
+    const isHtml = /<[a-z][\s\S]*>/i.test(content);
+    return getPlainTextPreviewUtil(content, maxLength, isHtml ? "html" : "markdown");
   };
 
   return (

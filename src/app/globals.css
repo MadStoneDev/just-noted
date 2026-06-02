@@ -346,7 +346,8 @@ summary {
   font-size: 1.875rem;
   font-weight: 700;
   line-height: 1.3;
-  margin: 1.5rem 0 0.75rem;
+  margin: 2.5rem 0 0.75rem;
+  padding-top: 0.5rem;
   color: var(--color-text-primary);
 }
 
@@ -354,7 +355,8 @@ summary {
   font-size: 1.5rem;
   font-weight: 650;
   line-height: 1.35;
-  margin: 1.25rem 0 0.5rem;
+  margin: 2rem 0 0.5rem;
+  padding-top: 0.25rem;
   color: var(--color-text-primary);
 }
 
@@ -362,7 +364,7 @@ summary {
   font-size: 1.25rem;
   font-weight: 600;
   line-height: 1.4;
-  margin: 1rem 0 0.5rem;
+  margin: 1.75rem 0 0.5rem;
   color: var(--color-text-primary);
 }
 
@@ -370,8 +372,14 @@ summary {
   font-size: 1.1rem;
   font-weight: 600;
   line-height: 1.4;
-  margin: 0.75rem 0 0.25rem;
+  margin: 1.5rem 0 0.25rem;
   color: var(--color-text-primary);
+}
+
+/* First heading in doc — no extra top margin */
+.milkdown :is(h1, h2, h3, h4, h5, h6):first-child {
+  margin-top: 0;
+  padding-top: 0;
 }
 
 .milkdown p {

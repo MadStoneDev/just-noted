@@ -31,7 +31,7 @@ export function Dropdown({
 }: DropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const { refs, floatingStyles, context } = useFloating({
+  const { refs, floatingStyles, context, isPositioned } = useFloating({
     open: isOpen,
     onOpenChange: setIsOpen,
     placement,
@@ -62,7 +62,8 @@ export function Dropdown({
             style={floatingStyles}
             {...getFloatingProps()}
             className={cn(
-              "z-50 min-w-[180px] py-1 bg-[var(--color-bg-elevated)] border border-[var(--color-border-primary)] rounded-[var(--radius-lg)] shadow-lg animate-scale-in",
+              "z-50 min-w-[180px] py-1 bg-[var(--color-bg-elevated)] border border-[var(--color-border-primary)] rounded-[var(--radius-lg)] shadow-lg transition-opacity duration-[var(--duration-fast)]",
+              isPositioned ? "opacity-100" : "opacity-0",
               className,
             )}
           >

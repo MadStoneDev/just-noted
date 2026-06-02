@@ -23,21 +23,21 @@ export function stripHtmlToText(html: string): string {
  */
 export function stripMarkdownToText(markdown: string): string {
   return markdown
+    .replace(/`{3}[\s\S]*?`{3}/g, " ")     // code blocks (first, before inline)
     .replace(/^#{1,6}\s+/gm, "")           // headings
-    .replace(/\*\*(.+?)\*\*/g, "$1")        // bold
-    .replace(/\*(.+?)\*/g, "$1")            // italic
-    .replace(/~~(.+?)~~/g, "$1")            // strikethrough
-    .replace(/==(.+?)==/g, "$1")            // highlight
-    .replace(/`{3}[\s\S]*?`{3}/g, " ")     // code blocks
-    .replace(/`(.+?)`/g, "$1")              // inline code
-    .replace(/\[(.+?)\]\(.*?\)/g, "$1")     // links
-    .replace(/!\[.*?\]\(.*?\)/g, " ")       // images
-    .replace(/^>\s+/gm, "")                 // blockquotes
-    .replace(/^[-*+]\s+/gm, "")             // unordered list markers
-    .replace(/^\d+\.\s+/gm, "")             // ordered list markers
-    .replace(/^- \[[ x]\]\s*/gm, "")        // task list markers
-    .replace(/---+/g, " ")                  // horizontal rules
-    .replace(/<\/?[^>]+>/g, "")             // remaining HTML tags
+    .replace(/^[-*]\s*\[[ x]\]\s*/gm, "")  // task list markers
+    .replace(/^[-*+]\s+/gm, "")            // unordered list markers
+    .replace(/^\d+\.\s+/gm, "")            // ordered list markers
+    .replace(/^>\s+/gm, "")                // blockquotes
+    .replace(/---+/g, " ")                 // horizontal rules
+    .replace(/!\[.*?\]\(.*?\)/g, " ")      // images
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // links
+    .replace(/\*\*([^*]*)\*\*/g, "$1")     // bold
+    .replace(/\*([^*]*)\*/g, "$1")         // italic
+    .replace(/~~([^~]*)~~/g, "$1")         // strikethrough
+    .replace(/==([^=]*)==/g, "$1")         // highlight
+    .replace(/`([^`]*)`/g, "$1")           // inline code
+    .replace(/<\/?[^>]+>/g, "")            // remaining HTML tags
     .replace(/\s+/g, " ")
     .trim();
 }
