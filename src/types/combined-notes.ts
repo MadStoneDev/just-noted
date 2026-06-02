@@ -20,6 +20,7 @@ export interface CombinedNote {
   source: NoteSource;
   notebookId?: string | null;
   contentFormat: ContentFormat;
+  deletedAt?: number | null;
 }
 
 // Redis note format (matches your current Redis structure)

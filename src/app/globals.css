@@ -368,8 +368,12 @@ summary {
 }
 
 .milkdown p {
-  margin: 0.5rem 0;
-  line-height: 1.7;
+  margin: 0.75rem 0;
+  line-height: 1.75;
+}
+
+.milkdown p + p {
+  margin-top: 1rem;
 }
 
 .milkdown strong {

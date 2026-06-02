@@ -60,6 +60,8 @@ interface NotesStore {
   searchQuery: string;
   filterSource: "all" | "local" | "cloud";
   filterPinned: "all" | "pinned" | "unpinned";
+  sortBy: "manual" | "edited" | "created" | "title" | "notebook";
+  setSortBy: (sort: NotesStore["sortBy"]) => void;
 
   // ========== Undo Delete ==========
   recentlyDeleted: DeletedNote | null;
@@ -195,6 +197,11 @@ export const useNotesStore = create<NotesStore>()(
     searchQuery: "",
     filterSource: "all",
     filterPinned: "all",
+    sortBy: (typeof window !== "undefined" && localStorage.getItem("justnoted_sort") as any) || "manual",
+    setSortBy: (sort) => {
+      localStorage.setItem("justnoted_sort", sort);
+      set({ sortBy: sort });
+    },
 
     // ========== Initial Undo State ==========
     recentlyDeleted: null,
@@ -503,7 +510,8 @@ export const useNotesStore = create<NotesStore>()(
     getFilteredNotes: () => {
       const { notes, searchQuery, filterSource, filterPinned, activeNotebookId } = get();
 
-      let filtered = [...notes];
+      // Exclude trashed notes from main view
+      let filtered = notes.filter((n) => !n.deletedAt);
 
       // Filter by notebook (only applies to Supabase notes)
       // null = "All Notes" (no filtering)
@@ -544,7 +552,28 @@ export const useNotesStore = create<NotesStore>()(
         );
       }
 
-      return sortNotes(filtered, null);
+      const { sortBy } = get();
+
+      if (sortBy === "edited") {
+        filtered.sort((a, b) => b.updatedAt - a.updatedAt);
+      } else if (sortBy === "created") {
+        filtered.sort((a, b) => b.createdAt - a.createdAt);
+      } else if (sortBy === "title") {
+        filtered.sort((a, b) => a.title.localeCompare(b.title));
+      } else if (sortBy === "notebook") {
+        filtered.sort((a, b) => {
+          const aName = a.notebookId || "zzz";
+          const bName = b.notebookId || "zzz";
+          return aName.localeCompare(bName);
+        });
+      } else {
+        return sortNotes(filtered, null);
+      }
+
+      // Always keep pinned at top regardless of sort
+      const pinned = filtered.filter((n) => n.isPinned);
+      const unpinned = filtered.filter((n) => !n.isPinned);
+      return [...pinned, ...unpinned];
     },
   }))
 );

@@ -69,6 +69,8 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
     filterPinned,
     setFilterPinned,
     clearFilters,
+    sortBy,
+    setSortBy,
     activeNoteId,
     setActiveNoteId,
     getFilteredNotes,
@@ -491,15 +493,33 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
           <div className="px-3 py-3 border-b border-[var(--color-border-secondary)] space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider">Filters</span>
-              {hasActiveFilters && (
-                <button
-                  onClick={clearFilters}
-                  className="text-xs text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] flex items-center gap-1 transition-colors"
-                >
-                  <IconFilterOff size={12} />
-                  Clear
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {hasActiveFilters && (
+                  <button
+                    onClick={clearFilters}
+                    className="text-xs text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] flex items-center gap-1 transition-colors"
+                  >
+                    <IconFilterOff size={12} />
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Sort */}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-[var(--color-text-tertiary)]">Sort:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="text-[10px] bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] rounded-[var(--radius-sm)] border-none px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+              >
+                <option value="manual">Manual</option>
+                <option value="edited">Last Edited</option>
+                <option value="created">Date Created</option>
+                <option value="title">Title A-Z</option>
+                <option value="notebook">Notebook</option>
+              </select>
             </div>
 
             {/* Source filter */}
@@ -766,9 +786,22 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
 
           {/* Footer */}
           {!selectMode && (
-            <div className="px-3 py-3 border-t border-[var(--color-border-secondary)] text-center text-[10px] text-[var(--color-text-tertiary)] tracking-wide">
-              {notes.length} note{notes.length !== 1 ? "s" : ""}
-              {hasActiveFilters && ` · ${filteredNotes.length} shown`}
+            <div className="px-3 py-2.5 border-t border-[var(--color-border-secondary)] flex items-center justify-between text-[10px] text-[var(--color-text-tertiary)]">
+              <span>
+                {notes.length} note{notes.length !== 1 ? "s" : ""}
+                {hasActiveFilters && ` · ${filteredNotes.length} shown`}
+              </span>
+              <button
+                onClick={() => {
+                  import("@/utils/export-notes").then(({ exportAsMarkdownZip }) => {
+                    exportAsMarkdownZip(notes);
+                  });
+                }}
+                className="hover:text-[var(--color-text-secondary)] transition-colors"
+                title="Export all notes"
+              >
+                Export
+              </button>
             </div>
           )}
         </div>
