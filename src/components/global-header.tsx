@@ -29,7 +29,7 @@ export default function GlobalHeader({ user }: GlobalHeaderProps) {
   ];
 
   return (
-    <header className="fixed w-full z-50 print:hidden">
+    <header className="hidden md:block fixed w-full z-50 print:hidden">
       <nav
         className="px-4 md:px-6 flex items-center justify-between w-full h-14 bg-[var(--color-bg-primary)]/80 backdrop-blur-xl border-b border-[var(--color-border-secondary)]"
       >
