@@ -37,6 +37,20 @@ import {
 import { Dropdown, DropdownItem, DropdownSeparator, DropdownLabel } from "@/components/ds/dropdown";
 import { ConfirmModal } from "@/components/ds/modal";
 
+function relativeTime(timestamp: number): string {
+  const now = Date.now();
+  const diff = now - timestamp;
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  if (days < 30) return `${Math.floor(days / 7)}w ago`;
+  return new Date(timestamp).toLocaleDateString("en-AU", { month: "short", day: "numeric" });
+}
+
 interface SidebarProps {
   onNoteClick?: (noteId: string) => void;
   onBulkDelete?: (noteIds: string[]) => void;
@@ -676,6 +690,9 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                           })()}
                           <p className="text-[11px] text-[var(--color-text-tertiary)] truncate mt-0.5 leading-relaxed">
                             {getPreview(note.content) || "Empty note"}
+                          </p>
+                          <p className="text-[9px] text-[var(--color-text-tertiary)] opacity-50 mt-0.5">
+                            {relativeTime(note.updatedAt)}
                           </p>
                         </div>
                         {/* Actions menu */}

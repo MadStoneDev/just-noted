@@ -4,6 +4,7 @@ import React, { useState, useCallback, useMemo } from "react";
 
 import Sidebar from "@/components/sidebar";
 import ActiveNoteEditor from "@/components/active-note-editor";
+import SearchModal from "@/components/search-modal";
 import DistractionFreeNoteBlock from "@/components/distraction-free-note-block";
 import SplitViewNoteBlock from "@/components/split-view-note-block";
 import NotebookBreadcrumb from "@/components/notebook-breadcrumb";
@@ -78,6 +79,7 @@ export default function NoteWrapper() {
 
   // Notebook modal
   const [showNotebookModal, setShowNotebookModal] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
 
   const handleShowDistractionFree = useCallback((note: CombinedNote) => {
     setActiveNote(note);
@@ -179,7 +181,7 @@ export default function NoteWrapper() {
         if (note) handleShowSplitView(note);
       }
     },
-    onSearch: () => setSidebarOpen(true),
+    onSearch: () => setShowSearch(true),
   });
 
   const widthButtonIcon = useMemo(
@@ -338,6 +340,7 @@ export default function NoteWrapper() {
 
       <UndoDeleteToast />
       <OfflineIndicator />
+      <SearchModal open={showSearch} onClose={() => setShowSearch(false)} />
 
       <NotebookModal
         isOpen={showNotebookModal}

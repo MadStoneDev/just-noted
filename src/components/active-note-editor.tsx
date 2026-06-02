@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useCallback, useState, useRef, useEffect, useMemo } from "react";
+
+const LAST_NOTE_KEY = "justnoted_last_note";
 import LazyTextBlock from "@/components/lazy-text-block";
 import { useNotesStore, useNotebooks } from "@/stores/notes-store";
 import { useAutoSave } from "@/hooks/use-auto-save";
@@ -52,6 +54,26 @@ export default function ActiveNoteEditor({
   onOpenSplitView,
 }: ActiveNoteEditorProps) {
   const { activeNoteId, notes, setActiveNoteId } = useNotesStore();
+
+  // Auto-select: restore last opened note, or pick most recent
+  useEffect(() => {
+    if (activeNoteId || notes.length === 0) return;
+
+    const lastId = localStorage.getItem(LAST_NOTE_KEY);
+    if (lastId && notes.find((n) => n.id === lastId)) {
+      setActiveNoteId(lastId);
+    } else {
+      setActiveNoteId(notes[0].id);
+    }
+  }, [activeNoteId, notes, setActiveNoteId]);
+
+  // Persist active note to localStorage
+  useEffect(() => {
+    if (activeNoteId) {
+      localStorage.setItem(LAST_NOTE_KEY, activeNoteId);
+    }
+  }, [activeNoteId]);
+
   const note = useMemo(
     () => notes.find((n) => n.id === activeNoteId) || null,
     [notes, activeNoteId],

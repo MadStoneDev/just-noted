@@ -71,19 +71,26 @@ export function useKeyboardShortcuts({
           onToggleSplitView?.();
           return;
         }
-      }
 
-      // Shortcuts that only work when NOT typing
-      if (!isTyping && isCtrlOrCmd) {
-        // Ctrl/Cmd + N - New note
+        // Ctrl/Cmd + N - New note (works even while typing)
         if (e.key === "n" || e.key === "N") {
           e.preventDefault();
           onNewNote?.();
           return;
         }
 
-        // Ctrl/Cmd + K or Ctrl/Cmd + / - Open search/sidebar
-        if (e.key === "k" || e.key === "K" || e.key === "/") {
+        // Ctrl/Cmd + K - Global search (works even while typing)
+        if (e.key === "k" || e.key === "K") {
+          e.preventDefault();
+          onSearch?.();
+          return;
+        }
+      }
+
+      // Shortcuts that only work when NOT typing
+      if (!isTyping && isCtrlOrCmd) {
+        // Ctrl/Cmd + / - Open search/sidebar
+        if (e.key === "/") {
           e.preventDefault();
           toggleSidebar();
           onSearch?.();
