@@ -10,7 +10,7 @@ import {
   deleteNotebook,
   getNotebookNoteCounts,
 } from "@/app/actions/notebookActions";
-import { createClient } from "@/utils/supabase/client";
+import { uploadNotebookCover } from "@/utils/storage/cover-upload";
 import NotebookSwitcher from "@/components/notebook-switcher";
 import NotebookModal from "@/components/notebook-modal";
 import { NotebookCoverHeader } from "@/components/notebook-breadcrumb";
@@ -301,84 +301,6 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
     }
   }, [removeNotebook, recalculateNotebookCounts]);
 
-  const uploadCoverFile = async (notebookId: string, file: File): Promise<string | null> => {
-    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 15000));
-    const upload = async (): Promise<string | null> => {
-    try {
-      const supabase = createClient();
-
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError) {
-        console.error("Auth error:", authError);
-        return null;
-      }
-      if (!user) {
-        console.error("User not authenticated");
-        return null;
-      }
-
-      const userId = user.id;
-      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const filePath = `${userId}/${notebookId}-${Date.now()}.${ext}`;
-
-      console.log("Uploading cover to:", filePath, "File size:", file.size, "Type:", file.type);
-
-      // Delete any existing cover for this notebook first
-      const { data: existingFiles, error: listError } = await supabase.storage
-        .from("notebook-covers")
-        .list(userId, { search: notebookId });
-
-      if (listError) {
-        console.error("Error listing existing files:", listError);
-        // Continue with upload even if list fails
-      }
-
-      if (existingFiles && existingFiles.length > 0) {
-        const filesToDelete = existingFiles.map((f: { name: string }) => `${userId}/${f.name}`);
-        console.log("Deleting existing files:", filesToDelete);
-        const { error: deleteError } = await supabase.storage.from("notebook-covers").remove(filesToDelete);
-        if (deleteError) {
-          console.error("Error deleting existing files:", deleteError);
-          // Continue with upload even if delete fails
-        }
-      }
-
-      // Convert File to ArrayBuffer to avoid TransformStream issues in Next.js
-      const arrayBuffer = await file.arrayBuffer();
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("notebook-covers")
-        .upload(filePath, arrayBuffer, {
-          cacheControl: "3600",
-          upsert: true,
-          contentType: file.type,
-        });
-
-      if (uploadError) {
-        console.error("Storage upload error:", uploadError.message);
-        console.error("Upload error statusCode:", (uploadError as any).statusCode);
-        console.error("Upload error full:", JSON.stringify(uploadError, null, 2));
-        console.error("Bucket: notebook-covers, Path:", filePath, "Size:", file.size, "Type:", file.type);
-        return null;
-      }
-
-      console.log("Upload successful:", uploadData);
-
-      // Get the public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from("notebook-covers")
-        .getPublicUrl(filePath);
-
-      console.log("Public URL:", publicUrl);
-
-      return publicUrl;
-    } catch (error) {
-      console.error("Upload error:", error);
-      return null;
-    }
-    };
-    return Promise.race([upload(), timeout]);
-  };
 
   const handleSaveNotebook = useCallback(async (data: {
     name: string;
@@ -396,7 +318,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
         console.log("=== UPLOAD START ===");
         console.log("Notebook ID:", editingNotebook.id);
         console.log("File:", data.pendingFile.name, data.pendingFile.size, data.pendingFile.type);
-        const uploadedUrl = await uploadCoverFile(editingNotebook.id, data.pendingFile);
+        const uploadedUrl = await uploadNotebookCover(editingNotebook.id, data.pendingFile);
         console.log("=== UPLOAD RESULT ===", uploadedUrl);
         if (uploadedUrl) {
           finalCoverType = "custom";
@@ -434,7 +356,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
         // If there's a pending file, upload it now
         if (data.pendingFile) {
           console.log("Uploading pending file for new notebook:", result.notebook.id);
-          const uploadedUrl = await uploadCoverFile(result.notebook.id, data.pendingFile);
+          const uploadedUrl = await uploadNotebookCover(result.notebook.id, data.pendingFile);
           if (uploadedUrl) {
             // Update notebook with uploaded cover
             const updateResult = await updateNotebook(result.notebook.id, {

@@ -11,7 +11,7 @@ import NotebookModal from "@/components/notebook-modal";
 import UndoDeleteToast from "@/components/ui/undo-toast";
 import OfflineIndicator from "@/components/ui/offline-indicator";
 import { updateNotebook, deleteNotebook } from "@/app/actions/notebookActions";
-import { createClient } from "@/utils/supabase/client";
+import { uploadNotebookCover } from "@/utils/storage/cover-upload";
 import { CoverType } from "@/types/notebook";
 
 import {
@@ -113,42 +113,6 @@ export default function NoteWrapper() {
     });
   }, [noteFlushFunctions]);
 
-  // Cover upload helper
-  const uploadCoverFile = async (notebookId: string, file: File): Promise<string | null> => {
-    try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-
-      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const filePath = `${user.id}/${notebookId}-${Date.now()}.${ext}`;
-
-      const { data: existingFiles } = await supabase.storage
-        .from("notebook-covers")
-        .list(user.id, { search: notebookId });
-
-      if (existingFiles && existingFiles.length > 0) {
-        await supabase.storage
-          .from("notebook-covers")
-          .remove(existingFiles.map((f: { name: string }) => `${user.id}/${f.name}`));
-      }
-
-      const arrayBuffer = await file.arrayBuffer();
-      const { error: uploadError } = await supabase.storage
-        .from("notebook-covers")
-        .upload(filePath, arrayBuffer, { cacheControl: "3600", upsert: true, contentType: file.type });
-
-      if (uploadError) return null;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from("notebook-covers")
-        .getPublicUrl(filePath);
-
-      return publicUrl;
-    } catch {
-      return null;
-    }
-  };
 
   const handleSaveNotebook = useCallback(async (data: {
     name: string;
@@ -162,7 +126,7 @@ export default function NoteWrapper() {
     let finalCoverValue = data.coverValue;
 
     if (data.pendingFile) {
-      const uploadedUrl = await uploadCoverFile(activeNotebook.id, data.pendingFile);
+      const uploadedUrl = await uploadNotebookCover(activeNotebook.id, data.pendingFile);
       if (uploadedUrl) {
         finalCoverType = "custom";
         finalCoverValue = uploadedUrl;
