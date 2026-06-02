@@ -7,7 +7,6 @@ import ActiveNoteEditor from "@/components/active-note-editor";
 import SearchModal from "@/components/search-modal";
 import TrashView from "@/components/trash-view";
 import DistractionFreeNoteBlock from "@/components/distraction-free-note-block";
-import SplitViewNoteBlock from "@/components/split-view-note-block";
 import NotebookBreadcrumb from "@/components/notebook-breadcrumb";
 import NotebookModal from "@/components/notebook-modal";
 import UndoDeleteToast from "@/components/ui/undo-toast";
@@ -73,10 +72,6 @@ export default function NoteWrapper() {
   const [showDistractionFree, setShowDistractionFree] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
 
-  // Split view mode
-  const [splitViewNote, setSplitViewNote] = useState<CombinedNote | null>(null);
-  const [showSplitView, setShowSplitView] = useState(false);
-  const [isSplitAnimating, setIsSplitAnimating] = useState(false);
 
   // Notebook modal
   const [showNotebookModal, setShowNotebookModal] = useState(false);
@@ -97,19 +92,6 @@ export default function NoteWrapper() {
     }, 300);
   }, []);
 
-  const handleShowSplitView = useCallback((note: CombinedNote) => {
-    setSplitViewNote(note);
-    setShowSplitView(true);
-    requestAnimationFrame(() => setIsSplitAnimating(true));
-  }, []);
-
-  const handleHideSplitView = useCallback(() => {
-    setIsSplitAnimating(false);
-    setTimeout(() => {
-      setShowSplitView(false);
-      setSplitViewNote(null);
-    }, 300);
-  }, []);
 
   const handleForceSave = useCallback(() => {
     noteFlushFunctions.current.forEach((flushFn) => {
@@ -175,14 +157,7 @@ export default function NoteWrapper() {
         if (note) handleShowDistractionFree(note);
       }
     },
-    onToggleSplitView: () => {
-      if (showSplitView) {
-        handleHideSplitView();
-      } else if (activeNoteId) {
-        const note = notes.find((n) => n.id === activeNoteId);
-        if (note) handleShowSplitView(note);
-      }
-    },
+    onToggleSplitView: undefined,
     onSearch: () => setShowSearch(true),
   });
 
@@ -267,7 +242,6 @@ export default function NoteWrapper() {
             notesOperations={notesOperations}
             registerNoteFlush={registerNoteFlush}
             unregisterNoteFlush={unregisterNoteFlush}
-            onOpenSplitView={handleShowSplitView}
           />
         </main>
       </div>
@@ -311,36 +285,6 @@ export default function NoteWrapper() {
       )}
 
       {/* Split view */}
-      {showSplitView && (
-        <section
-          className={`fixed inset-0 z-50 transition-opacity duration-300 ease-in-out ${
-            isSplitAnimating ? "opacity-100" : "opacity-0"
-          }`}
-        >
-          <div className="absolute inset-0 bg-[var(--color-bg-overlay)]" onClick={handleHideSplitView} />
-          <article className="absolute inset-4 sm:inset-8 p-2 pb-16 rounded-[var(--radius-xl)] bg-[var(--color-bg-secondary)] overflow-hidden">
-            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex justify-center items-center gap-2 w-full z-10">
-              <button
-                className="cursor-pointer px-3 py-2 flex items-center gap-2 rounded-full bg-[var(--color-bg-elevated)]/90 hover:bg-[var(--color-bg-elevated)] shadow-[var(--shadow-lg)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] text-sm transition-all duration-[var(--duration-fast)]"
-                onClick={handleHideSplitView}
-              >
-                <IconArrowsMinimize size={16} strokeWidth={2} />
-                <span className="hidden sm:block">Exit Split View</span>
-              </button>
-            </div>
-            <div className="h-full overflow-hidden">
-              <SplitViewNoteBlock
-                note={splitViewNote}
-                userId={userId || ""}
-                isAuthenticated={isAuthenticated}
-                notesOperations={notesOperations}
-                registerNoteFlush={registerNoteFlush}
-                unregisterNoteFlush={unregisterNoteFlush}
-              />
-            </div>
-          </article>
-        </section>
-      )}
 
       <UndoDeleteToast />
       <OfflineIndicator />
