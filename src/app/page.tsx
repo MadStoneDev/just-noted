@@ -12,7 +12,7 @@ export default async function Home() {
 
   return (
     <>
-      <GlobalHeader user={user} />
+      <GlobalHeader user={user} hideOnMobile />
       <NoteWrapper />
     </>
   );

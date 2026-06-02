@@ -180,7 +180,7 @@ export default function NoteWrapper() {
       <SkipLinks />
 
       {/* Two-panel layout: rail + sidebar + editor */}
-      <div className="flex h-dvh md:h-[calc(100dvh-56px)]">
+      <div className="flex h-[calc(100dvh-56px)]">
         {/* Collapsed rail — visible on desktop when sidebar is closed */}
         <div
           className={`hidden md:flex flex-col items-center py-3 gap-1.5 bg-[var(--color-bg-secondary)] border-r border-[var(--color-border-secondary)] flex-shrink-0 transition-all duration-[var(--duration-slow)] ${
