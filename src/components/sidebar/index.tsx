@@ -321,6 +321,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
     coverType: CoverType;
     coverValue: string;
     pendingFile?: File | null;
+    wordGoal?: number;
   }) => {
     if (editingNotebook) {
       // Update existing notebook
@@ -342,6 +343,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
         name: data.name,
         coverType: finalCoverType,
         coverValue: finalCoverValue,
+        wordGoal: data.wordGoal,
       });
 
       if (result.success && result.notebook) {

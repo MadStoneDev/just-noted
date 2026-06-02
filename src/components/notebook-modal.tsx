@@ -14,7 +14,8 @@ interface NotebookModalProps {
     name: string;
     coverType: CoverType;
     coverValue: string;
-    pendingFile?: File | null; // File to upload after save
+    pendingFile?: File | null;
+    wordGoal?: number;
   }) => Promise<void>;
   onDelete?: () => Promise<void>;
 }
@@ -30,6 +31,7 @@ export default function NotebookModal({
   const [coverType, setCoverType] = useState<CoverType>(DEFAULT_COVER_TYPE);
   const [coverValue, setCoverValue] = useState(DEFAULT_COVER_VALUE);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [wordGoal, setWordGoal] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,8 +46,10 @@ export default function NotebookModal({
         setName(notebook.name);
         setCoverType(notebook.coverType);
         setCoverValue(notebook.coverValue);
+        setWordGoal(notebook.wordGoal || 0);
       } else {
         setName("");
+        setWordGoal(0);
         setCoverType(DEFAULT_COVER_TYPE);
         setCoverValue(DEFAULT_COVER_VALUE);
       }
@@ -90,6 +94,7 @@ export default function NotebookModal({
         coverType,
         coverValue,
         pendingFile: pendingFile,
+        wordGoal,
       });
       onClose();
     } catch (err) {
@@ -174,6 +179,23 @@ export default function NotebookModal({
                   placeholder="My Notebook"
                   className="w-full px-3 py-2 border border-[var(--color-border-primary)] rounded-[var(--radius-lg)] focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
                   autoFocus
+                  disabled={isSaving || isDeleting}
+                />
+              </div>
+
+              {/* Word goal */}
+              <div>
+                <label htmlFor="word-goal" className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+                  Word Goal <span className="text-[var(--color-text-tertiary)] font-normal">(optional)</span>
+                </label>
+                <input
+                  id="word-goal"
+                  type="number"
+                  min={0}
+                  value={wordGoal || ""}
+                  onChange={(e) => setWordGoal(parseInt(e.target.value) || 0)}
+                  placeholder="e.g. 50000"
+                  className="w-full px-3 py-2 border border-[var(--color-border-primary)] rounded-[var(--radius-lg)] focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)] text-sm"
                   disabled={isSaving || isDeleting}
                 />
               </div>

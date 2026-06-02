@@ -45,6 +45,16 @@ export default function NotebookSwitcher({
     setNotebooks,
   } = useNotesStore();
 
+  const getNotebookWordCount = (notebookId: string) => {
+    return notes
+      .filter((n) => n.notebookId === notebookId)
+      .reduce((total, n) => {
+        const text = (n.content || "").replace(/<[^>]*>/g, " ").replace(/[#*_~`>\-\[\]]/g, " ");
+        const words = text.split(/\s+/).filter(Boolean);
+        return total + words.length;
+      }, 0);
+  };
+
   const totalNotesCount = notes.filter((n) => n.source === "supabase").length;
 
   useEffect(() => {
@@ -180,6 +190,18 @@ export default function NotebookSwitcher({
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-xs text-[var(--color-text-primary)] truncate">{notebook.name}</span>
                     <span className="text-[10px] text-[var(--color-text-tertiary)]">{notebookCounts[notebook.id] || 0}</span>
+                    {notebook.wordGoal > 0 && (() => {
+                      const wc = getNotebookWordCount(notebook.id);
+                      const pct = Math.min(100, Math.round((wc / notebook.wordGoal) * 100));
+                      return (
+                        <span className="flex items-center gap-1 text-[9px] text-[var(--color-text-tertiary)]" title={`${wc.toLocaleString()} / ${notebook.wordGoal.toLocaleString()} words`}>
+                          <span className="inline-block w-6 h-1 rounded-full bg-[var(--color-border-primary)] overflow-hidden">
+                            <span className="block h-full rounded-full bg-[var(--color-accent)]" style={{ width: `${pct}%` }} />
+                          </span>
+                          {pct}%
+                        </span>
+                      );
+                    })()}
                   </div>
                   {activeNotebookId === notebook.id && <IconCheck size={12} className="text-[var(--color-accent)] flex-shrink-0" />}
                 </button>

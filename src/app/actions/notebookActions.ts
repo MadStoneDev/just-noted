@@ -212,6 +212,10 @@ export async function updateNotebook(
       updateData.display_order = updates.displayOrder;
     }
 
+    if (updates.wordGoal !== undefined) {
+      updateData.word_goal = updates.wordGoal;
+    }
+
     const { data, error } = await supabase
       .from("notebooks")
       .update(updateData)
