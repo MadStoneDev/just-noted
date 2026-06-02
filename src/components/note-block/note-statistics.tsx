@@ -68,7 +68,7 @@ export default function NoteStatistics({
   };
 
   const hasNotebookCover = !!notebook;
-  const baseClasses = "p-3 col-span-12 md:col-span-4 lg:col-span-3 3xl:col-span-2 grid grid-cols-4 sm:flex sm:flex-col justify-start gap-3 rounded-xl relative overflow-hidden";
+  const baseClasses = "p-3 col-span-12 md:col-span-4 lg:col-span-3 3xl:col-span-2 grid grid-cols-4 sm:flex sm:flex-col justify-start gap-3 rounded-[var(--radius-xl)] relative overflow-hidden";
 
   return (
     <div
@@ -77,13 +77,13 @@ export default function NoteStatistics({
           ? ""
           : isPrivate
             ? "bg-violet-100/50"
-            : "bg-neutral-100"
+            : "bg-[var(--color-bg-tertiary)]"
       }`}
       style={getBackgroundStyle()}
     >
       {/* Overlay for readability when notebook cover is applied */}
       {hasNotebookCover && (
-        <div className="absolute inset-0 bg-black/30 pointer-events-none" />
+        <div className="absolute inset-0 bg-[var(--color-bg-overlay)] pointer-events-none" />
       )}
 
       {/* Content wrapper for z-index */}
@@ -91,11 +91,11 @@ export default function NoteStatistics({
         {/* In Notebook indicator */}
         {notebook && (
           <>
-            <div className={`col-span-4 flex flex-col items-center gap-1 py-2 rounded-lg ${
-              hasNotebookCover ? "bg-neutral-900/50" : ""
+            <div className={`col-span-4 flex flex-col items-center gap-1 py-2 rounded-[var(--radius-lg)] ${
+              hasNotebookCover ? "bg-[var(--color-bg-overlay)]" : ""
             }`}>
               <div className={`flex items-center gap-1.5 text-xs uppercase tracking-wide ${
-                hasNotebookCover ? "text-neutral-200" : "opacity-80"
+                hasNotebookCover ? "text-[var(--color-text-tertiary)]" : "opacity-80"
               }`}>
                 <IconNotebook size={14} />
                 <span>In Notebook</span>
@@ -106,7 +106,7 @@ export default function NoteStatistics({
             </div>
 
             {/* Divider */}
-            <div className={`col-span-4 h-px ${hasNotebookCover ? "bg-white/30" : isPrivate ? "bg-violet-200" : "bg-neutral-200"}`} />
+            <div className={`col-span-4 h-px ${hasNotebookCover ? "bg-[var(--color-bg-primary)]/30" : isPrivate ? "bg-violet-200" : "bg-[var(--color-bg-tertiary)]"}`} />
           </>
         )}
 
@@ -114,15 +114,15 @@ export default function NoteStatistics({
         <TocCard isPrivate={isPrivate} noteContent={noteContent} onScrollToHeading={onScrollToHeading} hasNotebookCover={hasNotebookCover} />
 
         {/* Divider */}
-        <div className={`col-span-4 h-px ${hasNotebookCover ? "bg-white/30" : isPrivate ? "bg-violet-200" : "bg-neutral-200"}`} />
+        <div className={`col-span-4 h-px ${hasNotebookCover ? "bg-[var(--color-bg-primary)]/30" : isPrivate ? "bg-violet-200" : "bg-[var(--color-bg-tertiary)]"}`} />
 
         {/* Stats row - word count, char count, reading time */}
-        <div className={`col-span-4 flex flex-col lg:flex-row items-center rounded-xl ${
+        <div className={`col-span-4 flex flex-col lg:flex-row items-center rounded-[var(--radius-xl)] ${
           hasNotebookCover
-            ? "bg-neutral-900/50"
+            ? "bg-[var(--color-bg-overlay)]"
             : isPrivate
               ? "bg-violet-50"
-              : "bg-white"
+              : "bg-[var(--color-bg-primary)]"
         }`}>
           <StatCard label="words" value={wordCount} isPrivate={isPrivate} hasNotebookCover={hasNotebookCover} />
           <StatCard label="chars" value={charCount} isPrivate={isPrivate} hasNotebookCover={hasNotebookCover} />

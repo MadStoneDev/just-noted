@@ -65,7 +65,7 @@ export default function ContactForm() {
     <div className={`mt-8 mx-auto max-w-lg`}>
       {success ? (
         <div
-          className={`my-6 p-4 bg-mercedes-primary/10 text-mercedes-primary rounded mb-4`}
+          className={`my-6 p-4 bg-[var(--color-accent)]/10 text-[var(--color-accent)] rounded mb-4`}
         >
           Thank you for your message! We'll get back to you soon.
         </div>
@@ -76,7 +76,7 @@ export default function ContactForm() {
             name="name"
             value={formData.name}
             onChange={handleChange}
-            className={`p-3 bg-neutral-100/70 focus:bg-neutral-50 focus:outline-none transition-all duration-300 ease-in-out`}
+            className={`p-3 bg-[var(--color-bg-tertiary)]/70 focus:bg-[var(--color-bg-secondary)] focus:outline-none transition-all duration-300 ease-in-out`}
             placeholder={`Name (optional)`}
           />
 
@@ -86,7 +86,7 @@ export default function ContactForm() {
             value={formData.email}
             onChange={handleChange}
             required
-            className={`p-3 bg-neutral-100/70 focus:bg-neutral-50 focus:outline-none transition-all duration-300 ease-in-out`}
+            className={`p-3 bg-[var(--color-bg-tertiary)]/70 focus:bg-[var(--color-bg-secondary)] focus:outline-none transition-all duration-300 ease-in-out`}
             placeholder={`Email`}
           />
 
@@ -95,7 +95,7 @@ export default function ContactForm() {
             value={formData.message}
             onChange={handleChange}
             required
-            className={`p-3 bg-neutral-100/70 focus:bg-neutral-50 min-h-[150px] focus:outline-none transition-all duration-300 ease-in-out`}
+            className={`p-3 bg-[var(--color-bg-tertiary)]/70 focus:bg-[var(--color-bg-secondary)] min-h-[150px] focus:outline-none transition-all duration-300 ease-in-out`}
             placeholder={`Message`}
           />
 
@@ -105,12 +105,12 @@ export default function ContactForm() {
             badge={"bottomright"}
           />
 
-          {error && <div className={`text-red-700 text-sm`}>{error}</div>}
+          {error && <div className={`text-[var(--color-danger)] text-sm`}>{error}</div>}
 
           <button
             type="submit"
             disabled={loading}
-            className={`cursor-pointer p-3 bg-mercedes-primary hover:bg-mercedes-primary/70 focus:bg-mercedes-primary/70 text-neutral-50 outline-none font-medium transition-all duration-300 ease-in-out ${
+            className={`cursor-pointer p-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent)]/70 focus:bg-[var(--color-accent)]/70 text-[var(--color-text-inverse)] outline-none font-medium transition-all duration-300 ease-in-out ${
               loading ? "opacity-70 cursor-not-allowed" : ""
             }`}
           >

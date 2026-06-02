@@ -131,18 +131,18 @@ export default function NotebookModal({
       >
         {/* Modal */}
         <div
-          className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden"
+          className="bg-[var(--color-bg-primary)] rounded-[var(--radius-xl)] shadow-[var(--shadow-xl)] w-full max-w-md overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200">
-            <h2 className="text-lg font-semibold text-neutral-800">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border-primary)]">
+            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
               {isEditing ? "Edit Notebook" : "Create Notebook"}
             </h2>
             <button
               onClick={onClose}
               disabled={isSaving || isDeleting}
-              className="p-2 rounded-lg hover:bg-neutral-100 transition-colors disabled:opacity-50"
+              className="p-2 rounded-[var(--radius-lg)] hover:bg-[var(--color-bg-tertiary)] transition-colors disabled:opacity-50"
               aria-label="Close"
             >
               <IconX size={20} />
@@ -156,7 +156,7 @@ export default function NotebookModal({
               <div>
                 <label
                   htmlFor="notebook-name"
-                  className="block text-sm font-medium text-neutral-700 mb-1"
+                  className="block text-sm font-medium text-[var(--color-text-primary)] mb-1"
                 >
                   Name
                 </label>
@@ -172,7 +172,7 @@ export default function NotebookModal({
                     }
                   }}
                   placeholder="My Notebook"
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:border-mercedes-primary focus:outline-none focus:ring-1 focus:ring-mercedes-primary"
+                  className="w-full px-3 py-2 border border-[var(--color-border-primary)] rounded-[var(--radius-lg)] focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
                   autoFocus
                   disabled={isSaving || isDeleting}
                 />
@@ -180,7 +180,7 @@ export default function NotebookModal({
 
               {/* Cover picker */}
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
                   Cover
                 </label>
                 <NotebookCoverPicker
@@ -194,26 +194,26 @@ export default function NotebookModal({
 
               {/* Error message */}
               {error && (
-                <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg">
+                <div className="p-3 bg-[var(--color-danger-subtle)] text-[var(--color-danger)] text-sm rounded-[var(--radius-lg)]">
                   {error}
                 </div>
               )}
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between">
+            <div className="px-6 py-4 border-t border-[var(--color-border-primary)] flex items-center justify-between">
               {/* Delete button (only when editing) */}
               <div>
                 {isEditing && onDelete && (
                   <>
                     {showDeleteConfirm ? (
                       <div className="flex items-center gap-2">
-                        <span className="text-sm text-neutral-600">Delete?</span>
+                        <span className="text-sm text-[var(--color-text-secondary)]">Delete?</span>
                         <button
                           type="button"
                           onClick={handleDelete}
                           disabled={isDeleting}
-                          className="px-3 py-1 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
+                          className="px-3 py-1 text-sm bg-[var(--color-danger-subtle)]0 text-white rounded-[var(--radius-lg)] hover:bg-[var(--color-danger)] disabled:opacity-50"
                         >
                           {isDeleting ? (
                             <IconLoader2 size={14} className="animate-spin" />
@@ -225,7 +225,7 @@ export default function NotebookModal({
                           type="button"
                           onClick={() => setShowDeleteConfirm(false)}
                           disabled={isDeleting}
-                          className="px-3 py-1 text-sm bg-neutral-200 text-neutral-700 rounded-lg hover:bg-neutral-300"
+                          className="px-3 py-1 text-sm bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] rounded-[var(--radius-lg)] hover:bg-[var(--color-active)]"
                         >
                           No
                         </button>
@@ -235,7 +235,7 @@ export default function NotebookModal({
                         type="button"
                         onClick={() => setShowDeleteConfirm(true)}
                         disabled={isSaving || isDeleting}
-                        className="flex items-center gap-1 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1 px-3 py-2 text-sm text-[var(--color-danger)] hover:bg-[var(--color-danger-subtle)] rounded-[var(--radius-lg)] transition-colors disabled:opacity-50"
                       >
                         <IconTrash size={16} />
                         Delete
@@ -251,14 +251,14 @@ export default function NotebookModal({
                   type="button"
                   onClick={onClose}
                   disabled={isSaving || isDeleting}
-                  className="px-4 py-2 text-sm text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors disabled:opacity-50"
+                  className="px-4 py-2 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] rounded-[var(--radius-lg)] transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving || isDeleting}
-                  className="px-4 py-2 text-sm bg-mercedes-primary text-white rounded-lg hover:bg-mercedes-primary/90 disabled:opacity-50 flex items-center gap-2"
+                  className="px-4 py-2 text-sm bg-[var(--color-accent)] text-white rounded-[var(--radius-lg)] hover:bg-[var(--color-accent)]/90 disabled:opacity-50 flex items-center gap-2"
                 >
                   {isSaving ? (
                     <>

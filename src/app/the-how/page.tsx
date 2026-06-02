@@ -45,7 +45,7 @@ export default async function TheHowPage() {
         <div className={`pt-3`}>
           <h1 className={`text-xl font-semibold sm:text-center`}>
             How does{" "}
-            <span className={`p-1 bg-mercedes-primary font-secondary`}>
+            <span className={`p-1 bg-[var(--color-accent)] font-secondary`}>
               Just
               <span className={`text-white`}>Noted</span>
             </span>{" "}
@@ -59,7 +59,7 @@ export default async function TheHowPage() {
             }}
           >
             <h2
-              className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
             >
               <IconNote size={24} strokeWidth={2} /> Creating & Saving Notes
             </h2>
@@ -70,7 +70,7 @@ export default async function TheHowPage() {
               waiting for your thoughts. Just start typing and, if you need
               another note, just click/tap the big{" "}
               <span
-                className={`mx-2 px-2 py-1 inline-flex items-center gap-1 w-fit border rounded-xl font-medium`}
+                className={`mx-2 px-2 py-1 inline-flex items-center gap-1 w-fit border rounded-[var(--radius-xl)] font-medium`}
               >
                 <IconSquareRoundedPlus stroke={2} /> Add a new note
               </span>{" "}
@@ -79,15 +79,15 @@ export default async function TheHowPage() {
             <p>
               Your work is automatically saved 2 seconds after you stop typing.
               You'll see a{" "}
-              <span className={`mx-2 inline-flex gap-1 w-fit text-neutral-500`}>
+              <span className={`mx-2 inline-flex gap-1 w-fit text-[var(--color-text-secondary)]`}>
                 <IconLoader className="animate-spin" />{" "}
                 <strong>Saving...</strong>
               </span>{" "}
               indicator followed by a{" "}
               <span
-                className={`mx-2 inline-flex items-center gap-1 w-fit text-mercedes-primary`}
+                className={`mx-2 inline-flex items-center gap-1 w-fit text-[var(--color-accent)]`}
               >
-                <IconCircleCheck className="text-mercedes-primary" />{" "}
+                <IconCircleCheck className="text-[var(--color-accent)]" />{" "}
                 <strong>Saved</strong>
               </span>{" "}
               confirmation once it's complete.
@@ -96,7 +96,7 @@ export default async function TheHowPage() {
               If the auto-save doesn't trigger for some reason, or you just want
               the peace of mind of a manual save, hit the{" "}
               <span
-                className={`inline-flex border border-mercedes-primary rounded-md bg-neutral-100 p-1`}
+                className={`inline-flex border border-[var(--color-accent)] rounded-md bg-[var(--color-bg-tertiary)] p-1`}
               >
                 <IconDeviceFloppy size={20} strokeWidth={2} />
               </span>{" "}
@@ -104,7 +104,7 @@ export default async function TheHowPage() {
             </p>
 
             <h2
-              className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
             >
               <IconCloud size={24} strokeWidth={2} /> Local Notes vs Cloud Notes
             </h2>
@@ -135,7 +135,7 @@ export default async function TheHowPage() {
             </p>
 
             <h2
-              className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
             >
               <IconEdit size={24} strokeWidth={2} /> Changing the Title of Your
               Note
@@ -144,20 +144,20 @@ export default async function TheHowPage() {
               If you want to change the title of your note, hover over the title
               (on mobile: tap on the title) and then click/tap the{" "}
               <span
-                className={`inline-flex bg-neutral-100 rounded-md p-1 text-mercedes-primary`}
+                className={`inline-flex bg-[var(--color-bg-tertiary)] rounded-md p-1 text-[var(--color-accent)]`}
               >
                 <IconPencil size={20} strokeWidth={2} />
               </span>{" "}
               button. This will let you type in a new title. When you're done,
               just click/tap the{" "}
               <span
-                className={`inline-flex rounded-md bg-neutral-100 p-1 text-mercedes-primary`}
+                className={`inline-flex rounded-md bg-[var(--color-bg-tertiary)] p-1 text-[var(--color-accent)]`}
               >
                 <IconCheck size={20} strokeWidth={2} />
               </span>{" "}
               button to save your changes or click/tap the{" "}
               <span
-                className={`inline-flex rounded-md bg-neutral-100 p-1 text-red-700`}
+                className={`inline-flex rounded-md bg-[var(--color-bg-tertiary)] p-1 text-[var(--color-danger)]`}
               >
                 <IconX size={20} strokeWidth={2} />
               </span>{" "}
@@ -165,14 +165,14 @@ export default async function TheHowPage() {
             </p>
 
             <h2
-              className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
             >
               <IconDownload size={24} strokeWidth={2} /> Downloading Your Notes
             </h2>
             <p>
               Need to take your note elsewhere? Just click/tap the{" "}
               <span
-                className={`inline-flex border border-mercedes-primary rounded-md bg-neutral-100 p-1`}
+                className={`inline-flex border border-[var(--color-accent)] rounded-md bg-[var(--color-bg-tertiary)] p-1`}
               >
                 <IconFileTypeTxt size={20} strokeWidth={2} />
               </span>{" "}
@@ -182,7 +182,7 @@ export default async function TheHowPage() {
             </p>
 
             <h2
-              className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
             >
               <IconTrash size={24} strokeWidth={2} /> Deleting Notes
             </h2>
@@ -190,7 +190,7 @@ export default async function TheHowPage() {
               Once you're done with a note and don't need it anymore, click/tap
               the{" "}
               <span
-                className={`inline-flex border border-neutral-800 rounded-md bg-neutral-100 p-1`}
+                className={`inline-flex border border-[var(--color-text-primary)] rounded-md bg-[var(--color-bg-tertiary)] p-1`}
               >
                 <IconTrash size={20} strokeWidth={2} />
               </span>{" "}
@@ -200,7 +200,7 @@ export default async function TheHowPage() {
             </p>
 
             <h2
-              className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
             >
               <IconNotebook size={24} strokeWidth={2} /> Organising with
               Notebooks
@@ -227,7 +227,7 @@ export default async function TheHowPage() {
             </p>
 
             <h2
-              className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
             >
               <IconLayoutColumns size={24} strokeWidth={2} /> Split View for
               Referencing Notes
@@ -254,7 +254,7 @@ export default async function TheHowPage() {
             </p>
 
             <h2
-              className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
             >
               <IconList size={24} strokeWidth={2} /> Table of Contents
             </h2>
@@ -273,7 +273,7 @@ export default async function TheHowPage() {
             <p>
               Toggle it with the{" "}
               <span
-                className={`inline-flex border border-mercedes-primary rounded-md bg-neutral-100 p-1`}
+                className={`inline-flex border border-[var(--color-accent)] rounded-md bg-[var(--color-bg-tertiary)] p-1`}
               >
                 <IconList size={20} strokeWidth={2} />
               </span>{" "}
@@ -282,7 +282,7 @@ export default async function TheHowPage() {
             </p>
 
             <h2
-              className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
             >
               <IconCheckbox size={24} strokeWidth={2} /> Bulk Actions
             </h2>
@@ -294,7 +294,7 @@ export default async function TheHowPage() {
             </p>
 
             <h2
-              className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
             >
               <IconDownload size={24} strokeWidth={2} /> Exporting Notebooks
             </h2>
@@ -312,7 +312,7 @@ export default async function TheHowPage() {
             </p>
 
             <h2
-              className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
             >
               <IconShieldLock size={24} strokeWidth={2} /> How Your Privacy Is
               Protected
@@ -359,7 +359,7 @@ export default async function TheHowPage() {
               If you haven't yet, please check out{" "}
               <Link
                 href={"/the-what"}
-                className={`hover:px-1 hover:bg-mercedes-primary text-mercedes-primary hover:text-white font-semibold transition-all duration-300 ease-in-out`}
+                className={`hover:px-1 hover:bg-[var(--color-accent)] text-[var(--color-accent)] hover:text-white font-semibold transition-all duration-300 ease-in-out`}
               >
                 The What
               </Link>{" "}

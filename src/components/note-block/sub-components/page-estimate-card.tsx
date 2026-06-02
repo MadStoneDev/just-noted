@@ -25,41 +25,41 @@ export default function PageEstimateCard({
       type="button"
       onClick={onClick}
       title="Change page format"
-      className={`group col-span-4 xs:col-span-2 sm:col-span-4 flex items-center gap-3 p-3 rounded-xl transition-all duration-200 ${
+      className={`group col-span-4 xs:col-span-2 sm:col-span-4 flex items-center gap-3 p-3 rounded-[var(--radius-xl)] transition-all duration-200 ${
         hasNotebookCover
-          ? "bg-neutral-50/70 hover:bg-neutral-50/90"
+          ? "bg-[var(--color-bg-secondary)]/70 hover:bg-[var(--color-bg-secondary)]/90"
           : isPrivate
             ? "border-2 border-dashed border-violet-300 hover:border-violet-500 hover:bg-violet-50"
-            : "border-2 border-dashed border-neutral-300 hover:border-mercedes-primary hover:bg-mercedes-primary/5"
+            : "border-2 border-dashed border-[var(--color-border-primary)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]/5"
       }`}
     >
-      <div className={`p-2 rounded-lg ${
+      <div className={`p-2 rounded-[var(--radius-lg)] ${
         hasNotebookCover
-          ? "bg-neutral-700 text-neutral-100"
+          ? "bg-[var(--color-text-primary)] text-[var(--color-text-inverse)]"
           : isPrivate
             ? "bg-violet-100 text-violet-600"
-            : "bg-neutral-100 text-neutral-500"
+            : "bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]"
       } group-hover:scale-105 transition-transform`}>
         <IconBook size={20} />
       </div>
       <div className="flex-1 text-left">
         <div className={`flex flex-nowrap items-center text-lg font-semibold ${
           hasNotebookCover
-            ? "text-neutral-800"
+            ? "text-[var(--color-text-primary)]"
             : isPrivate
               ? "text-violet-700"
-              : "text-neutral-800"
+              : "text-[var(--color-text-primary)]"
         }`}>
           {pageEstimate}
         </div>
-        <div className={`text-xs capitalize ${hasNotebookCover ? "text-neutral-600" : "text-neutral-500"}`}>{currentFormat}</div>
+        <div className={`text-xs capitalize ${hasNotebookCover ? "text-[var(--color-text-secondary)]" : "text-[var(--color-text-secondary)]"}`}>{currentFormat}</div>
       </div>
       <div className={`p-1.5 rounded-full md:opacity-0 group-hover:opacity-100 transition-opacity ${
         hasNotebookCover
-          ? "bg-neutral-700 text-neutral-200"
+          ? "bg-[var(--color-text-primary)] text-[var(--color-text-tertiary)]"
           : isPrivate
             ? "bg-violet-200 text-violet-700"
-            : "bg-neutral-200 text-neutral-600"
+            : "bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]"
       }`}>
         <IconSettings size={20} />
       </div>

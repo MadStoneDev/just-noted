@@ -37,12 +37,12 @@ export default function TocCard({ isPrivate, noteContent, onScrollToHeading, has
 
   return (
     <div
-      className={`my-1 col-span-4 flex flex-col rounded-xl overflow-hidden transition-all duration-300 ${
+      className={`my-1 col-span-4 flex flex-col rounded-[var(--radius-xl)] overflow-hidden transition-all duration-300 ${
         hasNotebookCover
-          ? "bg-white/20 text-white"
+          ? "bg-[var(--color-bg-primary)]/20 text-white"
           : isPrivate
             ? "bg-violet-100/80 text-violet-900"
-            : "bg-neutral-100 text-neutral-600"
+            : "bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]"
       }`}
     >
       {/* Header - always visible */}
@@ -51,25 +51,25 @@ export default function TocCard({ isPrivate, noteContent, onScrollToHeading, has
         disabled={!hasHeadings}
         className={`p-2.5 flex items-center justify-between gap-1 w-full text-left ${
           hasHeadings
-            ? `cursor-pointer ${hasNotebookCover ? "hover:bg-white/10" : "hover:bg-black/5"}`
+            ? `cursor-pointer ${hasNotebookCover ? "hover:bg-[var(--color-bg-primary)]/10" : "hover:bg-black/5"}`
             : "cursor-default"
         } transition-colors`}
       >
         <div className="flex items-center gap-2">
-          <IconList size={16} strokeWidth={2} className={hasNotebookCover ? "text-white/80" : isPrivate ? "text-violet-600" : "text-neutral-500"} />
+          <IconList size={16} strokeWidth={2} className={hasNotebookCover ? "text-white/80" : isPrivate ? "text-violet-600" : "text-[var(--color-text-secondary)]"} />
           <span className="text-sm font-medium">Contents</span>
           {!hasHeadings && (
-            <span className={`text-xs italic ${hasNotebookCover ? "text-white/60" : "text-neutral-400"}`}>(No headings found)</span>
+            <span className={`text-xs italic ${hasNotebookCover ? "text-white/60" : "text-[var(--color-text-tertiary)]"}`}>(No headings found)</span>
           )}
         </div>
         {hasHeadings && (
           <div className="flex items-center gap-1.5">
             <span className={`text-xs px-1.5 py-0.5 rounded-full ${
               hasNotebookCover
-                ? "bg-white/30 text-white"
+                ? "bg-[var(--color-bg-primary)]/30 text-white"
                 : isPrivate
                   ? "bg-violet-200 text-violet-700"
-                  : "bg-neutral-200 text-neutral-600"
+                  : "bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]"
             }`}>
               {headings.length}
             </span>
@@ -93,7 +93,7 @@ export default function TocCard({ isPrivate, noteContent, onScrollToHeading, has
                 onClick={() => handleHeadingClick(heading)}
                 className={`w-full text-left py-1.5 px-2 text-xs transition-colors ${
                   hasNotebookCover
-                    ? "hover:bg-white/10"
+                    ? "hover:bg-[var(--color-bg-primary)]/10"
                     : "hover:bg-black/5"
                 }`}
                 style={{ paddingLeft }}

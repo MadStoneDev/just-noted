@@ -7,61 +7,59 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "12.2.3 (519615d)"
+    PostgrestVersion: "12.2.12"
   }
   public: {
     Tables: {
       authors: {
         Row: {
+          id: string
+          username: string | null
           avatar_url: string | null
           created_at: string
-          id: string
           last_active_at: string | null
           redis_user_id: string | null
-          username: string | null
         }
         Insert: {
+          id?: string
+          username?: string | null
           avatar_url?: string | null
           created_at?: string
-          id?: string
           last_active_at?: string | null
           redis_user_id?: string | null
-          username?: string | null
         }
         Update: {
+          id?: string
+          username?: string | null
           avatar_url?: string | null
           created_at?: string
-          id?: string
           last_active_at?: string | null
           redis_user_id?: string | null
-          username?: string | null
         }
         Relationships: []
       }
       collections: {
         Row: {
-          created_at: string
           id: string
-          name: string | null
           owner: string | null
+          name: string | null
           shortcode: string | null
+          created_at: string
         }
         Insert: {
-          created_at?: string
           id?: string
-          name?: string | null
           owner?: string | null
+          name?: string | null
           shortcode?: string | null
+          created_at?: string
         }
         Update: {
-          created_at?: string
           id?: string
-          name?: string | null
           owner?: string | null
+          name?: string | null
           shortcode?: string | null
+          created_at?: string
         }
         Relationships: [
           {
@@ -75,18 +73,18 @@ export type Database = {
       }
       collections_notes: {
         Row: {
-          collection_id: string
           id: number
+          collection_id: string
           note_id: string | null
         }
         Insert: {
-          collection_id?: string
           id?: number
+          collection_id?: string
           note_id?: string | null
         }
         Update: {
-          collection_id?: string
           id?: number
+          collection_id?: string
           note_id?: string | null
         }
         Relationships: [
@@ -108,81 +106,87 @@ export type Database = {
       }
       notebooks: {
         Row: {
+          id: string
+          owner: string
+          name: string
           cover_type: string
           cover_value: string
-          created_at: string
           display_order: number
-          id: string
-          name: string
-          owner: string
+          created_at: string
           updated_at: string
         }
         Insert: {
+          id?: string
+          owner: string
+          name: string
           cover_type?: string
           cover_value?: string
-          created_at?: string
           display_order?: number
-          id?: string
-          name: string
-          owner: string
+          created_at?: string
           updated_at?: string
         }
         Update: {
+          id?: string
+          owner?: string
+          name?: string
           cover_type?: string
           cover_value?: string
-          created_at?: string
           display_order?: number
-          id?: string
-          name?: string
-          owner?: string
+          created_at?: string
           updated_at?: string
         }
         Relationships: []
       }
       notes: {
         Row: {
-          author: string | null
-          content: string | null
-          created_at: string
-          goal: number | null
-          goal_type: string | null
           id: string
-          is_collapsed: boolean | null
+          author: string | null
+          title: string | null
+          content: string | null
           is_pinned: boolean | null
           is_private: boolean | null
-          notebook_id: string | null
+          is_collapsed: boolean | null
           order: number | null
-          title: string | null
+          goal: number | null
+          goal_type: string | null
+          notebook_id: string | null
+          content_format: string | null
+          content_html_backup: string | null
+          created_at: string
           updated_at: string | null
         }
         Insert: {
-          author?: string | null
-          content?: string | null
-          created_at?: string
-          goal?: number | null
-          goal_type?: string | null
           id?: string
-          is_collapsed?: boolean | null
+          author?: string | null
+          title?: string | null
+          content?: string | null
           is_pinned?: boolean | null
           is_private?: boolean | null
-          notebook_id?: string | null
+          is_collapsed?: boolean | null
           order?: number | null
-          title?: string | null
+          goal?: number | null
+          goal_type?: string | null
+          notebook_id?: string | null
+          content_format?: string | null
+          content_html_backup?: string | null
+          created_at?: string
           updated_at?: string | null
         }
         Update: {
-          author?: string | null
-          content?: string | null
-          created_at?: string
-          goal?: number | null
-          goal_type?: string | null
           id?: string
-          is_collapsed?: boolean | null
+          author?: string | null
+          title?: string | null
+          content?: string | null
           is_pinned?: boolean | null
           is_private?: boolean | null
-          notebook_id?: string | null
+          is_collapsed?: boolean | null
           order?: number | null
-          title?: string | null
+          goal?: number | null
+          goal_type?: string | null
+          notebook_id?: string | null
+          content_format?: string | null
+          content_html_backup?: string | null
+          created_at?: string
           updated_at?: string | null
         }
         Relationships: [
@@ -197,68 +201,115 @@ export type Database = {
       }
       shared_notes: {
         Row: {
-          created_at: string | null
-          expires_at: string | null
           id: string
-          is_public: boolean | null
           note_id: string
           note_owner_id: string
           note_owner_id_old: string | null
           shortcode: string
-          storage: string
-          updated_at: string | null
+          is_public: boolean | null
+          is_anonymous: boolean | null
+          password_hash: string | null
+          storage: string | null
           view_count: number | null
+          expires_at: string | null
+          created_at: string | null
+          updated_at: string | null
         }
         Insert: {
-          created_at?: string | null
-          expires_at?: string | null
           id?: string
-          is_public?: boolean | null
           note_id: string
           note_owner_id: string
           note_owner_id_old?: string | null
           shortcode: string
-          storage?: string
-          updated_at?: string | null
+          is_public?: boolean | null
+          is_anonymous?: boolean | null
+          password_hash?: string | null
+          storage?: string | null
           view_count?: number | null
+          expires_at?: string | null
+          created_at?: string | null
+          updated_at?: string | null
         }
         Update: {
-          created_at?: string | null
-          expires_at?: string | null
           id?: string
-          is_public?: boolean | null
           note_id?: string
           note_owner_id?: string
           note_owner_id_old?: string | null
           shortcode?: string
-          storage?: string
-          updated_at?: string | null
+          is_public?: boolean | null
+          is_anonymous?: boolean | null
+          password_hash?: string | null
+          storage?: string | null
           view_count?: number | null
+          expires_at?: string | null
+          created_at?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
       shared_notes_analytics: {
         Row: {
-          analytics: Json | null
-          created_at: string | null
           id: string
           shared_note: string
+          analytics: Json | null
+          created_at: string | null
         }
         Insert: {
-          analytics?: Json | null
-          created_at?: string | null
           id?: string
           shared_note: string
-        }
-        Update: {
           analytics?: Json | null
           created_at?: string | null
+        }
+        Update: {
           id?: string
           shared_note?: string
+          analytics?: Json | null
+          created_at?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "shared_notes_analytics_shared_note_fkey"
+            columns: ["shared_note"]
+            isOneToOne: false
+            referencedRelation: "shared_notes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shared_notes_readers: {
+        Row: {
+          id: string
+          shared_note: string
+          reader_username: string
+          reader_id: string | null
+          view_count: number | null
+          first_viewed_at: string | null
+          last_viewed_at: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          shared_note: string
+          reader_username: string
+          reader_id?: string | null
+          view_count?: number | null
+          first_viewed_at?: string | null
+          last_viewed_at?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          shared_note?: string
+          reader_username?: string
+          reader_id?: string | null
+          view_count?: number | null
+          first_viewed_at?: string | null
+          last_viewed_at?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_notes_readers_shared_note_fkey"
             columns: ["shared_note"]
             isOneToOne: false
             referencedRelation: "shared_notes"
@@ -305,59 +356,24 @@ export type Database = {
         }
         Relationships: []
       }
-      shared_notes_readers: {
-        Row: {
-          created_at: string | null
-          first_viewed_at: string | null
-          id: string
-          last_viewed_at: string | null
-          reader_id: string | null
-          reader_username: string
-          shared_note: string
-          view_count: number | null
-        }
-        Insert: {
-          created_at?: string | null
-          first_viewed_at?: string | null
-          id?: string
-          last_viewed_at?: string | null
-          reader_id?: string | null
-          reader_username: string
-          shared_note: string
-          view_count?: number | null
-        }
-        Update: {
-          created_at?: string | null
-          first_viewed_at?: string | null
-          id?: string
-          last_viewed_at?: string | null
-          reader_id?: string | null
-          reader_username?: string
-          shared_note?: string
-          view_count?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "shared_notes_readers_shared_note_fkey"
-            columns: ["shared_note"]
-            isOneToOne: false
-            referencedRelation: "shared_notes"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
     }
     Views: {
-      [_ in never]: never
     }
     Functions: {
       create_author_with_random_username: {
-        Args: { user_id: string }
+        Args: {
+          user_id: string
+        }
         Returns: Json
       }
-      generate_random_username: { Args: never; Returns: string }
+      generate_random_username: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       increment_view_count: {
-        Args: { shortcode_param: string }
+        Args: {
+          shortcode_param: string
+        }
         Returns: number
       }
     }

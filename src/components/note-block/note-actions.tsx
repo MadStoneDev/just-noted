@@ -65,7 +65,7 @@ export default function NoteActions({
       <button
         type="button"
         onClick={onToggleVisibility}
-        className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-all duration-300 ease-in-out`}
+        className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-[var(--radius-lg)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] transition-all duration-300 ease-in-out`}
         title={isContentVisible ? "Hide note content" : "Show note content"}
         aria-label={isContentVisible ? "Hide note content" : "Show note content"}
       >
@@ -82,10 +82,10 @@ export default function NoteActions({
           type="button"
           onClick={onOpenDistractionFree}
           disabled={isSaving}
-          className={`hidden md:flex p-2.5 min-w-[44px] min-h-[44px] items-center justify-center cursor-pointer rounded-lg ${
+          className={`hidden md:flex p-2.5 min-w-[44px] min-h-[44px] items-center justify-center cursor-pointer rounded-[var(--radius-lg)] ${
             isSaving
-              ? "opacity-30 cursor-not-allowed text-neutral-400"
-              : "text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"
+              ? "opacity-30 cursor-not-allowed text-[var(--color-text-tertiary)]"
+              : "text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)]"
           } transition-all duration-300 ease-in-out`}
           title={
             isSaving ? "Saving... Please wait" : "Open Distraction-Free Mode"
@@ -104,10 +104,10 @@ export default function NoteActions({
           type="button"
           onClick={onOpenSplitView}
           disabled={isSaving}
-          className={`hidden md:flex p-2.5 min-w-[44px] min-h-[44px] items-center justify-center cursor-pointer rounded-lg ${
+          className={`hidden md:flex p-2.5 min-w-[44px] min-h-[44px] items-center justify-center cursor-pointer rounded-[var(--radius-lg)] ${
             isSaving
-              ? "opacity-30 cursor-not-allowed text-neutral-400"
-              : "text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"
+              ? "opacity-30 cursor-not-allowed text-[var(--color-text-tertiary)]"
+              : "text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)]"
           } transition-all duration-300 ease-in-out`}
           title={isSaving ? "Saving... Please wait" : "Open Split View"}
           aria-label={isSaving ? "Saving... Please wait" : "Open Split View"}
@@ -121,10 +121,10 @@ export default function NoteActions({
         type="button"
         onClick={onMoveUp}
         disabled={!canMoveUp || isReordering}
-        className={`hidden md:flex p-2.5 min-w-[44px] min-h-[44px] items-center justify-center cursor-pointer rounded-lg ${
+        className={`hidden md:flex p-2.5 min-w-[44px] min-h-[44px] items-center justify-center cursor-pointer rounded-[var(--radius-lg)] ${
           !canMoveUp || isReordering
-            ? "opacity-30 cursor-not-allowed text-neutral-400"
-            : "text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"
+            ? "opacity-30 cursor-not-allowed text-[var(--color-text-tertiary)]"
+            : "text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)]"
         } transition-all duration-300 ease-in-out`}
         title="Move note up"
         aria-label="Move note up"
@@ -137,10 +137,10 @@ export default function NoteActions({
         type="button"
         onClick={onMoveDown}
         disabled={!canMoveDown || isReordering}
-        className={`hidden md:flex p-2.5 min-w-[44px] min-h-[44px] items-center justify-center cursor-pointer rounded-lg ${
+        className={`hidden md:flex p-2.5 min-w-[44px] min-h-[44px] items-center justify-center cursor-pointer rounded-[var(--radius-lg)] ${
           !canMoveDown || isReordering
-            ? "opacity-30 cursor-not-allowed text-neutral-400"
-            : "text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"
+            ? "opacity-30 cursor-not-allowed text-[var(--color-text-tertiary)]"
+            : "text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)]"
         } transition-all duration-300 ease-in-out`}
         title="Move note down"
         aria-label="Move note down"
@@ -155,13 +155,13 @@ export default function NoteActions({
           disabled={isPinUpdating}
           className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center border ${
             isPinned
-              ? `text-neutral-100 hover:text-neutral-100 ${
+              ? `text-[var(--color-text-inverse)] hover:text-[var(--color-text-inverse)] ${
                   isPrivate
                     ? "border-violet-800 hover:border-violet-800 bg-violet-800 hover:bg-violet-600"
-                    : "border-mercedes-primary hover:border-mercedes-primary/60 bg-mercedes-primary hover:bg-mercedes-primary/70"
+                    : "border-[var(--color-accent)] hover:border-[var(--color-accent)]/60 bg-[var(--color-accent)] hover:bg-[var(--color-accent)]/70"
                 }`
-              : "border-neutral-400 text-neutral-500 hover:bg-neutral-50"
-          } rounded-lg transition-all duration-300 ease-in-out ${
+              : "border-[var(--color-border-primary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]"
+          } rounded-[var(--radius-lg)] transition-all duration-300 ease-in-out ${
             isPinUpdating ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
           }`}
           title={isPinned ? "Unpin this note" : "Pin this note"}
@@ -178,14 +178,14 @@ export default function NoteActions({
         <button
           onClick={onTogglePrivacy}
           disabled={isPrivacyUpdating}
-          className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center border rounded-lg transition-all duration-300 ease-in-out ${
+          className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center border rounded-[var(--radius-lg)] transition-all duration-300 ease-in-out ${
             isPrivacyUpdating
               ? "opacity-50 cursor-not-allowed"
               : "cursor-pointer"
           } ${
             isPrivate
-              ? "border-violet-800 hover:border-violet-600 bg-violet-800 hover:bg-violet-600 text-neutral-100"
-              : "border-neutral-400 hover:bg-neutral-200 text-neutral-500"
+              ? "border-violet-800 hover:border-violet-600 bg-violet-800 hover:bg-violet-600 text-[var(--color-text-inverse)]"
+              : "border-[var(--color-border-primary)] hover:bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]"
           }`}
           title={isPrivate ? "Make this note public" : "Make this note private"}
           aria-label={isPrivate ? "Make this note public" : "Make this note private"}

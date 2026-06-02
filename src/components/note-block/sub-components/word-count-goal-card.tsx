@@ -34,25 +34,25 @@ export default function WordCountGoalCard({
         type="button"
         onClick={onClick}
         title="Edit word goal"
-        className={`group col-span-4 p-3 rounded-xl transition-all duration-200 ${
+        className={`group col-span-4 p-3 rounded-[var(--radius-xl)] transition-all duration-200 ${
           hasNotebookCover
-            ? "bg-neutral-50/70 hover:bg-neutral-50/90"
+            ? "bg-[var(--color-bg-secondary)]/70 hover:bg-[var(--color-bg-secondary)]/90"
             : isPrivate
               ? "bg-violet-50 hover:bg-violet-100"
-              : "bg-neutral-50 hover:bg-neutral-100"
+              : "bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-tertiary)]"
         }`}
       >
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <IconTarget size={16} className={hasNotebookCover ? "text-neutral-600" : isPrivate ? "text-violet-600" : "text-neutral-500"} />
+            <IconTarget size={16} className={hasNotebookCover ? "text-[var(--color-text-secondary)]" : isPrivate ? "text-violet-600" : "text-[var(--color-text-secondary)]"} />
             <span className={`text-xs font-medium uppercase tracking-wide ${
-              hasNotebookCover ? "text-neutral-600" : "text-neutral-600"
+              hasNotebookCover ? "text-[var(--color-text-secondary)]" : "text-[var(--color-text-secondary)]"
             }`}>
               Goal Progress
             </span>
           </div>
           {isComplete && (
-            <div className={`flex items-center gap-1 ${hasNotebookCover ? "text-green-600" : "text-green-600"}`}>
+            <div className={`flex items-center gap-1 ${hasNotebookCover ? "text-[var(--color-success)]" : "text-[var(--color-success)]"}`}>
               <IconCheck size={14} />
               <span className="text-xs font-medium">Done!</span>
             </div>
@@ -62,29 +62,29 @@ export default function WordCountGoalCard({
         {/* Progress bar */}
         <div className={`w-full h-2 rounded-full overflow-hidden ${
           hasNotebookCover
-            ? "bg-neutral-300"
+            ? "bg-[var(--color-border-primary)]"
             : isPrivate
               ? "bg-violet-200"
-              : "bg-neutral-200"
+              : "bg-[var(--color-bg-tertiary)]"
         }`}>
           <div
             className={`h-full rounded-full transition-all duration-500 ${
               isComplete
-                ? "bg-green-500"
+                ? "bg-[var(--color-success)]"
                 : hasNotebookCover
-                  ? "bg-mercedes-primary"
+                  ? "bg-[var(--color-accent)]"
                   : isPrivate
                     ? "bg-violet-500"
-                    : "bg-mercedes-primary"
+                    : "bg-[var(--color-accent)]"
             }`}
             style={{ width: `${Math.min(progress, 100)}%` }}
           />
         </div>
 
         {/* Stats */}
-        <div className={`mt-2 flex items-center justify-between text-xs ${hasNotebookCover ? "text-neutral-600" : "text-neutral-500"}`}>
+        <div className={`mt-2 flex items-center justify-between text-xs ${hasNotebookCover ? "text-[var(--color-text-secondary)]" : "text-[var(--color-text-secondary)]"}`}>
           <span className="font-semibold text-sm">
-            <span className={hasNotebookCover ? "text-neutral-800" : isPrivate ? "text-violet-700" : "text-neutral-800"}>{progress}%</span>
+            <span className={hasNotebookCover ? "text-[var(--color-text-primary)]" : isPrivate ? "text-violet-700" : "text-[var(--color-text-primary)]"}>{progress}%</span>
           </span>
           <span>
             {goal.target.toLocaleString()} {goal.type === "words" ? "words" : "chars"}
@@ -100,20 +100,20 @@ export default function WordCountGoalCard({
       type="button"
       onClick={onClick}
       title="Set a word goal"
-      className={`group col-span-4 flex items-center justify-center gap-2 p-3 rounded-xl transition-all duration-200 ${
+      className={`group col-span-4 flex items-center justify-center gap-2 p-3 rounded-[var(--radius-xl)] transition-all duration-200 ${
         hasNotebookCover
-          ? "bg-neutral-50/70 hover:bg-neutral-50/90 text-neutral-700"
+          ? "bg-[var(--color-bg-secondary)]/70 hover:bg-[var(--color-bg-secondary)]/90 text-[var(--color-text-primary)]"
           : isPrivate
             ? "border-2 border-dashed border-violet-300 hover:border-violet-500 hover:bg-violet-50 text-violet-600"
-            : "border-2 border-dashed border-neutral-300 hover:border-mercedes-primary hover:bg-mercedes-primary/5 text-neutral-500"
+            : "border-2 border-dashed border-[var(--color-border-primary)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]/5 text-[var(--color-text-secondary)]"
       }`}
     >
       <div className={`p-1.5 rounded-full ${
         hasNotebookCover
-          ? "bg-neutral-700 text-neutral-200"
+          ? "bg-[var(--color-text-primary)] text-[var(--color-text-tertiary)]"
           : isPrivate
             ? "bg-violet-100"
-            : "bg-neutral-100"
+            : "bg-[var(--color-bg-tertiary)]"
       } group-hover:scale-110 transition-transform`}>
         <IconPlus size={14} />
       </div>

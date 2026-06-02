@@ -16,7 +16,7 @@ export function ConsentBanner() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 p-4 print:hidden">
-      <div className="mx-auto max-w-lg bg-[var(--color-bg-elevated)] rounded-[var(--radius-lg)] shadow-lg border border-[var(--color-border-primary)] p-4">
+      <div className="mx-auto max-w-lg bg-[var(--color-bg-elevated)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] border border-[var(--color-border-primary)] p-4">
         <div className="flex items-start gap-3">
           <div className="flex-1">
             <h3 className="text-sm font-semibold text-[var(--color-text-primary)] mb-1">

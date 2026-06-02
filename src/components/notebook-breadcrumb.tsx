@@ -29,22 +29,22 @@ export default function NotebookBreadcrumb({ onEditNotebook }: NotebookBreadcrum
   // Loose notes view
   if (isLooseNotes) {
     return (
-      <div className="flex items-center justify-between px-4 py-3 bg-neutral-50 border-b border-neutral-200">
+      <div className="flex items-center justify-between px-4 py-3 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border-primary)]">
         <div className="flex items-center gap-3">
           <button
             onClick={handleBackClick}
-            className="flex items-center gap-1 text-sm text-neutral-600 hover:text-neutral-800 transition-colors"
+            className="flex items-center gap-1 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
           >
             <IconArrowLeft size={16} />
             <span>All Notes</span>
           </button>
 
-          <div className="w-px h-5 bg-neutral-300" />
+          <div className="w-px h-5 bg-[var(--color-border-primary)]" />
 
           <div className="flex items-center gap-2">
-            <IconFileOff size={18} className="text-neutral-500" />
-            <span className="font-medium text-neutral-800">Loose Notes</span>
-            <span className="text-xs text-neutral-400">({looseNotesCount})</span>
+            <IconFileOff size={18} className="text-[var(--color-text-secondary)]" />
+            <span className="font-medium text-[var(--color-text-primary)]">Loose Notes</span>
+            <span className="text-xs text-[var(--color-text-tertiary)]">({looseNotesCount})</span>
           </div>
         </div>
       </div>
@@ -63,25 +63,25 @@ export default function NotebookBreadcrumb({ onEditNotebook }: NotebookBreadcrum
   const noteCount = notebookCounts[activeNotebook.id] || 0;
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 bg-neutral-50 border-b border-neutral-200">
+    <div className="flex items-center justify-between px-4 py-3 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border-primary)]">
       <div className="flex items-center gap-3">
         <button
           onClick={handleBackClick}
-          className="flex items-center gap-1 text-sm text-neutral-600 hover:text-neutral-800 transition-colors"
+          className="flex items-center gap-1 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
         >
           <IconArrowLeft size={16} />
           <span>All Notes</span>
         </button>
 
-        <div className="w-px h-5 bg-neutral-300" />
+        <div className="w-px h-5 bg-[var(--color-border-primary)]" />
 
         <div className="flex items-center gap-2">
           <div
             className="w-5 h-5 rounded flex-shrink-0"
             style={previewStyle}
           />
-          <span className="font-medium text-neutral-800">{activeNotebook.name}</span>
-          <span className="text-xs text-neutral-400">({noteCount})</span>
+          <span className="font-medium text-[var(--color-text-primary)]">{activeNotebook.name}</span>
+          <span className="text-xs text-[var(--color-text-tertiary)]">({noteCount})</span>
         </div>
       </div>
 
@@ -90,7 +90,7 @@ export default function NotebookBreadcrumb({ onEditNotebook }: NotebookBreadcrum
         {onEditNotebook && (
           <button
             onClick={onEditNotebook}
-            className="p-2.5 text-neutral-600 hover:text-neutral-800 hover:bg-neutral-200 rounded-lg transition-colors"
+            className="p-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] rounded-[var(--radius-lg)] transition-colors"
             title="Edit notebook settings"
             aria-label="Edit notebook settings"
           >
@@ -121,14 +121,14 @@ export function NotebookCoverHeader() {
   // Loose notes header
   if (activeNotebookId === "loose") {
     return (
-      <div className="p-4 bg-neutral-100 rounded-lg mx-4 mt-4">
+      <div className="p-4 bg-[var(--color-bg-tertiary)] rounded-[var(--radius-lg)] mx-4 mt-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-lg bg-neutral-200 flex items-center justify-center">
-            <IconFileOff size={24} className="text-neutral-500" />
+          <div className="w-12 h-12 rounded-[var(--radius-lg)] bg-[var(--color-bg-tertiary)] flex items-center justify-center">
+            <IconFileOff size={24} className="text-[var(--color-text-secondary)]" />
           </div>
           <div>
-            <h3 className="font-semibold text-neutral-800">Loose Notes</h3>
-            <p className="text-sm text-neutral-500">
+            <h3 className="font-semibold text-[var(--color-text-primary)]">Loose Notes</h3>
+            <p className="text-sm text-[var(--color-text-secondary)]">
               {looseNotesCount} note{looseNotesCount !== 1 ? "s" : ""}
             </p>
           </div>
@@ -146,7 +146,7 @@ export function NotebookCoverHeader() {
   const coverStyle = getCoverStyle(activeNotebook.coverType, activeNotebook.coverValue);
 
   return (
-    <div className="mx-4 mt-4 rounded-lg overflow-hidden">
+    <div className="mx-4 mt-4 rounded-[var(--radius-lg)] overflow-hidden">
       <div className="relative h-20" style={coverStyle}>
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
         <div className="absolute bottom-3 left-3 right-3">

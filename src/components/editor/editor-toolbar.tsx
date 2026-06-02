@@ -124,8 +124,8 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
 
   if (!visible) return null;
 
-  const btn = "p-1.5 text-[var(--color-text-inverse)] opacity-70 hover:opacity-100 hover:bg-white/10 rounded-[var(--radius-sm)] transition-all cursor-pointer";
-  const sep = "w-px self-stretch bg-white/15 mx-0.5";
+  const btn = "p-1.5 text-[var(--color-text-inverse)] opacity-70 hover:opacity-100 hover:bg-[var(--color-bg-primary)]/10 rounded-[var(--radius-sm)] transition-all cursor-pointer";
+  const sep = "w-px self-stretch bg-[var(--color-bg-primary)]/15 mx-0.5";
 
   const toolbar = (
     <div

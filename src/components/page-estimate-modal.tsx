@@ -59,7 +59,7 @@ export default function PageEstimateModal({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Page Format" size="md">
-      <p className="text-neutral-600 mb-4">
+      <p className="text-[var(--color-text-secondary)] mb-4">
         Select a page format to estimate how many pages your content would fill:
       </p>
 
@@ -77,7 +77,7 @@ export default function PageEstimateModal({
       <div className="flex justify-end">
         <button
           onClick={handleApply}
-          className="px-4 py-2 bg-mercedes-primary text-white rounded-lg hover:bg-mercedes-primary/90 transition-all duration-200"
+          className="px-4 py-2 bg-[var(--color-accent)] text-white rounded-[var(--radius-lg)] hover:bg-[var(--color-accent)]/90 transition-all duration-200"
         >
           Apply
         </button>
@@ -103,23 +103,23 @@ const FormatOption = React.memo(function FormatOption({
   return (
     <button
       onClick={handleClick}
-      className={`w-full p-3 rounded-lg border cursor-pointer transition-all duration-200 text-left ${
+      className={`w-full p-3 rounded-[var(--radius-lg)] border cursor-pointer transition-all duration-200 text-left ${
         isSelected
-          ? "border-mercedes-primary bg-mercedes-primary/5"
-          : "border-neutral-300 hover:border-neutral-400"
+          ? "border-[var(--color-accent)] bg-[var(--color-accent)]/5"
+          : "border-[var(--color-border-primary)] hover:border-[var(--color-border-primary)]"
       }`}
     >
       <div className="flex items-center">
         <div
           className={`mr-3 ${
-            isSelected ? "text-mercedes-primary" : "text-neutral-500"
+            isSelected ? "text-[var(--color-accent)]" : "text-[var(--color-text-secondary)]"
           }`}
         >
           {format.icon}
         </div>
         <div>
           <h4 className="font-medium">{format.name}</h4>
-          <p className="text-sm text-neutral-500">{format.description}</p>
+          <p className="text-sm text-[var(--color-text-secondary)]">{format.description}</p>
         </div>
       </div>
     </button>

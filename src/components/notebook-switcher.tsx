@@ -125,7 +125,7 @@ export default function NotebookSwitcher({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--color-bg-elevated)] rounded-[var(--radius-md)] shadow-lg border border-[var(--color-border-primary)] z-50 overflow-hidden">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--color-bg-elevated)] rounded-[var(--radius-md)] shadow-[var(--shadow-lg)] border border-[var(--color-border-primary)] z-50 overflow-hidden">
           <button
             onClick={() => handleSelect(null)}
             className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-[var(--color-hover)] transition-colors"

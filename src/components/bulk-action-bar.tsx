@@ -105,7 +105,7 @@ export default function BulkActionBar({
             </button>
 
             {showMoveMenu && (
-              <div className="absolute bottom-full right-0 mb-1 bg-[var(--color-bg-elevated)] rounded-[var(--radius-md)] shadow-lg border border-[var(--color-border-primary)] min-w-[140px] overflow-hidden z-50">
+              <div className="absolute bottom-full right-0 mb-1 bg-[var(--color-bg-elevated)] rounded-[var(--radius-md)] shadow-[var(--shadow-lg)] border border-[var(--color-border-primary)] min-w-[140px] overflow-hidden z-50">
                 <button
                   onClick={() => handleAssign(null)}
                   className="w-full flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-[var(--color-hover)] transition-colors text-left"

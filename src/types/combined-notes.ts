@@ -65,9 +65,10 @@ export function redisToCombi(note: RedisNote): CombinedNote {
 
   // Validate goal_type
   const validGoalTypes = ["words", "characters", ""];
-  const goalType = validGoalTypes.includes(note.goal_type as any)
-    ? (note.goal_type as "words" | "characters" | "")
-    : "";
+  const goalType: "words" | "characters" | "" =
+    note.goal_type === "words" || note.goal_type === "characters"
+      ? note.goal_type
+      : "";
 
   return {
     id: note.id,
@@ -115,9 +116,10 @@ export function supabaseToCombi(note: SupabaseNote): CombinedNote {
 
   // Validate goal_type from database
   const validGoalTypes = ["words", "characters", ""];
-  const goalType = validGoalTypes.includes(note.goal_type as any)
-    ? (note.goal_type as "words" | "characters" | "")
-    : "";
+  const goalType: "words" | "characters" | "" =
+    note.goal_type === "words" || note.goal_type === "characters"
+      ? note.goal_type
+      : "";
 
   return {
     id: note.id,
@@ -133,8 +135,8 @@ export function supabaseToCombi(note: SupabaseNote): CombinedNote {
     goal: note.goal || 0,
     goal_type: goalType,
     source: "supabase",
-    notebookId: (note as any).notebook_id ?? null,
-    contentFormat: ((note as any).content_format as ContentFormat) || "html",
+    notebookId: note.notebook_id ?? null,
+    contentFormat: (note.content_format as ContentFormat) || "html",
   };
 }
 

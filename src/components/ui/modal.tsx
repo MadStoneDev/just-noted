@@ -70,11 +70,11 @@ export function Modal({
       aria-labelledby={title ? "modal-title" : undefined}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-neutral-900/50 animate-fade-in" />
+      <div className="absolute inset-0 bg-[var(--color-bg-overlay)] animate-fade-in" />
 
       {/* Modal Content */}
       <div
-        className={`relative bg-white rounded-xl shadow-xl border border-neutral-100 ${sizeClasses[size]} w-full animate-slide-up ${className}`}
+        className={`relative bg-[var(--color-bg-primary)] rounded-[var(--radius-xl)] shadow-xl border border-[var(--color-border-secondary)] ${sizeClasses[size]} w-full animate-slide-up ${className}`}
       >
         {/* Header */}
         {(title || showCloseButton) && (
@@ -87,7 +87,7 @@ export function Modal({
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-neutral-100 text-neutral-500 transition-colors"
+                className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[var(--radius-lg)] hover:bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] transition-colors"
                 aria-label="Close modal"
               >
                 <IconX size={20} strokeWidth={2} />
@@ -130,22 +130,22 @@ export function ConfirmModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} size="sm">
       <div className="space-y-4">
-        <p className="text-neutral-600">{message}</p>
+        <p className="text-[var(--color-text-secondary)]">{message}</p>
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50"
+            className="px-4 py-2 border border-[var(--color-border-primary)] rounded-[var(--radius-lg)] hover:bg-[var(--color-hover)] disabled:opacity-50"
           >
             {cancelText}
           </button>
           <button
             onClick={onConfirm}
             disabled={isLoading}
-            className={`px-4 py-2 rounded-lg text-white ${
+            className={`px-4 py-2 rounded-[var(--radius-lg)] text-white ${
               isDestructive
-                ? "bg-red-600 hover:bg-red-700"
-                : "bg-mercedes-primary hover:bg-mercedes-primary/90"
+                ? "bg-[var(--color-danger)] hover:bg-[var(--color-danger)]"
+                : "bg-[var(--color-accent)] hover:bg-[var(--color-accent)]/90"
             } disabled:opacity-50 flex items-center gap-2`}
           >
             {isLoading && (

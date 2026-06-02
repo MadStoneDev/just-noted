@@ -260,7 +260,7 @@ export default function NotebookExportButton({
       <button
         onClick={() => setIsOpen(!isOpen)}
         disabled={isExporting}
-        className="p-2 text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1"
+        className="p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] rounded-[var(--radius-lg)] transition-colors disabled:opacity-50 flex items-center gap-1"
         title={`Export ${notebookNotes.length} notes`}
       >
         {isExporting ? (
@@ -275,8 +275,8 @@ export default function NotebookExportButton({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-xl border border-neutral-200 py-1 min-w-[220px] z-50">
-          <div className="px-3 py-1.5 text-xs font-medium text-neutral-500 border-b border-neutral-100">
+        <div className="absolute top-full right-0 mt-1 bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] shadow-xl border border-[var(--color-border-primary)] py-1 min-w-[220px] z-50">
+          <div className="px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] border-b border-[var(--color-border-secondary)]">
             Export {notebookNotes.length} Notes
           </div>
           {menuItems.map((item) => (
@@ -284,12 +284,12 @@ export default function NotebookExportButton({
               key={item.format}
               onClick={() => exportNotebook(item.format)}
               disabled={isExporting}
-              className="w-full px-3 py-2 text-left hover:bg-neutral-50 flex items-center gap-3 transition-colors disabled:opacity-50"
+              className="w-full px-3 py-2 text-left hover:bg-[var(--color-bg-secondary)] flex items-center gap-3 transition-colors disabled:opacity-50"
             >
-              <span className="text-neutral-500">{item.icon}</span>
+              <span className="text-[var(--color-text-secondary)]">{item.icon}</span>
               <div>
                 <div className="text-sm font-medium">{item.label}</div>
-                <div className="text-xs text-neutral-400">{item.description}</div>
+                <div className="text-xs text-[var(--color-text-tertiary)]">{item.description}</div>
               </div>
             </button>
           ))}

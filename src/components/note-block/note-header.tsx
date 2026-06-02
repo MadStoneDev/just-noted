@@ -69,22 +69,22 @@ export default function NoteHeader({
               onChange={(e) => onTitleChange(e.target.value)}
               onKeyDown={onTitleKeyDown}
               className={`px-2 py-1 border ${
-                isPrivate ? "border-violet-800" : "border-mercedes-primary"
-              } focus:outline-none rounded bg-white text-neutral-800 font-semibold`}
+                isPrivate ? "border-violet-800" : "border-[var(--color-accent)]"
+              } focus:outline-none rounded bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] font-semibold`}
               maxLength={50}
             />
             <div className="flex items-center">
               <button
                 onClick={onSaveTitle}
                 className={`p-1 cursor-pointer rounded-full ${
-                  isPrivate ? "text-violet-800" : "text-mercedes-primary"
+                  isPrivate ? "text-violet-800" : "text-[var(--color-accent)]"
                 } opacity-50 hover:opacity-100 transition-all duration-300 ease-in-out`}
               >
                 <IconCheck size={18} strokeWidth={2} />
               </button>
               <button
                 onClick={onCancelEdit}
-                className={`p-1 cursor-pointer rounded-full text-red-700 opacity-50 hover:opacity-100 transition-all duration-300 ease-in-out`}
+                className={`p-1 cursor-pointer rounded-full text-[var(--color-danger)] opacity-50 hover:opacity-100 transition-all duration-300 ease-in-out`}
               >
                 <IconX size={18} strokeWidth={2} />
               </button>
@@ -98,7 +98,7 @@ export default function NoteHeader({
                   <IconLock
                     size={16}
                     strokeWidth={2}
-                    className="text-neutral-500"
+                    className="text-[var(--color-text-secondary)]"
                     title="Private note"
                   />
                 )}
@@ -109,10 +109,10 @@ export default function NoteHeader({
                 onClick={onEditTitle}
               >
                 <IconPencil
-                  className={`opacity-50 hover:opacity-100 text-neutral-500 ${
+                  className={`opacity-50 hover:opacity-100 text-[var(--color-text-secondary)] ${
                     isPrivate
                       ? "hover:text-violet-800"
-                      : "hover:text-mercedes-primary"
+                      : "hover:text-[var(--color-accent)]"
                   } transition-all duration-300 ease-in-out`}
                   size={20}
                   strokeWidth={2}
@@ -123,7 +123,7 @@ export default function NoteHeader({
             {/* Mobile save status */}
             {saveStatus && (
               <div
-                className={`flex md:hidden items-center gap-1 text-xs text-neutral-500 italic`}
+                className={`flex md:hidden items-center gap-1 text-xs text-[var(--color-text-secondary)] italic`}
               >
                 {saveIcon}
                 <span
@@ -137,10 +137,10 @@ export default function NoteHeader({
                     saveStatus === "Goal saved"
                       ? isPrivate
                         ? "text-violet-800"
-                        : "text-mercedes-primary"
+                        : "text-[var(--color-accent)]"
                       : saveStatus.includes("fail") ||
                           saveStatus.includes("Error")
-                        ? "text-red-700"
+                        ? "text-[var(--color-danger)]"
                         : ""
                   }
                 >
@@ -153,15 +153,15 @@ export default function NoteHeader({
             <span className={`flex items-center gap-1 ml-2`}>
               {noteSource === "supabase" ? (
                 <span
-                  className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-500 border border-neutral-200/60`}
+                  className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] border border-[var(--color-border-primary)]/60`}
                 >
-                  <IconCloud size={20} className="text-blue-500" /> CLOUD
+                  <IconCloud size={20} className="text-[var(--color-info)]" /> CLOUD
                 </span>
               ) : (
                 <span
-                  className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-500 border border-neutral-200/60`}
+                  className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] border border-[var(--color-border-primary)]/60`}
                 >
-                  <IconDeviceDesktop size={20} className="text-orange-500" /> LOCAL
+                  <IconDeviceDesktop size={20} className="text-[var(--color-warning)]" /> LOCAL
                 </span>
               )}
             </span>
@@ -175,14 +175,14 @@ export default function NoteHeader({
           isPrivate
             ? "bg-violet-300/50"
             : isPinned
-              ? "bg-mercedes-primary/30"
-              : "bg-neutral-200/60"
+              ? "bg-[var(--color-accent)]/30"
+              : "bg-[var(--color-bg-tertiary)]/60"
         } transition-all duration-300 ease-in-out`}
       ></div>
 
       {/* ADD: New note indicator */}
       {isNewNote && hasPinnedNotes && (
-        <div className="mb-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 flex items-center gap-2">
+        <div className="mb-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-[var(--radius-lg)] text-sm text-blue-700 flex items-center gap-2">
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
             <path
               fillRule="evenodd"
@@ -199,7 +199,7 @@ export default function NoteHeader({
       {/* Desktop save status */}
       {saveStatus && (
         <div
-          className={`hidden md:flex items-center gap-1 text-xs text-neutral-500 italic`}
+          className={`hidden md:flex items-center gap-1 text-xs text-[var(--color-text-secondary)] italic`}
         >
           {saveIcon}
           <span
@@ -213,9 +213,9 @@ export default function NoteHeader({
               saveStatus === "Goal saved"
                 ? isPrivate
                   ? "text-violet-800"
-                  : "text-mercedes-primary"
+                  : "text-[var(--color-accent)]"
                 : saveStatus.includes("fail") || saveStatus.includes("Error")
-                  ? "text-red-700"
+                  ? "text-[var(--color-danger)]"
                   : ""
             }
           >

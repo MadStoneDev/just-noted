@@ -358,11 +358,11 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
     return (
       <main className="flex-grow py-8 px-4">
         <div className="mx-auto max-w-4xl">
-          <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+          <div className="bg-[var(--color-bg-primary)] p-8 rounded-2xl shadow-sm border border-[var(--color-border-secondary)]">
             <div className="flex items-center justify-center py-16">
               <div className="text-center">
-                <div className="animate-spin rounded-full h-10 w-10 border-3 border-mercedes-primary border-t-transparent mx-auto mb-4"></div>
-                <p className="text-gray-600 font-medium">
+                <div className="animate-spin rounded-full h-10 w-10 border-3 border-[var(--color-accent)] border-t-transparent mx-auto mb-4"></div>
+                <p className="text-[var(--color-text-secondary)] font-medium">
                   Setting up your profile...
                 </p>
               </div>
@@ -374,12 +374,12 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
   }
 
   return (
-    <main className="flex-grow py-8 px-4 bg-gray-50">
+    <main className="flex-grow py-8 px-4 bg-[var(--color-bg-secondary)]">
       <div className="mx-auto max-w-4xl">
         {/* Header with gradient */}
-        <div className="bg-gradient-to-r from-mercedes-primary to-mercedes-primary/80 rounded-2xl p-8 mb-6 shadow-lg">
+        <div className="bg-gradient-to-r from-mercedes-primary to-mercedes-primary/80 rounded-2xl p-8 mb-6 shadow-[var(--shadow-lg)]">
           <div className="flex items-center space-x-4">
-            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-md ring-4 ring-white/20">
+            <div className="w-20 h-20 bg-[var(--color-bg-primary)] rounded-full flex items-center justify-center shadow-md ring-4 ring-white/20">
               {state.avatarPreview || state.avatarUrl ? (
                 <img
                   src={state.avatarPreview || state.avatarUrl || ""}
@@ -387,7 +387,7 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
                   className="w-full h-full object-cover rounded-full"
                 />
               ) : (
-                <span className="text-gray-400 text-4xl font-light">?</span>
+                <span className="text-[var(--color-text-tertiary)] text-4xl font-light">?</span>
               )}
             </div>
             <div>
@@ -400,7 +400,7 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
         </div>
 
         {/* Tabs */}
-        <div className="flex mb-6 bg-white rounded-xl p-1 shadow-sm border border-gray-100">
+        <div className="flex mb-6 bg-[var(--color-bg-primary)] rounded-[var(--radius-xl)] p-1 shadow-sm border border-[var(--color-border-secondary)]">
           <TabButton
             label="Profile Settings"
             isActive={state.activeTab === "profile"}
@@ -414,22 +414,22 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
         </div>
 
         {state.activeTab === "profile" ? (
-          <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <section className="bg-[var(--color-bg-primary)] rounded-2xl shadow-sm border border-[var(--color-border-secondary)] overflow-hidden">
             {/* Profile content with better spacing */}
             <div className="p-8">
-              <h2 className="text-xl font-semibold mb-6 text-gray-800">
+              <h2 className="text-xl font-semibold mb-6 text-[var(--color-text-primary)]">
                 Account Information
               </h2>
 
               {/* Email Display - Modern card style */}
               <div className="mb-6">
-                <label className="block mb-2 text-sm font-semibold text-gray-700">
+                <label className="block mb-2 text-sm font-semibold text-[var(--color-text-primary)]">
                   Email Address
                 </label>
-                <div className="px-4 py-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-600">
+                <div className="px-4 py-3 bg-[var(--color-bg-secondary)] rounded-[var(--radius-xl)] border border-[var(--color-border-primary)] text-[var(--color-text-secondary)]">
                   {user?.email}
                 </div>
-                <p className="mt-2 text-xs text-gray-500">
+                <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
                   Your email is used for authentication and cannot be changed
                   here.
                 </p>
@@ -437,7 +437,7 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
 
               {/* Username Input - Enhanced */}
               <div className="mb-6">
-                <label className="block mb-2 text-sm font-semibold text-gray-700">
+                <label className="block mb-2 text-sm font-semibold text-[var(--color-text-primary)]">
                   Username
                 </label>
                 <div className="relative">
@@ -445,15 +445,15 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
                     type="text"
                     value={state.username}
                     onChange={handleUsernameChange}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-mercedes-primary transition-colors bg-white"
+                    className="w-full px-4 py-3 border-2 border-[var(--color-border-primary)] rounded-[var(--radius-xl)] focus:outline-none focus:border-[var(--color-accent)] transition-colors bg-[var(--color-bg-primary)]"
                     placeholder="Enter username"
                     maxLength={30}
                   />
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--color-text-tertiary)]">
                     {state.username.length}/30
                   </div>
                 </div>
-                <p className="mt-2 text-xs text-gray-500">
+                <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
                   Letters, numbers, and underscores only. Must be 3-30
                   characters.
                 </p>
@@ -461,11 +461,11 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
 
               {/* Avatar Upload - Card style */}
               <div className="mb-8">
-                <label className="block mb-3 text-sm font-semibold text-gray-700">
+                <label className="block mb-3 text-sm font-semibold text-[var(--color-text-primary)]">
                   Profile Picture
                 </label>
-                <div className="flex items-center space-x-6 p-5 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 hover:border-mercedes-primary/50 transition-colors">
-                  <div className="shrink-0 w-24 h-24 bg-white rounded-2xl overflow-hidden flex items-center justify-center shadow-sm ring-1 ring-gray-200">
+                <div className="flex items-center space-x-6 p-5 bg-[var(--color-bg-secondary)] rounded-[var(--radius-xl)] border-2 border-dashed border-[var(--color-border-primary)] hover:border-[var(--color-accent)]/50 transition-colors">
+                  <div className="shrink-0 w-24 h-24 bg-[var(--color-bg-primary)] rounded-2xl overflow-hidden flex items-center justify-center shadow-sm ring-1 ring-gray-200">
                     {state.avatarPreview || state.avatarUrl ? (
                       <img
                         src={state.avatarPreview || state.avatarUrl || ""}
@@ -473,7 +473,7 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span className="text-gray-300 text-5xl font-light">
+                      <span className="text-[var(--color-text-tertiary)] text-5xl font-light">
                         ?
                       </span>
                     )}
@@ -489,7 +489,7 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
                     />
                     <label
                       htmlFor="avatar-upload"
-                      className="inline-flex items-center px-4 py-2.5 bg-mercedes-primary text-white rounded-lg font-medium cursor-pointer hover:bg-mercedes-primary/90 transition-colors shadow-sm"
+                      className="inline-flex items-center px-4 py-2.5 bg-[var(--color-accent)] text-white rounded-[var(--radius-lg)] font-medium cursor-pointer hover:bg-[var(--color-accent)]/90 transition-colors shadow-sm"
                     >
                       <svg
                         className="w-5 h-5 mr-2"
@@ -506,7 +506,7 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
                       </svg>
                       Choose Image
                     </label>
-                    <p className="mt-2 text-xs text-gray-500">
+                    <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
                       Recommended: Square image, at least 200x200px
                     </p>
                   </div>
@@ -515,27 +515,27 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
             </div>
 
             {/* Action Buttons - Sticky footer */}
-            <div className="flex justify-between items-center px-8 py-5 bg-gray-50 border-t border-gray-100">
+            <div className="flex justify-between items-center px-8 py-5 bg-[var(--color-bg-secondary)] border-t border-[var(--color-border-secondary)]">
               <button
                 onClick={handleLogout}
-                className="px-5 py-2.5 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                className="px-5 py-2.5 text-[var(--color-text-primary)] font-medium rounded-[var(--radius-lg)] hover:bg-[var(--color-active)] transition-colors"
               >
                 Log Out
               </button>
 
               <div className="flex items-center space-x-3">
                 {hasChanges && (
-                  <span className="text-sm text-gray-500 mr-2">
+                  <span className="text-sm text-[var(--color-text-secondary)] mr-2">
                     Unsaved changes
                   </span>
                 )}
                 <button
                   onClick={handleSave}
                   disabled={state.isSaving || !hasChanges}
-                  className={`px-6 py-2.5 rounded-lg font-medium shadow-sm transition-all ${
+                  className={`px-6 py-2.5 rounded-[var(--radius-lg)] font-medium shadow-sm transition-all ${
                     state.isSaving || !hasChanges
-                      ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                      : "bg-mercedes-primary text-white hover:bg-mercedes-primary/90 hover:shadow-md"
+                      ? "bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)] cursor-not-allowed"
+                      : "bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent)]/90 hover:shadow-md"
                   }`}
                 >
                   {state.isSaving ? (
@@ -551,10 +551,10 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
             </div>
 
             {/* Back link */}
-            <div className="px-8 py-4 bg-white">
+            <div className="px-8 py-4 bg-[var(--color-bg-primary)]">
               <Link
                 href="/"
-                className="inline-flex items-center text-mercedes-primary hover:text-mercedes-primary/80 font-medium transition-colors"
+                className="inline-flex items-center text-[var(--color-accent)] hover:text-[var(--color-accent)]/80 font-medium transition-colors"
               >
                 <svg
                   className="w-4 h-4 mr-2"
@@ -574,13 +574,13 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
             </div>
           </section>
         ) : (
-          <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+          <section className="bg-[var(--color-bg-primary)] rounded-2xl shadow-sm border border-[var(--color-border-secondary)] p-8">
             {user && <ManageSharedNotes userId={user.id} />}
 
-            <div className="mt-8 pt-6 border-t border-gray-100">
+            <div className="mt-8 pt-6 border-t border-[var(--color-border-secondary)]">
               <Link
                 href="/"
-                className="inline-flex items-center text-mercedes-primary hover:text-mercedes-primary/80 font-medium transition-colors"
+                className="inline-flex items-center text-[var(--color-accent)] hover:text-[var(--color-accent)]/80 font-medium transition-colors"
               >
                 <svg
                   className="w-4 h-4 mr-2"
@@ -618,10 +618,10 @@ const TabButton = memo(function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`flex-1 px-6 py-3 font-semibold rounded-lg transition-all ${
+      className={`flex-1 px-6 py-3 font-semibold rounded-[var(--radius-lg)] transition-all ${
         isActive
-          ? "bg-mercedes-primary text-white shadow-sm"
-          : "text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+          ? "bg-[var(--color-accent)] text-white shadow-sm"
+          : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)]"
       }`}
     >
       {label}

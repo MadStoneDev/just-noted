@@ -74,7 +74,7 @@ export default function DistractionFreeNoteBlock({
     return (
       <div className="col-span-12 text-center py-10 h-full flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-mercedes-primary"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-accent)]"></div>
           <span>Loading your note...</span>
         </div>
       </div>
@@ -84,7 +84,7 @@ export default function DistractionFreeNoteBlock({
   if (!latestNote) {
     return (
       <div className="col-span-12 text-center py-10 h-full flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3 text-gray-500">
+        <div className="flex flex-col items-center gap-3 text-[var(--color-text-secondary)]">
           <svg
             className="w-16 h-16"
             fill="none"

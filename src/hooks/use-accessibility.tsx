@@ -167,13 +167,13 @@ export function SkipLinks() {
     <div className="sr-only focus-within:not-sr-only">
       <a
         href="#main-content"
-        className="absolute top-2 left-2 z-[100] px-4 py-2 bg-mercedes-primary text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-mercedes-primary"
+        className="absolute top-2 left-2 z-[100] px-4 py-2 bg-[var(--color-accent)] text-white rounded-[var(--radius-lg)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--color-accent)]"
       >
         Skip to main content
       </a>
       <a
         href="#notes-list"
-        className="absolute top-2 left-40 z-[100] px-4 py-2 bg-mercedes-primary text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-mercedes-primary"
+        className="absolute top-2 left-40 z-[100] px-4 py-2 bg-[var(--color-accent)] text-white rounded-[var(--radius-lg)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--color-accent)]"
       >
         Skip to notes
       </a>

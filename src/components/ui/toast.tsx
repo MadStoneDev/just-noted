@@ -122,17 +122,17 @@ function ToastItem({
   };
 
   const colors = {
-    success: "bg-green-500 text-white",
-    error: "bg-red-500 text-white",
-    warning: "bg-orange-500 text-white",
-    info: "bg-blue-500 text-white",
+    success: "bg-[var(--color-success)] text-white",
+    error: "bg-[var(--color-danger-subtle)]0 text-white",
+    warning: "bg-[var(--color-warning)] text-white",
+    info: "bg-[var(--color-info)] text-white",
   };
 
   return (
     <div
       className={`${
         colors[toast.type]
-      } px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 min-w-[300px] animate-slide-in-right`}
+      } px-4 py-3 rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] flex items-center gap-3 min-w-[300px] animate-slide-in-right`}
     >
       {icons[toast.type]}
       <span className="flex-grow">{toast.message}</span>

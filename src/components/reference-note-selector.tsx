@@ -113,15 +113,15 @@ export default function ReferenceNoteSelector({
       {/* Trigger button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 rounded-lg transition-colors text-sm max-w-[200px]"
+        className="flex items-center gap-2 px-3 py-1.5 bg-[var(--color-bg-tertiary)] hover:bg-[var(--color-bg-tertiary)] rounded-[var(--radius-lg)] transition-colors text-sm max-w-[200px]"
       >
-        <IconNotes size={16} className="text-neutral-500 flex-shrink-0" />
+        <IconNotes size={16} className="text-[var(--color-text-secondary)] flex-shrink-0" />
         <span className="truncate">
           {selectedNote ? selectedNote.title : "Select a note..."}
         </span>
         <IconChevronDown
           size={14}
-          className={`text-neutral-400 flex-shrink-0 transition-transform ${
+          className={`text-[var(--color-text-tertiary)] flex-shrink-0 transition-transform ${
             isOpen ? "rotate-180" : ""
           }`}
         />
@@ -129,13 +129,13 @@ export default function ReferenceNoteSelector({
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 w-72 bg-white rounded-lg shadow-xl border border-neutral-200 z-50 overflow-hidden">
+        <div className="absolute top-full left-0 mt-1 w-72 bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] shadow-xl border border-[var(--color-border-primary)] z-50 overflow-hidden">
           {/* Search */}
-          <div className="p-2 border-b border-neutral-100">
+          <div className="p-2 border-b border-[var(--color-border-secondary)]">
             <div className="relative">
               <IconSearch
                 size={16}
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400"
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)]"
               />
               <input
                 ref={searchInputRef}
@@ -143,12 +143,12 @@ export default function ReferenceNoteSelector({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search notes..."
-                className="w-full pl-8 pr-8 py-1.5 text-sm bg-neutral-50 border border-neutral-200 rounded-md focus:outline-none focus:border-mercedes-primary"
+                className="w-full pl-8 pr-8 py-1.5 text-sm bg-[var(--color-bg-secondary)] border border-[var(--color-border-primary)] rounded-md focus:outline-none focus:border-[var(--color-accent)]"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
                 >
                   <IconX size={14} />
                 </button>
@@ -159,7 +159,7 @@ export default function ReferenceNoteSelector({
           {/* Notes list */}
           <div className="max-h-64 overflow-y-auto">
             {filteredNotes.length === 0 ? (
-              <div className="p-4 text-center text-sm text-neutral-500">
+              <div className="p-4 text-center text-sm text-[var(--color-text-secondary)]">
                 No notes found
               </div>
             ) : (
@@ -234,7 +234,7 @@ function NoteGroup({
 }: NoteGroupProps) {
   return (
     <div>
-      <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-neutral-500 bg-neutral-50 border-b border-neutral-100">
+      <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] bg-[var(--color-bg-secondary)] border-b border-[var(--color-border-secondary)]">
         {icon}
         <span>{title}</span>
       </div>
@@ -244,8 +244,8 @@ function NoteGroup({
           <button
             key={note.id}
             onClick={() => onSelect(note.id)}
-            className={`w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-neutral-50 transition-colors ${
-              note.id === selectedNoteId ? "bg-mercedes-primary/5" : ""
+            className={`w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-[var(--color-bg-secondary)] transition-colors ${
+              note.id === selectedNoteId ? "bg-[var(--color-accent)]/5" : ""
             }`}
           >
             {notebookInfo && (
@@ -257,7 +257,7 @@ function NoteGroup({
             )}
             <span className="text-sm truncate flex-1">{note.title}</span>
             {note.id === selectedNoteId && (
-              <span className="text-xs text-mercedes-primary">Selected</span>
+              <span className="text-xs text-[var(--color-accent)]">Selected</span>
             )}
           </button>
         );

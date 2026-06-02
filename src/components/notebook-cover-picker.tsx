@@ -104,7 +104,7 @@ export default function NotebookCoverPicker({
       {/* Preview */}
       <div className="relative">
         <div
-          className="w-full h-24 rounded-lg overflow-hidden"
+          className="w-full h-24 rounded-[var(--radius-lg)] overflow-hidden"
           style={pendingFile && previewUrl ? { backgroundImage: `url(${previewUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : getCoverStyle(coverType, coverValue)}
         >
           <div className="absolute inset-0 flex items-center justify-center">
@@ -116,7 +116,7 @@ export default function NotebookCoverPicker({
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-neutral-200">
+      <div className="flex border-b border-[var(--color-border-primary)]">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -124,8 +124,8 @@ export default function NotebookCoverPicker({
             onClick={() => setActiveTab(tab.id)}
             className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
               activeTab === tab.id
-                ? "text-mercedes-primary border-b-2 border-mercedes-primary"
-                : "text-neutral-500 hover:text-neutral-700"
+                ? "text-[var(--color-accent)] border-b-2 border-[var(--color-accent)]"
+                : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
             }`}
           >
             {tab.label}
@@ -160,7 +160,7 @@ export default function NotebookCoverPicker({
           <div className="space-y-4">
             {/* Upload error message */}
             {uploadError && (
-              <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 text-sm rounded-lg">
+              <div className="flex items-center gap-2 p-3 bg-[var(--color-danger-subtle)] text-[var(--color-danger)] text-sm rounded-[var(--radius-lg)]">
                 <IconAlertCircle size={16} className="flex-shrink-0" />
                 <span>{uploadError}</span>
               </div>
@@ -168,13 +168,13 @@ export default function NotebookCoverPicker({
 
             {/* Current custom image (uploaded) */}
             {coverType === "custom" && coverValue && coverValue !== "pending" && (
-              <div className="relative w-full h-20 rounded-lg overflow-hidden bg-neutral-100">
+              <div className="relative w-full h-20 rounded-[var(--radius-lg)] overflow-hidden bg-[var(--color-bg-tertiary)]">
                 <img
                   src={coverValue}
                   alt="Custom cover"
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute top-2 right-2 bg-mercedes-primary text-white p-1 rounded-full">
+                <div className="absolute top-2 right-2 bg-[var(--color-accent)] text-white p-1 rounded-full">
                   <IconCheck size={12} />
                 </div>
               </div>
@@ -182,7 +182,7 @@ export default function NotebookCoverPicker({
 
             {/* Pending file preview (not yet uploaded) */}
             {pendingFile && previewUrl && (
-              <div className="relative w-full h-20 rounded-lg overflow-hidden bg-neutral-100">
+              <div className="relative w-full h-20 rounded-[var(--radius-lg)] overflow-hidden bg-[var(--color-bg-tertiary)]">
                 <img
                   src={previewUrl}
                   alt="Selected cover"
@@ -204,13 +204,13 @@ export default function NotebookCoverPicker({
                 setUploadError(null);
                 fileInputRef.current?.click();
               }}
-              className="w-full flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-neutral-300 rounded-lg hover:border-mercedes-primary hover:bg-neutral-50 transition-colors"
+              className="w-full flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-[var(--color-border-primary)] rounded-[var(--radius-lg)] hover:border-[var(--color-accent)] hover:bg-[var(--color-bg-secondary)] transition-colors"
             >
-              <IconUpload size={24} className="text-neutral-400" />
-              <span className="text-sm text-neutral-600">
+              <IconUpload size={24} className="text-[var(--color-text-tertiary)]" />
+              <span className="text-sm text-[var(--color-text-secondary)]">
                 {pendingFile ? "Change image" : "Click to select image"}
               </span>
-              <span className="text-xs text-neutral-400">
+              <span className="text-xs text-[var(--color-text-tertiary)]">
                 JPG, PNG or WebP, max 2MB
               </span>
             </button>
@@ -244,8 +244,8 @@ function ColorPicker({
           key={color}
           type="button"
           onClick={() => onSelect(color)}
-          className={`w-8 h-8 rounded-lg transition-transform hover:scale-110 ${
-            selectedValue === color ? "ring-2 ring-mercedes-primary ring-offset-2" : ""
+          className={`w-8 h-8 rounded-[var(--radius-lg)] transition-transform hover:scale-110 ${
+            selectedValue === color ? "ring-2 ring-[var(--color-accent)] ring-offset-2" : ""
           }`}
           style={{ backgroundColor: color }}
           title={color}
@@ -274,9 +274,9 @@ function GradientPicker({
           key={gradient.name}
           type="button"
           onClick={() => onSelect(gradient.value)}
-          className={`h-12 rounded-lg transition-transform hover:scale-105 ${
+          className={`h-12 rounded-[var(--radius-lg)] transition-transform hover:scale-105 ${
             selectedValue === gradient.value
-              ? "ring-2 ring-mercedes-primary ring-offset-2"
+              ? "ring-2 ring-[var(--color-accent)] ring-offset-2"
               : ""
           }`}
           style={{ background: gradient.value }}
@@ -319,16 +319,16 @@ const PhotoPicker = React.memo(function PhotoPicker({
             key={photo.name}
             type="button"
             onClick={() => onSelect(photo.path)}
-            className={`relative h-16 rounded-lg overflow-hidden bg-neutral-100 ${
+            className={`relative h-16 rounded-[var(--radius-lg)] overflow-hidden bg-[var(--color-bg-tertiary)] ${
               isSelected
-                ? "ring-2 ring-mercedes-primary ring-offset-2"
+                ? "ring-2 ring-[var(--color-accent)] ring-offset-2"
                 : ""
             }`}
             title={photo.name}
           >
             {hasError ? (
-              <div className="w-full h-full flex items-center justify-center bg-neutral-200">
-                <IconPhoto size={20} className="text-neutral-400" />
+              <div className="w-full h-full flex items-center justify-center bg-[var(--color-bg-tertiary)]">
+                <IconPhoto size={20} className="text-[var(--color-text-tertiary)]" />
               </div>
             ) : (
               <img
@@ -340,7 +340,7 @@ const PhotoPicker = React.memo(function PhotoPicker({
               />
             )}
             {isSelected && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+              <div className="absolute inset-0 flex items-center justify-center bg-[var(--color-bg-overlay)]">
                 <IconCheck size={16} className="text-white" />
               </div>
             )}

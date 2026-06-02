@@ -358,14 +358,14 @@ export default function NoteBlock({
       if (result.success) {
         setStatus(
           "Title saved",
-          <IconCircleCheck className="text-mercedes-primary" />,
+          <IconCircleCheck className="text-[var(--color-accent)]" />,
           false,
           2000,
         );
       } else {
         setStatus(
           "Title save failed",
-          <IconCircleX className="text-red-700" />,
+          <IconCircleX className="text-[var(--color-danger)]" />,
           true,
           3000,
         );
@@ -375,7 +375,7 @@ export default function NoteBlock({
       console.error("Error updating note title:", error);
       setStatus(
         "Title save failed",
-        <IconCircleX className="text-red-700" />,
+        <IconCircleX className="text-[var(--color-danger)]" />,
         true,
         3000,
       );
@@ -400,7 +400,7 @@ export default function NoteBlock({
     if (!onTransferNote) {
       setStatus(
         "Transfer not available",
-        <IconCircleX className="text-red-700" />,
+        <IconCircleX className="text-[var(--color-danger)]" />,
         true,
         3000,
       );
@@ -410,7 +410,7 @@ export default function NoteBlock({
     if (targetSource === "supabase" && !isAuthenticated) {
       setStatus(
         "Sign in required for cloud",
-        <IconCircleX className="text-red-700" />,
+        <IconCircleX className="text-[var(--color-danger)]" />,
         true,
         3000,
       );
@@ -445,7 +445,7 @@ export default function NoteBlock({
 
       setStatus(
         "Transfer complete!",
-        <IconCircleCheck className="text-mercedes-primary" />,
+        <IconCircleCheck className="text-[var(--color-accent)]" />,
         false,
         2000,
       );
@@ -453,7 +453,7 @@ export default function NoteBlock({
       console.error("Transfer error:", error);
       setStatus(
         "Transfer failed",
-        <IconCircleX className="text-red-700" />,
+        <IconCircleX className="text-[var(--color-danger)]" />,
         true,
         3000,
       );
@@ -482,7 +482,7 @@ export default function NoteBlock({
       setTimeout(() => {
         setStatus(
           "Goal saved",
-          <IconCircleCheck className="text-mercedes-primary" />,
+          <IconCircleCheck className="text-[var(--color-accent)]" />,
           false,
           2000,
         );
@@ -490,7 +490,7 @@ export default function NoteBlock({
     } else {
       setStatus(
         "Goal cleared",
-        <IconCircleCheck className="text-mercedes-primary" />,
+        <IconCircleCheck className="text-[var(--color-accent)]" />,
         false,
         2000,
       );
@@ -510,7 +510,7 @@ export default function NoteBlock({
     setShowVersionHistory(false);
     setStatus(
       "Version restored",
-      <IconCircleCheck className="text-mercedes-primary" />,
+      <IconCircleCheck className="text-[var(--color-accent)]" />,
       false,
       2000,
     );
@@ -610,7 +610,7 @@ export default function NoteBlock({
 
           setStatus(
             "Saved",
-            <IconCircleCheck className="text-mercedes-primary" />,
+            <IconCircleCheck className="text-[var(--color-accent)]" />,
             false,
             2000,
           );
@@ -618,7 +618,7 @@ export default function NoteBlock({
         } else {
           setStatus(
             "Failed to save",
-            <IconCircleX className="text-red-700" />,
+            <IconCircleX className="text-[var(--color-danger)]" />,
             true,
             3000,
           );
@@ -627,7 +627,7 @@ export default function NoteBlock({
       } catch (error) {
         setStatus(
           "Error saving",
-          <IconCircleX className="text-red-700" />,
+          <IconCircleX className="text-[var(--color-danger)]" />,
           true,
           3000,
         );
@@ -869,7 +869,7 @@ export default function NoteBlock({
       {/* Transfer Loading Overlay */}
       {isTransferring && (
         <div className="absolute inset-0 bg-[var(--color-bg-overlay)] flex items-center justify-center rounded-[var(--radius-lg)] z-10">
-          <div className="bg-[var(--color-bg-elevated)] px-4 py-2 rounded-[var(--radius-md)] shadow-lg">
+          <div className="bg-[var(--color-bg-elevated)] px-4 py-2 rounded-[var(--radius-md)] shadow-[var(--shadow-lg)]">
             <span className="flex items-center gap-2 text-sm text-[var(--color-text-primary)]">
               <svg className="animate-spin h-4 w-4 text-[var(--color-accent)]" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
@@ -883,9 +883,9 @@ export default function NoteBlock({
 
       {/* Transfer Complete Overlay */}
       {transferComplete && (
-        <div className="absolute inset-0 bg-neutral-900/50 flex items-center justify-center rounded-xl z-10 animate-fadeOut">
-          <div className="bg-white px-4 py-2 rounded-lg shadow-lg">
-            <span className="flex items-center gap-2 text-mercedes-primary">
+        <div className="absolute inset-0 bg-[var(--color-bg-overlay)] flex items-center justify-center rounded-[var(--radius-xl)] z-10 animate-fadeOut">
+          <div className="bg-[var(--color-bg-primary)] px-4 py-2 rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)]">
+            <span className="flex items-center gap-2 text-[var(--color-accent)]">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-5 w-5"
@@ -965,7 +965,7 @@ export default function NoteBlock({
                 distractionFreeMode
                   ? ""
                   : "md:col-span-8 lg:col-span-9 3xl:col-span-10"
-              } rounded-xl overflow-hidden`}
+              } rounded-[var(--radius-xl)] overflow-hidden`}
             >
               <LazyTextBlock
                 noteId={details.id}

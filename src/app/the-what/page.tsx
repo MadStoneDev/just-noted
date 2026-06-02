@@ -25,7 +25,7 @@ export default async function TheWhatPage() {
         <div className={`pt-3 sm:text-center`}>
           <h1 className={`text-xl font-semibold`}>
             What is{" "}
-            <span className={`p-1 bg-mercedes-primary font-secondary`}>
+            <span className={`p-1 bg-[var(--color-accent)] font-secondary`}>
               Just
               <span className={`text-white`}>Noted</span>
             </span>
@@ -69,7 +69,7 @@ export default async function TheWhatPage() {
               this work, or you're worried about your privacy, check out{" "}
               <Link
                 href={"/the-how"}
-                className={`hover:px-1 hover:bg-mercedes-primary text-mercedes-primary hover:text-white font-semibold transition-all duration-300 ease-in-out`}
+                className={`hover:px-1 hover:bg-[var(--color-accent)] text-[var(--color-accent)] hover:text-white font-semibold transition-all duration-300 ease-in-out`}
               >
                 The How
               </Link>

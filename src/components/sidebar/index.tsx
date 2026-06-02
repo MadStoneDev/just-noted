@@ -190,9 +190,9 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
           });
 
           // Add highlight effect
-          noteElement.classList.add("ring-2", "ring-mercedes-primary", "ring-offset-2");
+          noteElement.classList.add("ring-2", "ring-[var(--color-accent)]", "ring-offset-2");
           setTimeout(() => {
-            noteElement.classList.remove("ring-2", "ring-mercedes-primary", "ring-offset-2");
+            noteElement.classList.remove("ring-2", "ring-[var(--color-accent)]", "ring-offset-2");
           }, 2000);
         }
       }, 100);

@@ -81,13 +81,13 @@ export function useNoteActions({
         // Small delay before showing success
         setTimeout(() => {
           const successIcon = createElement(IconCircleCheck, {
-            className: "text-mercedes-primary",
+            className: "text-[var(--color-accent)]",
           });
           setStatus(successMessage, successIcon, false, 2000);
         }, 50);
       } catch (error) {
         const errorIcon = createElement(IconCircleX, {
-          className: "text-red-700",
+          className: "text-[var(--color-danger)]",
         });
         setStatus(`Error ${actionName.toLowerCase()}`, errorIcon, true, 3000);
         console.error(error);

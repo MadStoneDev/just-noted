@@ -91,17 +91,17 @@ export default function VersionHistory({
   }, {} as Record<string, NoteVersion[]>);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col mx-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-bg-overlay)]">
+      <div className="bg-[var(--color-bg-primary)] rounded-[var(--radius-xl)] shadow-[var(--shadow-xl)] w-full max-w-2xl max-h-[80vh] flex flex-col mx-4">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-neutral-200">
+        <div className="flex items-center justify-between p-4 border-b border-[var(--color-border-primary)]">
           <div className="flex items-center gap-2">
-            <IconHistory size={20} className="text-mercedes-primary" />
+            <IconHistory size={20} className="text-[var(--color-accent)]" />
             <h2 className="text-lg font-semibold">Version History</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-[var(--color-bg-tertiary)] rounded-[var(--radius-lg)] transition-colors"
           >
             <IconX size={20} />
           </button>
@@ -110,14 +110,14 @@ export default function VersionHistory({
         {/* Content */}
         <div className="flex-1 overflow-hidden flex">
           {/* Version List */}
-          <div className="w-1/2 border-r border-neutral-200 overflow-y-auto">
+          <div className="w-1/2 border-r border-[var(--color-border-primary)] overflow-y-auto">
             {isLoading ? (
-              <div className="p-8 text-center text-neutral-500">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-mercedes-primary mx-auto mb-2" />
+              <div className="p-8 text-center text-[var(--color-text-secondary)]">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-accent)] mx-auto mb-2" />
                 Loading versions...
               </div>
             ) : versions.length === 0 ? (
-              <div className="p-8 text-center text-neutral-500">
+              <div className="p-8 text-center text-[var(--color-text-secondary)]">
                 <IconHistory size={40} className="mx-auto mb-2 opacity-50" />
                 <p>No version history available yet.</p>
                 <p className="text-sm mt-1">Versions are saved automatically as you edit.</p>
@@ -126,7 +126,7 @@ export default function VersionHistory({
               <div className="divide-y divide-neutral-100">
                 {Object.entries(groupedVersions).map(([date, dateVersions]) => (
                   <div key={date}>
-                    <div className="px-4 py-2 bg-neutral-50 text-xs font-medium text-neutral-500 sticky top-0">
+                    <div className="px-4 py-2 bg-[var(--color-bg-secondary)] text-xs font-medium text-[var(--color-text-secondary)] sticky top-0">
                       {new Date(date).toLocaleDateString(undefined, {
                         weekday: "long",
                         month: "long",
@@ -137,29 +137,29 @@ export default function VersionHistory({
                       <button
                         key={version.id}
                         onClick={() => handlePreview(version)}
-                        className={`w-full px-4 py-3 text-left hover:bg-neutral-50 transition-colors flex items-center gap-3 ${
-                          selectedVersion?.id === version.id ? "bg-mercedes-primary/5" : ""
+                        className={`w-full px-4 py-3 text-left hover:bg-[var(--color-bg-secondary)] transition-colors flex items-center gap-3 ${
+                          selectedVersion?.id === version.id ? "bg-[var(--color-accent)]/5" : ""
                         }`}
                       >
                         <div className="flex-shrink-0">
-                          <IconClock size={16} className="text-neutral-400" />
+                          <IconClock size={16} className="text-[var(--color-text-tertiary)]" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium">
                               {formatTime(version.createdAt)}
                             </span>
-                            <span className="text-xs text-neutral-400">
+                            <span className="text-xs text-[var(--color-text-tertiary)]">
                               {version.wordCount} words
                             </span>
                           </div>
                           {version.changeDescription && (
-                            <p className="text-xs text-neutral-500 truncate mt-0.5">
+                            <p className="text-xs text-[var(--color-text-secondary)] truncate mt-0.5">
                               {version.changeDescription}
                             </p>
                           )}
                         </div>
-                        <IconChevronRight size={16} className="text-neutral-400 flex-shrink-0" />
+                        <IconChevronRight size={16} className="text-[var(--color-text-tertiary)] flex-shrink-0" />
                       </button>
                     ))}
                   </div>
@@ -172,19 +172,19 @@ export default function VersionHistory({
           <div className="w-1/2 flex flex-col">
             {selectedVersion ? (
               <>
-                <div className="p-4 border-b border-neutral-200 flex items-center justify-between">
+                <div className="p-4 border-b border-[var(--color-border-primary)] flex items-center justify-between">
                   <div>
                     <div className="text-sm font-medium">
                       {formatDate(selectedVersion.createdAt)} at{" "}
                       {formatTime(selectedVersion.createdAt)}
                     </div>
-                    <div className="text-xs text-neutral-500">
+                    <div className="text-xs text-[var(--color-text-secondary)]">
                       {selectedVersion.wordCount} words
                     </div>
                   </div>
                   <button
                     onClick={() => handleRestore(selectedVersion)}
-                    className="px-3 py-1.5 bg-mercedes-primary text-white text-sm rounded-lg hover:bg-mercedes-primary/90 transition-colors flex items-center gap-1"
+                    className="px-3 py-1.5 bg-[var(--color-accent)] text-white text-sm rounded-[var(--radius-lg)] hover:bg-[var(--color-accent)]/90 transition-colors flex items-center gap-1"
                   >
                     <IconArrowBackUp size={14} />
                     Restore
@@ -199,7 +199,7 @@ export default function VersionHistory({
                 </div>
               </>
             ) : (
-              <div className="flex-1 flex items-center justify-center text-neutral-500">
+              <div className="flex-1 flex items-center justify-center text-[var(--color-text-secondary)]">
                 <div className="text-center">
                   <IconEye size={40} className="mx-auto mb-2 opacity-50" />
                   <p>Select a version to preview</p>
@@ -210,7 +210,7 @@ export default function VersionHistory({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-neutral-200 text-xs text-neutral-500 text-center">
+        <div className="p-4 border-t border-[var(--color-border-primary)] text-xs text-[var(--color-text-secondary)] text-center">
           Versions are automatically saved when significant changes are made.
         </div>
       </div>

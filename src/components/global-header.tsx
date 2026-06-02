@@ -96,7 +96,7 @@ export default function GlobalHeader({ user }: GlobalHeaderProps) {
             className="fixed inset-0 bg-[var(--color-bg-overlay)] md:hidden animate-fade-in"
             onClick={closeMenu}
           />
-          <div className="fixed top-14 left-0 right-0 bg-[var(--color-bg-primary)] border-b border-[var(--color-border-primary)] shadow-lg md:hidden animate-slide-down z-50">
+          <div className="fixed top-14 left-0 right-0 bg-[var(--color-bg-primary)] border-b border-[var(--color-border-primary)] shadow-[var(--shadow-lg)] md:hidden animate-slide-down z-50">
             <div className="p-4 flex flex-col gap-1">
               <Link
                 href="/"

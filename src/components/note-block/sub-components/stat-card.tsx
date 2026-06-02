@@ -21,13 +21,13 @@ export default function StatCard({ label, value, isPrivate, hasNotebookCover }: 
             ? "text-white"
             : isPrivate
               ? "text-violet-700"
-              : "text-neutral-800"
+              : "text-[var(--color-text-primary)]"
         }`}
       >
         {value}
       </span>
       <span className={`text-xs uppercase tracking-wide ${
-        hasNotebookCover ? "text-white/70" : "text-neutral-500"
+        hasNotebookCover ? "text-white/70" : "text-[var(--color-text-secondary)]"
       }`}>
         {label}
       </span>

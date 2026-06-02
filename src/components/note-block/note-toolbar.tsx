@@ -192,7 +192,7 @@ export default function NoteToolbar({
           onClick={handlePrint}
           title="Print note"
           aria-label="Print note"
-          className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-neutral-100 transition-colors text-neutral-600"
+          className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[var(--radius-lg)] hover:bg-[var(--color-bg-tertiary)] transition-colors text-[var(--color-text-secondary)]"
         >
           <IconPrinter size={18} />
         </button>
@@ -204,11 +204,11 @@ export default function NoteToolbar({
             onClick={onShowVersionHistory}
             title="View version history"
             aria-label="View version history"
-            className={`group/history px-2 cursor-pointer flex-grow sm:flex-grow-0 flex items-center justify-center gap-1 w-fit min-w-[44px] h-[44px] rounded-lg border-1 ${
+            className={`group/history px-2 cursor-pointer flex-grow sm:flex-grow-0 flex items-center justify-center gap-1 w-fit min-w-[44px] h-[44px] rounded-[var(--radius-lg)] border-1 ${
               isPrivate
-                ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
-                : "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary"
-            } text-neutral-800 overflow-hidden transition-all duration-300 ease-in-out`}
+                ? "border-violet-800 hover:bg-violet-800 hover:text-[var(--color-text-inverse)]"
+                : "border-[var(--color-border-primary)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]"
+            } text-[var(--color-text-primary)] overflow-hidden transition-all duration-300 ease-in-out`}
           >
             <IconHistory size={20} strokeWidth={2} />
             <span
@@ -253,14 +253,14 @@ export default function NoteToolbar({
         <button
           type="button"
           onClick={() => setMoreOpen((v) => !v)}
-          className="p-2 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100 transition-colors"
+          className="p-2 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-[var(--radius-lg)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
           title="More actions"
           aria-label="More actions"
         >
           <IconDotsVertical size={18} />
         </button>
         {moreOpen && (
-          <div className="absolute bottom-full mb-1 left-0 z-20 bg-white rounded-lg shadow-lg border border-neutral-200 py-1 min-w-[160px]">
+          <div className="absolute bottom-full mb-1 left-0 z-20 bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] border border-[var(--color-border-primary)] py-1 min-w-[160px]">
             {overflowItems.map((item) => (
               <button
                 key={item.label}
@@ -269,7 +269,7 @@ export default function NoteToolbar({
                   item.onClick();
                   setMoreOpen(false);
                 }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
               >
                 {item.icon}
                 {item.label}
@@ -278,7 +278,7 @@ export default function NoteToolbar({
 
             {/* Mobile auth actions inline in overflow */}
             {isAuthenticated && noteSource === "supabase" && (
-              <div className="border-t border-neutral-100 mt-1 pt-1">
+              <div className="border-t border-[var(--color-border-secondary)] mt-1 pt-1">
                 <MoveToNotebookButton
                   noteId={noteId}
                   currentNotebookId={note.notebookId}
@@ -287,7 +287,7 @@ export default function NoteToolbar({
               </div>
             )}
             {isAuthenticated && (
-              <div className={`${noteSource !== "supabase" && isAuthenticated ? "border-t border-neutral-100 mt-1 pt-1" : ""}`}>
+              <div className={`${noteSource !== "supabase" && isAuthenticated ? "border-t border-[var(--color-border-secondary)] mt-1 pt-1" : ""}`}>
                 <ShareNoteButton
                   noteId={noteId}
                   noteTitle={noteTitle}
@@ -308,8 +308,8 @@ export default function NoteToolbar({
           isPrivate
             ? "bg-violet-300/50"
             : isPinned
-              ? "bg-mercedes-primary/30"
-              : "bg-neutral-200/60"
+              ? "bg-[var(--color-accent)]/30"
+              : "bg-[var(--color-bg-tertiary)]/60"
         } transition-all duration-300 ease-in-out`}
       ></div>
 

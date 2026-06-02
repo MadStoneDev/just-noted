@@ -147,8 +147,13 @@ export function useAutoSave(
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
-      // Attempt to flush on unmount
-      flushSave();
+      // Fire-and-forget flush — can't await in cleanup, but the
+      // save function writes to IDB first (via use-notes-operations)
+      // so even if the server save doesn't complete, data is in IDB.
+      const content = latestContentRef.current;
+      if (content !== lastSavedContentRef.current && !saveInProgressRef.current) {
+        saveFunction(content, false).catch(() => {});
+      }
     };
   }, [flushSave]);
 

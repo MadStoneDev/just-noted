@@ -32,7 +32,7 @@ export default async function PrivacyPolicyPage() {
       <div className={`pt-3`}>
         <h1 className={`text-xl font-semibold sm:text-center`}>
           Privacy Policy for{" "}
-          <span className={`p-1 bg-mercedes-primary font-secondary`}>
+          <span className={`p-1 bg-[var(--color-accent)] font-secondary`}>
             Just
             <span className={`text-white`}>Noted</span>
           </span>
@@ -49,7 +49,7 @@ export default async function PrivacyPolicyPage() {
           </p>
 
           <h2
-            className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+            className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
           >
             <IconRosetteDiscountCheck size={24} strokeWidth={2} /> Our
             Commitment to Privacy
@@ -68,7 +68,7 @@ export default async function PrivacyPolicyPage() {
           </p>
 
           <h2
-            className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+            className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
           >
             <IconUserCircle size={24} strokeWidth={2} /> Personal Information
           </h2>
@@ -90,7 +90,7 @@ export default async function PrivacyPolicyPage() {
           </p>
 
           <h2
-            className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+            className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
           >
             <IconShieldLock size={24} strokeWidth={2} /> Your Notes and Data
           </h2>
@@ -110,7 +110,7 @@ export default async function PrivacyPolicyPage() {
           </p>
 
           <h2
-            className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+            className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
           >
             <IconAnalyze size={24} strokeWidth={2} /> Analytics
           </h2>
@@ -132,7 +132,7 @@ export default async function PrivacyPolicyPage() {
           </p>
 
           <h2
-            className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+            className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
           >
             <IconCookie size={24} strokeWidth={2} /> Cookies
           </h2>
@@ -149,7 +149,7 @@ export default async function PrivacyPolicyPage() {
           </p>
 
           <h2
-            className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+            className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
           >
             <IconBallpen size={24} strokeWidth={2} /> Changes to This Policy
           </h2>
@@ -161,7 +161,7 @@ export default async function PrivacyPolicyPage() {
           </p>
 
           <h2
-            className={`mt-3 pb-2 border-b border-neutral-400 font-secondary font-semibold text-lg flex items-center gap-2`}
+            className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
           >
             <IconMail size={24} strokeWidth={2} /> Contact Us
           </h2>
@@ -170,7 +170,7 @@ export default async function PrivacyPolicyPage() {
             practices, please don't hesitate to reach out to us through our{" "}
             <Link
               href={"/contact"}
-              className={`hover:px-1 hover:bg-mercedes-primary text-mercedes-primary hover:text-white font-semibold transition-all duration-300 ease-in-out`}
+              className={`hover:px-1 hover:bg-[var(--color-accent)] text-[var(--color-accent)] hover:text-white font-semibold transition-all duration-300 ease-in-out`}
             >
               Contact Page
             </Link>

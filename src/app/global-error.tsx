@@ -35,27 +35,27 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
 
   return (
     <html lang="en">
-      <body className="bg-neutral-200 min-h-screen flex items-center justify-center px-4">
+      <body className="bg-[var(--color-bg-tertiary)] min-h-screen flex items-center justify-center px-4">
         <div className="max-w-md w-full">
-          <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+          <div className="bg-[var(--color-bg-primary)] rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)] p-8 text-center">
             {/* Icon */}
             <div className="flex justify-center mb-4">
               <div className="p-3 bg-red-100 rounded-full">
                 <IconAlertTriangle
                   size={48}
-                  className="text-red-600"
+                  className="text-[var(--color-danger)]"
                   strokeWidth={1.5}
                 />
               </div>
             </div>
 
             {/* Title */}
-            <h1 className="text-2xl font-semibold text-neutral-900 mb-2">
+            <h1 className="text-2xl font-semibold text-[var(--color-text-primary)] mb-2">
               Critical Error
             </h1>
 
             {/* Description */}
-            <p className="text-neutral-600 mb-6">
+            <p className="text-[var(--color-text-secondary)] mb-6">
               The application encountered a critical error. Please try
               refreshing the page. Your notes are automatically saved and will
               be restored.
@@ -64,14 +64,14 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
             {/* Action button */}
             <button
               onClick={reset}
-              className="w-full px-6 py-3 bg-mercedes-primary hover:bg-mercedes-primary/90 text-white rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2"
+              className="w-full px-6 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent)]/90 text-white rounded-[var(--radius-xl)] font-medium transition-all duration-200 flex items-center justify-center gap-2"
             >
               <IconRefresh size={20} strokeWidth={1.5} />
               Reload Application
             </button>
 
             {/* Additional help */}
-            <p className="text-center text-sm text-neutral-600 mt-6">
+            <p className="text-center text-sm text-[var(--color-text-secondary)] mt-6">
               If reloading doesn't help, try clearing your browser cache
             </p>
           </div>

@@ -122,7 +122,7 @@ export default async function SharedNotePageWrapper({
       <Suspense
         fallback={
           <div className="min-h-screen flex items-center justify-center print:hidden">
-            <div className="text-neutral-500 animate-pulse">
+            <div className="text-[var(--color-text-secondary)] animate-pulse">
               Loading shared note...
             </div>
           </div>

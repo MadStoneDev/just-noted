@@ -106,11 +106,11 @@ export default function MoveToNotebookButton({
         disabled={isMoving}
         title={currentNotebook ? `In: ${currentNotebook.name}` : "Move to notebook"}
         aria-label={currentNotebook ? `In: ${currentNotebook.name}` : "Move to notebook"}
-        className={`group/notebook px-2 cursor-pointer flex-grow sm:flex-grow-0 flex items-center justify-center gap-1 w-fit min-w-[44px] h-[44px] rounded-lg border-1 ${
+        className={`group/notebook px-2 cursor-pointer flex-grow sm:flex-grow-0 flex items-center justify-center gap-1 w-fit min-w-[44px] h-[44px] rounded-[var(--radius-lg)] border-1 ${
           isPrivate
-            ? "border-violet-800 hover:bg-violet-800 hover:text-neutral-100"
-            : "border-neutral-500 hover:border-mercedes-primary hover:bg-mercedes-primary"
-        } text-neutral-800 overflow-hidden transition-all duration-300 ease-in-out disabled:opacity-50`}
+            ? "border-violet-800 hover:bg-violet-800 hover:text-[var(--color-text-inverse)]"
+            : "border-[var(--color-border-primary)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]"
+        } text-[var(--color-text-primary)] overflow-hidden transition-all duration-300 ease-in-out disabled:opacity-50`}
       >
         {isMoving ? (
           <IconLoader2 size={20} strokeWidth={2} className="animate-spin" />
@@ -134,18 +134,18 @@ export default function MoveToNotebookButton({
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute bottom-full left-0 mb-2 bg-white rounded-lg shadow-lg border border-neutral-200 z-50 min-w-48 overflow-hidden">
+        <div className="absolute bottom-full left-0 mb-2 bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] border border-[var(--color-border-primary)] z-50 min-w-48 overflow-hidden">
           {/* Remove from notebook option */}
           {currentNotebookId && (
             <>
               <button
                 onClick={() => handleMove(null)}
-                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-neutral-50 transition-colors text-left"
+                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[var(--color-bg-secondary)] transition-colors text-left"
               >
-                <IconFileOff size={16} className="text-neutral-500" />
-                <span className="text-sm text-neutral-700">Remove from notebook</span>
+                <IconFileOff size={16} className="text-[var(--color-text-secondary)]" />
+                <span className="text-sm text-[var(--color-text-primary)]">Remove from notebook</span>
               </button>
-              <div className="border-t border-neutral-200" />
+              <div className="border-t border-[var(--color-border-primary)]" />
             </>
           )}
 
@@ -162,8 +162,8 @@ export default function MoveToNotebookButton({
                 <button
                   key={notebook.id}
                   onClick={() => handleMove(notebook.id)}
-                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 hover:bg-neutral-50 transition-colors text-left ${
-                    isSelected ? "bg-neutral-50" : ""
+                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 hover:bg-[var(--color-bg-secondary)] transition-colors text-left ${
+                    isSelected ? "bg-[var(--color-bg-secondary)]" : ""
                   }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
@@ -171,12 +171,12 @@ export default function MoveToNotebookButton({
                       className="w-4 h-4 rounded-sm flex-shrink-0"
                       style={previewStyle}
                     />
-                    <span className="text-sm text-neutral-800 truncate">
+                    <span className="text-sm text-[var(--color-text-primary)] truncate">
                       {notebook.name}
                     </span>
                   </div>
                   {isSelected && (
-                    <IconCheck size={14} className="text-mercedes-primary flex-shrink-0" />
+                    <IconCheck size={14} className="text-[var(--color-accent)] flex-shrink-0" />
                   )}
                 </button>
               );

@@ -435,7 +435,7 @@ function ToggleRow({
         }`}
       >
         <div
-          className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white shadow-xs transition-transform duration-[var(--duration-fast)] ${
+          className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-[var(--color-bg-primary)] shadow-xs transition-transform duration-[var(--duration-fast)] ${
             checked ? "translate-x-[16px]" : "translate-x-[2px]"
           }`}
         />

@@ -262,8 +262,8 @@ export default function ExportMenu({ note, className = "" }: ExportMenuProps) {
       {/* Export trigger button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center gap-1 rounded-lg hover:bg-neutral-100 transition-colors text-neutral-600 ${
-          isOpen ? "bg-neutral-100" : ""
+        className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center gap-1 rounded-[var(--radius-lg)] hover:bg-[var(--color-bg-tertiary)] transition-colors text-[var(--color-text-secondary)] ${
+          isOpen ? "bg-[var(--color-bg-tertiary)]" : ""
         }`}
         title="Export Note"
         aria-label="Export Note"
@@ -286,7 +286,7 @@ export default function ExportMenu({ note, className = "" }: ExportMenuProps) {
             key={item.format}
             onClick={() => exportNote(item.format)}
             title={`Export as ${item.label}`}
-            className="flex items-center gap-1.5 px-2.5 py-2 min-h-[44px] rounded-lg text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 transition-colors whitespace-nowrap text-xs font-medium"
+            className="flex items-center gap-1.5 px-2.5 py-2 min-h-[44px] rounded-[var(--radius-lg)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] transition-colors whitespace-nowrap text-xs font-medium"
           >
             {item.icon}
             {item.label}
@@ -299,18 +299,18 @@ export default function ExportMenu({ note, className = "" }: ExportMenuProps) {
         <div className="md:hidden fixed inset-0 z-50">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/30"
+            className="absolute inset-0 bg-[var(--color-bg-overlay)]"
             onClick={() => setIsOpen(false)}
           />
 
           {/* Panel from right */}
-          <div className="absolute top-0 right-0 bottom-0 w-[min(280px,80vw)] bg-white shadow-xl flex flex-col animate-slide-in-right">
+          <div className="absolute top-0 right-0 bottom-0 w-[min(280px,80vw)] bg-[var(--color-bg-primary)] shadow-xl flex flex-col animate-slide-in-right">
             {/* Panel header */}
-            <div className="flex items-center justify-between p-4 border-b border-neutral-100">
-              <h3 className="font-semibold text-neutral-800">Export As</h3>
+            <div className="flex items-center justify-between p-4 border-b border-[var(--color-border-secondary)]">
+              <h3 className="font-semibold text-[var(--color-text-primary)]">Export As</h3>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-neutral-100 transition-colors"
+                className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[var(--radius-lg)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
                 aria-label="Close export menu"
               >
                 <IconX size={20} />
@@ -323,9 +323,9 @@ export default function ExportMenu({ note, className = "" }: ExportMenuProps) {
                 <button
                   key={item.format}
                   onClick={() => exportNote(item.format)}
-                  className="flex items-center gap-3 px-4 py-3 min-h-[44px] rounded-lg text-neutral-600 hover:bg-neutral-50 transition-colors"
+                  className="flex items-center gap-3 px-4 py-3 min-h-[44px] rounded-[var(--radius-lg)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
                 >
-                  <span className="text-neutral-400">{item.icon}</span>
+                  <span className="text-[var(--color-text-tertiary)]">{item.icon}</span>
                   <span className="font-medium">{item.label}</span>
                 </button>
               ))}

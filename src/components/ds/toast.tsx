@@ -122,7 +122,7 @@ function ToastItem({
   return (
     <div
       className={cn(
-        "flex items-start gap-3 px-4 py-3 rounded-[var(--radius-lg)] border-l-[3px] shadow-lg animate-slide-in-right",
+        "flex items-start gap-3 px-4 py-3 rounded-[var(--radius-lg)] border-l-[3px] shadow-[var(--shadow-lg)] animate-slide-in-right",
         config.className,
       )}
       role="alert"
