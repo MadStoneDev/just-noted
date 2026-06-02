@@ -189,6 +189,18 @@ body {
   background-color: var(--color-bg-secondary);
 }
 
+button,
+[role="button"],
+a,
+[role="tab"],
+[role="menuitem"],
+[role="radio"],
+select,
+label[for],
+summary {
+  cursor: pointer;
+}
+
 ::selection {
   background-color: var(--color-selection);
 }
@@ -578,19 +590,6 @@ body {
   }
 }
 
-/* Legacy animation classes (used by existing components, remove during Phase 3 rebuild) */
-.animate-slide-in {
-  animation: slide-in-right var(--duration-slow) var(--ease-spring);
-}
-
-.animate-fadeOut {
-  animation: fade-out 1.5s ease-in-out;
-}
-
-.note-container {
-  position: relative;
-  z-index: 10;
-}
 
 /* ============================================
    SKELETON LOADING

@@ -32,13 +32,9 @@ export default function DistractionFreeNoteBlock({
   const {
     updatePinStatus,
     updatePrivacyStatus,
-    updateCollapsedStatus,
-    reorderNote,
-    transferNote,
     deleteNote,
     saveNoteContent,
     saveNoteTitle,
-    transferringNoteId,
   } = notesOperations;
 
   // Find the latest version of the note from the store
@@ -137,15 +133,7 @@ export default function DistractionFreeNoteBlock({
         onDelete={deleteNote}
         onPinStatusChange={updatePinStatus}
         onPrivacyStatusChange={updatePrivacyStatus}
-        onCollapsedStatusChange={updateCollapsedStatus}
-        onReorder={reorderNote}
-        isFirstPinned={isFirstPinned}
-        isLastPinned={isLastPinned}
-        isFirstUnpinned={isFirstUnpinned}
-        isLastUnpinned={isLastUnpinned}
         noteSource={latestNote.source}
-        onTransferNote={transferNote}
-        isTransferring={transferringNoteId === latestNote.id}
         isAuthenticated={isAuthenticated}
         onRegisterFlush={registerNoteFlush}
         onUnregisterFlush={unregisterNoteFlush}

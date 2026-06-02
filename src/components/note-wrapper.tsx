@@ -133,9 +133,10 @@ export default function NoteWrapper() {
           .remove(existingFiles.map((f: { name: string }) => `${user.id}/${f.name}`));
       }
 
+      const arrayBuffer = await file.arrayBuffer();
       const { error: uploadError } = await supabase.storage
         .from("notebook-covers")
-        .upload(filePath, file, { cacheControl: "3600", upsert: true, contentType: file.type });
+        .upload(filePath, arrayBuffer, { cacheControl: "3600", upsert: true, contentType: file.type });
 
       if (uploadError) return null;
 

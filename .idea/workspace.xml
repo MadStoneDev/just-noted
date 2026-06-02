@@ -7,7 +7,11 @@
     <list default="true" id="c964cf5b-c203-4783-b48d-35cd19ff7e4b" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.claude/settings.local.json" beforeDir="false" afterPath="$PROJECT_DIR$/.claude/settings.local.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/just-notes.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/just-notes.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/directory_structure.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/globals.css" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/globals.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/note-wrapper.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/note-wrapper.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/notebook-cover-picker.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/notebook-cover-picker.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/sidebar/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/sidebar/index.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -41,8 +45,12 @@
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
     "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "cidr.known.project.marker": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
     "git-widget-placeholder": "main",
     "js.debugger.nextJs.config.created.client": "true",
     "js.debugger.nextJs.config.created.server": "true",
@@ -54,7 +62,7 @@
     "nodejs_package_manager_path": "npm",
     "prettierjs.PrettierConfiguration.Package": "/Users/richardhaddad/.nvm/versions/node/v20.18.2/lib/node_modules/prettier",
     "settings.editor.selected.configurable": "settings.javascript.prettier",
-    "ts.external.directory.path": "D:\\Development Sandbox\\just-noted\\node_modules\\typescript\\lib",
+    "ts.external.directory.path": "G:\\Development-Sandbox\\_Rumblebuffin\\justnoted\\node_modules\\typescript\\lib",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
@@ -93,6 +101,8 @@
       <workItem from="1770070647516" duration="516000" />
       <workItem from="1770222312995" duration="2915000" />
       <workItem from="1771159730256" duration="897000" />
+      <workItem from="1774799458282" duration="1283000" />
+      <workItem from="1780266213176" duration="11491000" />
     </task>
     <servers />
   </component>

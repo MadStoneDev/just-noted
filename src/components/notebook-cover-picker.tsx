@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { CoverType } from "@/types/notebook";
 import {
   COVER_COLORS,
@@ -48,7 +48,7 @@ export default function NotebookCoverPicker({
     if (coverType === "color") return "colors";
     if (coverType === "gradient") return "gradients";
     if (coverType === "photo") return "photos";
-    // if (coverType === "custom") return "upload"; // Upload tab temporarily disabled
+    if (coverType === "custom") return "upload";
     return "colors";
   });
 
@@ -58,7 +58,7 @@ export default function NotebookCoverPicker({
     { id: "colors", label: "Colors" },
     { id: "gradients", label: "Gradients" },
     { id: "photos", label: "Photos" },
-    // { id: "upload", label: "Upload" }, // Temporarily disabled until storage issue is resolved
+    { id: "upload", label: "Upload" },
   ];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -292,7 +292,7 @@ function GradientPicker({
 }
 
 // Photo picker grid
-function PhotoPicker({
+const PhotoPicker = React.memo(function PhotoPicker({
   selectedValue,
   onSelect,
 }: {
@@ -300,23 +300,27 @@ function PhotoPicker({
   onSelect: (value: string) => void;
 }) {
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+  const errorRef = useRef<Set<string>>(new Set());
 
-  const handleImageError = (path: string) => {
-    setImageErrors((prev) => new Set(prev).add(path));
-  };
+  const handleImageError = useCallback((path: string) => {
+    if (errorRef.current.has(path)) return;
+    errorRef.current.add(path);
+    setImageErrors(new Set(errorRef.current));
+  }, []);
 
   return (
     <div className="grid grid-cols-4 gap-2">
       {COVER_PHOTOS.map((photo) => {
         const hasError = imageErrors.has(photo.path);
+        const isSelected = selectedValue === photo.path;
 
         return (
           <button
             key={photo.name}
             type="button"
             onClick={() => onSelect(photo.path)}
-            className={`h-16 rounded-lg overflow-hidden transition-transform hover:scale-105 bg-neutral-100 ${
-              selectedValue === photo.path
+            className={`relative h-16 rounded-lg overflow-hidden bg-neutral-100 ${
+              isSelected
                 ? "ring-2 ring-mercedes-primary ring-offset-2"
                 : ""
             }`}
@@ -331,10 +335,11 @@ function PhotoPicker({
                 src={photo.path}
                 alt={photo.name}
                 className="w-full h-full object-cover"
+                loading="lazy"
                 onError={() => handleImageError(photo.path)}
               />
             )}
-            {selectedValue === photo.path && (
+            {isSelected && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/20">
                 <IconCheck size={16} className="text-white" />
               </div>
@@ -344,4 +349,4 @@ function PhotoPicker({
       })}
     </div>
   );
-}
+});

@@ -18,7 +18,17 @@
       "Bash(git commit:*)",
       "Bash(git restore:*)",
       "Bash(wc:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(chmod:*)",
+      "Bash(find *)",
+      "Bash(git *)",
+      "Skill(deep-research)",
+      "WebSearch",
+      "WebFetch(domain:designmd.cc)",
+      "WebFetch(domain:blakecrosley.com)",
+      "WebFetch(domain:blog.tubikstudio.com)",
+      "WebFetch(domain:medium.com)",
+      "Bash(mkdir *)"
     ]
   }
 }

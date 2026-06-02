@@ -36,10 +36,6 @@ export interface NotesOperations {
   addNote: (templateContent?: string, templateTitle?: string) => Promise<void>;
   updatePinStatus: (noteId: string, isPinned: boolean) => Promise<void>;
   updatePrivacyStatus: (noteId: string, isPrivate: boolean) => Promise<void>;
-  updateCollapsedStatus: (noteId: string, isCollapsed: boolean) => void;
-  reorderNote: (noteId: string, direction: "up" | "down") => Promise<void>;
-  transferNote: (noteId: string, targetSource: NoteSource) => Promise<void>;
-  syncAndRenumberNotes: () => Promise<void>;
   deleteNote: (noteId: string) => Promise<void>;
   restoreNote: () => Promise<void>;
   saveNoteContent: (
@@ -50,7 +46,6 @@ export interface NotesOperations {
   ) => Promise<{ success: boolean }>;
   saveNoteTitle: (noteId: string, title: string) => Promise<{ success: boolean }>;
   refreshSingleNote: (noteId: string) => Promise<CombinedNote | null>;
-  transferringNoteId: string | null;
 }
 import { USER_NOTE_COUNT_KEY, HAS_INITIALISED_KEY } from "@/constants/app";
 
@@ -840,15 +835,10 @@ export function useNotesOperations(
     addNote,
     updatePinStatus,
     updatePrivacyStatus,
-    updateCollapsedStatus,
-    reorderNote,
-    transferNote,
-    syncAndRenumberNotes,
     deleteNote,
     restoreNote,
     saveNoteContent,
     saveNoteTitle,
     refreshSingleNote,
-    transferringNoteId,
   };
 }

@@ -286,21 +286,12 @@ export function useNotesSync() {
 
     const initialize = async () => {
       try {
-        // Check IDB cache first for instant render
-        const cachedNotes = await getAllLocalNotes();
-        if (cachedNotes.length > 0) {
-          syncFromBackend(cachedNotes);
-          recalculateNotebookCounts();
-          setLoading(false);
-          // Continue loading fresh data in background below
-        }
-
         // One-time cleanup of old localStorage cache
         localStorage.removeItem("justnoted_notes_cache");
         localStorage.removeItem("justnoted_notes_cache_ts");
         localStorage.removeItem("justnoted_offline_queue");
 
-        // Get or create user ID
+        // STEP 1: Check authentication FIRST
         const newUserId = getUserId();
         setUserId(newUserId);
 
@@ -308,7 +299,6 @@ export function useNotesSync() {
           throw new Error("Failed to get user ID");
         }
 
-        // Check authentication status with retries to handle slow/flaky connections
         let authenticated = false;
         for (let attempt = 0; attempt < AUTH_MAX_RETRIES; attempt++) {
           try {
@@ -319,18 +309,19 @@ export function useNotesSync() {
               ),
             ]);
             authenticated = !!authResult.data?.user;
-            break; // Success — stop retrying
+            break;
           } catch (authError) {
             console.warn(`Auth check attempt ${attempt + 1}/${AUTH_MAX_RETRIES} failed:`, authError);
             if (attempt < AUTH_MAX_RETRIES - 1) {
-              // Brief pause before retry (500ms, 1000ms)
               await new Promise((r) => setTimeout(r, (attempt + 1) * 500));
             }
           }
         }
         setAuthenticated(authenticated);
 
-        // Load Redis notes (full) + Supabase notes (full) in parallel
+        // STEP 2: Load IDB cache + server notes
+        const cachedNotes = await getAllLocalNotes();
+
         const [redisResult, supabaseResult] = await Promise.allSettled([
           noteOperation("redis", { operation: "getAll", userId: newUserId }),
           authenticated
@@ -352,22 +343,19 @@ export function useNotesSync() {
             ? supabaseResult.value.notes
             : [];
 
-        // Build note list, preserving cached notes from any source that failed
         let allNotes: CombinedNote[] = [];
         if (redisOk) {
           allNotes.push(...redisNotes);
         } else {
-          // Redis failed — keep cached Redis notes so they don't vanish
           allNotes.push(...cachedNotes.filter((n) => n.source === "redis"));
         }
         if (supabaseOk) {
           allNotes.push(...supabaseNotes);
         } else if (authenticated) {
-          // Supabase failed — keep cached Supabase notes so they don't vanish
           allNotes.push(...cachedNotes.filter((n) => n.source === "supabase"));
         }
 
-        // Create default note if none exist
+        // STEP 3: Only create a default note if there are NO notes at all
         if (allNotes.length === 0) {
           const defaultNoteSource: NoteSource = authenticated ? "supabase" : "redis";
           const noteNumber =
@@ -393,20 +381,14 @@ export function useNotesSync() {
           }
 
           allNotes = [newNote];
-          localStorage.setItem(HAS_INITIALISED_KEY, "true");
-        } else {
-          if (!localStorage.getItem(HAS_INITIALISED_KEY)) {
-            localStorage.setItem(HAS_INITIALISED_KEY, "true");
-          }
         }
+
+        localStorage.setItem(HAS_INITIALISED_KEY, "true");
 
         const normalizedNotes = normaliseOrdering(allNotes);
         const sortedNotes = sortNotes(normalizedNotes, null);
-
-        // Merge IDB cache with server — local wins if newer
         const mergedNotes = mergeLocalWithServer(sortedNotes, cachedNotes, newUserId, authenticated);
 
-        // Render immediately with metadata + preserved cached content
         syncFromBackend(mergedNotes);
         recalculateNotebookCounts();
         saveAllNotesToLocal(mergedNotes).catch(() => {});

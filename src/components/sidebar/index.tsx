@@ -287,12 +287,12 @@ export default function Sidebar({ onNoteClick, onBulkDelete }: SidebarProps) {
     }
   }, [removeNotebook, recalculateNotebookCounts]);
 
-  // Helper to upload cover using client-side Supabase (like avatars)
   const uploadCoverFile = async (notebookId: string, file: File): Promise<string | null> => {
+    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 15000));
+    const upload = async (): Promise<string | null> => {
     try {
       const supabase = createClient();
 
-      // Get current user
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError) {
         console.error("Auth error:", authError);
@@ -329,18 +329,22 @@ export default function Sidebar({ onNoteClick, onBulkDelete }: SidebarProps) {
         }
       }
 
-      // Upload the new file
+      // Convert File to ArrayBuffer to avoid TransformStream issues in Next.js
+      const arrayBuffer = await file.arrayBuffer();
+
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("notebook-covers")
-        .upload(filePath, file, {
+        .upload(filePath, arrayBuffer, {
           cacheControl: "3600",
           upsert: true,
           contentType: file.type,
         });
 
       if (uploadError) {
-        console.error("Storage upload error:", uploadError);
-        console.error("Upload error details:", JSON.stringify(uploadError, null, 2));
+        console.error("Storage upload error:", uploadError.message);
+        console.error("Upload error statusCode:", (uploadError as any).statusCode);
+        console.error("Upload error full:", JSON.stringify(uploadError, null, 2));
+        console.error("Bucket: notebook-covers, Path:", filePath, "Size:", file.size, "Type:", file.type);
         return null;
       }
 
@@ -358,6 +362,8 @@ export default function Sidebar({ onNoteClick, onBulkDelete }: SidebarProps) {
       console.error("Upload error:", error);
       return null;
     }
+    };
+    return Promise.race([upload(), timeout]);
   };
 
   const handleSaveNotebook = useCallback(async (data: {
@@ -373,23 +379,26 @@ export default function Sidebar({ onNoteClick, onBulkDelete }: SidebarProps) {
 
       // If there's a pending file, upload it first
       if (data.pendingFile) {
-        console.log("Uploading pending file for existing notebook:", editingNotebook.id);
+        console.log("=== UPLOAD START ===");
+        console.log("Notebook ID:", editingNotebook.id);
+        console.log("File:", data.pendingFile.name, data.pendingFile.size, data.pendingFile.type);
         const uploadedUrl = await uploadCoverFile(editingNotebook.id, data.pendingFile);
+        console.log("=== UPLOAD RESULT ===", uploadedUrl);
         if (uploadedUrl) {
           finalCoverType = "custom";
           finalCoverValue = uploadedUrl;
-          console.log("Upload successful, cover URL:", uploadedUrl);
         } else {
-          console.error("Failed to upload cover file");
-          throw new Error("Failed to upload cover image. Please try again.");
+          throw new Error("Upload failed — check browser console for details.");
         }
       }
 
+      console.log("=== SAVING NOTEBOOK ===", { name: data.name, coverType: finalCoverType, coverValue: finalCoverValue?.slice(0, 60) });
       const result = await updateNotebook(editingNotebook.id, {
         name: data.name,
         coverType: finalCoverType,
         coverValue: finalCoverValue,
       });
+      console.log("=== SAVE RESULT ===", result);
 
       if (result.success && result.notebook) {
         updateNotebookInStore(editingNotebook.id, result.notebook);
