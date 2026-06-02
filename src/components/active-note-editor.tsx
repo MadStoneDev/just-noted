@@ -30,6 +30,7 @@ import {
   IconLayoutColumns,
   IconShare,
   IconHelp,
+  IconNotebook,
 } from "@tabler/icons-react";
 import { Dropdown, DropdownItem, DropdownSeparator } from "@/components/ds/dropdown";
 import { Modal, ConfirmModal } from "@/components/ds/modal";
@@ -368,7 +369,8 @@ function NoteEditor({
           {/* Notebook pill + stats */}
           <div className="flex items-center gap-2 mb-6 flex-wrap">
             {notebook && (
-              <span className="inline-block px-1.5 py-px text-[9px] font-medium rounded-[var(--radius-sm)] bg-[var(--color-accent-subtle)] text-[var(--color-accent)]">
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-px text-[9px] font-medium rounded-[var(--radius-sm)] bg-[var(--color-accent-subtle)] text-[var(--color-accent)]">
+                <IconNotebook size={8} className="shrink-0" />
                 {notebook.name}
               </span>
             )}

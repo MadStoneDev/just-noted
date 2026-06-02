@@ -681,7 +681,8 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                             const notebook = notebooks.find((nb) => nb.id === note.notebookId);
                             if (notebook) {
                               return (
-                                <span className="inline-block mt-0.5 px-1.5 py-px text-[9px] font-medium rounded-[var(--radius-sm)] bg-[var(--color-accent-subtle)] text-[var(--color-accent)] truncate max-w-[120px]">
+                                <span className="inline-flex items-center gap-0.5 mt-0.5 px-1.5 py-px text-[9px] font-medium rounded-[var(--radius-sm)] bg-[var(--color-accent-subtle)] text-[var(--color-accent)] truncate max-w-[130px]">
+                                  <IconNotebook size={8} className="shrink-0" />
                                   {notebook.name}
                                 </span>
                               );
