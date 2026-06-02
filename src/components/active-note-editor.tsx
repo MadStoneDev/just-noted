@@ -30,7 +30,7 @@ import {
   IconHelp,
 } from "@tabler/icons-react";
 import { Dropdown, DropdownItem, DropdownSeparator } from "@/components/ds/dropdown";
-import { Modal } from "@/components/ds/modal";
+import { Modal, ConfirmModal } from "@/components/ds/modal";
 import { IconButton } from "@/components/ds/icon-button";
 import ShareNoteButton from "@/components/share-note-button";
 
@@ -122,6 +122,7 @@ function NoteEditor({
   const [showPagePicker, setShowPagePicker] = useState(false);
   const [showGoalPicker, setShowGoalPicker] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [goalInput, setGoalInput] = useState(String(note.goal || ""));
 
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -305,13 +306,27 @@ function NoteEditor({
             <DropdownItem
               icon={<IconTrash size={14} />}
               destructive
-              onClick={() => notesOperations.deleteNote(note.id)}
+              onClick={() => setShowDeleteConfirm(true)}
             >
               Delete
             </DropdownItem>
           </Dropdown>
         </div>
       </div>
+
+      {/* Delete confirmation */}
+      <ConfirmModal
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => {
+          notesOperations.deleteNote(note.id);
+          setShowDeleteConfirm(false);
+        }}
+        title="Delete note"
+        message={`Are you sure you want to delete "${title}"? This can't be undone.`}
+        confirmText="Delete"
+        destructive
+      />
 
       {/* Editor area */}
       <div className="flex-1 overflow-y-auto scrollbar-thin">

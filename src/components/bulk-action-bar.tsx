@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNotesStore } from "@/stores/notes-store";
 import { bulkAssignNotesToNotebook } from "@/app/actions/notebookActions";
+import { ConfirmModal } from "@/components/ds/modal";
 import {
   IconX,
   IconNotebook,
@@ -27,6 +28,7 @@ export default function BulkActionBar({
   const [showMoveMenu, setShowMoveMenu] = useState(false);
   const [isAssigning, setIsAssigning] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const { notebooks, optimisticUpdateNote, recalculateNotebookCounts } =
@@ -129,7 +131,7 @@ export default function BulkActionBar({
 
           {/* Delete */}
           <button
-            onClick={handleDelete}
+            onClick={() => setShowDeleteConfirm(true)}
             disabled={isDeleting}
             className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium bg-[var(--color-danger-subtle)] border border-transparent rounded-[var(--radius-sm)] text-[var(--color-danger)] hover:bg-[var(--color-danger)] hover:text-white transition-colors disabled:opacity-50"
           >
@@ -138,6 +140,19 @@ export default function BulkActionBar({
           </button>
         </div>
       </div>
+
+      <ConfirmModal
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => {
+          handleDelete();
+          setShowDeleteConfirm(false);
+        }}
+        title="Delete notes"
+        message={`Delete ${count} selected note${count !== 1 ? "s" : ""}? This can't be undone.`}
+        confirmText="Delete"
+        destructive
+      />
     </div>
   );
 }

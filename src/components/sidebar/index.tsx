@@ -34,9 +34,10 @@ import {
 
 interface SidebarProps {
   onNoteClick?: (noteId: string) => void;
+  onBulkDelete?: (noteIds: string[]) => void;
 }
 
-export default function Sidebar({ onNoteClick }: SidebarProps) {
+export default function Sidebar({ onNoteClick, onBulkDelete }: SidebarProps) {
   const {
     sidebarOpen,
     setSidebarOpen,
@@ -723,6 +724,7 @@ export default function Sidebar({ onNoteClick }: SidebarProps) {
               selectedNoteIds={selectedNoteIds}
               onClearSelection={handleClearSelection}
               onAssignComplete={handleBulkAssignComplete}
+              onBulkDelete={onBulkDelete}
             />
           )}
 

@@ -267,7 +267,12 @@ export default function NoteWrapper() {
         </div>
 
         {/* Sidebar */}
-        <Sidebar onNoteClick={() => {}} />
+        <Sidebar
+          onNoteClick={() => {}}
+          onBulkDelete={(noteIds) => {
+            noteIds.forEach((id) => notesOperations.deleteNote(id));
+          }}
+        />
 
         {/* Main editor area */}
         <main
