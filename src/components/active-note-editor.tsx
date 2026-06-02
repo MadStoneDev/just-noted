@@ -30,10 +30,13 @@ import {
   IconLayoutColumns,
   IconShare,
   IconHelp,
+  IconHistory,
   IconNotebook,
 } from "@tabler/icons-react";
 import { Dropdown, DropdownItem, DropdownSeparator } from "@/components/ds/dropdown";
 import { Modal, ConfirmModal } from "@/components/ds/modal";
+import VersionHistoryPanel from "@/components/version-history-panel";
+import { saveVersion } from "@/app/actions/versionActions";
 import { IconButton } from "@/components/ds/icon-button";
 import ShareNoteButton from "@/components/share-note-button";
 
@@ -146,6 +149,8 @@ function NoteEditor({
   const [showGoalPicker, setShowGoalPicker] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showVersions, setShowVersions] = useState(false);
+  const lastVersionRef = useRef<number>(0);
   const [goalInput, setGoalInput] = useState(String(note.goal || ""));
 
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -179,6 +184,13 @@ function NoteEditor({
           );
         }
         lastSavedContentRef.current = newContent;
+
+        // Save version snapshot every 5 minutes
+        const now = Date.now();
+        if (now - lastVersionRef.current > 300000 && isAuthenticated) {
+          lastVersionRef.current = now;
+          saveVersion(note.id, title, newContent, "markdown").catch(() => {});
+        }
         return true;
       } catch {
         return false;
@@ -261,6 +273,16 @@ function NoteEditor({
           >
             <IconHelp size={14} />
           </IconButton>
+
+          {isAuthenticated && (
+            <IconButton
+              label="Version history"
+              size="sm"
+              onClick={() => setShowVersions(true)}
+            >
+              <IconHistory size={14} />
+            </IconButton>
+          )}
 
           <div className="w-px h-3 bg-[var(--color-border-secondary)] mx-0.5" />
 
@@ -512,6 +534,20 @@ function NoteEditor({
           </p>
         </div>
       </Modal>
+
+      {/* Version history */}
+      <VersionHistoryPanel
+        noteId={note.id}
+        open={showVersions}
+        onClose={() => setShowVersions(false)}
+        onRestore={(restoredContent, restoredTitle) => {
+          setContent(restoredContent);
+          setTitle(restoredTitle);
+          setContentFormat("markdown");
+          notesOperations.saveNoteContent(note.id, restoredContent, goalTarget, goalType);
+          notesOperations.saveNoteTitle?.(note.id, restoredTitle);
+        }}
+      />
     </div>
   );
 }

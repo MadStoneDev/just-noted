@@ -5,6 +5,7 @@ import React, { useState, useCallback, useMemo } from "react";
 import Sidebar from "@/components/sidebar";
 import ActiveNoteEditor from "@/components/active-note-editor";
 import SearchModal from "@/components/search-modal";
+import TrashView from "@/components/trash-view";
 import DistractionFreeNoteBlock from "@/components/distraction-free-note-block";
 import SplitViewNoteBlock from "@/components/split-view-note-block";
 import NotebookBreadcrumb from "@/components/notebook-breadcrumb";
@@ -80,6 +81,7 @@ export default function NoteWrapper() {
   // Notebook modal
   const [showNotebookModal, setShowNotebookModal] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
 
   const handleShowDistractionFree = useCallback((note: CombinedNote) => {
     setActiveNote(note);
@@ -248,6 +250,7 @@ export default function NoteWrapper() {
               bulkAssignNotesToNotebook([noteId], notebookId);
             });
           }}
+          onOpenTrash={() => setShowTrash(true)}
         />
 
         {/* Main editor area */}
@@ -341,6 +344,7 @@ export default function NoteWrapper() {
       <UndoDeleteToast />
       <OfflineIndicator />
       <SearchModal open={showSearch} onClose={() => setShowSearch(false)} />
+      <TrashView open={showTrash} onClose={() => setShowTrash(false)} />
 
       <NotebookModal
         isOpen={showNotebookModal}

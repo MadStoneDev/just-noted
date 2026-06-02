@@ -56,9 +56,10 @@ interface SidebarProps {
   onBulkDelete?: (noteIds: string[]) => void;
   onDeleteNote?: (noteId: string) => void;
   onMoveNote?: (noteId: string, notebookId: string | null) => void;
+  onOpenTrash?: () => void;
 }
 
-export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMoveNote }: SidebarProps) {
+export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMoveNote, onOpenTrash }: SidebarProps) {
   const {
     sidebarOpen,
     setSidebarOpen,
@@ -791,17 +792,28 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 {notes.length} note{notes.length !== 1 ? "s" : ""}
                 {hasActiveFilters && ` · ${filteredNotes.length} shown`}
               </span>
-              <button
-                onClick={() => {
-                  import("@/utils/export-notes").then(({ exportAsMarkdownZip }) => {
-                    exportAsMarkdownZip(notes);
-                  });
-                }}
-                className="hover:text-[var(--color-text-secondary)] transition-colors"
-                title="Export all notes"
-              >
-                Export
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onOpenTrash?.()}
+                  className="hover:text-[var(--color-text-secondary)] transition-colors flex items-center gap-0.5"
+                  title="Trash"
+                >
+                  <IconTrash size={10} />
+                  Trash
+                </button>
+                <span>·</span>
+                <button
+                  onClick={() => {
+                    import("@/utils/export-notes").then(({ exportAsMarkdownZip }) => {
+                      exportAsMarkdownZip(notes);
+                    });
+                  }}
+                  className="hover:text-[var(--color-text-secondary)] transition-colors"
+                  title="Export all notes"
+                >
+                  Export
+                </button>
+              </div>
             </div>
           )}
         </div>

@@ -308,9 +308,10 @@ export const deleteNote = async (noteId: string) => {
   try {
     const { supabase, userId } = await getAuthenticatedUser();
 
+    // Soft delete — set deleted_at instead of removing
     const { error } = await supabase
       .from("notes")
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq("id", noteId)
       .eq("author", userId);
 
@@ -324,6 +325,61 @@ export const deleteNote = async (noteId: string) => {
       success: false,
       error: `Failed to delete note: ${errorMessage}`,
     };
+  }
+};
+
+export const restoreNote = async (noteId: string) => {
+  try {
+    const { supabase, userId } = await getAuthenticatedUser();
+
+    const { error } = await supabase
+      .from("notes")
+      .update({ deleted_at: null })
+      .eq("id", noteId)
+      .eq("author", userId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to restore note:", error);
+    return { success: false, error: String(error) };
+  }
+};
+
+export const permanentlyDeleteNote = async (noteId: string) => {
+  try {
+    const { supabase, userId } = await getAuthenticatedUser();
+
+    const { error } = await supabase
+      .from("notes")
+      .delete()
+      .eq("id", noteId)
+      .eq("author", userId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to permanently delete note:", error);
+    return { success: false, error: String(error) };
+  }
+};
+
+export const getTrashedNotes = async () => {
+  try {
+    const { supabase, userId } = await getAuthenticatedUser();
+
+    const { data, error } = await supabase
+      .from("notes")
+      .select("*")
+      .eq("author", userId)
+      .not("deleted_at", "is", null)
+      .order("deleted_at", { ascending: false });
+
+    if (error) throw error;
+    return { success: true, notes: data || [] };
+  } catch (error) {
+    console.error("Failed to get trashed notes:", error);
+    return { success: false, notes: [] };
   }
 };
 
