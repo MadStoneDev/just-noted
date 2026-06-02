@@ -57,7 +57,7 @@ export default function ActiveNoteEditor({
   registerNoteFlush,
   unregisterNoteFlush,
 }: ActiveNoteEditorProps) {
-  const { activeNoteId, notes, setActiveNoteId } = useNotesStore();
+  const { activeNoteId, notes, setActiveNoteId, isLoading } = useNotesStore();
   const [splitNoteId, setSplitNoteId] = useState<string | null>(null);
 
   // Auto-select: restore last opened note, or pick most recent
@@ -85,6 +85,10 @@ export default function ActiveNoteEditor({
   );
 
   const splitNote = splitNoteId ? notes.find((n) => n.id === splitNoteId) || null : null;
+
+  if (isLoading && notes.length === 0) {
+    return <LoadingSkeleton />;
+  }
 
   if (!note) {
     return <EmptyState onNewNote={() => notesOperations.addNote()} />;
@@ -177,6 +181,34 @@ export default function ActiveNoteEditor({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <div className="flex items-center justify-between px-4 md:px-8 py-1.5 border-b border-[var(--color-border-secondary)]">
+        <div className="skeleton h-3 w-12 rounded" />
+        <div className="flex gap-1">
+          <div className="skeleton h-7 w-7 rounded-[var(--radius-md)]" />
+          <div className="skeleton h-7 w-7 rounded-[var(--radius-md)]" />
+          <div className="skeleton h-7 w-7 rounded-[var(--radius-md)]" />
+        </div>
+      </div>
+      <div className="flex-1 overflow-hidden">
+        <div className="max-w-[var(--content-width)] mx-auto px-4 md:px-8 py-6">
+          <div className="skeleton h-8 w-2/3 rounded mb-3" />
+          <div className="skeleton h-3 w-40 rounded mb-8" />
+          <div className="space-y-3">
+            <div className="skeleton h-4 w-full rounded" />
+            <div className="skeleton h-4 w-5/6 rounded" />
+            <div className="skeleton h-4 w-4/5 rounded" />
+            <div className="skeleton h-4 w-full rounded" />
+            <div className="skeleton h-4 w-3/4 rounded" />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

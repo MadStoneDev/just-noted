@@ -291,7 +291,15 @@ export function useNotesSync() {
         localStorage.removeItem("justnoted_notes_cache_ts");
         localStorage.removeItem("justnoted_offline_queue");
 
-        // STEP 1: Check authentication FIRST
+        // STEP 0: Render IDB cache immediately for fast first paint
+        const cachedNotes = await getAllLocalNotes();
+        if (cachedNotes.length > 0) {
+          syncFromBackend(cachedNotes);
+          recalculateNotebookCounts();
+          setLoading(false);
+        }
+
+        // STEP 1: Check authentication (single attempt with short timeout for speed)
         const newUserId = getUserId();
         setUserId(newUserId);
 
@@ -300,27 +308,19 @@ export function useNotesSync() {
         }
 
         let authenticated = false;
-        for (let attempt = 0; attempt < AUTH_MAX_RETRIES; attempt++) {
-          try {
-            const authResult = await Promise.race([
-              supabase.auth.getUser(),
-              new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error("Auth timeout")), AUTH_TIMEOUT)
-              ),
-            ]);
-            authenticated = !!authResult.data?.user;
-            break;
-          } catch (authError) {
-            console.warn(`Auth check attempt ${attempt + 1}/${AUTH_MAX_RETRIES} failed:`, authError);
-            if (attempt < AUTH_MAX_RETRIES - 1) {
-              await new Promise((r) => setTimeout(r, (attempt + 1) * 500));
-            }
-          }
+        try {
+          const authResult = await Promise.race([
+            supabase.auth.getUser(),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error("Auth timeout")), 3000)
+            ),
+          ]);
+          authenticated = !!authResult.data?.user;
+        } catch {
+          // Auth failed or timed out — proceed as unauthenticated
+          // Will retry via auth state change listener if session recovers
         }
         setAuthenticated(authenticated);
-
-        // STEP 2: Load IDB cache + server notes
-        const cachedNotes = await getAllLocalNotes();
 
         const [redisResult, supabaseResult] = await Promise.allSettled([
           noteOperation("redis", { operation: "getAll", userId: newUserId }),
