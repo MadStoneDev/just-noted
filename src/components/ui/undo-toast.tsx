@@ -46,35 +46,26 @@ export default function UndoDeleteToast() {
 
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
-      <div className="bg-[var(--color-text-primary)] text-white px-4 py-3 rounded-[var(--radius-xl)] shadow-xl flex items-center gap-4 min-w-[300px] max-w-md">
-        <div className="flex items-center gap-3 flex-1">
-          <IconTrash size={20} className="text-[var(--color-text-tertiary)] flex-shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">
-              "{recentlyDeleted.note.title}" deleted
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button
-            onClick={handleUndo}
-            className="flex items-center gap-1 px-3 py-1.5 bg-[var(--color-bg-primary)]/20 hover:bg-[var(--color-bg-primary)]/30 rounded-[var(--radius-lg)] transition-colors text-sm font-medium"
-          >
-            <IconArrowBackUp size={16} />
-            Undo
-          </button>
-          <button
-            onClick={handleDismiss}
-            className="p-1.5 hover:bg-[var(--color-bg-primary)]/20 rounded-[var(--radius-lg)] transition-colors"
-            aria-label="Dismiss"
-          >
-            <IconX size={16} />
-          </button>
-        </div>
-
-        {/* Progress bar */}
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-[var(--color-text-primary)] rounded-b-xl overflow-hidden">
+      <div className="relative bg-[var(--color-bg-elevated)] border border-[var(--color-border-primary)] text-[var(--color-text-primary)] px-4 py-3 rounded-[var(--radius-xl)] shadow-xl flex items-center gap-3 min-w-[280px] max-w-sm">
+        <IconTrash size={16} className="text-[var(--color-danger)] flex-shrink-0" />
+        <p className="flex-1 text-sm truncate">
+          &ldquo;{recentlyDeleted.note.title}&rdquo; deleted
+        </p>
+        <button
+          onClick={handleUndo}
+          className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-[var(--color-accent)] text-[var(--color-text-on-accent)] rounded-[var(--radius-md)] hover:bg-[var(--color-accent-hover)] transition-colors shrink-0"
+        >
+          <IconArrowBackUp size={14} />
+          Undo
+        </button>
+        <button
+          onClick={handleDismiss}
+          className="p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors shrink-0"
+          aria-label="Dismiss"
+        >
+          <IconX size={14} />
+        </button>
+        <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-b-xl overflow-hidden">
           <div
             className="h-full bg-[var(--color-accent)] transition-all duration-100 ease-linear"
             style={{ width: `${progress}%` }}

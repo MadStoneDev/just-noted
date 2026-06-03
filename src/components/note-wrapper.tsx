@@ -4,6 +4,7 @@ import React, { useState, useCallback, useMemo } from "react";
 
 import Sidebar from "@/components/sidebar";
 import ActiveNoteEditor from "@/components/active-note-editor";
+import GlobalHeader from "@/components/global-header";
 import SearchModal from "@/components/search-modal";
 import TrashView from "@/components/trash-view";
 import DistractionFreeNoteBlock from "@/components/distraction-free-note-block";
@@ -22,13 +23,7 @@ import {
   IconLayoutSidebarLeftCollapse,
   IconSearch,
   IconPlus,
-  IconMenu2,
-  IconUser,
-  IconInfoCircle,
-  IconMail,
-  IconX,
 } from "@tabler/icons-react";
-import { ThemeToggle } from "@/components/ds/theme-toggle";
 
 import { CombinedNote } from "@/types/combined-notes";
 import { NotesErrorBoundary } from "@/components/error-boundary";
@@ -83,7 +78,6 @@ export default function NoteWrapper() {
   const [showNotebookModal, setShowNotebookModal] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   const handleShowDistractionFree = useCallback((note: CombinedNote) => {
     setActiveNote(note);
@@ -179,8 +173,17 @@ export default function NoteWrapper() {
     <NotesErrorBoundary>
       <SkipLinks />
 
+      {/* Unified header */}
+      <GlobalHeader
+        user={isAuthenticated ? ({ id: userId } as any) : null}
+        appMode
+        onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+        onSearch={() => setShowSearch(true)}
+        onNewNote={() => notesOperations.addNote()}
+      />
+
       {/* Two-panel layout: rail + sidebar + editor */}
-      <div className="flex h-[calc(100dvh-56px)]">
+      <div className="flex mt-14 h-[calc(100dvh-56px)]">
         {/* Collapsed rail — visible on desktop when sidebar is closed */}
         <div
           className={`hidden md:flex flex-col items-center py-3 gap-1.5 bg-[var(--color-bg-secondary)] border-r border-[var(--color-border-secondary)] flex-shrink-0 transition-all duration-[var(--duration-slow)] ${
@@ -243,44 +246,6 @@ export default function NoteWrapper() {
           role="main"
           aria-label="Note editor"
         >
-          {/* Mobile top bar — always visible on mobile */}
-          <div className="md:hidden flex items-center justify-between px-3 py-2 border-b border-[var(--color-border-secondary)]">
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setSidebarOpen(true)}
-                  className="p-2 rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors text-[var(--color-text-secondary)]"
-                  aria-label="Open notes"
-                >
-                  <IconLayoutSidebarLeftCollapse size={18} className="rotate-180" />
-                </button>
-                <span className="text-sm font-semibold text-[var(--color-text-primary)]">
-                  <span className="text-[var(--color-accent)]">Just</span><span className="font-brand">Noted</span>
-                </span>
-              </div>
-              <div className="flex items-center gap-0.5">
-                <button
-                  onClick={() => setShowSearch(true)}
-                  className="p-2 rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors text-[var(--color-text-tertiary)]"
-                  aria-label="Search"
-                >
-                  <IconSearch size={16} />
-                </button>
-                <button
-                  onClick={() => notesOperations.addNote()}
-                  className="p-2 rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors text-[var(--color-text-tertiary)]"
-                  aria-label="New note"
-                >
-                  <IconPlus size={16} />
-                </button>
-                <button
-                  onClick={() => setShowMobileMenu(true)}
-                  className="p-2 rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors text-[var(--color-text-tertiary)]"
-                  aria-label="Menu"
-                >
-                  <IconMenu2 size={18} />
-                </button>
-              </div>
-            </div>
           <ActiveNoteEditor
             userId={userId || ""}
             isAuthenticated={isAuthenticated}
@@ -335,43 +300,6 @@ export default function NoteWrapper() {
       <OfflineIndicator />
       <SearchModal open={showSearch} onClose={() => setShowSearch(false)} />
       <TrashView open={showTrash} onClose={() => setShowTrash(false)} />
-
-      {/* Mobile main menu — slides in from right */}
-      {showMobileMenu && (
-        <div className="fixed inset-0 z-[60] md:hidden">
-          <div className="absolute inset-0 bg-[var(--color-bg-overlay)]" onClick={() => setShowMobileMenu(false)} />
-          <aside
-            className="absolute top-0 right-0 h-full w-[min(280px,calc(100vw-48px))] bg-[var(--color-bg-primary)] border-l border-[var(--color-border-secondary)] shadow-xl animate-slide-in-right flex flex-col"
-          >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-secondary)]">
-              <span className="text-sm font-semibold text-[var(--color-text-primary)]">Menu</span>
-              <button
-                onClick={() => setShowMobileMenu(false)}
-                className="p-2 rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors text-[var(--color-text-tertiary)]"
-              >
-                <IconX size={16} />
-              </button>
-            </div>
-            <nav className="flex-1 p-3 space-y-1">
-              <a href="/welcome" className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover)] rounded-[var(--radius-md)] transition-colors">
-                <IconInfoCircle size={16} />About
-              </a>
-              <a href="/the-how" className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover)] rounded-[var(--radius-md)] transition-colors">
-                <IconInfoCircle size={16} />How it Works
-              </a>
-              <a href="/contact" className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover)] rounded-[var(--radius-md)] transition-colors">
-                <IconMail size={16} />Contact
-              </a>
-              <a href="/profile" className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover)] rounded-[var(--radius-md)] transition-colors">
-                <IconUser size={16} />Profile
-              </a>
-            </nav>
-            <div className="p-4 border-t border-[var(--color-border-secondary)]">
-              <ThemeToggle />
-            </div>
-          </aside>
-        </div>
-      )}
 
       <NotebookModal
         isOpen={showNotebookModal}

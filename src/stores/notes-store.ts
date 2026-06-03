@@ -561,16 +561,22 @@ export const useNotesStore = create<NotesStore>()(
       } else if (sortBy === "title") {
         filtered.sort((a, b) => a.title.localeCompare(b.title));
       } else if (sortBy === "notebook") {
+        // Group by notebook, pinned notes at the top of each group
         filtered.sort((a, b) => {
           const aName = a.notebookId || "zzz";
           const bName = b.notebookId || "zzz";
-          return aName.localeCompare(bName);
+          const groupCmp = aName.localeCompare(bName);
+          if (groupCmp !== 0) return groupCmp;
+          // Within same notebook: pinned first, then by updatedAt
+          if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+          return b.updatedAt - a.updatedAt;
         });
+        return filtered;
       } else {
         return sortNotes(filtered, null);
       }
 
-      // Always keep pinned at top regardless of sort
+      // Keep pinned at top for non-notebook sorts
       const pinned = filtered.filter((n) => n.isPinned);
       const unpinned = filtered.filter((n) => !n.isPinned);
       return [...pinned, ...unpinned];
