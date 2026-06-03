@@ -41,7 +41,7 @@ export default function TocCard({ isPrivate, noteContent, onScrollToHeading, has
         hasNotebookCover
           ? "bg-[var(--color-bg-primary)]/20 text-white"
           : isPrivate
-            ? "bg-violet-100/80 text-violet-900"
+            ? "bg-[var(--color-accent-subtle)]/80 text-[var(--color-accent)]"
             : "bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]"
       }`}
     >
@@ -56,7 +56,7 @@ export default function TocCard({ isPrivate, noteContent, onScrollToHeading, has
         } transition-colors`}
       >
         <div className="flex items-center gap-2">
-          <IconList size={16} strokeWidth={2} className={hasNotebookCover ? "text-white/80" : isPrivate ? "text-violet-600" : "text-[var(--color-text-secondary)]"} />
+          <IconList size={16} strokeWidth={2} className={hasNotebookCover ? "text-white/80" : isPrivate ? "text-[var(--color-accent)]" : "text-[var(--color-text-secondary)]"} />
           <span className="text-sm font-medium">Contents</span>
           {!hasHeadings && (
             <span className={`text-xs italic ${hasNotebookCover ? "text-white/60" : "text-[var(--color-text-tertiary)]"}`}>(No headings found)</span>
@@ -68,7 +68,7 @@ export default function TocCard({ isPrivate, noteContent, onScrollToHeading, has
               hasNotebookCover
                 ? "bg-[var(--color-bg-primary)]/30 text-white"
                 : isPrivate
-                  ? "bg-violet-200 text-violet-700"
+                  ? "bg-[var(--color-accent-subtle)] text-[var(--color-accent)]"
                   : "bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]"
             }`}>
               {headings.length}

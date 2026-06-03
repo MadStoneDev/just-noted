@@ -534,7 +534,7 @@ const BackupByNoteTab = memo(function BackupByNoteTab({
         <select
           value={selectedNoteId}
           onChange={(e) => onNoteSelect(e.target.value)}
-          className="px-3 py-2 border rounded-md"
+          className="px-3 py-2 border rounded-[var(--radius-md)]"
         >
           <option value="">Select a note to view its history...</option>
           {uniqueNotes.map((backup) => (
@@ -643,18 +643,18 @@ function BackupInfoCard() {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid md:grid-cols-3 gap-4">
-          <div className="p-4 bg-blue-50 rounded-[var(--radius-lg)]">
+          <div className="p-4 bg-[var(--color-accent-subtle)] rounded-[var(--radius-lg)]">
             <h3 className="font-semibold text-blue-800 mb-2">🔄 Restore</h3>
-            <p className="text-sm text-blue-700">
+            <p className="text-sm text-[var(--color-info)]">
               Replaces your current note content with the selected backup
               version. This actually updates the note in your active notes list.
             </p>
           </div>
-          <div className="p-4 bg-green-50 rounded-[var(--radius-lg)]">
+          <div className="p-4 bg-[var(--color-success-subtle)] rounded-[var(--radius-lg)]">
             <h3 className="font-semibold text-green-800 mb-2">
               📖 View History
             </h3>
-            <p className="text-sm text-green-700">
+            <p className="text-sm text-[var(--color-success)]">
               Shows all saved versions of a specific note over time. You can see
               when changes were made and preview the content.
             </p>

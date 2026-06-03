@@ -460,7 +460,7 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span className="text-[var(--color-text-tertiary)] text-5xl font-light">
+                      <span className="text-[var(--color-text-tertiary)] text-xl font-light">
                         ?
                       </span>
                     )}

@@ -87,7 +87,7 @@ export default function WordCountGoalModal({
       <div className="space-y-4">
         {/* Type Selection */}
         <div className="flex justify-center">
-          <div className="inline-flex rounded-md shadow-sm" role="group">
+          <div className="inline-flex rounded-[var(--radius-md)] shadow-sm" role="group">
             <GoalTypeButton
               type="words"
               icon={<IconLetterCase size={20} />}

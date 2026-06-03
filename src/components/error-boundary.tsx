@@ -64,10 +64,10 @@ export class NotesErrorBoundary extends React.Component<
           <div className="max-w-md w-full bg-[var(--color-bg-primary)] rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)] p-8 text-center">
             {/* Icon */}
             <div className="flex justify-center mb-4">
-              <div className="p-3 bg-orange-100 rounded-full">
+              <div className="p-3 bg-[var(--color-warning-subtle)] rounded-full">
                 <IconAlertTriangle
                   size={48}
-                  className="text-orange-600"
+                  className="text-[var(--color-warning)]"
                   strokeWidth={1.5}
                 />
               </div>

@@ -76,7 +76,7 @@ export default function NoteStatistics({
         hasNotebookCover
           ? ""
           : isPrivate
-            ? "bg-violet-100/50"
+            ? "bg-[var(--color-accent-subtle)]/50"
             : "bg-[var(--color-bg-tertiary)]"
       }`}
       style={getBackgroundStyle()}
@@ -106,7 +106,7 @@ export default function NoteStatistics({
             </div>
 
             {/* Divider */}
-            <div className={`col-span-4 h-px ${hasNotebookCover ? "bg-[var(--color-bg-primary)]/30" : isPrivate ? "bg-violet-200" : "bg-[var(--color-bg-tertiary)]"}`} />
+            <div className={`col-span-4 h-px ${hasNotebookCover ? "bg-[var(--color-bg-primary)]/30" : isPrivate ? "bg-[var(--color-accent-subtle)]" : "bg-[var(--color-bg-tertiary)]"}`} />
           </>
         )}
 
@@ -114,14 +114,14 @@ export default function NoteStatistics({
         <TocCard isPrivate={isPrivate} noteContent={noteContent} onScrollToHeading={onScrollToHeading} hasNotebookCover={hasNotebookCover} />
 
         {/* Divider */}
-        <div className={`col-span-4 h-px ${hasNotebookCover ? "bg-[var(--color-bg-primary)]/30" : isPrivate ? "bg-violet-200" : "bg-[var(--color-bg-tertiary)]"}`} />
+        <div className={`col-span-4 h-px ${hasNotebookCover ? "bg-[var(--color-bg-primary)]/30" : isPrivate ? "bg-[var(--color-accent-subtle)]" : "bg-[var(--color-bg-tertiary)]"}`} />
 
         {/* Stats row - word count, char count, reading time */}
         <div className={`col-span-4 flex flex-col lg:flex-row items-center rounded-[var(--radius-xl)] ${
           hasNotebookCover
             ? "bg-[var(--color-bg-overlay)]"
             : isPrivate
-              ? "bg-violet-50"
+              ? "bg-[var(--color-accent-subtle)]"
               : "bg-[var(--color-bg-primary)]"
         }`}>
           <StatCard label="words" value={wordCount} isPrivate={isPrivate} hasNotebookCover={hasNotebookCover} />

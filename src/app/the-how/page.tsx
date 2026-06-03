@@ -96,7 +96,7 @@ export default async function TheHowPage() {
               If the auto-save doesn't trigger for some reason, or you just want
               the peace of mind of a manual save, hit the{" "}
               <span
-                className={`inline-flex border border-[var(--color-accent)] rounded-md bg-[var(--color-bg-tertiary)] p-1`}
+                className={`inline-flex border border-[var(--color-accent)] rounded-[var(--radius-md)] bg-[var(--color-bg-tertiary)] p-1`}
               >
                 <IconDeviceFloppy size={20} strokeWidth={2} />
               </span>{" "}
@@ -144,20 +144,20 @@ export default async function TheHowPage() {
               If you want to change the title of your note, hover over the title
               (on mobile: tap on the title) and then click/tap the{" "}
               <span
-                className={`inline-flex bg-[var(--color-bg-tertiary)] rounded-md p-1 text-[var(--color-accent)]`}
+                className={`inline-flex bg-[var(--color-bg-tertiary)] rounded-[var(--radius-md)] p-1 text-[var(--color-accent)]`}
               >
                 <IconPencil size={20} strokeWidth={2} />
               </span>{" "}
               button. This will let you type in a new title. When you're done,
               just click/tap the{" "}
               <span
-                className={`inline-flex rounded-md bg-[var(--color-bg-tertiary)] p-1 text-[var(--color-accent)]`}
+                className={`inline-flex rounded-[var(--radius-md)] bg-[var(--color-bg-tertiary)] p-1 text-[var(--color-accent)]`}
               >
                 <IconCheck size={20} strokeWidth={2} />
               </span>{" "}
               button to save your changes or click/tap the{" "}
               <span
-                className={`inline-flex rounded-md bg-[var(--color-bg-tertiary)] p-1 text-[var(--color-danger)]`}
+                className={`inline-flex rounded-[var(--radius-md)] bg-[var(--color-bg-tertiary)] p-1 text-[var(--color-danger)]`}
               >
                 <IconX size={20} strokeWidth={2} />
               </span>{" "}
@@ -172,7 +172,7 @@ export default async function TheHowPage() {
             <p>
               Need to take your note elsewhere? Just click/tap the{" "}
               <span
-                className={`inline-flex border border-[var(--color-accent)] rounded-md bg-[var(--color-bg-tertiary)] p-1`}
+                className={`inline-flex border border-[var(--color-accent)] rounded-[var(--radius-md)] bg-[var(--color-bg-tertiary)] p-1`}
               >
                 <IconFileTypeTxt size={20} strokeWidth={2} />
               </span>{" "}
@@ -190,7 +190,7 @@ export default async function TheHowPage() {
               Once you're done with a note and don't need it anymore, click/tap
               the{" "}
               <span
-                className={`inline-flex border border-[var(--color-text-primary)] rounded-md bg-[var(--color-bg-tertiary)] p-1`}
+                className={`inline-flex border border-[var(--color-text-primary)] rounded-[var(--radius-md)] bg-[var(--color-bg-tertiary)] p-1`}
               >
                 <IconTrash size={20} strokeWidth={2} />
               </span>{" "}
@@ -273,7 +273,7 @@ export default async function TheHowPage() {
             <p>
               Toggle it with the{" "}
               <span
-                className={`inline-flex border border-[var(--color-accent)] rounded-md bg-[var(--color-bg-tertiary)] p-1`}
+                className={`inline-flex border border-[var(--color-accent)] rounded-[var(--radius-md)] bg-[var(--color-bg-tertiary)] p-1`}
               >
                 <IconList size={20} strokeWidth={2} />
               </span>{" "}

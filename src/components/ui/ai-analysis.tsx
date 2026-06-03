@@ -153,7 +153,7 @@ export default function AIAnalysisButton({
   };
 
   const buttonBaseClass = `group px-2 cursor-pointer flex items-center justify-center gap-1 h-10 rounded-[var(--radius-lg)] border transition-all duration-300 ease-in-out`;
-  const privateButtonClass = "border-violet-800 hover:bg-violet-800 hover:text-[var(--color-text-inverse)]";
+  const privateButtonClass = "border-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-[var(--color-text-inverse)]";
   const defaultButtonClass = "border-purple-500 hover:bg-purple-500 hover:text-white text-purple-600";
 
   return (
@@ -181,7 +181,7 @@ export default function AIAnalysisButton({
             onClick={handleRepeatAtTop}
             className={`${buttonBaseClass} text-sm px-3 ${
               isPrivate
-                ? "border-violet-600 hover:bg-violet-600 hover:text-white text-violet-700"
+                ? "border-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] hover:text-white text-[var(--color-accent)]"
                 : "border-green-500 hover:bg-[var(--color-success)] hover:text-white text-[var(--color-success)]"
             }`}
             title="Add new entry at the top"
@@ -195,7 +195,7 @@ export default function AIAnalysisButton({
             onClick={handleRepeatAtBottom}
             className={`${buttonBaseClass} text-sm px-3 ${
               isPrivate
-                ? "border-violet-600 hover:bg-violet-600 hover:text-white text-violet-700"
+                ? "border-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] hover:text-white text-[var(--color-accent)]"
                 : "border-green-500 hover:bg-[var(--color-success)] hover:text-white text-[var(--color-success)]"
             }`}
             title="Add new entry at the bottom"
@@ -210,8 +210,8 @@ export default function AIAnalysisButton({
             disabled={isReversing}
             className={`${buttonBaseClass} text-sm px-3 ${
               isPrivate
-                ? "border-violet-600 hover:bg-violet-600 hover:text-white text-violet-700"
-                : "border-amber-500 hover:bg-amber-500 hover:text-white text-amber-600"
+                ? "border-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] hover:text-white text-[var(--color-accent)]"
+                : "border-[var(--color-warning)] hover:bg-[var(--color-warning)] hover:text-white text-[var(--color-warning)]"
             } disabled:opacity-50`}
             title="Reverse order of entries"
           >
@@ -236,7 +236,7 @@ export default function AIAnalysisButton({
 
       {/* Action Feedback Toast */}
       {actionFeedback && (
-        <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full animate-pulse">
+        <span className="px-2 py-1 text-xs bg-[var(--color-success-subtle)] text-[var(--color-success)] rounded-full animate-pulse">
           {actionFeedback}
         </span>
       )}
@@ -250,7 +250,7 @@ export default function AIAnalysisButton({
           aria-labelledby="ai-modal-title"
           onClick={(e) => e.target === e.currentTarget && handleClose()}
         >
-          <div className="bg-[var(--color-bg-primary)] rounded-[var(--radius-xl)] shadow-[var(--shadow-xl)] w-full max-w-md max-h-[70vh] sm:max-h-[80vh] flex flex-col mx-2 sm:mx-4 mt-4 sm:mt-0">
+          <div className="bg-[var(--color-bg-primary)] rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)] w-full max-w-md max-h-[70vh] sm:max-h-[80vh] flex flex-col mx-2 sm:mx-4 mt-4 sm:mt-0">
             {/* Header */}
             <div className="flex items-center justify-between p-3 sm:p-4 border-b border-[var(--color-border-primary)] flex-shrink-0">
               <div className="flex items-center gap-2 min-w-0">
@@ -331,8 +331,8 @@ function PreAnalysisView({
   return (
     <div className="space-y-4">
       {hasExistingPattern && (
-        <div className="bg-green-50 border border-green-200 rounded-[var(--radius-lg)] p-3 text-sm">
-          <div className="flex items-center gap-2 text-green-700">
+        <div className="bg-[var(--color-success-subtle)] border border-green-200 rounded-[var(--radius-lg)] p-3 text-sm">
+          <div className="flex items-center gap-2 text-[var(--color-success)]">
             <IconCheck size={16} />
             <span>Pattern already detected! Use the toolbar buttons to take action.</span>
           </div>
@@ -363,10 +363,10 @@ function PreAnalysisView({
       </ul>
 
       {remaining === 0 ? (
-        <div className="bg-amber-50 border border-amber-200 rounded-[var(--radius-lg)] p-3 text-sm">
-          <p className="font-medium text-amber-900">Daily limit reached</p>
+        <div className="bg-[var(--color-warning-subtle)] border border-[var(--color-warning)] rounded-[var(--radius-lg)] p-3 text-sm">
+          <p className="font-medium text-[var(--color-warning)]">Daily limit reached</p>
           {resetTime && (
-            <p className="text-amber-700 text-xs mt-1">Resets in {resetTime}</p>
+            <p className="text-[var(--color-warning)] text-xs mt-1">Resets in {resetTime}</p>
           )}
         </div>
       ) : (
@@ -445,14 +445,14 @@ function ResultsView({ result }: { result: AIAnalysisResult }) {
   return (
     <div className="space-y-4">
       {/* Pattern Found Banner */}
-      <div className="bg-green-50 border border-green-200 rounded-[var(--radius-lg)] p-3">
+      <div className="bg-[var(--color-success-subtle)] border border-green-200 rounded-[var(--radius-lg)] p-3">
         <div className="flex items-center gap-2">
           <IconCheck size={18} className="text-[var(--color-success)]" />
           <div>
             <p className="font-medium text-green-800 text-sm">
               {result.patternName || "Pattern Found"}
             </p>
-            <p className="text-xs text-green-700">
+            <p className="text-xs text-[var(--color-success)]">
               {result.entryCount} entries detected
             </p>
           </div>

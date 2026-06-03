@@ -60,7 +60,7 @@ export default function VersionHistoryPanel({ noteId, open, onClose, onRestore }
     <div className="fixed inset-0 z-50 flex" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="absolute inset-0 bg-[var(--color-bg-overlay)]" />
 
-      <div className="relative ml-auto w-full max-w-md h-full bg-[var(--color-bg-elevated)] border-l border-[var(--color-border-secondary)] shadow-xl flex flex-col animate-slide-in-right">
+      <div className="relative ml-auto w-full max-w-md h-full bg-[var(--color-bg-elevated)] border-l border-[var(--color-border-secondary)] shadow-lg flex flex-col animate-slide-in-right">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-secondary)]">
           <div className="flex items-center gap-2">

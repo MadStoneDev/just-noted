@@ -25,7 +25,7 @@ export default function SaveButton({
       aria-label="Save note manually"
       className={`group/save flex-grow sm:flex-grow-0 px-2 cursor-pointer flex flex-row-reverse items-center justify-center gap-0 md:hover:gap-2 w-fit min-w-[44px] h-[44px] rounded-[var(--radius-lg)] border sm:border-0 ${
         isPrivate
-          ? "hover:bg-violet-800 hover:text-[var(--color-text-inverse)]"
+          ? "hover:bg-[var(--color-accent)] hover:text-[var(--color-text-inverse)]"
           : "border-[var(--color-border-primary)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]"
       } ${
         isPending ? "opacity-50 cursor-not-allowed" : ""

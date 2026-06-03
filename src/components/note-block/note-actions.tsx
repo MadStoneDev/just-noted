@@ -157,7 +157,7 @@ export default function NoteActions({
             isPinned
               ? `text-[var(--color-text-inverse)] hover:text-[var(--color-text-inverse)] ${
                   isPrivate
-                    ? "border-violet-800 hover:border-violet-800 bg-violet-800 hover:bg-violet-600"
+                    ? "border-[var(--color-accent)] hover:border-[var(--color-accent)] bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)]"
                     : "border-[var(--color-accent)] hover:border-[var(--color-accent)]/60 bg-[var(--color-accent)] hover:bg-[var(--color-accent)]/70"
                 }`
               : "border-[var(--color-border-primary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]"
@@ -184,7 +184,7 @@ export default function NoteActions({
               : "cursor-pointer"
           } ${
             isPrivate
-              ? "border-violet-800 hover:border-violet-600 bg-violet-800 hover:bg-violet-600 text-[var(--color-text-inverse)]"
+              ? "border-[var(--color-accent)] hover:border-[var(--color-accent-hover)] bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-text-inverse)]"
               : "border-[var(--color-border-primary)] hover:bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]"
           }`}
           title={isPrivate ? "Make this note public" : "Make this note private"}

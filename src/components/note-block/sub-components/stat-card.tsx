@@ -20,7 +20,7 @@ export default function StatCard({ label, value, isPrivate, hasNotebookCover }: 
           hasNotebookCover
             ? "text-white"
             : isPrivate
-              ? "text-violet-700"
+              ? "text-[var(--color-accent)]"
               : "text-[var(--color-text-primary)]"
         }`}
       >

@@ -206,7 +206,7 @@ export default function NoteToolbar({
             aria-label="View version history"
             className={`group/history px-2 cursor-pointer flex-grow sm:flex-grow-0 flex items-center justify-center gap-1 w-fit min-w-[44px] h-[44px] rounded-[var(--radius-lg)] border-1 ${
               isPrivate
-                ? "border-violet-800 hover:bg-violet-800 hover:text-[var(--color-text-inverse)]"
+                ? "border-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-[var(--color-text-inverse)]"
                 : "border-[var(--color-border-primary)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]"
             } text-[var(--color-text-primary)] overflow-hidden transition-all duration-300 ease-in-out`}
           >
@@ -306,7 +306,7 @@ export default function NoteToolbar({
       <div
         className={`hidden md:block flex-grow h-px ${
           isPrivate
-            ? "bg-violet-300/50"
+            ? "bg-[var(--color-accent-subtle)]"
             : isPinned
               ? "bg-[var(--color-accent)]/30"
               : "bg-[var(--color-bg-tertiary)]/60"

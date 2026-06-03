@@ -145,7 +145,7 @@ export default function GlobalHeader({
             style={{ top: 56 }}
             onClick={closeMenu}
           />
-          <div className="fixed top-14 right-0 w-[min(280px,calc(100vw-48px))] h-[calc(100dvh-56px)] bg-[var(--color-bg-primary)] border-l border-[var(--color-border-secondary)] shadow-xl md:hidden flex flex-col z-50 animate-slide-in-right">
+          <div className="fixed top-14 right-0 w-[min(280px,calc(100vw-48px))] h-[calc(100dvh-56px)] bg-[var(--color-bg-primary)] border-l border-[var(--color-border-secondary)] shadow-lg md:hidden flex flex-col z-50 animate-slide-in-right">
             <nav className="flex-1 p-3 space-y-1">
               <Link href="/" onClick={closeMenu} className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover)] rounded-[var(--radius-md)] transition-colors">
                 Home

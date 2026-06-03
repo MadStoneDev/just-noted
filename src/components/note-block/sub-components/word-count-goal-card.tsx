@@ -38,13 +38,13 @@ export default function WordCountGoalCard({
           hasNotebookCover
             ? "bg-[var(--color-bg-secondary)]/70 hover:bg-[var(--color-bg-secondary)]/90"
             : isPrivate
-              ? "bg-violet-50 hover:bg-violet-100"
+              ? "bg-[var(--color-accent-subtle)] hover:bg-[var(--color-accent-subtle)]"
               : "bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-tertiary)]"
         }`}
       >
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <IconTarget size={16} className={hasNotebookCover ? "text-[var(--color-text-secondary)]" : isPrivate ? "text-violet-600" : "text-[var(--color-text-secondary)]"} />
+            <IconTarget size={16} className={hasNotebookCover ? "text-[var(--color-text-secondary)]" : isPrivate ? "text-[var(--color-accent)]" : "text-[var(--color-text-secondary)]"} />
             <span className={`text-xs font-medium uppercase tracking-wide ${
               hasNotebookCover ? "text-[var(--color-text-secondary)]" : "text-[var(--color-text-secondary)]"
             }`}>
@@ -64,7 +64,7 @@ export default function WordCountGoalCard({
           hasNotebookCover
             ? "bg-[var(--color-border-primary)]"
             : isPrivate
-              ? "bg-violet-200"
+              ? "bg-[var(--color-accent-subtle)]"
               : "bg-[var(--color-bg-tertiary)]"
         }`}>
           <div
@@ -74,7 +74,7 @@ export default function WordCountGoalCard({
                 : hasNotebookCover
                   ? "bg-[var(--color-accent)]"
                   : isPrivate
-                    ? "bg-violet-500"
+                    ? "bg-[var(--color-accent-subtle)]0"
                     : "bg-[var(--color-accent)]"
             }`}
             style={{ width: `${Math.min(progress, 100)}%` }}
@@ -84,7 +84,7 @@ export default function WordCountGoalCard({
         {/* Stats */}
         <div className={`mt-2 flex items-center justify-between text-xs ${hasNotebookCover ? "text-[var(--color-text-secondary)]" : "text-[var(--color-text-secondary)]"}`}>
           <span className="font-semibold text-sm">
-            <span className={hasNotebookCover ? "text-[var(--color-text-primary)]" : isPrivate ? "text-violet-700" : "text-[var(--color-text-primary)]"}>{progress}%</span>
+            <span className={hasNotebookCover ? "text-[var(--color-text-primary)]" : isPrivate ? "text-[var(--color-accent)]" : "text-[var(--color-text-primary)]"}>{progress}%</span>
           </span>
           <span>
             {goal.target.toLocaleString()} {goal.type === "words" ? "words" : "chars"}
@@ -104,7 +104,7 @@ export default function WordCountGoalCard({
         hasNotebookCover
           ? "bg-[var(--color-bg-secondary)]/70 hover:bg-[var(--color-bg-secondary)]/90 text-[var(--color-text-primary)]"
           : isPrivate
-            ? "border-2 border-dashed border-violet-300 hover:border-violet-500 hover:bg-violet-50 text-violet-600"
+            ? "border-2 border-dashed border-[var(--color-accent)] hover:border-[var(--color-accent-hover)] hover:bg-[var(--color-accent-subtle)] text-[var(--color-accent)]"
             : "border-2 border-dashed border-[var(--color-border-primary)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]/5 text-[var(--color-text-secondary)]"
       }`}
     >
@@ -112,7 +112,7 @@ export default function WordCountGoalCard({
         hasNotebookCover
           ? "bg-[var(--color-text-primary)] text-[var(--color-text-tertiary)]"
           : isPrivate
-            ? "bg-violet-100"
+            ? "bg-[var(--color-accent-subtle)]"
             : "bg-[var(--color-bg-tertiary)]"
       } group-hover:scale-110 transition-transform`}>
         <IconPlus size={14} />

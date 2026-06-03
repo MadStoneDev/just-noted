@@ -275,7 +275,7 @@ export default function NotebookExportButton({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full right-0 mt-1 bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] shadow-xl border border-[var(--color-border-primary)] py-1 min-w-[220px] z-50">
+        <div className="absolute top-full right-0 mt-1 bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] shadow-lg border border-[var(--color-border-primary)] py-1 min-w-[220px] z-50">
           <div className="px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] border-b border-[var(--color-border-secondary)]">
             Export {notebookNotes.length} Notes
           </div>

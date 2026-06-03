@@ -304,7 +304,7 @@ export default function ExportMenu({ note, className = "" }: ExportMenuProps) {
           />
 
           {/* Panel from right */}
-          <div className="absolute top-0 right-0 bottom-0 w-[min(280px,80vw)] bg-[var(--color-bg-primary)] shadow-xl flex flex-col animate-slide-in-right">
+          <div className="absolute top-0 right-0 bottom-0 w-[min(280px,80vw)] bg-[var(--color-bg-primary)] shadow-lg flex flex-col animate-slide-in-right">
             {/* Panel header */}
             <div className="flex items-center justify-between p-4 border-b border-[var(--color-border-secondary)]">
               <h3 className="font-semibold text-[var(--color-text-primary)]">Export As</h3>

@@ -74,7 +74,7 @@ export function Modal({
 
       {/* Modal Content */}
       <div
-        className={`relative bg-[var(--color-bg-primary)] rounded-[var(--radius-xl)] shadow-xl border border-[var(--color-border-secondary)] ${sizeClasses[size]} w-full animate-slide-up ${className}`}
+        className={`relative bg-[var(--color-bg-primary)] rounded-[var(--radius-xl)] shadow-lg border border-[var(--color-border-secondary)] ${sizeClasses[size]} w-full animate-slide-up ${className}`}
       >
         {/* Header */}
         {(title || showCloseButton) && (

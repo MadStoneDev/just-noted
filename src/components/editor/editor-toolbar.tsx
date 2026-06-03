@@ -130,7 +130,7 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
   const toolbar = (
     <div
       ref={toolbarRef}
-      className="fixed z-[9999] flex flex-wrap items-center gap-px px-1.5 py-1 bg-[var(--color-text-primary)] rounded-[var(--radius-lg)] shadow-xl animate-fade-in"
+      className="fixed z-[9999] flex flex-wrap items-center gap-px px-1.5 py-1 bg-[var(--color-text-primary)] rounded-[var(--radius-lg)] shadow-lg animate-fade-in"
       style={{
         left: `${pos.x}px`,
         top: `${pos.y - 8}px`,

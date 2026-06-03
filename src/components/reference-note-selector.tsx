@@ -129,7 +129,7 @@ export default function ReferenceNoteSelector({
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 w-72 bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] shadow-xl border border-[var(--color-border-primary)] z-50 overflow-hidden">
+        <div className="absolute top-full left-0 mt-1 w-72 bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] shadow-lg border border-[var(--color-border-primary)] z-50 overflow-hidden">
           {/* Search */}
           <div className="p-2 border-b border-[var(--color-border-secondary)]">
             <div className="relative">
@@ -143,7 +143,7 @@ export default function ReferenceNoteSelector({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search notes..."
-                className="w-full pl-8 pr-8 py-1.5 text-sm bg-[var(--color-bg-secondary)] border border-[var(--color-border-primary)] rounded-md focus:outline-none focus:border-[var(--color-accent)]"
+                className="w-full pl-8 pr-8 py-1.5 text-sm bg-[var(--color-bg-secondary)] border border-[var(--color-border-primary)] rounded-[var(--radius-md)] focus:outline-none focus:border-[var(--color-accent)]"
               />
               {searchQuery && (
                 <button

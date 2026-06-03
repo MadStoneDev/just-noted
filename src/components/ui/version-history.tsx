@@ -92,7 +92,7 @@ export default function VersionHistory({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-bg-overlay)]">
-      <div className="bg-[var(--color-bg-primary)] rounded-[var(--radius-xl)] shadow-[var(--shadow-xl)] w-full max-w-2xl max-h-[80vh] flex flex-col mx-4">
+      <div className="bg-[var(--color-bg-primary)] rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)] w-full max-w-2xl max-h-[80vh] flex flex-col mx-4">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-[var(--color-border-primary)]">
           <div className="flex items-center gap-2">

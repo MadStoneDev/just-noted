@@ -29,7 +29,7 @@ export default function PageEstimateCard({
         hasNotebookCover
           ? "bg-[var(--color-bg-secondary)]/70 hover:bg-[var(--color-bg-secondary)]/90"
           : isPrivate
-            ? "border-2 border-dashed border-violet-300 hover:border-violet-500 hover:bg-violet-50"
+            ? "border-2 border-dashed border-[var(--color-accent)] hover:border-[var(--color-accent-hover)] hover:bg-[var(--color-accent-subtle)]"
             : "border-2 border-dashed border-[var(--color-border-primary)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]/5"
       }`}
     >
@@ -37,7 +37,7 @@ export default function PageEstimateCard({
         hasNotebookCover
           ? "bg-[var(--color-text-primary)] text-[var(--color-text-inverse)]"
           : isPrivate
-            ? "bg-violet-100 text-violet-600"
+            ? "bg-[var(--color-accent-subtle)] text-[var(--color-accent)]"
             : "bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]"
       } group-hover:scale-105 transition-transform`}>
         <IconBook size={20} />
@@ -47,7 +47,7 @@ export default function PageEstimateCard({
           hasNotebookCover
             ? "text-[var(--color-text-primary)]"
             : isPrivate
-              ? "text-violet-700"
+              ? "text-[var(--color-accent)]"
               : "text-[var(--color-text-primary)]"
         }`}>
           {pageEstimate}
@@ -58,7 +58,7 @@ export default function PageEstimateCard({
         hasNotebookCover
           ? "bg-[var(--color-text-primary)] text-[var(--color-text-tertiary)]"
           : isPrivate
-            ? "bg-violet-200 text-violet-700"
+            ? "bg-[var(--color-accent-subtle)] text-[var(--color-accent)]"
             : "bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]"
       }`}>
         <IconSettings size={20} />

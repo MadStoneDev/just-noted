@@ -40,7 +40,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
           <div className="bg-[var(--color-bg-primary)] rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)] p-8 text-center">
             {/* Icon */}
             <div className="flex justify-center mb-4">
-              <div className="p-3 bg-red-100 rounded-full">
+              <div className="p-3 bg-[var(--color-danger-subtle)] rounded-full">
                 <IconAlertTriangle
                   size={48}
                   className="text-[var(--color-danger)]"

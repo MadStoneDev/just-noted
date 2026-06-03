@@ -28,7 +28,7 @@ export default function TransferButton({
       aria-label={isToCloud ? "Transfer to Cloud" : "Transfer to Local"}
       className={`group/transfer px-2 cursor-pointer flex-grow sm:flex-grow-0 flex items-center justify-center gap-1 w-fit min-w-[44px] h-[44px] rounded-[var(--radius-lg)] border-1 ${
         isPrivate
-          ? "border-violet-800 hover:bg-violet-800 hover:text-[var(--color-text-inverse)]"
+          ? "border-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-[var(--color-text-inverse)]"
           : "border-[var(--color-border-primary)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]"
       } text-[var(--color-text-primary)] overflow-hidden transition-all duration-300 ease-in-out`}
     >

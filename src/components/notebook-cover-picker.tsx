@@ -188,10 +188,10 @@ export default function NotebookCoverPicker({
                   alt="Selected cover"
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute top-2 right-2 bg-amber-500 text-white p-1 rounded-full" title="Will upload on save">
+                <div className="absolute top-2 right-2 bg-[var(--color-warning)] text-white p-1 rounded-full" title="Will upload on save">
                   <IconCheck size={12} />
                 </div>
-                <div className="absolute bottom-0 left-0 right-0 bg-amber-500/90 text-white text-xs py-1 text-center">
+                <div className="absolute bottom-0 left-0 right-0 bg-[var(--color-warning)]/90 text-white text-xs py-1 text-center">
                   Ready to upload on save
                 </div>
               </div>
