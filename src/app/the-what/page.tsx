@@ -25,7 +25,7 @@ export default async function TheWhatPage() {
         <div className="max-w-2xl mx-auto px-6 py-10 sm:text-center">
           <h1 className={`text-lg font-semibold`}>
             What is{" "}
-            <span className={`p-1 bg-[var(--color-accent)] font-secondary`}>
+            <span className={`p-1 bg-[var(--color-accent)] `}>
               Just
               <span className={`text-white`}>Noted</span>
             </span>
@@ -35,7 +35,6 @@ export default async function TheWhatPage() {
           <section
             className={`sm:mx-auto mt-8 flex flex-col gap-6 sm:max-w-lg font-light`}
             style={{
-              lineHeight: "1.75rem",
             }}
           >
             <p>
