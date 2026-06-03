@@ -399,18 +399,37 @@ summary {
 }
 
 /* Lists */
-.milkdown :is(ul, ol) {
+.milkdown ul {
   padding-left: 1.5rem;
   margin: 0.5rem 0;
+  list-style-type: disc;
 }
+
+.milkdown ol {
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+  list-style-type: decimal;
+}
+
+.milkdown ul ul { list-style-type: circle; }
+.milkdown ul ul ul { list-style-type: square; }
+.milkdown ol ol { list-style-type: lower-alpha; }
+.milkdown ol ol ol { list-style-type: lower-roman; }
 
 .milkdown li {
   margin-bottom: 0.25rem;
   line-height: 1.7;
+  color: var(--color-text-primary);
 }
 
 .milkdown li::marker {
   color: var(--color-accent);
+}
+
+.milkdown ol li::marker {
+  color: var(--color-accent);
+  font-weight: 500;
+  font-size: 0.875em;
 }
 
 /* Task lists — Milkdown uses li[data-item-type="task"][data-checked] */

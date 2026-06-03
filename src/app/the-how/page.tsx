@@ -78,7 +78,7 @@ export default async function TheHowPage() {
             <p>
               Your work is automatically saved 2 seconds after you stop typing.
               You'll see a{" "}
-              <span className={`mx-2 inline-flex gap-1 w-fit text-[var(--color-text-secondary)]`}>
+              <span className={`mx-2 inline-flex items-center gap-1 w-fit text-[var(--color-text-secondary)]`}>
                 <IconLoader className="animate-spin" />{" "}
                 <strong>Saving...</strong>
               </span>{" "}
@@ -95,7 +95,7 @@ export default async function TheHowPage() {
               If the auto-save doesn't trigger for some reason, or you just want
               the peace of mind of a manual save, hit the{" "}
               <span
-                className={`inline-flex border border-[var(--color-accent)] rounded-[var(--radius-md)] bg-[var(--color-bg-tertiary)] p-1`}
+                className={`inline-flex items-center border border-[var(--color-accent)] rounded-[var(--radius-md)] bg-[var(--color-bg-tertiary)] p-1`}
               >
                 <IconDeviceFloppy size={20} strokeWidth={2} />
               </span>{" "}
