@@ -356,51 +356,39 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
 
   if (state.isLoading) {
     return (
-      <main className="flex-grow py-8 px-4">
-        <div className="mx-auto max-w-4xl">
-          <div className="bg-[var(--color-bg-primary)] p-8 rounded-2xl shadow-sm border border-[var(--color-border-secondary)]">
-            <div className="flex items-center justify-center py-16">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-10 w-10 border-3 border-[var(--color-accent)] border-t-transparent mx-auto mb-4"></div>
-                <p className="text-[var(--color-text-secondary)] font-medium">
-                  Setting up your profile...
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
+      <div className="py-16 text-center">
+        <div className="animate-spin rounded-full h-6 w-6 border-2 border-[var(--color-accent)] border-t-transparent mx-auto mb-3"></div>
+        <p className="text-sm text-[var(--color-text-tertiary)]">Loading profile...</p>
+      </div>
     );
   }
 
   return (
-    <main className="flex-grow py-8 px-4 bg-[var(--color-bg-secondary)]">
-      <div className="mx-auto max-w-4xl">
-        {/* Header with gradient */}
-        <div className="bg-gradient-to-r from-mercedes-primary to-mercedes-primary/80 rounded-2xl p-8 mb-6 shadow-[var(--shadow-lg)]">
-          <div className="flex items-center space-x-4">
-            <div className="w-20 h-20 bg-[var(--color-bg-primary)] rounded-full flex items-center justify-center shadow-md ring-4 ring-white/20">
-              {state.avatarPreview || state.avatarUrl ? (
-                <img
-                  src={state.avatarPreview || state.avatarUrl || ""}
-                  alt="Avatar"
-                  className="w-full h-full object-cover rounded-full"
-                />
-              ) : (
-                <span className="text-[var(--color-text-tertiary)] text-4xl font-light">?</span>
-              )}
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-white mb-1">
-                {state.username || "Your Profile"}
-              </h1>
-              <p className="text-white/80">{user?.email}</p>
-            </div>
+    <div>
+      <div>
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-8">
+          <div className="w-14 h-14 bg-[var(--color-bg-tertiary)] rounded-full flex items-center justify-center shrink-0 overflow-hidden">
+            {state.avatarPreview || state.avatarUrl ? (
+              <img
+                src={state.avatarPreview || state.avatarUrl || ""}
+                alt="Avatar"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="text-[var(--color-text-tertiary)] text-xl font-light">?</span>
+            )}
+          </div>
+          <div>
+            <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">
+              {state.username || "Your Profile"}
+            </h1>
+            <p className="text-xs text-[var(--color-text-tertiary)]">{user?.email}</p>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex mb-6 bg-[var(--color-bg-primary)] rounded-[var(--radius-xl)] p-1 shadow-sm border border-[var(--color-border-secondary)]">
+        <div className="flex mb-4 bg-[var(--color-bg-tertiary)] rounded-[var(--radius-md)] p-0.5">
           <TabButton
             label="Profile Settings"
             isActive={state.activeTab === "profile"}
@@ -414,19 +402,18 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
         </div>
 
         {state.activeTab === "profile" ? (
-          <section className="bg-[var(--color-bg-primary)] rounded-2xl shadow-sm border border-[var(--color-border-secondary)] overflow-hidden">
-            {/* Profile content with better spacing */}
-            <div className="p-8">
-              <h2 className="text-xl font-semibold mb-6 text-[var(--color-text-primary)]">
+          <section>
+            <div>
+              <h2 className="text-sm font-semibold mb-4 text-[var(--color-text-primary)]">
                 Account Information
               </h2>
 
               {/* Email Display - Modern card style */}
-              <div className="mb-6">
-                <label className="block mb-2 text-sm font-semibold text-[var(--color-text-primary)]">
+              <div className="mb-4">
+                <label className="block mb-2 text-xs font-medium text-[var(--color-text-secondary)]">
                   Email Address
                 </label>
-                <div className="px-4 py-3 bg-[var(--color-bg-secondary)] rounded-[var(--radius-xl)] border border-[var(--color-border-primary)] text-[var(--color-text-secondary)]">
+                <div className="px-3 py-2 bg-[var(--color-bg-secondary)] rounded-[var(--radius-md)] border border-[var(--color-border-primary)] text-[var(--color-text-secondary)]">
                   {user?.email}
                 </div>
                 <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
@@ -436,8 +423,8 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
               </div>
 
               {/* Username Input - Enhanced */}
-              <div className="mb-6">
-                <label className="block mb-2 text-sm font-semibold text-[var(--color-text-primary)]">
+              <div className="mb-4">
+                <label className="block mb-2 text-xs font-medium text-[var(--color-text-secondary)]">
                   Username
                 </label>
                 <div className="relative">
@@ -445,7 +432,7 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
                     type="text"
                     value={state.username}
                     onChange={handleUsernameChange}
-                    className="w-full px-4 py-3 border-2 border-[var(--color-border-primary)] rounded-[var(--radius-xl)] focus:outline-none focus:border-[var(--color-accent)] transition-colors bg-[var(--color-bg-primary)]"
+                    className="w-full px-3 py-2 border border-[var(--color-border-primary)] rounded-[var(--radius-md)] focus:outline-none focus:border-[var(--color-accent)] transition-colors bg-[var(--color-bg-primary)]"
                     placeholder="Enter username"
                     maxLength={30}
                   />
@@ -461,11 +448,11 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
 
               {/* Avatar Upload - Card style */}
               <div className="mb-8">
-                <label className="block mb-3 text-sm font-semibold text-[var(--color-text-primary)]">
+                <label className="block mb-3 text-xs font-medium text-[var(--color-text-secondary)]">
                   Profile Picture
                 </label>
-                <div className="flex items-center space-x-6 p-5 bg-[var(--color-bg-secondary)] rounded-[var(--radius-xl)] border-2 border-dashed border-[var(--color-border-primary)] hover:border-[var(--color-accent)]/50 transition-colors">
-                  <div className="shrink-0 w-24 h-24 bg-[var(--color-bg-primary)] rounded-2xl overflow-hidden flex items-center justify-center shadow-sm ring-1 ring-gray-200">
+                <div className="flex items-center space-x-4 p-5 bg-[var(--color-bg-secondary)] rounded-[var(--radius-md)] border-2 border-dashed border-[var(--color-border-primary)] hover:border-[var(--color-accent)]/50 transition-colors">
+                  <div className="shrink-0 w-24 h-24 bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] overflow-hidden flex items-center justify-center shadow-sm ring-1 ring-gray-200">
                     {state.avatarPreview || state.avatarUrl ? (
                       <img
                         src={state.avatarPreview || state.avatarUrl || ""}
@@ -515,10 +502,10 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
             </div>
 
             {/* Action Buttons - Sticky footer */}
-            <div className="flex justify-between items-center px-8 py-5 bg-[var(--color-bg-secondary)] border-t border-[var(--color-border-secondary)]">
+            <div className="flex justify-between items-center px-0 py-4 bg-[var(--color-bg-secondary)] border-t border-[var(--color-border-secondary)]">
               <button
                 onClick={handleLogout}
-                className="px-5 py-2.5 text-[var(--color-text-primary)] font-medium rounded-[var(--radius-lg)] hover:bg-[var(--color-active)] transition-colors"
+                className="px-3 py-1.5 text-[var(--color-text-primary)] font-medium rounded-[var(--radius-lg)] hover:bg-[var(--color-active)] transition-colors"
               >
                 Log Out
               </button>
@@ -574,7 +561,7 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
             </div>
           </section>
         ) : (
-          <section className="bg-[var(--color-bg-primary)] rounded-2xl shadow-sm border border-[var(--color-border-secondary)] p-8">
+          <section className="bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] shadow-sm border border-[var(--color-border-secondary)] p-0">
             {user && <ManageSharedNotes userId={user.id} />}
 
             <div className="mt-8 pt-6 border-t border-[var(--color-border-secondary)]">
@@ -601,7 +588,7 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
           </section>
         )}
       </div>
-    </main>
+    </div>
   );
 }
 
@@ -618,10 +605,10 @@ const TabButton = memo(function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`flex-1 px-6 py-3 font-semibold rounded-[var(--radius-lg)] transition-all ${
+      className={`flex-1 py-1.5 text-xs font-medium rounded-[var(--radius-sm)] transition-colors ${
         isActive
-          ? "bg-[var(--color-accent)] text-white shadow-sm"
-          : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)]"
+          ? "bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] shadow-xs"
+          : "text-[var(--color-text-tertiary)]"
       }`}
     >
       {label}
