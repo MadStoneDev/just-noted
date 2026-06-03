@@ -406,7 +406,11 @@ export const useNotesStore = create<NotesStore>()(
 
     optimisticDeleteNote: (noteId) => {
       set((state) => ({
-        notes: state.notes.filter((note) => note.id !== noteId),
+        notes: state.notes.map((note) =>
+          note.id === noteId
+            ? { ...note, deletedAt: Date.now() }
+            : note
+        ),
         lastUpdateTimestamp: Date.now(),
       }));
     },
@@ -453,14 +457,15 @@ export const useNotesStore = create<NotesStore>()(
 
       const restoredNote = recentlyDeleted.note;
 
-      // Clear the timeout
       if (recentlyDeleted.timeoutId) {
         clearTimeout(recentlyDeleted.timeoutId);
       }
 
-      // Add note back and clear deleted state
+      // Clear deletedAt on the note to restore it
       set({
-        notes: sortNotes([...notes, restoredNote], null),
+        notes: notes.map((n) =>
+          n.id === restoredNote.id ? { ...n, deletedAt: null } : n
+        ),
         recentlyDeleted: null,
         lastUpdateTimestamp: Date.now(),
       });

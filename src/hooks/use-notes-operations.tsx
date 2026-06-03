@@ -588,17 +588,18 @@ export function useNotesOperations(
       const targetNote = notes.find((note) => note.id === noteId);
       if (!targetNote) return;
 
-      if (notes.length === 1) {
+      const activeNotes = notes.filter((n) => !n.deletedAt);
+      if (activeNotes.length <= 1) {
         return;
       }
 
       const { setRecentlyDeleted, clearRecentlyDeleted } = useNotesStore.getState();
 
-      // Optimistic update
+      // Optimistic soft-delete (sets deletedAt, filtered from view)
       optimisticDeleteNote(noteId);
 
-      // Remove from IDB cache
-      deleteLocalNote(noteId).catch(() => {});
+      // Update IDB cache with deletedAt
+      saveNoteToLocal({ ...targetNote, deletedAt: Date.now(), updatedAt: Date.now() }).catch(() => {});
 
       // Set up undo - will auto-clear after 10 seconds
       const timeoutId = setTimeout(async () => {

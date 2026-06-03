@@ -663,7 +663,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                     className={dragOverNoteId === note.id ? "border-t border-[var(--color-accent)]" : ""}
                   >
                     <div
-                      className={`group/note relative w-full px-3 py-2.5 text-left transition-colors duration-[var(--duration-fast)] rounded-[var(--radius-md)] ${
+                      className={`group/note relative w-full px-1 py-2.5 text-left transition-colors duration-[var(--duration-fast)] rounded-[var(--radius-md)] ${
                         draggedNoteId === note.id ? "opacity-40" : ""
                       } ${
                         isSelected
