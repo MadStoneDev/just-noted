@@ -43,7 +43,7 @@ export default async function TheHowPage() {
       <GlobalHeader user={user} />
       <main className="flex-grow w-full pt-14">
         <div className="max-w-2xl mx-auto px-6 py-10">
-          <h1 className={`text-xl font-semibold sm:text-center`}>
+          <h1 className={`text-lg font-semibold sm:text-center`}>
             How does{" "}
             <span className={`p-1 bg-[var(--color-accent)] font-secondary`}>
               Just
@@ -59,7 +59,7 @@ export default async function TheHowPage() {
             }}
           >
             <h2
-              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
+              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-base flex items-center gap-2`}
             >
               <IconNote size={24} strokeWidth={2} /> Creating & Saving Notes
             </h2>
@@ -104,7 +104,7 @@ export default async function TheHowPage() {
             </p>
 
             <h2
-              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
+              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-base flex items-center gap-2`}
             >
               <IconCloud size={24} strokeWidth={2} /> Local Notes vs Cloud Notes
             </h2>
@@ -135,7 +135,7 @@ export default async function TheHowPage() {
             </p>
 
             <h2
-              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
+              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-base flex items-center gap-2`}
             >
               <IconEdit size={24} strokeWidth={2} /> Changing the Title of Your
               Note
@@ -165,7 +165,7 @@ export default async function TheHowPage() {
             </p>
 
             <h2
-              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
+              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-base flex items-center gap-2`}
             >
               <IconDownload size={24} strokeWidth={2} /> Downloading Your Notes
             </h2>
@@ -182,7 +182,7 @@ export default async function TheHowPage() {
             </p>
 
             <h2
-              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
+              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-base flex items-center gap-2`}
             >
               <IconTrash size={24} strokeWidth={2} /> Deleting Notes
             </h2>
@@ -200,7 +200,7 @@ export default async function TheHowPage() {
             </p>
 
             <h2
-              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
+              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-base flex items-center gap-2`}
             >
               <IconNotebook size={24} strokeWidth={2} /> Organising with
               Notebooks
@@ -227,7 +227,7 @@ export default async function TheHowPage() {
             </p>
 
             <h2
-              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
+              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-base flex items-center gap-2`}
             >
               <IconLayoutColumns size={24} strokeWidth={2} /> Split View for
               Referencing Notes
@@ -254,7 +254,7 @@ export default async function TheHowPage() {
             </p>
 
             <h2
-              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
+              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-base flex items-center gap-2`}
             >
               <IconList size={24} strokeWidth={2} /> Table of Contents
             </h2>
@@ -282,7 +282,7 @@ export default async function TheHowPage() {
             </p>
 
             <h2
-              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
+              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-base flex items-center gap-2`}
             >
               <IconCheckbox size={24} strokeWidth={2} /> Bulk Actions
             </h2>
@@ -294,7 +294,7 @@ export default async function TheHowPage() {
             </p>
 
             <h2
-              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
+              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-base flex items-center gap-2`}
             >
               <IconDownload size={24} strokeWidth={2} /> Exporting Notebooks
             </h2>
@@ -312,7 +312,7 @@ export default async function TheHowPage() {
             </p>
 
             <h2
-              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
+              className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-base flex items-center gap-2`}
             >
               <IconShieldLock size={24} strokeWidth={2} /> How Your Privacy Is
               Protected

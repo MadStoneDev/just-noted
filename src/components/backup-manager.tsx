@@ -286,7 +286,7 @@ export default function BackupManager({
   }, [state.selectedNoteId, loadNoteBackups]);
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-4 space-y-6">
+    <div className="w-full max-w-6xl mx-auto p-4 space-y-4">
       <Card className="bg-[var(--color-bg-primary)]">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -303,7 +303,7 @@ export default function BackupManager({
           {backupStats && <BackupStatsGrid backupStats={backupStats} />}
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap gap-2 mb-6">
+          <div className="flex flex-wrap gap-2 mb-4">
             <Button
               onClick={loadBackupStats}
               disabled={state.isLoading}
@@ -399,7 +399,7 @@ export default function BackupManager({
 
       {/* Backing up indicator */}
       {isBackingUp && (
-        <div className="fixed bottom-4 right-4 bg-[var(--color-info)] text-white px-4 py-2 rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)]">
+        <div className="fixed bottom-4 right-4 bg-[var(--color-info)] text-white px-4 py-2 rounded-[var(--radius-lg)] shadow-[var(--shadow-sm)]">
           <div className="flex items-center gap-2">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
             Backing up...
@@ -445,13 +445,13 @@ function BackupStatsGrid({ backupStats }: { backupStats: any }) {
   );
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
       {stats.map((stat, index) => (
         <div
           key={index}
           className={`text-center p-4 bg-${stat.color}-50 rounded-[var(--radius-lg)]`}
         >
-          <div className={`text-2xl font-bold text-${stat.color}-600`}>
+          <div className={`text-sm font-semibold text-${stat.color}-600`}>
             {stat.value}
           </div>
           <div className={`text-sm text-${stat.color}-600`}>{stat.label}</div>

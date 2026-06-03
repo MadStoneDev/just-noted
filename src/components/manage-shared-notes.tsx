@@ -131,21 +131,21 @@ function ConfirmModal({
       : "bg-amber-600 hover:bg-amber-700";
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
-      <div className="bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] p-6 w-full max-w-md">
-        <h3 className="text-lg font-semibold mb-3">{title}</h3>
+    <div className="fixed inset-0 flex items-center justify-center bg-[var(--color-bg-overlay)] z-50">
+      <div className="bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] p-4 w-full max-w-md">
+        <h3 className="text-sm font-semibold mb-2">{title}</h3>
         <p className="text-[var(--color-text-primary)] mb-4">{message}</p>
-        <div className="flex justify-end space-x-3">
+        <div className="flex justify-end space-x-2">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-[var(--color-text-primary)] border border-[var(--color-border-primary)] rounded-md hover:bg-[var(--color-bg-secondary)] transition-colors"
+            className="px-3 py-1.5 text-[var(--color-text-primary)] border border-[var(--color-border-primary)] rounded-md hover:bg-[var(--color-bg-secondary)] transition-colors"
             disabled={isProcessing}
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className={`px-4 py-2 text-white rounded-md flex items-center transition-colors ${colorClasses} disabled:opacity-50`}
+            className={`px-3 py-1.5 text-white rounded-md flex items-center transition-colors ${colorClasses} disabled:opacity-50`}
             disabled={isProcessing}
           >
             {isProcessing && (
@@ -471,7 +471,7 @@ export default function ManageSharedNotes({ userId }: { userId: string }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Manage Shared Notes</h2>
+        <h2 className="text-sm font-semibold">Manage Shared Notes</h2>
         <button
           onClick={fetchSharedNotes}
           className="flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] border border-[var(--color-border-primary)] rounded-md hover:border-[var(--color-accent)] transition-colors"
@@ -491,7 +491,7 @@ export default function ManageSharedNotes({ userId }: { userId: string }) {
           >
             <div className="flex justify-between items-start">
               <div className="flex-1">
-                <h3 className="font-medium text-lg text-[var(--color-text-primary)]">
+                <h3 className="font-medium text-sm text-[var(--color-text-primary)]">
                   {note.title || "Untitled Note"}
                 </h3>
                 <div className="text-sm text-[var(--color-text-secondary)] flex items-center mt-1 flex-wrap gap-2">
@@ -587,7 +587,7 @@ export default function ManageSharedNotes({ userId }: { userId: string }) {
             {/* Shared users list */}
             {!note.isPublic && note.sharedUsers.length > 0 && (
               <div className="mt-4 border-t pt-4">
-                <h4 className="text-sm font-medium text-[var(--color-text-primary)] mb-3">
+                <h4 className="text-sm font-medium text-[var(--color-text-primary)] mb-2">
                   Shared with:
                 </h4>
                 <ul className="space-y-2">
@@ -623,9 +623,9 @@ export default function ManageSharedNotes({ userId }: { userId: string }) {
 
       {/* Add user modal */}
       {addUserModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
-          <div className="bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Add User</h3>
+        <div className="fixed inset-0 flex items-center justify-center bg-[var(--color-bg-overlay)] z-50">
+          <div className="bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] p-4 w-full max-w-md">
+            <h3 className="text-sm font-semibold mb-4">Add User</h3>
             <p className="text-[var(--color-text-secondary)] text-sm mb-4">
               Enter the username of the person you want to share this note with.
             </p>
@@ -642,20 +642,20 @@ export default function ManageSharedNotes({ userId }: { userId: string }) {
                 }
               }}
             />
-            <div className="flex justify-end space-x-3">
+            <div className="flex justify-end space-x-2">
               <button
                 onClick={() => {
                   setAddUserModal(null);
                   setNewUsername("");
                 }}
-                className="px-4 py-2 text-[var(--color-text-primary)] border border-[var(--color-border-primary)] rounded-md hover:bg-[var(--color-bg-secondary)] transition-colors"
+                className="px-3 py-1.5 text-[var(--color-text-primary)] border border-[var(--color-border-primary)] rounded-md hover:bg-[var(--color-bg-secondary)] transition-colors"
                 disabled={isProcessing}
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleAddUser(addUserModal)}
-                className="px-4 py-2 bg-[var(--color-accent)] text-white rounded-md hover:bg-[var(--color-accent)]/90 transition-colors flex items-center disabled:opacity-50"
+                className="px-3 py-1.5 bg-[var(--color-accent)] text-white rounded-md hover:bg-[var(--color-accent)]/90 transition-colors flex items-center disabled:opacity-50"
                 disabled={isProcessing || !newUsername.trim()}
               >
                 {isProcessing && (

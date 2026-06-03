@@ -31,7 +31,7 @@ export default async function PrivacyPolicyPage() {
 
       <main className="flex-grow w-full pt-14">
       <div className="max-w-2xl mx-auto px-6 py-10">
-        <h1 className={`text-xl font-semibold sm:text-center`}>
+        <h1 className={`text-lg font-semibold sm:text-center`}>
           Privacy Policy for{" "}
           <span className={`p-1 bg-[var(--color-accent)] font-secondary`}>
             Just
@@ -50,7 +50,7 @@ export default async function PrivacyPolicyPage() {
           </p>
 
           <h2
-            className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
+            className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-base flex items-center gap-2`}
           >
             <IconRosetteDiscountCheck size={24} strokeWidth={2} /> Our
             Commitment to Privacy
@@ -69,7 +69,7 @@ export default async function PrivacyPolicyPage() {
           </p>
 
           <h2
-            className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
+            className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-base flex items-center gap-2`}
           >
             <IconUserCircle size={24} strokeWidth={2} /> Personal Information
           </h2>
@@ -91,7 +91,7 @@ export default async function PrivacyPolicyPage() {
           </p>
 
           <h2
-            className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
+            className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-base flex items-center gap-2`}
           >
             <IconShieldLock size={24} strokeWidth={2} /> Your Notes and Data
           </h2>
@@ -111,7 +111,7 @@ export default async function PrivacyPolicyPage() {
           </p>
 
           <h2
-            className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
+            className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-base flex items-center gap-2`}
           >
             <IconAnalyze size={24} strokeWidth={2} /> Analytics
           </h2>
@@ -133,7 +133,7 @@ export default async function PrivacyPolicyPage() {
           </p>
 
           <h2
-            className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
+            className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-base flex items-center gap-2`}
           >
             <IconCookie size={24} strokeWidth={2} /> Cookies
           </h2>
@@ -150,7 +150,7 @@ export default async function PrivacyPolicyPage() {
           </p>
 
           <h2
-            className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
+            className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-base flex items-center gap-2`}
           >
             <IconBallpen size={24} strokeWidth={2} /> Changes to This Policy
           </h2>
@@ -162,7 +162,7 @@ export default async function PrivacyPolicyPage() {
           </p>
 
           <h2
-            className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-lg flex items-center gap-2`}
+            className={`mt-3 pb-2 border-b border-[var(--color-border-primary)] font-secondary font-semibold text-base flex items-center gap-2`}
           >
             <IconMail size={24} strokeWidth={2} /> Contact Us
           </h2>
