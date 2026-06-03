@@ -3,7 +3,6 @@
 import { useState, useRef, FormEvent } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
 import { submitContactForm } from "@/app/actions/contactActions";
-import { IconCheck } from "@tabler/icons-react";
 
 export default function ContactForm() {
   const [formData, setFormData] = useState({ name: "", email: "", message: "" });
@@ -40,47 +39,59 @@ export default function ContactForm() {
     }
   };
 
-  const inputClass = "w-full h-10 px-3 text-sm bg-[var(--color-bg-primary)] border border-[var(--color-border-primary)] rounded-[var(--radius-md)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--color-border-focus)] focus:ring-2 focus:ring-[var(--color-accent-subtle)] focus:outline-none transition-colors";
-
   if (success) {
     return (
-      <div className="mt-8 flex flex-col items-center gap-3 text-center">
-        <div className="w-10 h-10 rounded-full bg-[var(--color-success-subtle)] flex items-center justify-center">
-          <IconCheck size={20} className="text-[var(--color-success)]" />
-        </div>
-        <p className="text-sm text-[var(--color-text-primary)] font-medium">Message sent</p>
-        <p className="text-xs text-[var(--color-text-secondary)]">We'll get back to you soon.</p>
+      <div className="mt-12 text-center">
+        <p className="text-sm text-[var(--color-text-primary)]">Sent. We'll be in touch.</p>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-8 space-y-3 text-left">
-      <input
-        type="text"
-        name="name"
-        value={formData.name}
-        onChange={handleChange}
-        className={inputClass}
-        placeholder="Name (optional)"
-      />
-      <input
-        type="email"
-        name="email"
-        value={formData.email}
-        onChange={handleChange}
-        required
-        className={inputClass}
-        placeholder="Email"
-      />
-      <textarea
-        name="message"
-        value={formData.message}
-        onChange={handleChange}
-        required
-        className={`${inputClass} min-h-[120px] h-auto py-2 resize-y`}
-        placeholder="Message"
-      />
+    <form onSubmit={handleSubmit} className="mt-10 space-y-6 text-left">
+      <div>
+        <input
+          type="text"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          placeholder="Your name"
+          className="w-full bg-transparent border-none border-b border-[var(--color-border-secondary)] pb-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:border-[var(--color-accent)] transition-colors"
+          style={{ borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: "var(--color-border-secondary)" }}
+          onFocus={(e) => e.target.style.borderBottomColor = "var(--color-accent)"}
+          onBlur={(e) => e.target.style.borderBottomColor = "var(--color-border-secondary)"}
+        />
+      </div>
+
+      <div>
+        <input
+          type="email"
+          name="email"
+          value={formData.email}
+          onChange={handleChange}
+          required
+          placeholder="your@email.com"
+          className="w-full bg-transparent border-none pb-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none transition-colors"
+          style={{ borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: "var(--color-border-secondary)" }}
+          onFocus={(e) => e.target.style.borderBottomColor = "var(--color-accent)"}
+          onBlur={(e) => e.target.style.borderBottomColor = "var(--color-border-secondary)"}
+        />
+      </div>
+
+      <div>
+        <textarea
+          name="message"
+          value={formData.message}
+          onChange={handleChange}
+          required
+          placeholder="What's on your mind?"
+          rows={4}
+          className="w-full bg-transparent border-none pb-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none resize-none leading-relaxed transition-colors"
+          style={{ borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: "var(--color-border-secondary)" }}
+          onFocus={(e) => e.target.style.borderBottomColor = "var(--color-accent)"}
+          onBlur={(e) => e.target.style.borderBottomColor = "var(--color-border-secondary)"}
+        />
+      </div>
 
       <ReCAPTCHA
         ref={recaptchaRef}
@@ -96,11 +107,11 @@ export default function ContactForm() {
       <button
         type="submit"
         disabled={loading}
-        className={`w-full h-10 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-accent)] text-[var(--color-text-on-accent)] hover:bg-[var(--color-accent-hover)] transition-colors ${
-          loading ? "opacity-60" : ""
+        className={`text-sm text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] transition-colors ${
+          loading ? "opacity-50" : ""
         }`}
       >
-        {loading ? "Sending..." : "Send Message"}
+        {loading ? "Sending..." : "Send →"}
       </button>
     </form>
   );
