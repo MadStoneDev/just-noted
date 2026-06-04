@@ -83,6 +83,37 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
     [getEditor],
   );
 
+  const toggleBlock = useCallback(
+    (blockName: string, wrapCommand: Parameters<typeof callCommand>[0]) => {
+      const editor = getEditor();
+      if (!editor) return;
+      try {
+        editor.action((ctx) => {
+          const view = ctx.get(editorViewCtx);
+          const { state } = view;
+          const { $from } = state.selection;
+
+          // Check if cursor is inside this block type
+          let insideBlock = false;
+          for (let d = $from.depth; d > 0; d--) {
+            if ($from.node(d).type.name === blockName) {
+              insideBlock = true;
+              // Lift content out of the block
+              const { lift } = require("@milkdown/prose/commands") as any;
+              lift(state, view.dispatch);
+              break;
+            }
+          }
+
+          if (!insideBlock) {
+            callCommand(wrapCommand)(ctx);
+          }
+        });
+      } catch {}
+    },
+    [getEditor],
+  );
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -178,10 +209,10 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
 
       <div className={sep} />
 
-      <button className={btn} onClick={() => run(wrapInBlockquoteCommand.key)} title="Blockquote">
+      <button className={btn} onClick={() => toggleBlock("blockquote", wrapInBlockquoteCommand.key)} title="Blockquote (toggle)">
         <IconQuote size={14} />
       </button>
-      <button className={btn} onClick={() => run(createCodeBlockCommand.key)} title="Code block">
+      <button className={btn} onClick={() => toggleBlock("code_block", createCodeBlockCommand.key)} title="Code block (toggle)">
         <IconCodeDots size={14} />
       </button>
       <button className={btn} onClick={() => run(insertHrCommand.key)} title="Horizontal rule">

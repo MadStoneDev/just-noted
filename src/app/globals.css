@@ -442,6 +442,11 @@ summary {
   list-style: none;
   position: relative;
   padding-left: 1.6rem;
+  cursor: default;
+}
+
+.milkdown li[data-item-type="task"]::before {
+  cursor: pointer;
 }
 
 .milkdown li[data-item-type="task"]::before {

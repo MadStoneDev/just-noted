@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useMemo } from "react";
+import React, { useRef, useMemo, useCallback } from "react";
 import { Editor, rootCtx, defaultValueCtx, remarkStringifyOptionsCtx } from "@milkdown/core";
 import { commonmark } from "@milkdown/preset-commonmark";
 import { gfm } from "@milkdown/preset-gfm";
@@ -112,12 +112,54 @@ function MilkdownEditorInner({
       .use(clipboard);
   }, []);
 
+  const handleTaskClick = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const li = target.closest("li[data-item-type='task']") as HTMLElement | null;
+    if (!li) return;
+
+    // Only toggle if click is in the checkbox area (left padding)
+    const rect = li.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    if (clickX > 28) return; // past the checkbox area
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const editor = get();
+    if (!editor) return;
+
+    try {
+      const { editorViewCtx } = require("@milkdown/core") as any;
+      editor.action((ctx: any) => {
+        const view = ctx.get(editorViewCtx) as any;
+        const pos = view.posAtDOM(li, 0);
+        const { state } = view;
+        const resolved = state.doc.resolve(pos);
+
+        // Walk up to find the list_item node
+        for (let d = resolved.depth; d >= 0; d--) {
+          const node = resolved.node(d);
+          if (node.type.name === "list_item" && node.attrs.checked != null) {
+            const from = resolved.before(d);
+            const tr = state.tr.setNodeMarkup(from, undefined, {
+              ...node.attrs,
+              checked: !node.attrs.checked,
+            });
+            view.dispatch(tr);
+            break;
+          }
+        }
+      });
+    } catch {}
+  }, [get]);
+
   return (
     <div
       ref={containerRef}
       className={`milkdown relative ${className || ""}`}
       data-placeholder={placeholder}
       data-readonly={readOnly || undefined}
+      onClick={handleTaskClick}
     >
       {!readOnly && (
         <>
