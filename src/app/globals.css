@@ -433,6 +433,11 @@ summary {
 }
 
 /* Task lists — Milkdown uses li[data-item-type="task"][data-checked] */
+.milkdown ul:has(> li[data-item-type="task"]) {
+  list-style: none;
+  padding-left: 0;
+}
+
 .milkdown li[data-item-type="task"] {
   list-style: none;
   position: relative;
