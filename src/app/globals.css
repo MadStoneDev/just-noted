@@ -422,6 +422,20 @@ summary {
   color: var(--color-text-primary);
 }
 
+/* Tight lists: no paragraph margin inside list items */
+.milkdown li > p {
+  margin: 0;
+}
+
+/* Spread/loose lists: restore some spacing between items */
+.milkdown li[data-spread="true"] > p {
+  margin: 0.25rem 0;
+}
+
+.milkdown li[data-spread="true"] > p + p {
+  margin-top: 0.5rem;
+}
+
 .milkdown li::marker {
   color: var(--color-accent);
 }
