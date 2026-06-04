@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { Editor } from "@milkdown/core";
-import { callCommand } from "@milkdown/utils";
+import { callCommand, insert } from "@milkdown/utils";
 import { editorViewCtx } from "@milkdown/core";
 import {
   toggleStrongCommand,
@@ -203,7 +203,11 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
       <button className={btn} onClick={() => run(wrapInOrderedListCommand.key)} title="Numbered list">
         <IconListNumbers size={14} />
       </button>
-      <button className={btn} onClick={() => run(wrapInBulletListCommand.key)} title="Task list (type - [ ] )">
+      <button className={btn} onClick={() => {
+        const editor = getEditor();
+        if (!editor) return;
+        try { editor.action(insert("\n- [ ] ")); } catch {}
+      }} title="Task list">
         <IconCheckbox size={14} />
       </button>
 

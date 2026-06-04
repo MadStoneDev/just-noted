@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import type { Editor } from "@milkdown/core";
-import { callCommand } from "@milkdown/utils";
+import { callCommand, insert } from "@milkdown/utils";
 import {
   wrapInHeadingCommand,
   wrapInBulletListCommand,
@@ -72,7 +72,7 @@ const SLASH_ITEMS: SlashItem[] = [
     label: "Task List",
     description: "Checklist with checkboxes",
     icon: <IconCheckbox size={16} />,
-    action: (e) => e.action(callCommand(wrapInBulletListCommand.key)),
+    action: (e) => e.action(insert("- [ ] ")),
   },
   {
     label: "Blockquote",
