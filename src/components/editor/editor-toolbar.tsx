@@ -83,6 +83,100 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
     [getEditor],
   );
 
+  const handleList = useCallback(
+    (type: "bullet" | "ordered" | "task") => {
+      const editor = getEditor();
+      if (!editor) return;
+
+      try {
+        editor.action((ctx) => {
+          const view = ctx.get(editorViewCtx);
+          const { state } = view;
+          const { $from } = state.selection;
+          const schema = state.schema;
+
+          // Find if we're inside a list item
+          let listItemDepth = -1;
+          let listDepth = -1;
+          for (let d = $from.depth; d > 0; d--) {
+            const node = $from.node(d);
+            if (node.type.name === "list_item") listItemDepth = d;
+            if (node.type.name === "bullet_list" || node.type.name === "ordered_list") {
+              listDepth = d;
+              break;
+            }
+          }
+
+          if (type === "task") {
+            if (listItemDepth > 0) {
+              // Already in a list item — toggle checked attribute
+              const listItem = $from.node(listItemDepth);
+              const pos = $from.before(listItemDepth);
+              if (listItem.attrs.checked != null) {
+                // Already a task — remove checked (convert back to regular)
+                const tr = state.tr.setNodeMarkup(pos, undefined, {
+                  ...listItem.attrs,
+                  checked: null,
+                });
+                view.dispatch(tr);
+              } else {
+                // Regular item — make it a task
+                const tr = state.tr.setNodeMarkup(pos, undefined, {
+                  ...listItem.attrs,
+                  checked: false,
+                });
+                view.dispatch(tr);
+              }
+            } else {
+              // Not in a list — create bullet list then set checked
+              callCommand(wrapInBulletListCommand.key)(ctx);
+              // After wrapping, set checked on the new list item
+              setTimeout(() => {
+                const newState = view.state;
+                const new$from = newState.selection.$from;
+                for (let d = new$from.depth; d > 0; d--) {
+                  if (new$from.node(d).type.name === "list_item") {
+                    const tr = newState.tr.setNodeMarkup(new$from.before(d), undefined, {
+                      ...new$from.node(d).attrs,
+                      checked: false,
+                    });
+                    view.dispatch(tr);
+                    break;
+                  }
+                }
+              }, 0);
+            }
+          } else if (listDepth > 0) {
+            // Already in a list — convert type
+            const listNode = $from.node(listDepth);
+            const targetType = type === "bullet" ? schema.nodes.bullet_list : schema.nodes.ordered_list;
+            const currentType = listNode.type.name;
+            const wantedType = type === "bullet" ? "bullet_list" : "ordered_list";
+
+            if (currentType === wantedType) {
+              // Same type — unwrap (lift)
+              const { lift } = require("@milkdown/prose/commands") as any;
+              lift(state, view.dispatch);
+            } else {
+              // Different type — convert
+              const pos = $from.before(listDepth);
+              const tr = state.tr.setNodeMarkup(pos, targetType, listNode.attrs);
+              view.dispatch(tr);
+            }
+          } else {
+            // Not in a list — wrap
+            if (type === "bullet") {
+              callCommand(wrapInBulletListCommand.key)(ctx);
+            } else {
+              callCommand(wrapInOrderedListCommand.key)(ctx);
+            }
+          }
+        });
+      } catch {}
+    },
+    [getEditor],
+  );
+
   const toggleBlock = useCallback(
     (blockName: string, wrapCommand: Parameters<typeof callCommand>[0]) => {
       const editor = getEditor();
@@ -197,17 +291,13 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
 
       <div className={sep} />
 
-      <button className={btn} onClick={() => run(wrapInBulletListCommand.key)} title="Bullet list">
+      <button className={btn} onClick={() => handleList("bullet")} title="Bullet list">
         <IconList size={14} />
       </button>
-      <button className={btn} onClick={() => run(wrapInOrderedListCommand.key)} title="Numbered list">
+      <button className={btn} onClick={() => handleList("ordered")} title="Numbered list">
         <IconListNumbers size={14} />
       </button>
-      <button className={btn} onClick={() => {
-        const editor = getEditor();
-        if (!editor) return;
-        try { editor.action(insert("\n- [ ] ")); } catch {}
-      }} title="Task list">
+      <button className={btn} onClick={() => handleList("task")} title="Task list">
         <IconCheckbox size={14} />
       </button>
 

@@ -72,7 +72,30 @@ const SLASH_ITEMS: SlashItem[] = [
     label: "Task List",
     description: "Checklist with checkboxes",
     icon: <IconCheckbox size={16} />,
-    action: (e) => e.action(insert("- [ ] ")),
+    action: (e) => {
+      // Create bullet list then set checked attribute
+      e.action(callCommand(wrapInBulletListCommand.key));
+      setTimeout(() => {
+        try {
+          const { editorViewCtx } = require("@milkdown/core") as any;
+          e.action((ctx: any) => {
+            const view = ctx.get(editorViewCtx) as any;
+            const { state } = view;
+            const { $from } = state.selection;
+            for (let d = $from.depth; d > 0; d--) {
+              if ($from.node(d).type.name === "list_item") {
+                const tr = state.tr.setNodeMarkup($from.before(d), undefined, {
+                  ...$from.node(d).attrs,
+                  checked: false,
+                });
+                view.dispatch(tr);
+                break;
+              }
+            }
+          });
+        } catch {}
+      }, 0);
+    },
   },
   {
     label: "Blockquote",
