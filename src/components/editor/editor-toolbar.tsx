@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import type { Editor } from "@milkdown/core";
 import { callCommand, insert } from "@milkdown/utils";
 import { editorViewCtx } from "@milkdown/core";
+import { lift } from "@milkdown/prose/commands";
 import {
   toggleStrongCommand,
   toggleEmphasisCommand,
@@ -155,7 +156,7 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
 
             if (currentType === wantedType) {
               // Same type — unwrap (lift)
-              const { lift } = require("@milkdown/prose/commands") as any;
+              
               lift(state, view.dispatch);
             } else {
               // Different type — convert
@@ -193,7 +194,7 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
             if ($from.node(d).type.name === blockName) {
               insideBlock = true;
               // Lift content out of the block
-              const { lift } = require("@milkdown/prose/commands") as any;
+              
               lift(state, view.dispatch);
               break;
             }

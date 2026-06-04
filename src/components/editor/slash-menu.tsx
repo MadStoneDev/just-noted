@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import type { Editor } from "@milkdown/core";
+import { editorViewCtx } from "@milkdown/core";
 import { callCommand, insert } from "@milkdown/utils";
 import {
   wrapInHeadingCommand,
@@ -77,7 +78,6 @@ const SLASH_ITEMS: SlashItem[] = [
       e.action(callCommand(wrapInBulletListCommand.key));
       setTimeout(() => {
         try {
-          const { editorViewCtx } = require("@milkdown/core") as any;
           e.action((ctx: any) => {
             const view = ctx.get(editorViewCtx) as any;
             const { state } = view;

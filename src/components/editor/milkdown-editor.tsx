@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useMemo, useCallback } from "react";
-import { Editor, rootCtx, defaultValueCtx, remarkStringifyOptionsCtx } from "@milkdown/core";
+import { Editor, rootCtx, defaultValueCtx, remarkStringifyOptionsCtx, editorViewCtx } from "@milkdown/core";
 import { commonmark } from "@milkdown/preset-commonmark";
 import { gfm } from "@milkdown/preset-gfm";
 import { listener, listenerCtx } from "@milkdown/plugin-listener";
@@ -129,7 +129,6 @@ function MilkdownEditorInner({
     if (!editor) return;
 
     try {
-      const { editorViewCtx } = require("@milkdown/core") as any;
       editor.action((ctx: any) => {
         const view = ctx.get(editorViewCtx) as any;
         const pos = view.posAtDOM(li, 0);
