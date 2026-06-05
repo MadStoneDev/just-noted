@@ -367,7 +367,7 @@ function NoteEditor({
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Minimal toolbar */}
-      <div className="flex items-center justify-between px-4 md:px-8 py-1.5 border-b border-[var(--color-border-secondary)] bg-[var(--color-bg-primary)]">
+      <div className="print:hidden flex items-center justify-between px-4 md:px-8 py-1.5 border-b border-[var(--color-border-secondary)] bg-[var(--color-bg-primary)]">
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-[var(--color-text-tertiary)] opacity-60">
             {noteSource === "supabase" ? "Cloud" : "Local"}
@@ -555,7 +555,7 @@ function NoteEditor({
           />
 
           {/* Notebook pill + stats */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="print:hidden flex items-center gap-2 flex-wrap">
             {notebook && (
               <span className="inline-flex items-center gap-0.5 px-1.5 py-px text-[9px] font-medium rounded-[var(--radius-sm)] bg-[var(--color-accent-subtle)] text-[var(--color-accent)]">
                 <IconNotebook size={8} className="shrink-0" />
