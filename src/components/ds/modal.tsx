@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { IconX } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { IconButton } from "./icon-button";
@@ -92,7 +93,7 @@ export function Modal({
     xl: "max-w-xl",
   };
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[10000] flex items-center justify-center p-6 md:p-4"
       onClick={handleBackdropClick}
@@ -141,7 +142,8 @@ export function Modal({
 
         <div className="px-5 py-4">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
