@@ -33,6 +33,7 @@ import {
   IconHistory,
   IconNotebook,
   IconX,
+  IconPrinter,
 } from "@tabler/icons-react";
 import { Dropdown, DropdownItem, DropdownSeparator, DropdownLabel } from "@/components/ds/dropdown";
 import { Modal, ConfirmModal } from "@/components/ds/modal";
@@ -505,6 +506,13 @@ function NoteEditor({
                 <DropdownSeparator />
               </>
             )}
+            <DropdownItem
+              icon={<IconPrinter size={14} />}
+              onClick={() => window.print()}
+            >
+              Print
+            </DropdownItem>
+            <DropdownSeparator />
             <DropdownItem
               icon={<IconTrash size={14} />}
               destructive
