@@ -10,6 +10,7 @@ import {
   toggleStrongCommand,
   toggleEmphasisCommand,
   toggleInlineCodeCommand,
+  toggleLinkCommand,
   wrapInHeadingCommand,
   wrapInBulletListCommand,
   wrapInOrderedListCommand,
@@ -34,6 +35,7 @@ import {
   IconQuote,
   IconMinus,
   IconCodeDots,
+  IconLink,
 } from "@tabler/icons-react";
 
 interface FloatingToolbarProps {
@@ -276,6 +278,12 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
       </button>
       <button className={btn} onClick={() => run(toggleInlineCodeCommand.key)} title="Inline code">
         <IconCode size={14} />
+      </button>
+      <button className={btn} onClick={() => {
+        const url = prompt("Enter URL:");
+        if (url) run(toggleLinkCommand.key, { href: url });
+      }} title="Add link">
+        <IconLink size={14} />
       </button>
 
       <div className={sep} />

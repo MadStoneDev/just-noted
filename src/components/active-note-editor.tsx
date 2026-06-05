@@ -118,12 +118,17 @@ export default function ActiveNoteEditor({
             <>
               {/* Reference header */}
               <div className="flex items-center justify-between px-4 py-1.5 border-b border-[var(--color-border-secondary)]">
-                <button
-                  onClick={() => setSplitNoteId("pick")}
-                  className="text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors truncate"
-                >
-                  {splitNote.title}
-                </button>
+                <div className="flex items-center gap-2 min-w-0">
+                  <button
+                    onClick={() => setSplitNoteId("pick")}
+                    className="text-xs font-medium text-[var(--color-text-primary)] hover:text-[var(--color-accent)] transition-colors truncate"
+                  >
+                    {splitNote.title}
+                  </button>
+                  <span className="text-[9px] text-[var(--color-text-tertiary)] shrink-0">
+                    {splitNote.source === "supabase" ? "Cloud" : "Local"}
+                  </span>
+                </div>
                 <button
                   onClick={() => setSplitNoteId(null)}
                   className="p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"

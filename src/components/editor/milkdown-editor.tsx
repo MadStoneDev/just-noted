@@ -10,6 +10,7 @@ import { clipboard } from "@milkdown/plugin-clipboard";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import FloatingToolbar from "./editor-toolbar";
 import SlashMenu from "./slash-menu";
+import LinkPopover from "./link-popover";
 
 import type { ContentFormat } from "@/types/combined-notes";
 import { htmlToMarkdown } from "@/utils/html-to-markdown";
@@ -164,6 +165,7 @@ function MilkdownEditorInner({
         <>
           <FloatingToolbar getEditor={get} containerRef={containerRef} />
           <SlashMenu getEditor={get} containerRef={containerRef} />
+          <LinkPopover getEditor={get} containerRef={containerRef} />
         </>
       )}
       <Milkdown />
