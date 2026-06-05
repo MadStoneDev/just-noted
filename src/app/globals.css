@@ -702,13 +702,16 @@ summary {
 }
 
 @media print {
+  *, html, body {
+    background: white !important;
+    color: #1a1a1a !important;
+  }
+
   html, body {
     margin: 0 !important;
     padding: 0 !important;
     height: auto !important;
     overflow: visible !important;
-    background: white !important;
-    color: #1a1a1a !important;
   }
 
   /* Hide everything except the note content */
