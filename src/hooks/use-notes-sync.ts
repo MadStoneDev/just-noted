@@ -256,7 +256,10 @@ export function useNotesSync() {
         freshNotes.push(...existingNotes.filter((n) => n.source === "supabase"));
       }
 
-      const normalisedNotes = normaliseOrdering(freshNotes);
+      // Filter out empty default notes that shouldn't exist
+      const cleanedNotes = freshNotes.filter((n) => !isEmptyDefaultNote(n));
+
+      const normalisedNotes = normaliseOrdering(cleanedNotes);
       const sortedNotes = sortNotes(normalisedNotes, null);
 
       if (isMounted.current) {
@@ -351,6 +354,17 @@ export function useNotesSync() {
         }
 
         localStorage.setItem(HAS_INITIALISED_KEY, "true");
+
+        // Clean up empty default notes from server
+        const emptyDefaults = allNotes.filter(isEmptyDefaultNote);
+        if (emptyDefaults.length > 0) {
+          allNotes = allNotes.filter((n) => !isEmptyDefaultNote(n));
+          for (const note of emptyDefaults) {
+            if (note.source === "redis") {
+              noteOperation("redis", { operation: "delete", userId: newUserId, noteId: note.id }).catch(() => {});
+            }
+          }
+        }
 
         const normalizedNotes = normaliseOrdering(allNotes);
         const sortedNotes = sortNotes(normalizedNotes, null);
