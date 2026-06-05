@@ -459,6 +459,14 @@ function NoteEditor({
             />
           )}
 
+          <IconButton
+            label="Print"
+            size="sm"
+            onClick={() => window.print()}
+          >
+            <IconPrinter size={14} />
+          </IconButton>
+
           <Dropdown
             trigger={
               <IconButton label="More" size="sm">
@@ -506,13 +514,6 @@ function NoteEditor({
                 <DropdownSeparator />
               </>
             )}
-            <DropdownItem
-              icon={<IconPrinter size={14} />}
-              onClick={() => window.print()}
-            >
-              Print
-            </DropdownItem>
-            <DropdownSeparator />
             <DropdownItem
               icon={<IconTrash size={14} />}
               destructive
