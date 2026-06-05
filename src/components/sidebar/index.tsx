@@ -448,15 +448,16 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
               <button
                 onClick={onNewNote}
                 className="p-2 flex items-center justify-center rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors duration-[var(--duration-fast)] text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)]"
-                aria-label="New note"
-                title="New note"
+                aria-label="New note (Ctrl+J)"
+                title="New note (Ctrl+J)"
               >
                 <IconPlus size={16} />
               </button>
               <button
                 onClick={() => setSidebarOpen(false)}
                 className="p-2 flex items-center justify-center rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors duration-[var(--duration-fast)] text-[var(--color-text-tertiary)]"
-                aria-label="Close sidebar"
+                aria-label="Close sidebar (Ctrl+\)"
+                title="Close sidebar (Ctrl+\)"
               >
                 <IconX size={16} className="md:hidden" />
                 <IconLayoutSidebarLeftCollapse size={16} className="hidden md:block" />
@@ -625,10 +626,11 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
               </div>
             ) : (
               <ul className="flex flex-col p-1.5">
-                {filteredNotes.map((note) => {
+                {filteredNotes.map((note, noteIndex) => {
                   const isSelected = selectedNoteIds.has(note.id);
                   const canSelect = selectMode && note.source === "supabase";
                   const isActive = activeNoteId === note.id;
+                  const shortcutKey = noteIndex < 9 ? noteIndex + 1 : noteIndex === 9 ? 0 : null;
 
                   return (
                   <li
@@ -675,6 +677,11 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                     >
                       {isActive && !selectMode && (
                         <div className="absolute left-0 top-2 bottom-2 w-[2px] rounded-full bg-[var(--color-accent)]" />
+                      )}
+                      {shortcutKey !== null && !selectMode && (
+                        <span className="absolute top-1 right-1 text-[8px] font-mono text-[var(--color-text-tertiary)] opacity-0 group-hover/note:opacity-50 transition-opacity" title={`Ctrl+Alt+${shortcutKey}`}>
+                          {shortcutKey}
+                        </span>
                       )}
                       <div className="flex items-start gap-1.5">
                         {/* Drag handle */}

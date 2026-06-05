@@ -192,8 +192,8 @@ export default function NoteWrapper() {
           <button
             onClick={() => setSidebarOpen(true)}
             className="p-2 rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors duration-[var(--duration-fast)] text-[var(--color-text-tertiary)]"
-            aria-label="Expand sidebar"
-            title="Expand sidebar"
+            aria-label="Expand sidebar (Ctrl+\)"
+            title="Expand sidebar (Ctrl+\)"
           >
             <IconLayoutSidebarLeftCollapse size={16} className="rotate-180" />
           </button>
@@ -211,8 +211,8 @@ export default function NoteWrapper() {
               notesOperations.addNote();
             }}
             className="p-2 rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors duration-[var(--duration-fast)] text-[var(--color-text-tertiary)]"
-            aria-label="New note"
-            title="New note"
+            aria-label="New note (Ctrl+J)"
+            title="New note (Ctrl+J)"
           >
             <IconPlus size={16} />
           </button>
