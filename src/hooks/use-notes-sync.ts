@@ -8,26 +8,20 @@ import { getUserId } from "@/utils/general/notes";
 import { sortNotes, normaliseOrdering } from "@/utils/notes-utils";
 import { noteOperation } from "@/app/actions/notes";
 import {
-  createNote as createSupabaseNote,
   getNotesByUserId as getSupabaseNotesByUserId,
   updateNote as updateSupabaseNote,
 } from "@/app/actions/supabaseActions";
 import {
   CombinedNote,
   NoteSource,
-  CreateNoteInput,
   SupabaseNote,
   redisToCombi,
   supabaseToCombi,
-  combiToRedis,
-  createNote,
 } from "@/types/combined-notes";
-import { generateNoteId } from "@/utils/general/notes";
 import { getAllLocalNotes, saveAllNotesToLocal, clearLocalNotes } from "@/utils/notes-idb-cache";
 import { clearQueue } from "@/utils/offline-queue";
 import { stripHtmlToText } from "@/utils/html-utils";
 import {
-  USER_NOTE_COUNT_KEY,
   HAS_INITIALISED_KEY,
   ACTIVITY_TIMEOUT,
   REFRESH_INTERVAL,
@@ -353,34 +347,6 @@ export function useNotesSync() {
           allNotes.push(...supabaseNotes);
         } else if (authenticated) {
           allNotes.push(...cachedNotes.filter((n) => n.source === "supabase"));
-        }
-
-        // STEP 3: Only create a default note if there are NO notes at all
-        if (allNotes.length === 0) {
-          const defaultNoteSource: NoteSource = authenticated ? "supabase" : "redis";
-          const noteNumber =
-            parseInt(localStorage.getItem(USER_NOTE_COUNT_KEY) || "0") + 1;
-          localStorage.setItem(USER_NOTE_COUNT_KEY, noteNumber.toString());
-
-          const newNoteInput: CreateNoteInput = {
-            id: generateNoteId([]),
-            title: `New Note #${noteNumber}`,
-            content: "",
-          };
-
-          const newNote = createNote(newNoteInput, defaultNoteSource);
-
-          if (defaultNoteSource === "redis") {
-            await noteOperation("redis", {
-              operation: "create",
-              userId: newUserId,
-              note: combiToRedis(newNote),
-            });
-          } else {
-            await createSupabaseNote(newNote);
-          }
-
-          allNotes = [newNote];
         }
 
         localStorage.setItem(HAS_INITIALISED_KEY, "true");

@@ -729,9 +729,16 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                           <p className="text-[11px] text-[var(--color-text-tertiary)] truncate mt-0.5 leading-relaxed">
                             {getPreview(note.content) || "Empty note"}
                           </p>
-                          <p className="text-[9px] text-[var(--color-text-tertiary)] opacity-50 mt-0.5">
-                            {relativeTime(note.updatedAt)}
-                          </p>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            {note.source === "supabase" ? (
+                              <IconCloud size={9} className="text-[var(--color-info)] flex-shrink-0" />
+                            ) : (
+                              <IconDeviceDesktop size={9} className="text-[var(--color-warning)] flex-shrink-0" />
+                            )}
+                            <p className="text-[9px] text-[var(--color-text-tertiary)] opacity-50">
+                              {relativeTime(note.updatedAt)}
+                            </p>
+                          </div>
                         </div>
                         {/* Actions menu */}
                         {!selectMode && (
