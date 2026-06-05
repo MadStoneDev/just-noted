@@ -81,12 +81,13 @@ function mergeLocalWithServer(
   // Process local-only notes (in IDB but not on server)
   for (const localNote of localNotes) {
     if (!serverMap.has(localNote.id)) {
-      if (now - localNote.createdAt < TWENTY_FOUR_HOURS) {
-        // Recently created — assume created offline, keep + push to server
+      const hasContent = localNote.content && localNote.content.trim().length > 0;
+      if (hasContent && now - localNote.createdAt < TWENTY_FOUR_HOURS) {
+        // Recently created with actual content — assume created offline, keep + push
         merged.push(localNote);
         pushNoteToServer(localNote, userId, isAuthenticated).catch(() => {});
       }
-      // Else: old note not on server — assume deleted, drop it
+      // Else: empty or old note not on server — drop it
     }
   }
 
