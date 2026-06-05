@@ -702,10 +702,25 @@ summary {
 }
 
 @media print {
-  * {
-    background-color: white !important;
-    color: black !important;
-    border-color: #ddd !important;
+  :root, .dark, :root:not(.light) {
+    --color-bg-primary: #ffffff !important;
+    --color-bg-secondary: #ffffff !important;
+    --color-bg-tertiary: #f5f5f5 !important;
+    --color-bg-editor: #ffffff !important;
+    --color-bg-elevated: #ffffff !important;
+    --color-text-primary: #1a1a1a !important;
+    --color-text-secondary: #444444 !important;
+    --color-text-tertiary: #888888 !important;
+    --color-text-inverse: #1a1a1a !important;
+    --color-border-primary: #dddddd !important;
+    --color-border-secondary: #eeeeee !important;
+    --color-code-bg: #f5f5f5 !important;
+    --color-code-text: #1a1a1a !important;
+    --color-code-block-bg: #f5f5f5 !important;
+    --color-code-block-text: #1a1a1a !important;
+    --color-blockquote-bg: #f8f8f8 !important;
+    --color-hover: transparent !important;
+    --color-bg-overlay: transparent !important;
   }
 
   html, body {
