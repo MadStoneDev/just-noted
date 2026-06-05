@@ -152,6 +152,7 @@ export function useAutoSave(
       // so even if the server save doesn't complete, data is in IDB.
       const content = latestContentRef.current;
       if (content !== lastSavedContentRef.current && !saveInProgressRef.current) {
+        lastSavedContentRef.current = content;
         saveFunction(content, false).catch(() => {});
       }
     };

@@ -1,7 +1,7 @@
 ﻿// src/hooks/use-notes-operations.tsx
 "use client";
 
-import { useCallback, useRef, useEffect } from "react";
+import { useCallback, useRef, useEffect, useMemo } from "react";
 import { useNotesStore } from "@/stores/notes-store";
 import { sortNotes, normaliseOrdering } from "@/utils/notes-utils";
 import { noteOperation } from "@/app/actions/notes";
@@ -835,7 +835,7 @@ export function useNotesOperations(
     };
   }, []);
 
-  return {
+  return useMemo(() => ({
     addNote,
     updatePinStatus,
     updatePrivacyStatus,
@@ -844,5 +844,5 @@ export function useNotesOperations(
     saveNoteContent,
     saveNoteTitle,
     refreshSingleNote,
-  };
+  }), [addNote, updatePinStatus, updatePrivacyStatus, deleteNote, restoreNote, saveNoteContent, saveNoteTitle, refreshSingleNote]);
 }

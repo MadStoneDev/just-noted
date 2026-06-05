@@ -6,7 +6,7 @@ import {
   IconArrowLeft,
   IconArrowsExchange,
   IconCopy,
-  IconLink,
+  IconMouse,
   IconX,
 } from "@tabler/icons-react";
 
@@ -84,7 +84,7 @@ export default function SplitToolbar({
         onClick={onSyncScrollToggle}
         title={syncScroll ? "Unsync scrolling" : "Sync scrolling"}
       >
-        <IconLink size={14} />
+        <IconMouse size={14} />
       </button>
 
       {/* Swap panes */}
@@ -93,7 +93,7 @@ export default function SplitToolbar({
         onClick={onSwap}
         title="Swap notes"
       >
-        <IconArrowsExchange size={14} className="rotate-90" />
+        <IconArrowsExchange size={14} />
       </button>
 
       <div className="h-px bg-[var(--color-border-secondary)] mx-0.5" />
@@ -140,7 +140,7 @@ export function SplitToolbarMobile({
       </button>
       <div className="w-px bg-[var(--color-border-secondary)] my-0.5" />
       <button className={`${btn} ${syncScroll ? activeBtnClass : ""}`} onClick={onSyncScrollToggle} title="Sync scroll">
-        <IconLink size={14} />
+        <IconMouse size={14} />
       </button>
       <button className={btn} onClick={onSwap} title="Swap">
         <IconArrowsExchange size={14} />

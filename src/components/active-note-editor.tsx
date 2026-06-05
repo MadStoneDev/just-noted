@@ -51,7 +51,10 @@ export default function ActiveNoteEditor({
   registerNoteFlush,
   unregisterNoteFlush,
 }: ActiveNoteEditorProps) {
-  const { activeNoteId, notes, setActiveNoteId, isLoading } = useNotesStore();
+  const activeNoteId = useNotesStore((s) => s.activeNoteId);
+  const notes = useNotesStore((s) => s.notes);
+  const setActiveNoteId = useNotesStore((s) => s.setActiveNoteId);
+  const isLoading = useNotesStore((s) => s.isLoading);
   const [splitNoteId, setSplitNoteId] = useState<string | null>(null);
 
   // Auto-select: restore last opened note, or pick most recent
@@ -83,6 +86,8 @@ export default function ActiveNoteEditor({
   const [hasSelection, setHasSelection] = useState(false);
   const leftPaneRef = useRef<HTMLDivElement>(null);
   const rightPaneRef = useRef<HTMLDivElement>(null);
+  const leftScrollRef = useRef<HTMLDivElement>(null);
+  const rightScrollRef = useRef<HTMLDivElement>(null);
 
   // Track text selection for split toolbar
   useEffect(() => {
@@ -95,11 +100,11 @@ export default function ActiveNoteEditor({
     return () => document.removeEventListener("selectionchange", check);
   }, [splitNoteId]);
 
-  // Sync scroll between panes
+  // Sync scroll between panes (uses inner scrollable refs from NoteEditor)
   useEffect(() => {
-    if (!syncScroll || !leftPaneRef.current || !rightPaneRef.current) return;
-    const left = leftPaneRef.current;
-    const right = rightPaneRef.current;
+    if (!syncScroll || !leftScrollRef.current || !rightScrollRef.current) return;
+    const left = leftScrollRef.current;
+    const right = rightScrollRef.current;
     let syncing = false;
 
     const syncLeft = () => {
@@ -192,6 +197,7 @@ export default function ActiveNoteEditor({
           registerNoteFlush={registerNoteFlush}
           unregisterNoteFlush={unregisterNoteFlush}
           onToggleSplit={() => setSplitNoteId(splitNoteId ? null : "pick")}
+          scrollRef={leftScrollRef}
         />
       </div>
 
@@ -232,6 +238,7 @@ export default function ActiveNoteEditor({
               registerNoteFlush={registerNoteFlush}
               unregisterNoteFlush={unregisterNoteFlush}
               onToggleSplit={() => setSplitNoteId(null)}
+              scrollRef={rightScrollRef}
             />
           ) : (
             /* Note picker */
@@ -324,6 +331,7 @@ function NoteEditor({
   registerNoteFlush,
   unregisterNoteFlush,
   onToggleSplit,
+  scrollRef,
 }: {
   note: CombinedNote;
   userId: string;
@@ -332,6 +340,7 @@ function NoteEditor({
   registerNoteFlush: (noteId: string, flushFn: () => void) => void;
   unregisterNoteFlush: (noteId: string) => void;
   onToggleSplit?: () => void;
+  scrollRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
@@ -620,7 +629,7 @@ function NoteEditor({
       />
 
       {/* Editor area */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin">
         <div className={`mx-auto px-4 md:px-8 py-6 transition-[max-width] duration-[var(--duration-slow)] ${wideMode ? "max-w-none" : "max-w-[var(--content-width)]"}`}>
           {/* Title */}
           <input

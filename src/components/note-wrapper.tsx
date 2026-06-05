@@ -50,16 +50,14 @@ export default function NoteWrapper() {
     noteFlushFunctions,
   );
 
-  const {
-    sidebarOpen,
-    toggleSidebar,
-    setSidebarOpen,
-    activeNoteId,
-    notes,
-    updateNotebook: updateNotebookInStore,
-    removeNotebook,
-    recalculateNotebookCounts,
-  } = useNotesStore();
+  const sidebarOpen = useNotesStore((s) => s.sidebarOpen);
+  const toggleSidebar = useNotesStore((s) => s.toggleSidebar);
+  const setSidebarOpen = useNotesStore((s) => s.setSidebarOpen);
+  const activeNoteId = useNotesStore((s) => s.activeNoteId);
+  const notes = useNotesStore((s) => s.notes);
+  const updateNotebookInStore = useNotesStore((s) => s.updateNotebook);
+  const removeNotebook = useNotesStore((s) => s.removeNotebook);
+  const recalculateNotebookCounts = useNotesStore((s) => s.recalculateNotebookCounts);
 
   const activeNotebook = useNotesStore((state) => {
     const { activeNotebookId, notebooks } = state;
