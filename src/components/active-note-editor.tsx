@@ -6,23 +6,15 @@ const LAST_NOTE_KEY = "justnoted_last_note";
 import LazyTextBlock from "@/components/lazy-text-block";
 import { useNotesStore, useNotebooks } from "@/stores/notes-store";
 import { useAutoSave } from "@/hooks/use-auto-save";
-import { useStatusMessage } from "@/hooks/use-status-message";
 import { useNoteStatistics } from "@/hooks/use-note-statistics";
-import { CombinedNote, NoteSource } from "@/types/combined-notes";
+import { CombinedNote } from "@/types/combined-notes";
 import { NotesOperations } from "@/hooks/use-notes-operations";
-import { noteOperation } from "@/app/actions/notes";
-import {
-  updateNote as updateSupabaseNote,
-  updateNoteTitle as updateSupabaseNoteTitle,
-} from "@/app/actions/supabaseActions";
 import {
   IconPin,
   IconPinFilled,
   IconLock,
   IconLockOpen,
   IconTrash,
-  IconCloud,
-  IconDeviceDesktop,
   IconDots,
   IconSquareRoundedPlus,
   IconViewportNarrow,
@@ -227,61 +219,25 @@ export default function ActiveNoteEditor({
         </>
       )}
 
-      {/* Split pane — reference note */}
+      {/* Split pane */}
       {splitNoteId && (
         <div ref={rightPaneRef} className="flex-1 min-w-0 flex flex-col bg-[var(--color-bg-primary)] overflow-y-auto">
           {splitNote ? (
-            <>
-              {/* Reference header */}
-              <div className="px-4 py-2 border-b border-[var(--color-border-secondary)]">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <button
-                      onClick={() => setSplitNoteId("pick")}
-                      className="text-xs font-medium text-[var(--color-text-primary)] hover:text-[var(--color-accent)] transition-colors truncate"
-                    >
-                      {splitNote.title}
-                    </button>
-                    <span className="text-[9px] text-[var(--color-text-tertiary)] shrink-0">
-                      {splitNote.source === "supabase" ? "Cloud" : "Local"}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => setSplitNoteId(null)}
-                    className="p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
-                  >
-                    <IconX size={14} />
-                  </button>
-                </div>
-                <ReferenceStats content={splitNote.content} goal={splitNote.goal} goalType={splitNote.goal_type} />
-              </div>
-              {/* Reference editor */}
-              <div className="flex-1 overflow-y-auto scrollbar-thin">
-                <div className="max-w-[var(--content-width)] mx-auto px-4 md:px-8 py-6">
-                  <LazyTextBlock
-                    key={splitNote.id}
-                    noteId={splitNote.id}
-                    value={splitNote.content}
-                    contentFormat={splitNote.contentFormat}
-                    onChange={(content) =>
-                      notesOperations.saveNoteContent(
-                        splitNote.id,
-                        content,
-                        splitNote.goal || 0,
-                        splitNote.goal_type || "",
-                      )
-                    }
-                    distractionFreeMode
-                    placeholder="Reference note..."
-                  />
-                </div>
-              </div>
-            </>
+            <NoteEditor
+              key={splitNote.id}
+              note={splitNote}
+              userId={userId}
+              isAuthenticated={isAuthenticated}
+              notesOperations={notesOperations}
+              registerNoteFlush={registerNoteFlush}
+              unregisterNoteFlush={unregisterNoteFlush}
+              onToggleSplit={() => setSplitNoteId(null)}
+            />
           ) : (
             /* Note picker */
             <div className="flex-1 overflow-y-auto scrollbar-thin p-3">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-xs text-[var(--color-text-tertiary)]">Choose a reference note</p>
+                <p className="text-xs text-[var(--color-text-tertiary)]">Choose a note</p>
                 <button
                   onClick={() => setSplitNoteId(null)}
                   className="p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
@@ -861,15 +817,5 @@ function NoteEditor({
         }}
       />
     </div>
-  );
-}
-
-function ReferenceStats({ content, goal, goalType }: { content: string; goal?: number; goalType?: string }) {
-  const stats = useNoteStatistics(content, "novel", { target: goal || 0, type: (goalType as "" | "words" | "characters") || "" });
-  return (
-    <span className="text-[9px] text-[var(--color-text-tertiary)] opacity-80 mt-0.5 block" title={`${stats.wordCount} words · ${stats.charCount} characters`}>
-      {stats.wordCount}w · {stats.charCount}c · {stats.readingTime} · {stats.pageEstimate}
-      {(goal || 0) > 0 && ` · ${Math.round(stats.progressPercentage)}% of ${goal} ${goalType}`}
-    </span>
   );
 }
