@@ -39,6 +39,7 @@ import { Dropdown, DropdownItem, DropdownSeparator, DropdownLabel } from "@/comp
 import { Modal, ConfirmModal } from "@/components/ds/modal";
 import VersionHistoryPanel from "@/components/version-history-panel";
 import GoalSuggestionsModal from "@/components/goal-suggestions-modal";
+import SplitToolbar, { SplitToolbarMobile } from "@/components/editor/split-toolbar";
 import { saveVersion } from "@/app/actions/versionActions";
 import { IconButton } from "@/components/ds/icon-button";
 import ShareNoteButton from "@/components/share-note-button";
@@ -86,6 +87,97 @@ export default function ActiveNoteEditor({
   );
 
   const splitNote = splitNoteId ? notes.find((n) => n.id === splitNoteId) || null : null;
+  const [syncScroll, setSyncScroll] = useState(false);
+  const [hasSelection, setHasSelection] = useState(false);
+  const leftPaneRef = useRef<HTMLDivElement>(null);
+  const rightPaneRef = useRef<HTMLDivElement>(null);
+
+  // Track text selection for split toolbar
+  useEffect(() => {
+    if (!splitNoteId) return;
+    const check = () => {
+      const sel = window.getSelection();
+      setHasSelection(!!sel && !sel.isCollapsed && sel.toString().length > 0);
+    };
+    document.addEventListener("selectionchange", check);
+    return () => document.removeEventListener("selectionchange", check);
+  }, [splitNoteId]);
+
+  // Sync scroll between panes
+  useEffect(() => {
+    if (!syncScroll || !leftPaneRef.current || !rightPaneRef.current) return;
+    const left = leftPaneRef.current;
+    const right = rightPaneRef.current;
+    let syncing = false;
+
+    const syncLeft = () => {
+      if (syncing) return;
+      syncing = true;
+      const ratio = left.scrollTop / (left.scrollHeight - left.clientHeight || 1);
+      right.scrollTop = ratio * (right.scrollHeight - right.clientHeight);
+      requestAnimationFrame(() => { syncing = false; });
+    };
+    const syncRight = () => {
+      if (syncing) return;
+      syncing = true;
+      const ratio = right.scrollTop / (right.scrollHeight - right.clientHeight || 1);
+      left.scrollTop = ratio * (left.scrollHeight - left.clientHeight);
+      requestAnimationFrame(() => { syncing = false; });
+    };
+
+    left.addEventListener("scroll", syncLeft);
+    right.addEventListener("scroll", syncRight);
+    return () => {
+      left.removeEventListener("scroll", syncLeft);
+      right.removeEventListener("scroll", syncRight);
+    };
+  }, [syncScroll, splitNoteId]);
+
+  const handleFindInOther = useCallback((direction: "left" | "right") => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) return;
+    const text = sel.toString();
+    if (!text) return;
+
+    const pane = direction === "left" ? leftPaneRef.current : rightPaneRef.current;
+    if (!pane) return;
+
+    // Find text in the target pane's ProseMirror content
+    const walker = document.createTreeWalker(pane, NodeFilter.SHOW_TEXT);
+    let node: Node | null;
+    while ((node = walker.nextNode())) {
+      const idx = (node.textContent || "").indexOf(text);
+      if (idx >= 0) {
+        const range = document.createRange();
+        range.setStart(node, idx);
+        range.setEnd(node, idx + text.length);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        (node as any).parentElement?.scrollIntoView({ behavior: "smooth", block: "center" });
+        break;
+      }
+    }
+  }, []);
+
+  const handleCopyToOther = useCallback((direction: "left" | "right") => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) return;
+    const text = sel.toString();
+    if (!text) return;
+
+    // Insert at the end of the target note
+    const targetNote = direction === "left" ? note : splitNote;
+    if (!targetNote) return;
+    const newContent = targetNote.content + "\n\n" + text;
+    notesOperations.saveNoteContent(targetNote.id, newContent, targetNote.goal || 0, targetNote.goal_type || "");
+  }, [note, splitNote, notesOperations]);
+
+  const handleSwapPanes = useCallback(() => {
+    if (!splitNote || !note) return;
+    const currentSplitId = splitNoteId;
+    setActiveNoteId(splitNote.id);
+    setSplitNoteId(note.id);
+  }, [note, splitNote, splitNoteId, setActiveNoteId]);
 
   if (isLoading && notes.length === 0) {
     return <LoadingSkeleton />;
@@ -96,9 +188,9 @@ export default function ActiveNoteEditor({
   }
 
   return (
-    <div className="flex-1 flex h-full overflow-hidden">
+    <div className="flex-1 flex h-full overflow-hidden relative">
       {/* Main editor */}
-      <div className={`flex-1 min-w-0 ${splitNote ? "border-r border-[var(--color-border-secondary)]" : ""}`}>
+      <div ref={leftPaneRef} className={`flex-1 min-w-0 overflow-y-auto ${splitNote ? "border-r border-[var(--color-border-secondary)]" : ""}`}>
         <NoteEditor
           key={note.id}
           note={note}
@@ -111,30 +203,57 @@ export default function ActiveNoteEditor({
         />
       </div>
 
+      {/* Split toolbar */}
+      {splitNote && (
+        <>
+          <SplitToolbar
+            onFindInOther={handleFindInOther}
+            onSyncScrollToggle={() => setSyncScroll((s) => !s)}
+            syncScroll={syncScroll}
+            onCopyToOther={handleCopyToOther}
+            onSwap={handleSwapPanes}
+            onClose={() => setSplitNoteId(null)}
+            hasSelection={hasSelection}
+          />
+          <SplitToolbarMobile
+            onFindInOther={handleFindInOther}
+            onSyncScrollToggle={() => setSyncScroll((s) => !s)}
+            syncScroll={syncScroll}
+            onCopyToOther={handleCopyToOther}
+            onSwap={handleSwapPanes}
+            onClose={() => setSplitNoteId(null)}
+            hasSelection={hasSelection}
+          />
+        </>
+      )}
+
       {/* Split pane — reference note */}
       {splitNoteId && (
-        <div className="flex-1 min-w-0 flex flex-col bg-[var(--color-bg-primary)]">
+        <div ref={rightPaneRef} className="flex-1 min-w-0 flex flex-col bg-[var(--color-bg-primary)] overflow-y-auto">
           {splitNote ? (
             <>
               {/* Reference header */}
-              <div className="flex items-center justify-between px-4 py-1.5 border-b border-[var(--color-border-secondary)]">
-                <div className="flex items-center gap-2 min-w-0">
+              <div className="px-4 py-2 border-b border-[var(--color-border-secondary)]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <button
+                      onClick={() => setSplitNoteId("pick")}
+                      className="text-xs font-medium text-[var(--color-text-primary)] hover:text-[var(--color-accent)] transition-colors truncate"
+                    >
+                      {splitNote.title}
+                    </button>
+                    <span className="text-[9px] text-[var(--color-text-tertiary)] shrink-0">
+                      {splitNote.source === "supabase" ? "Cloud" : "Local"}
+                    </span>
+                  </div>
                   <button
-                    onClick={() => setSplitNoteId("pick")}
-                    className="text-xs font-medium text-[var(--color-text-primary)] hover:text-[var(--color-accent)] transition-colors truncate"
+                    onClick={() => setSplitNoteId(null)}
+                    className="p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
                   >
-                    {splitNote.title}
+                    <IconX size={14} />
                   </button>
-                  <span className="text-[9px] text-[var(--color-text-tertiary)] shrink-0">
-                    {splitNote.source === "supabase" ? "Cloud" : "Local"}
-                  </span>
                 </div>
-                <button
-                  onClick={() => setSplitNoteId(null)}
-                  className="p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
-                >
-                  <IconX size={14} />
-                </button>
+                <ReferenceStats content={splitNote.content} goal={splitNote.goal} goalType={splitNote.goal_type} />
               </div>
               {/* Reference editor */}
               <div className="flex-1 overflow-y-auto scrollbar-thin">
@@ -742,5 +861,15 @@ function NoteEditor({
         }}
       />
     </div>
+  );
+}
+
+function ReferenceStats({ content, goal, goalType }: { content: string; goal?: number; goalType?: string }) {
+  const stats = useNoteStatistics(content, "novel", { target: goal || 0, type: (goalType as "" | "words" | "characters") || "" });
+  return (
+    <span className="text-[9px] text-[var(--color-text-tertiary)] opacity-80 mt-0.5 block" title={`${stats.wordCount} words · ${stats.charCount} characters`}>
+      {stats.wordCount}w · {stats.charCount}c · {stats.readingTime} · {stats.pageEstimate}
+      {(goal || 0) > 0 && ` · ${Math.round(stats.progressPercentage)}% of ${goal} ${goalType}`}
+    </span>
   );
 }
