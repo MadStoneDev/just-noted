@@ -702,9 +702,10 @@ summary {
 }
 
 @media print {
-  *, html, body {
-    background: white !important;
-    color: #1a1a1a !important;
+  * {
+    background-color: white !important;
+    color: black !important;
+    border-color: #ddd !important;
   }
 
   html, body {
