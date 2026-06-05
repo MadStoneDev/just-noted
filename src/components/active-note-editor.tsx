@@ -110,15 +110,13 @@ export default function ActiveNoteEditor({
     const syncLeft = () => {
       if (syncing) return;
       syncing = true;
-      const ratio = left.scrollTop / (left.scrollHeight - left.clientHeight || 1);
-      right.scrollTop = ratio * (right.scrollHeight - right.clientHeight);
+      right.scrollTop = left.scrollTop;
       requestAnimationFrame(() => { syncing = false; });
     };
     const syncRight = () => {
       if (syncing) return;
       syncing = true;
-      const ratio = right.scrollTop / (right.scrollHeight - right.clientHeight || 1);
-      left.scrollTop = ratio * (left.scrollHeight - left.clientHeight);
+      left.scrollTop = right.scrollTop;
       requestAnimationFrame(() => { syncing = false; });
     };
 
