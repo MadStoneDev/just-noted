@@ -26,6 +26,7 @@ import {
   IconNotebook,
   IconX,
   IconPrinter,
+  IconSelector,
 } from "@tabler/icons-react";
 import { Dropdown, DropdownItem, DropdownSeparator, DropdownLabel } from "@/components/ds/dropdown";
 import { Modal, ConfirmModal } from "@/components/ds/modal";
@@ -236,6 +237,7 @@ export default function ActiveNoteEditor({
               registerNoteFlush={registerNoteFlush}
               unregisterNoteFlush={unregisterNoteFlush}
               onToggleSplit={() => setSplitNoteId(null)}
+              onChangeSplitNote={() => setSplitNoteId("pick")}
               scrollRef={rightScrollRef}
             />
           ) : (
@@ -329,6 +331,7 @@ function NoteEditor({
   registerNoteFlush,
   unregisterNoteFlush,
   onToggleSplit,
+  onChangeSplitNote,
   scrollRef,
 }: {
   note: CombinedNote;
@@ -338,6 +341,7 @@ function NoteEditor({
   registerNoteFlush: (noteId: string, flushFn: () => void) => void;
   unregisterNoteFlush: (noteId: string) => void;
   onToggleSplit?: () => void;
+  onChangeSplitNote?: () => void;
   scrollRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   const [title, setTitle] = useState(note.title);
@@ -496,6 +500,18 @@ function NoteEditor({
               {wideMode ? <IconViewportNarrow size={14} /> : <IconViewportWide size={14} />}
             </IconButton>
           </span>
+
+          {onChangeSplitNote && (
+            <span className="hidden md:inline-flex">
+              <IconButton
+                label="Change note"
+                size="sm"
+                onClick={onChangeSplitNote}
+              >
+                <IconSelector size={14} />
+              </IconButton>
+            </span>
+          )}
 
           {onToggleSplit && (
             <span className="hidden md:inline-flex">
