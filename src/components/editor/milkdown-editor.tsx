@@ -8,12 +8,49 @@ import { listener, listenerCtx } from "@milkdown/plugin-listener";
 import { history } from "@milkdown/plugin-history";
 import { clipboard } from "@milkdown/plugin-clipboard";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
+import { $prose } from "@milkdown/utils";
+import { keymap } from "@milkdown/prose/keymap";
 import FloatingToolbar from "./editor-toolbar";
 import SlashMenu from "./slash-menu";
 import LinkPopover from "./link-popover";
 
 import type { ContentFormat } from "@/types/combined-notes";
 import { htmlToMarkdown } from "@/utils/html-to-markdown";
+
+const codeBlockEscape = $prose(() =>
+  keymap({
+    ArrowDown: (state, dispatch) => {
+      const { $head } = state.selection;
+      if ($head.node().type.name !== "code_block") return false;
+      // Only when cursor is on the last line
+      const textAfterCursor = $head.node().textContent.substring($head.parentOffset);
+      if (textAfterCursor.includes("\n")) return false;
+      const afterPos = $head.after();
+      // If code block is at the end of the document, insert a paragraph after it
+      if (afterPos >= state.doc.content.size && dispatch) {
+        const tr = state.tr.insert(afterPos, state.schema.nodes.paragraph.create());
+        dispatch(tr.setSelection(tr.selection.constructor.near(tr.doc.resolve(afterPos + 1)) as any));
+        return true;
+      }
+      return false;
+    },
+    ArrowUp: (state, dispatch) => {
+      const { $head } = state.selection;
+      if ($head.node().type.name !== "code_block") return false;
+      // Only when cursor is on the first line
+      const textBeforeCursor = $head.node().textContent.substring(0, $head.parentOffset);
+      if (textBeforeCursor.includes("\n")) return false;
+      const beforePos = $head.before();
+      // If code block is at the start of the document, insert a paragraph before it
+      if (beforePos === 0 && dispatch) {
+        const tr = state.tr.insert(0, state.schema.nodes.paragraph.create());
+        dispatch(tr.setSelection(tr.selection.constructor.near(tr.doc.resolve(1)) as any));
+        return true;
+      }
+      return false;
+    },
+  })
+);
 
 export interface CursorInfo {
   path: string[];
@@ -110,7 +147,8 @@ function MilkdownEditorInner({
       .use(gfm)
       .use(listener)
       .use(history)
-      .use(clipboard);
+      .use(clipboard)
+      .use(codeBlockEscape);
   }, []);
 
   const handleTaskClick = useCallback((e: React.MouseEvent) => {
