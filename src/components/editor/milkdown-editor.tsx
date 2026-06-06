@@ -7,6 +7,9 @@ import { gfm } from "@milkdown/preset-gfm";
 import { listener, listenerCtx } from "@milkdown/plugin-listener";
 import { history } from "@milkdown/plugin-history";
 import { clipboard } from "@milkdown/plugin-clipboard";
+import { trailing } from "@milkdown/plugin-trailing";
+import { indent, indentConfig } from "@milkdown/plugin-indent";
+import { cursor } from "@milkdown/plugin-cursor";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import { $prose } from "@milkdown/utils";
 import { keymap } from "@milkdown/prose/keymap";
@@ -148,6 +151,10 @@ function MilkdownEditorInner({
       .use(listener)
       .use(history)
       .use(clipboard)
+      .use(trailing)
+      .use(indent)
+      .use(indentConfig.key.setAttr("type", "space").setAttr("size", 2))
+      .use(cursor)
       .use(codeBlockEscape);
   }, []);
 
