@@ -11,19 +11,25 @@ interface NotebookBreadcrumbProps {
 }
 
 export default function NotebookBreadcrumb({ onEditNotebook }: NotebookBreadcrumbProps) {
-  const { activeNotebookId, setActiveNotebookId, notebookCounts, looseNotesCount } =
+  const { activeNotebookId, setActiveNotebookId, notebookCounts, looseNotesCount, notebooks } =
     useNotesStore();
   const activeNotebook = useActiveNotebook();
 
-  // Only show when viewing a specific notebook or loose notes
   if (activeNotebookId === null) {
     return null;
   }
 
   const isLooseNotes = activeNotebookId === "loose";
+  const parentNotebook = activeNotebook?.parentId
+    ? notebooks.find((nb) => nb.id === activeNotebook.parentId)
+    : null;
 
   const handleBackClick = () => {
-    setActiveNotebookId(null);
+    if (parentNotebook) {
+      setActiveNotebookId(parentNotebook.id);
+    } else {
+      setActiveNotebookId(null);
+    }
   };
 
   // Loose notes view
@@ -66,12 +72,24 @@ export default function NotebookBreadcrumb({ onEditNotebook }: NotebookBreadcrum
     <div className="flex items-center justify-between px-4 py-3 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border-primary)]">
       <div className="flex items-center gap-3">
         <button
-          onClick={handleBackClick}
+          onClick={() => setActiveNotebookId(null)}
           className="flex items-center gap-1 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
         >
           <IconArrowLeft size={16} />
           <span>All Notes</span>
         </button>
+
+        {parentNotebook && (
+          <>
+            <span className="text-[var(--color-text-tertiary)]">/</span>
+            <button
+              onClick={() => setActiveNotebookId(parentNotebook.id)}
+              className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+            >
+              {parentNotebook.name}
+            </button>
+          </>
+        )}
 
         <div className="w-px h-5 bg-[var(--color-border-primary)]" />
 

@@ -13,6 +13,9 @@ import {
 import { uploadNotebookCover } from "@/utils/storage/cover-upload";
 import NotebookSwitcher from "@/components/notebook-switcher";
 import NotebookModal from "@/components/notebook-modal";
+import TagFilter from "@/components/tag-filter";
+import WritingSessionIndicator from "@/components/writing-session-indicator";
+import { getTags, bulkGetNoteTags } from "@/app/actions/tagActions";
 import { NotebookCoverHeader } from "@/components/notebook-breadcrumb";
 import BulkActionBar from "@/components/bulk-action-bar";
 import { getCoverPreviewStyle } from "@/lib/notebook-covers";
@@ -89,6 +92,12 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
     removeNotebook,
     updateNotebookCounts,
     recalculateNotebookCounts,
+    tags,
+    noteTagMap,
+    setTags,
+    setNoteTagMap,
+    setTagsLoading,
+    filterTagIds,
   } = useNotesStore();
 
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -109,7 +118,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
   const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null);
 
   const filteredNotes = getFilteredNotes();
-  const hasActiveFilters = searchQuery || filterSource !== "all" || filterPinned !== "all" || activeNotebookId !== null;
+  const hasActiveFilters = searchQuery || filterSource !== "all" || filterPinned !== "all" || activeNotebookId !== null || filterTagIds.length > 0;
   const deleteNoteTitle = deleteNoteId ? filteredNotes.find(n => n.id === deleteNoteId)?.title || "this note" : "";
 
   const hasLoadedNotebooks = useRef(false);
@@ -121,13 +130,13 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
     }
   }, [sidebarOpen]);
 
-  // Load notebooks when authenticated (once)
+  // Load notebooks and tags when authenticated (once)
   useEffect(() => {
     if (isAuthenticated && !hasLoadedNotebooks.current && !notebooksLoading) {
       hasLoadedNotebooks.current = true;
       loadNotebooks();
+      loadTags();
     }
-    // Reset flag when user logs out
     if (!isAuthenticated) {
       hasLoadedNotebooks.current = false;
     }
@@ -160,6 +169,35 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
       setNotebooksLoading(false);
     }
   };
+
+  const loadTags = async () => {
+    setTagsLoading(true);
+    try {
+      const result = await getTags();
+      if (result.success && result.tags) {
+        setTags(result.tags);
+      }
+    } catch (error) {
+      console.error("Failed to load tags:", error);
+    } finally {
+      setTagsLoading(false);
+    }
+  };
+
+  // Load note-tag assignments when supabase notes change
+  const supabaseNoteIds = notes
+    .filter((n) => n.source === "supabase")
+    .map((n) => n.id);
+  const supabaseNoteIdsKey = supabaseNoteIds.join(",");
+
+  useEffect(() => {
+    if (!isAuthenticated || supabaseNoteIds.length === 0) return;
+    bulkGetNoteTags(supabaseNoteIds).then((result) => {
+      if (result.success && result.noteTagMap) {
+        setNoteTagMap(result.noteTagMap);
+      }
+    });
+  }, [isAuthenticated, supabaseNoteIdsKey]);
 
   const loadNotebookCounts = async () => {
     try {
@@ -588,6 +626,14 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
               </FilterButton>
             </div>
 
+            {/* Tag filter */}
+            {isAuthenticated && tags.length > 0 && (
+              <div>
+                <span className="text-[10px] text-[var(--color-text-tertiary)] mb-1 block">Tags:</span>
+                <TagFilter />
+              </div>
+            )}
+
             {/* Select mode toggle */}
             {isAuthenticated && (
               <div className="pt-2 border-t border-[var(--color-border-secondary)]">
@@ -746,6 +792,31 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                               {relativeTime(note.updatedAt)}
                             </p>
                           </div>
+                          {noteTagMap[note.id]?.length > 0 && (
+                            <div className="flex flex-wrap gap-0.5 mt-0.5">
+                              {noteTagMap[note.id].slice(0, 3).map((tagId) => {
+                                const tag = tags.find((t) => t.id === tagId);
+                                if (!tag) return null;
+                                return (
+                                  <span
+                                    key={tagId}
+                                    className="px-1 py-px text-[8px] rounded-full"
+                                    style={{
+                                      backgroundColor: tag.color + "20",
+                                      color: tag.color,
+                                    }}
+                                  >
+                                    {tag.name}
+                                  </span>
+                                );
+                              })}
+                              {noteTagMap[note.id].length > 3 && (
+                                <span className="text-[8px] text-[var(--color-text-tertiary)]">
+                                  +{noteTagMap[note.id].length - 3}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                         {/* Actions menu */}
                         {!selectMode && (
@@ -769,18 +840,35 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                                       Remove from notebook
                                     </DropdownItem>
                                   )}
-                                  {notebooks
-                                    .filter(nb => nb.id !== note.notebookId)
-                                    .map(nb => (
-                                      <DropdownItem
-                                        key={nb.id}
-                                        icon={<IconNotebook size={12} />}
-                                        onClick={() => onMoveNote?.(note.id, nb.id)}
-                                      >
-                                        {nb.name}
-                                      </DropdownItem>
-                                    ))
-                                  }
+                                  {(() => {
+                                    const rootNbs = notebooks.filter((nb) => !nb.parentId && nb.id !== note.notebookId);
+                                    const items: React.ReactNode[] = [];
+                                    rootNbs.forEach((nb) => {
+                                      items.push(
+                                        <DropdownItem
+                                          key={nb.id}
+                                          icon={<IconNotebook size={12} />}
+                                          onClick={() => onMoveNote?.(note.id, nb.id)}
+                                        >
+                                          {nb.name}
+                                        </DropdownItem>
+                                      );
+                                      notebooks
+                                        .filter((child) => child.parentId === nb.id && child.id !== note.notebookId)
+                                        .forEach((child) => {
+                                          items.push(
+                                            <DropdownItem
+                                              key={child.id}
+                                              icon={<span className="pl-3"><IconNotebook size={12} /></span>}
+                                              onClick={() => onMoveNote?.(note.id, child.id)}
+                                            >
+                                              <span className="pl-3">{child.name}</span>
+                                            </DropdownItem>
+                                          );
+                                        });
+                                    });
+                                    return items;
+                                  })()}
                                   <DropdownSeparator />
                                 </>
                               )}
@@ -811,6 +899,13 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
               onAssignComplete={handleBulkAssignComplete}
               onBulkDelete={onBulkDelete}
             />
+          )}
+
+          {/* Writing session indicator */}
+          {isAuthenticated && !selectMode && (
+            <div className="px-3 py-1.5 border-t border-[var(--color-border-secondary)]">
+              <WritingSessionIndicator />
+            </div>
           )}
 
           {/* Footer */}

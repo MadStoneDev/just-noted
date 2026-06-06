@@ -11,6 +11,7 @@ import {
   IconCode,
   IconChevronDown,
   IconLoader2,
+  IconBook,
 } from "@tabler/icons-react";
 
 interface NotebookExportButtonProps {
@@ -29,10 +30,15 @@ export default function NotebookExportButton({
   const menuRef = useRef<HTMLDivElement>(null);
 
   const notes = useNotesStore((state) => state.notes);
+  const notebooks = useNotesStore((state) => state.notebooks);
 
-  // Get notes in this notebook
+  // Get notes in this notebook (including child notebooks)
+  const childIds = notebooks
+    .filter((nb) => nb.parentId === notebookId)
+    .map((nb) => nb.id);
+  const allNotebookIds = new Set([notebookId, ...childIds]);
   const notebookNotes = notes.filter(
-    (note) => note.source === "supabase" && note.notebookId === notebookId
+    (note) => note.source === "supabase" && note.notebookId && allNotebookIds.has(note.notebookId)
   );
 
   // Close menu when clicking outside
@@ -224,6 +230,24 @@ export default function NotebookExportButton({
     }
   };
 
+  const handleManuscriptExport = async (format: "pdf" | "md") => {
+    setIsExporting(true);
+    try {
+      const { exportManuscript } = await import("@/utils/manuscript-export");
+      await exportManuscript({
+        notebookName,
+        notes: notebookNotes,
+        format,
+        includeTableOfContents: notebookNotes.length > 1,
+      });
+      setIsOpen(false);
+    } catch (error) {
+      console.error("Manuscript export failed:", error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const menuItems = [
     {
       format: "txt" as ExportFormat,
@@ -293,6 +317,33 @@ export default function NotebookExportButton({
               </div>
             </button>
           ))}
+
+          <div className="border-t border-[var(--color-border-secondary)] my-1" />
+          <div className="px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)]">
+            Compile as Document
+          </div>
+          <button
+            onClick={() => handleManuscriptExport("pdf")}
+            disabled={isExporting}
+            className="w-full px-3 py-2 text-left hover:bg-[var(--color-bg-secondary)] flex items-center gap-3 transition-colors disabled:opacity-50"
+          >
+            <span className="text-[var(--color-text-secondary)]"><IconBook size={16} /></span>
+            <div>
+              <div className="text-sm font-medium">Manuscript PDF</div>
+              <div className="text-xs text-[var(--color-text-tertiary)]">.pdf - Title page + sections</div>
+            </div>
+          </button>
+          <button
+            onClick={() => handleManuscriptExport("md")}
+            disabled={isExporting}
+            className="w-full px-3 py-2 text-left hover:bg-[var(--color-bg-secondary)] flex items-center gap-3 transition-colors disabled:opacity-50"
+          >
+            <span className="text-[var(--color-text-secondary)]"><IconMarkdown size={16} /></span>
+            <div>
+              <div className="text-sm font-medium">Manuscript Markdown</div>
+              <div className="text-xs text-[var(--color-text-tertiary)]">.md - Single combined file</div>
+            </div>
+          </button>
         </div>
       )}
     </div>

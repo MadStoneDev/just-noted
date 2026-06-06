@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { CombinedNote, NoteSource } from "@/types/combined-notes";
 import { Notebook } from "@/types/notebook";
+import { Tag } from "@/types/tag";
 import { TocHeading } from "@/lib/toc-parser";
 import { sortNotes } from "@/utils/notes-utils";
 
@@ -62,6 +63,12 @@ interface NotesStore {
   filterPinned: "all" | "pinned" | "unpinned";
   sortBy: "manual" | "edited" | "created" | "title" | "notebook";
   setSortBy: (sort: NotesStore["sortBy"]) => void;
+
+  // ========== Tags State ==========
+  tags: Tag[];
+  noteTagMap: Record<string, string[]>;
+  tagsLoading: boolean;
+  filterTagIds: string[];
 
   // ========== Undo Delete ==========
   recentlyDeleted: DeletedNote | null;
@@ -127,6 +134,17 @@ interface NotesStore {
   setRecentlyDeleted: (note: CombinedNote | null, timeoutId?: NodeJS.Timeout) => void;
   clearRecentlyDeleted: () => void;
   restoreDeletedNote: () => CombinedNote | null;
+
+  // ========== Tags Actions ==========
+  setTags: (tags: Tag[]) => void;
+  addTag: (tag: Tag) => void;
+  updateTagInStore: (id: string, updates: Partial<Tag>) => void;
+  removeTag: (id: string) => void;
+  setNoteTagMap: (map: Record<string, string[]>) => void;
+  assignTagToNoteInStore: (noteId: string, tagId: string) => void;
+  removeTagFromNoteInStore: (noteId: string, tagId: string) => void;
+  setFilterTagIds: (tagIds: string[]) => void;
+  setTagsLoading: (loading: boolean) => void;
 
   // ========== Sync ==========
   syncFromBackend: (notes: CombinedNote[]) => void;
@@ -202,6 +220,12 @@ export const useNotesStore = create<NotesStore>()(
       localStorage.setItem("justnoted_sort", sort);
       set({ sortBy: sort });
     },
+
+    // ========== Initial Tags State ==========
+    tags: [],
+    noteTagMap: {},
+    tagsLoading: false,
+    filterTagIds: [],
 
     // ========== Initial Undo State ==========
     recentlyDeleted: null,
@@ -284,7 +308,7 @@ export const useNotesStore = create<NotesStore>()(
     setSearchQuery: (searchQuery) => set({ searchQuery }),
     setFilterSource: (filterSource) => set({ filterSource }),
     setFilterPinned: (filterPinned) => set({ filterPinned }),
-    clearFilters: () => set({ searchQuery: "", filterSource: "all", filterPinned: "all", activeNotebookId: null }),
+    clearFilters: () => set({ searchQuery: "", filterSource: "all", filterPinned: "all", activeNotebookId: null, filterTagIds: [] }),
 
     // ========== Notebook Actions ==========
     setNotebooks: (notebooks) => set({ notebooks }),
@@ -473,6 +497,46 @@ export const useNotesStore = create<NotesStore>()(
       return restoredNote;
     },
 
+    // ========== Tags Actions ==========
+    setTags: (tags) => set({ tags }),
+    addTag: (tag) => set((state) => ({ tags: [...state.tags, tag] })),
+    updateTagInStore: (id, updates) =>
+      set((state) => ({
+        tags: state.tags.map((t) => (t.id === id ? { ...t, ...updates } : t)),
+      })),
+    removeTag: (id) =>
+      set((state) => ({
+        tags: state.tags.filter((t) => t.id !== id),
+        noteTagMap: Object.fromEntries(
+          Object.entries(state.noteTagMap).map(([noteId, tagIds]) => [
+            noteId,
+            tagIds.filter((tid) => tid !== id),
+          ]),
+        ),
+        filterTagIds: state.filterTagIds.filter((tid) => tid !== id),
+      })),
+    setNoteTagMap: (noteTagMap) => set({ noteTagMap }),
+    assignTagToNoteInStore: (noteId, tagId) =>
+      set((state) => {
+        const current = state.noteTagMap[noteId] || [];
+        if (current.includes(tagId)) return state;
+        return {
+          noteTagMap: { ...state.noteTagMap, [noteId]: [...current, tagId] },
+        };
+      }),
+    removeTagFromNoteInStore: (noteId, tagId) =>
+      set((state) => {
+        const current = state.noteTagMap[noteId] || [];
+        return {
+          noteTagMap: {
+            ...state.noteTagMap,
+            [noteId]: current.filter((tid) => tid !== tagId),
+          },
+        };
+      }),
+    setFilterTagIds: (filterTagIds) => set({ filterTagIds }),
+    setTagsLoading: (tagsLoading) => set({ tagsLoading }),
+
     // ========== Sync ==========
     syncFromBackend: (notes) => {
       set({
@@ -513,23 +577,20 @@ export const useNotesStore = create<NotesStore>()(
 
     // ========== Computed/Selectors ==========
     getFilteredNotes: () => {
-      const { notes, searchQuery, filterSource, filterPinned, activeNotebookId } = get();
+      const { notes, searchQuery, filterSource, filterPinned, activeNotebookId, filterTagIds, noteTagMap, notebooks } = get();
 
       // Exclude trashed notes from main view
       let filtered = notes.filter((n) => !n.deletedAt);
 
       // Filter by notebook (only applies to Supabase notes)
-      // null = "All Notes" (no filtering)
-      // "loose" = notes without a notebook (Supabase only)
-      // uuid = specific notebook
       if (activeNotebookId === "loose") {
-        // Show only Supabase notes without a notebook
         filtered = filtered.filter(
           (note) => note.source === "supabase" && !note.notebookId
         );
       } else if (activeNotebookId) {
-        // Show only notes in the specific notebook
-        filtered = filtered.filter((note) => note.notebookId === activeNotebookId);
+        const descendantIds = getDescendantNotebookIds(activeNotebookId, notebooks);
+        const allIds = new Set([activeNotebookId, ...descendantIds]);
+        filtered = filtered.filter((note) => note.notebookId && allIds.has(note.notebookId));
       }
       // activeNotebookId === null means "All Notes" - no notebook filtering
 
@@ -545,6 +606,14 @@ export const useNotesStore = create<NotesStore>()(
         filtered = filtered.filter((note) => note.isPinned);
       } else if (filterPinned === "unpinned") {
         filtered = filtered.filter((note) => !note.isPinned);
+      }
+
+      // Filter by tags
+      if (filterTagIds.length > 0) {
+        filtered = filtered.filter((note) => {
+          const noteTags = noteTagMap[note.id] || [];
+          return filterTagIds.some((tagId) => noteTags.includes(tagId));
+        });
       }
 
       // Filter by search query
@@ -589,6 +658,12 @@ export const useNotesStore = create<NotesStore>()(
   }))
 );
 
+function getDescendantNotebookIds(notebookId: string, notebooks: Notebook[]): string[] {
+  return notebooks
+    .filter((nb) => nb.parentId === notebookId)
+    .map((nb) => nb.id);
+}
+
 // Memoized filtered notes cache
 let _filteredNotesCache: CombinedNote[] = [];
 let _filteredNotesCacheKey = "";
@@ -599,9 +674,11 @@ function computeFilteredNotesCacheKey(state: {
   filterSource: string;
   filterPinned: string;
   activeNotebookId: string | null;
+  filterTagIds: string[];
+  noteTagMap: Record<string, string[]>;
 }): string {
-  // Use a fingerprint of the inputs to detect changes
-  return `${state.notes.length}:${state.notes.map((n) => n.id + n.isPinned + n.source + n.notebookId + n.updatedAt).join(",")}:${state.searchQuery}:${state.filterSource}:${state.filterPinned}:${state.activeNotebookId}`;
+  const noteTagFingerprint = Object.keys(state.noteTagMap).length;
+  return `${state.notes.length}:${state.notes.map((n) => n.id + n.isPinned + n.source + n.notebookId + n.updatedAt).join(",")}:${state.searchQuery}:${state.filterSource}:${state.filterPinned}:${state.activeNotebookId}:${state.filterTagIds.join(",")}:${noteTagFingerprint}`;
 }
 
 // Selector hooks for better performance

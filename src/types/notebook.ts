@@ -8,6 +8,7 @@ export interface Notebook {
   coverValue: string;
   displayOrder: number;
   wordGoal: number;
+  parentId?: string | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -16,6 +17,7 @@ export interface CreateNotebookInput {
   name: string;
   coverType?: CoverType;
   coverValue?: string;
+  parentId?: string | null;
 }
 
 export interface UpdateNotebookInput {
@@ -24,6 +26,7 @@ export interface UpdateNotebookInput {
   coverValue?: string;
   displayOrder?: number;
   wordGoal?: number;
+  parentId?: string | null;
 }
 
 // Notebook limit for paywall
@@ -43,6 +46,7 @@ export interface NotebookRow {
   cover_value: string;
   display_order: number;
   word_goal: number;
+  parent_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -57,6 +61,7 @@ export function notebookRowToNotebook(row: NotebookRow): Notebook {
     coverValue: row.cover_value,
     displayOrder: row.display_order,
     wordGoal: row.word_goal || 0,
+    parentId: row.parent_id || null,
     createdAt: new Date(row.created_at).getTime(),
     updatedAt: new Date(row.updated_at).getTime(),
   };
@@ -76,6 +81,7 @@ export function notebookToRow(
   if (notebook.displayOrder !== undefined)
     row.display_order = notebook.displayOrder;
   if (notebook.wordGoal !== undefined) row.word_goal = notebook.wordGoal;
+  if (notebook.parentId !== undefined) row.parent_id = notebook.parentId;
   if (notebook.createdAt !== undefined)
     row.created_at = new Date(notebook.createdAt).toISOString();
   if (notebook.updatedAt !== undefined)

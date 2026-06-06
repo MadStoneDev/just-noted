@@ -138,15 +138,35 @@ export async function createNotebook(
     const coverType = input.coverType || DEFAULT_COVER_TYPE;
     const coverValue = input.coverValue || DEFAULT_COVER_VALUE;
 
+    // Validate parentId if provided (enforce max depth of 2)
+    const insertData: Record<string, any> = {
+      owner: userId,
+      name,
+      cover_type: coverType,
+      cover_value: coverValue,
+      display_order: nextOrder,
+    };
+
+    if (input.parentId) {
+      const { data: parentNb, error: parentErr } = await supabase
+        .from("notebooks")
+        .select("id, parent_id")
+        .eq("id", input.parentId)
+        .eq("owner", userId)
+        .single();
+
+      if (parentErr || !parentNb) {
+        return { success: false, error: "Parent notebook not found" };
+      }
+      if (parentNb.parent_id) {
+        return { success: false, error: "Cannot nest more than 2 levels deep" };
+      }
+      insertData.parent_id = input.parentId;
+    }
+
     const { data, error } = await supabase
       .from("notebooks")
-      .insert({
-        owner: userId,
-        name,
-        cover_type: coverType,
-        cover_value: coverValue,
-        display_order: nextOrder,
-      })
+      .insert(insertData)
       .select()
       .single();
 
@@ -214,6 +234,38 @@ export async function updateNotebook(
 
     if (updates.wordGoal !== undefined) {
       updateData.word_goal = updates.wordGoal;
+    }
+
+    if (updates.parentId !== undefined) {
+      if (updates.parentId === null) {
+        updateData.parent_id = null;
+      } else {
+        if (updates.parentId === id) {
+          return { success: false, error: "A notebook cannot be its own parent" };
+        }
+        const { data: parentNb, error: parentErr } = await supabase
+          .from("notebooks")
+          .select("id, parent_id")
+          .eq("id", updates.parentId)
+          .eq("owner", userId)
+          .single();
+        if (parentErr || !parentNb) {
+          return { success: false, error: "Parent notebook not found" };
+        }
+        if (parentNb.parent_id) {
+          return { success: false, error: "Cannot nest more than 2 levels deep" };
+        }
+        // Prevent circular: ensure this notebook has no children that would become depth 3
+        const { count: childCount } = await supabase
+          .from("notebooks")
+          .select("*", { count: "exact", head: true })
+          .eq("parent_id", id)
+          .eq("owner", userId);
+        if ((childCount || 0) > 0) {
+          return { success: false, error: "Cannot nest a notebook that has children" };
+        }
+        updateData.parent_id = updates.parentId;
+      }
     }
 
     const { data, error } = await supabase

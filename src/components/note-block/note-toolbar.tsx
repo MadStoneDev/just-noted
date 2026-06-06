@@ -6,7 +6,7 @@ import MoveToNotebookButton from "./sub-components/move-to-notebook-button";
 import SaveButton from "./sub-components/save-button";
 import DeleteButton from "@/components/delete-button";
 import ShareNoteButton from "@/components/share-note-button";
-// import AIAnalysisButton from "@/components/ui/ai-analysis"; // Temporarily disabled
+import TagPicker from "@/components/tag-picker";
 import type { NoteSource, CombinedNote } from "@/types/combined-notes";
 
 interface NoteToolbarProps {
@@ -230,11 +230,14 @@ export default function NoteToolbar({
               />
             )}
             {noteSource === "supabase" && (
-              <MoveToNotebookButton
-                noteId={noteId}
-                currentNotebookId={note.notebookId}
-                isPrivate={isPrivate}
-              />
+              <>
+                <MoveToNotebookButton
+                  noteId={noteId}
+                  currentNotebookId={note.notebookId}
+                  isPrivate={isPrivate}
+                />
+                <TagPicker noteId={noteId} />
+              </>
             )}
             <ShareNoteButton
               noteId={noteId}
