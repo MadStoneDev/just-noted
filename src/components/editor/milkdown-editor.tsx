@@ -133,6 +133,10 @@ function MilkdownEditorInner({
           bullet: "-",
           listItemIndent: "one",
         });
+        ctx.set(indentConfig.key, {
+          type: "space",
+          size: 2,
+        });
 
         ctx.get(listenerCtx)
           .markdownUpdated((_ctx, markdown, prevMarkdown) => {
@@ -153,7 +157,6 @@ function MilkdownEditorInner({
       .use(clipboard)
       .use(trailing)
       .use(indent)
-      .use(indentConfig.key.setAttr("type", "space").setAttr("size", 2))
       .use(cursor)
       .use(codeBlockEscape);
   }, []);
