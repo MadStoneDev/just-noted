@@ -10,6 +10,7 @@ interface NotebookModalProps {
   isOpen: boolean;
   onClose: () => void;
   notebook?: Notebook | null;
+  notebooks?: Notebook[];
   parentIsHidden?: boolean;
   onSave: (data: {
     name: string;
@@ -18,6 +19,7 @@ interface NotebookModalProps {
     pendingFile?: File | null;
     wordGoal?: number;
     isHidden?: boolean;
+    parentId?: string | null;
   }) => Promise<void>;
   onDelete?: () => Promise<void>;
 }
@@ -26,6 +28,7 @@ export default function NotebookModal({
   isOpen,
   onClose,
   notebook,
+  notebooks = [],
   parentIsHidden,
   onSave,
   onDelete,
@@ -36,6 +39,7 @@ export default function NotebookModal({
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [wordGoal, setWordGoal] = useState(0);
   const [isHidden, setIsHidden] = useState(false);
+  const [parentId, setParentId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,10 +56,12 @@ export default function NotebookModal({
         setCoverValue(notebook.coverValue);
         setWordGoal(notebook.wordGoal || 0);
         setIsHidden(notebook.isHidden ?? false);
+        setParentId(notebook.parentId || null);
       } else {
         setName("");
         setWordGoal(0);
         setIsHidden(false);
+        setParentId(null);
         setCoverType(DEFAULT_COVER_TYPE);
         setCoverValue(DEFAULT_COVER_VALUE);
       }
@@ -102,6 +108,7 @@ export default function NotebookModal({
         pendingFile: pendingFile,
         wordGoal,
         isHidden,
+        parentId,
       });
       onClose();
     } catch (err) {
@@ -190,6 +197,41 @@ export default function NotebookModal({
                 />
               </div>
 
+              {/* Parent notebook */}
+              {(() => {
+                const hasChildren = isEditing && notebooks.some((nb) => nb.parentId === notebook?.id);
+                const eligibleParents = notebooks.filter((nb) => {
+                  if (nb.id === notebook?.id) return false;
+                  if (nb.parentId) return false;
+                  return true;
+                });
+                if (eligibleParents.length === 0) return null;
+                return (
+                  <div>
+                    <label htmlFor="parent-notebook" className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
+                      Parent Notebook <span className="text-[var(--color-text-tertiary)] font-normal">(optional)</span>
+                    </label>
+                    <select
+                      id="parent-notebook"
+                      value={parentId || ""}
+                      onChange={(e) => setParentId(e.target.value || null)}
+                      disabled={isSaving || isDeleting || hasChildren}
+                      className="w-full px-3 py-2 border border-[var(--color-border-primary)] rounded-[var(--radius-lg)] focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)] text-sm bg-[var(--color-bg-primary)] disabled:opacity-50"
+                    >
+                      <option value="">None (top-level)</option>
+                      {eligibleParents.map((nb) => (
+                        <option key={nb.id} value={nb.id}>{nb.name}</option>
+                      ))}
+                    </select>
+                    {hasChildren && (
+                      <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
+                        Cannot nest a notebook that has sub-notebooks
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* Word goal */}
               <div>
                 <label htmlFor="word-goal" className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
@@ -208,10 +250,15 @@ export default function NotebookModal({
               </div>
 
               {/* Private toggle */}
+              {(() => {
+                const effectiveParentHidden = parentId
+                  ? notebooks.find((nb) => nb.id === parentId)?.isHidden ?? false
+                  : parentIsHidden ?? false;
+                return (
               <div>
                 <div
                     className={`flex items-center justify-between p-3 rounded-[var(--radius-lg)] border transition-colors ${
-                      parentIsHidden
+                      effectiveParentHidden
                         ? "border-[var(--color-border-secondary)] bg-[var(--color-bg-tertiary)] opacity-60"
                         : isHidden
                           ? "border-[var(--color-accent)] bg-[var(--color-accent-subtle)]"
@@ -219,11 +266,11 @@ export default function NotebookModal({
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <IconEyeOff size={18} className={isHidden || parentIsHidden ? "text-[var(--color-accent)]" : "text-[var(--color-text-tertiary)]"} />
+                      <IconEyeOff size={18} className={isHidden || effectiveParentHidden ? "text-[var(--color-accent)]" : "text-[var(--color-text-tertiary)]"} />
                       <div>
                         <div className="text-sm font-medium text-[var(--color-text-primary)]">Private notebook</div>
                         <div className="text-xs text-[var(--color-text-tertiary)]">
-                          {parentIsHidden
+                          {effectiveParentHidden
                             ? "Hidden by parent notebook"
                             : "Notes won’t appear in All Notes"}
                         </div>
@@ -232,19 +279,21 @@ export default function NotebookModal({
                     <button
                       type="button"
                       role="switch"
-                      aria-checked={isHidden || parentIsHidden}
-                      disabled={isSaving || isDeleting || parentIsHidden}
+                      aria-checked={isHidden || effectiveParentHidden}
+                      disabled={isSaving || isDeleting || effectiveParentHidden}
                       onClick={() => setIsHidden(!isHidden)}
                       className={`relative w-9 h-5 rounded-full transition-colors disabled:cursor-not-allowed ${
-                        isHidden || parentIsHidden ? "bg-[var(--color-accent)]" : "bg-[var(--color-border-primary)]"
+                        isHidden || effectiveParentHidden ? "bg-[var(--color-accent)]" : "bg-[var(--color-border-primary)]"
                       }`}
                     >
                       <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                        isHidden || parentIsHidden ? "translate-x-4" : ""
+                        isHidden || effectiveParentHidden ? "translate-x-4" : ""
                       }`} />
                     </button>
                   </div>
                 </div>
+                );
+              })()}
 
               {/* Cover picker */}
               <div>
