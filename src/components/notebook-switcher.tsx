@@ -136,17 +136,17 @@ export default function NotebookSwitcher({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--color-bg-elevated)] rounded-[var(--radius-md)] shadow-[var(--shadow-lg)] border border-[var(--color-border-primary)] z-50 overflow-hidden">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--color-bg-elevated)] rounded-[var(--radius-md)] shadow-[var(--shadow-lg)] border border-[var(--color-border-primary)] z-50 overflow-hidden max-h-[60vh] overflow-y-auto">
           <button
             onClick={() => handleSelect(null)}
-            className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-[var(--color-hover)] transition-colors"
+            className="w-full flex items-center justify-between px-2.5 min-h-[40px] hover:bg-[var(--color-hover)] transition-colors"
           >
             <div className="flex items-center gap-1.5">
-              <IconNotebook size={12} className="text-[var(--color-text-tertiary)]" />
+              <IconNotebook size={14} className="text-[var(--color-text-tertiary)]" />
               <span className="text-xs text-[var(--color-text-primary)]">All Notes</span>
               <span className="text-[10px] text-[var(--color-text-tertiary)]">{totalNotesCount}</span>
             </div>
-            {activeNotebookId === null && <IconCheck size={12} className="text-[var(--color-accent)]" />}
+            {activeNotebookId === null && <IconCheck size={14} className="text-[var(--color-accent)]" />}
           </button>
           {hiddenNotebookCount > 0 && activeNotebookId === null && (
             <div className="px-2.5 py-1 flex items-center gap-1.5 text-[10px] text-[var(--color-text-tertiary)]">
@@ -157,14 +157,14 @@ export default function NotebookSwitcher({
 
           <button
             onClick={() => handleSelect("loose")}
-            className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-[var(--color-hover)] transition-colors"
+            className="w-full flex items-center justify-between px-2.5 min-h-[40px] hover:bg-[var(--color-hover)] transition-colors"
           >
             <div className="flex items-center gap-1.5">
-              <IconFileOff size={12} className="text-[var(--color-text-tertiary)]" />
+              <IconFileOff size={14} className="text-[var(--color-text-tertiary)]" />
               <span className="text-xs text-[var(--color-text-primary)]">Loose Notes</span>
               <span className="text-[10px] text-[var(--color-text-tertiary)]">{looseNotesCount}</span>
             </div>
-            {activeNotebookId === "loose" && <IconCheck size={12} className="text-[var(--color-accent)]" />}
+            {activeNotebookId === "loose" && <IconCheck size={14} className="text-[var(--color-accent)]" />}
           </button>
 
           {notebooks.length > 0 && <div className="h-px bg-[var(--color-border-secondary)] my-0.5" />}
@@ -217,18 +217,18 @@ export default function NotebookSwitcher({
                               return next;
                             });
                           }}
-                          className="pl-1 py-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+                          className="pl-1 py-2 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
                         >
-                          {isCollapsed ? <IconChevronRight size={10} /> : <IconChevronDown size={10} />}
+                          {isCollapsed ? <IconChevronRight size={12} /> : <IconChevronDown size={12} />}
                         </button>
                       ) : (
-                        <div className="pl-1 py-1.5 cursor-grab text-[var(--color-text-tertiary)] opacity-0 group-hover/nb:opacity-50">
-                          <IconGripVertical size={10} />
+                        <div className="pl-1 py-2 cursor-grab text-[var(--color-text-tertiary)] opacity-0 group-hover/nb:opacity-50">
+                          <IconGripVertical size={12} />
                         </div>
                       )}
                       <button
                         onClick={() => handleSelect(notebook.id)}
-                        className="flex-1 flex items-center justify-between px-1.5 py-1.5 hover:bg-[var(--color-hover)] transition-colors min-w-0"
+                        className="flex-1 flex items-center justify-between px-1.5 min-h-[36px] hover:bg-[var(--color-hover)] transition-colors min-w-0"
                       >
                         <div className="flex items-center gap-1.5 min-w-0">
                           {effectivelyHidden && <IconEyeOff size={10} className="text-[var(--color-text-tertiary)] flex-shrink-0" />}

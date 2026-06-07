@@ -36,14 +36,14 @@ export default function NotebookBreadcrumb({ onEditNotebook }: NotebookBreadcrum
   // Loose notes view
   if (isLooseNotes) {
     return (
-      <div className="flex items-center justify-between px-4 py-3 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border-primary)]">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border-primary)]">
+        <div className="flex items-center gap-2 sm:gap-3">
           <button
             onClick={handleBackClick}
-            className="flex items-center gap-1 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+            className="flex items-center gap-1 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors min-h-[36px]"
           >
             <IconArrowLeft size={16} />
-            <span>All Notes</span>
+            <span className="hidden sm:inline">All Notes</span>
           </button>
 
           <div className="w-px h-5 bg-[var(--color-border-primary)]" />
@@ -70,14 +70,14 @@ export default function NotebookBreadcrumb({ onEditNotebook }: NotebookBreadcrum
   const noteCount = notebookCounts[activeNotebook.id] || 0;
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border-primary)]">
-      <div className="flex items-center gap-3">
+    <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border-primary)] gap-2 overflow-hidden">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <button
           onClick={() => setActiveNotebookId(null)}
-          className="flex items-center gap-1 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+          className="flex items-center gap-1 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors flex-shrink-0 min-h-[36px]"
         >
           <IconArrowLeft size={16} />
-          <span>All Notes</span>
+          <span className="hidden sm:inline">All Notes</span>
         </button>
 
         {parentNotebook && (
@@ -85,22 +85,22 @@ export default function NotebookBreadcrumb({ onEditNotebook }: NotebookBreadcrum
             <span className="text-[var(--color-text-tertiary)]">/</span>
             <button
               onClick={() => setActiveNotebookId(parentNotebook.id)}
-              className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+              className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors truncate max-w-[100px] sm:max-w-none min-h-[36px]"
             >
               {parentNotebook.name}
             </button>
           </>
         )}
 
-        <div className="w-px h-5 bg-[var(--color-border-primary)]" />
+        <div className="w-px h-5 bg-[var(--color-border-primary)] flex-shrink-0" />
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <div
             className="w-5 h-5 rounded flex-shrink-0"
             style={previewStyle}
           />
-          <span className="font-medium text-[var(--color-text-primary)]">{activeNotebook.name}</span>
-          <span className="text-xs text-[var(--color-text-tertiary)]">({noteCount})</span>
+          <span className="font-medium text-[var(--color-text-primary)] truncate">{activeNotebook.name}</span>
+          <span className="text-xs text-[var(--color-text-tertiary)] flex-shrink-0">({noteCount})</span>
           {activeNotebook.isHidden && (
             <span className="flex items-center gap-1 text-xs text-[var(--color-text-tertiary)]">
               <IconEyeOff size={12} />

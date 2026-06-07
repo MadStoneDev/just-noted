@@ -135,13 +135,13 @@ export default function MoveToNotebookButton({
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute bottom-full left-0 mb-2 bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] border border-[var(--color-border-primary)] z-50 min-w-48 overflow-hidden">
+        <div className="absolute bottom-full left-0 mb-2 bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] border border-[var(--color-border-primary)] z-50 min-w-48 max-w-[calc(100vw-2rem)] overflow-hidden">
           {/* Remove from notebook option */}
           {currentNotebookId && (
             <>
               <button
                 onClick={() => handleMove(null)}
-                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[var(--color-bg-secondary)] transition-colors text-left"
+                className="w-full flex items-center gap-2 px-3 min-h-[44px] hover:bg-[var(--color-bg-secondary)] transition-colors text-left"
               >
                 <IconFileOff size={16} className="text-[var(--color-text-secondary)]" />
                 <span className="text-sm text-[var(--color-text-primary)]">Remove from notebook</span>
@@ -163,7 +163,7 @@ export default function MoveToNotebookButton({
                 <button
                   key={notebook.id}
                   onClick={() => handleMove(notebook.id)}
-                  className={`w-full flex items-center justify-between gap-2 py-2 hover:bg-[var(--color-bg-secondary)] transition-colors text-left ${
+                  className={`w-full flex items-center justify-between gap-2 min-h-[44px] hover:bg-[var(--color-bg-secondary)] transition-colors text-left ${
                     isSelected ? "bg-[var(--color-bg-secondary)]" : ""
                   }`}
                   style={{ paddingLeft: `${12 + depth * 16}px`, paddingRight: 12 }}

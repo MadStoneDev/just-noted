@@ -90,7 +90,7 @@ export function DropdownItem({
   return (
     <button
       className={cn(
-        "flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-colors outline-none cursor-pointer",
+        "flex w-full items-center gap-2.5 px-3 py-2.5 min-h-[44px] text-sm transition-colors outline-none cursor-pointer",
         destructive
           ? "text-[var(--color-danger)] hover:bg-[var(--color-danger-subtle)]"
           : "text-[var(--color-text-primary)] hover:bg-[var(--color-hover)]",
