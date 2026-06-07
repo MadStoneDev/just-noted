@@ -9,6 +9,8 @@ export interface Notebook {
   displayOrder: number;
   wordGoal: number;
   parentId?: string | null;
+  isHidden: boolean;
+  showHiddenChildren: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -27,6 +29,8 @@ export interface UpdateNotebookInput {
   displayOrder?: number;
   wordGoal?: number;
   parentId?: string | null;
+  isHidden?: boolean;
+  showHiddenChildren?: boolean;
 }
 
 // Notebook limit for paywall
@@ -47,6 +51,8 @@ export interface NotebookRow {
   display_order: number;
   word_goal: number;
   parent_id?: string | null;
+  is_hidden?: boolean;
+  show_hidden_children?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -62,6 +68,8 @@ export function notebookRowToNotebook(row: NotebookRow): Notebook {
     displayOrder: row.display_order,
     wordGoal: row.word_goal || 0,
     parentId: row.parent_id || null,
+    isHidden: row.is_hidden ?? false,
+    showHiddenChildren: row.show_hidden_children ?? false,
     createdAt: new Date(row.created_at).getTime(),
     updatedAt: new Date(row.updated_at).getTime(),
   };
@@ -82,6 +90,8 @@ export function notebookToRow(
     row.display_order = notebook.displayOrder;
   if (notebook.wordGoal !== undefined) row.word_goal = notebook.wordGoal;
   if (notebook.parentId !== undefined) row.parent_id = notebook.parentId;
+  if (notebook.isHidden !== undefined) row.is_hidden = notebook.isHidden;
+  if (notebook.showHiddenChildren !== undefined) row.show_hidden_children = notebook.showHiddenChildren;
   if (notebook.createdAt !== undefined)
     row.created_at = new Date(notebook.createdAt).toISOString();
   if (notebook.updatedAt !== undefined)

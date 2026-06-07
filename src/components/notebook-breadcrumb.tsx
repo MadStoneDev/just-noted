@@ -4,14 +4,15 @@ import React from "react";
 import { useNotesStore, useActiveNotebook } from "@/stores/notes-store";
 import { getCoverPreviewStyle, getCoverStyle } from "@/lib/notebook-covers";
 import NotebookExportButton from "./notebook-export-button";
-import { IconArrowLeft, IconSettings, IconFileOff } from "@tabler/icons-react";
+import { updateNotebook } from "@/app/actions/notebookActions";
+import { IconArrowLeft, IconSettings, IconFileOff, IconEyeOff, IconEye } from "@tabler/icons-react";
 
 interface NotebookBreadcrumbProps {
   onEditNotebook?: () => void;
 }
 
 export default function NotebookBreadcrumb({ onEditNotebook }: NotebookBreadcrumbProps) {
-  const { activeNotebookId, setActiveNotebookId, notebookCounts, looseNotesCount, notebooks } =
+  const { activeNotebookId, setActiveNotebookId, notebookCounts, looseNotesCount, notebooks, updateNotebook: updateNotebookInStore } =
     useNotesStore();
   const activeNotebook = useActiveNotebook();
 
@@ -100,7 +101,35 @@ export default function NotebookBreadcrumb({ onEditNotebook }: NotebookBreadcrum
           />
           <span className="font-medium text-[var(--color-text-primary)]">{activeNotebook.name}</span>
           <span className="text-xs text-[var(--color-text-tertiary)]">({noteCount})</span>
+          {activeNotebook.isHidden && (
+            <span className="flex items-center gap-1 text-xs text-[var(--color-text-tertiary)]">
+              <IconEyeOff size={12} />
+              Private
+            </span>
+          )}
         </div>
+
+        {(() => {
+          const hiddenChildren = notebooks.filter(
+            (nb) => nb.parentId === activeNotebook.id && nb.isHidden
+          );
+          if (hiddenChildren.length === 0) return null;
+          const handleToggleShowHidden = async () => {
+            const newValue = !activeNotebook.showHiddenChildren;
+            updateNotebookInStore(activeNotebook.id, { showHiddenChildren: newValue });
+            await updateNotebook(activeNotebook.id, { showHiddenChildren: newValue });
+          };
+          return (
+            <button
+              onClick={handleToggleShowHidden}
+              className="flex items-center gap-1 text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
+              title={activeNotebook.showHiddenChildren ? "Hide private subfolders" : "Show private subfolders"}
+            >
+              {activeNotebook.showHiddenChildren ? <IconEye size={12} /> : <IconEyeOff size={12} />}
+              <span>{hiddenChildren.length} hidden subfolder{hiddenChildren.length !== 1 ? "s" : ""}</span>
+            </button>
+          );
+        })()}
       </div>
 
       <div className="flex items-center gap-1">

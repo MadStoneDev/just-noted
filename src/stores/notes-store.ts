@@ -588,11 +588,26 @@ export const useNotesStore = create<NotesStore>()(
           (note) => note.source === "supabase" && !note.notebookId
         );
       } else if (activeNotebookId) {
+        const activeNb = notebooks.find((nb) => nb.id === activeNotebookId);
         const descendantIds = getDescendantNotebookIds(activeNotebookId, notebooks);
-        const allIds = new Set([activeNotebookId, ...descendantIds]);
+        let visibleDescendantIds = descendantIds;
+        if (activeNb && !activeNb.showHiddenChildren) {
+          visibleDescendantIds = descendantIds.filter((cid) => {
+            const child = notebooks.find((nb) => nb.id === cid);
+            return child && !child.isHidden;
+          });
+        }
+        const allIds = new Set([activeNotebookId, ...visibleDescendantIds]);
         filtered = filtered.filter((note) => note.notebookId && allIds.has(note.notebookId));
+      } else {
+        // "All Notes" view — exclude notes from hidden notebooks (and children of hidden parents)
+        const hiddenNotebookIds = getEffectivelyHiddenNotebookIds(notebooks);
+        if (hiddenNotebookIds.size > 0) {
+          filtered = filtered.filter(
+            (note) => !note.notebookId || !hiddenNotebookIds.has(note.notebookId)
+          );
+        }
       }
-      // activeNotebookId === null means "All Notes" - no notebook filtering
 
       // Filter by source
       if (filterSource === "local") {
@@ -662,6 +677,19 @@ function getDescendantNotebookIds(notebookId: string, notebooks: Notebook[]): st
   return notebooks
     .filter((nb) => nb.parentId === notebookId)
     .map((nb) => nb.id);
+}
+
+function getEffectivelyHiddenNotebookIds(notebooks: Notebook[]): Set<string> {
+  const hidden = new Set<string>();
+  for (const nb of notebooks) {
+    if (nb.isHidden) {
+      hidden.add(nb.id);
+      for (const child of notebooks) {
+        if (child.parentId === nb.id) hidden.add(child.id);
+      }
+    }
+  }
+  return hidden;
 }
 
 // Memoized filtered notes cache

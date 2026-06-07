@@ -4,18 +4,20 @@ import React, { useState, useEffect } from "react";
 import { Notebook, CoverType } from "@/types/notebook";
 import NotebookCoverPicker from "./notebook-cover-picker";
 import { DEFAULT_COVER_TYPE, DEFAULT_COVER_VALUE } from "@/lib/notebook-covers";
-import { IconX, IconLoader2, IconTrash } from "@tabler/icons-react";
+import { IconX, IconLoader2, IconTrash, IconEyeOff } from "@tabler/icons-react";
 
 interface NotebookModalProps {
   isOpen: boolean;
   onClose: () => void;
-  notebook?: Notebook | null; // If provided, we're editing; otherwise creating
+  notebook?: Notebook | null;
+  parentIsHidden?: boolean;
   onSave: (data: {
     name: string;
     coverType: CoverType;
     coverValue: string;
     pendingFile?: File | null;
     wordGoal?: number;
+    isHidden?: boolean;
   }) => Promise<void>;
   onDelete?: () => Promise<void>;
 }
@@ -24,6 +26,7 @@ export default function NotebookModal({
   isOpen,
   onClose,
   notebook,
+  parentIsHidden,
   onSave,
   onDelete,
 }: NotebookModalProps) {
@@ -32,6 +35,7 @@ export default function NotebookModal({
   const [coverValue, setCoverValue] = useState(DEFAULT_COVER_VALUE);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [wordGoal, setWordGoal] = useState(0);
+  const [isHidden, setIsHidden] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,9 +51,11 @@ export default function NotebookModal({
         setCoverType(notebook.coverType);
         setCoverValue(notebook.coverValue);
         setWordGoal(notebook.wordGoal || 0);
+        setIsHidden(notebook.isHidden ?? false);
       } else {
         setName("");
         setWordGoal(0);
+        setIsHidden(false);
         setCoverType(DEFAULT_COVER_TYPE);
         setCoverValue(DEFAULT_COVER_VALUE);
       }
@@ -95,6 +101,7 @@ export default function NotebookModal({
         coverValue,
         pendingFile: pendingFile,
         wordGoal,
+        isHidden,
       });
       onClose();
     } catch (err) {
@@ -199,6 +206,47 @@ export default function NotebookModal({
                   disabled={isSaving || isDeleting}
                 />
               </div>
+
+              {/* Private toggle */}
+              {isEditing && (
+                <div>
+                  <div
+                    className={`flex items-center justify-between p-3 rounded-[var(--radius-lg)] border transition-colors ${
+                      parentIsHidden
+                        ? "border-[var(--color-border-secondary)] bg-[var(--color-bg-tertiary)] opacity-60"
+                        : isHidden
+                          ? "border-[var(--color-accent)] bg-[var(--color-accent-subtle)]"
+                          : "border-[var(--color-border-primary)]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <IconEyeOff size={18} className={isHidden || parentIsHidden ? "text-[var(--color-accent)]" : "text-[var(--color-text-tertiary)]"} />
+                      <div>
+                        <div className="text-sm font-medium text-[var(--color-text-primary)]">Private notebook</div>
+                        <div className="text-xs text-[var(--color-text-tertiary)]">
+                          {parentIsHidden
+                            ? "Hidden by parent notebook"
+                            : "Notes won’t appear in All Notes"}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={isHidden || parentIsHidden}
+                      disabled={isSaving || isDeleting || parentIsHidden}
+                      onClick={() => setIsHidden(!isHidden)}
+                      className={`relative w-9 h-5 rounded-full transition-colors disabled:cursor-not-allowed ${
+                        isHidden || parentIsHidden ? "bg-[var(--color-accent)]" : "bg-[var(--color-border-primary)]"
+                      }`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                        isHidden || parentIsHidden ? "translate-x-4" : ""
+                      }`} />
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Cover picker */}
               <div>

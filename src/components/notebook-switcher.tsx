@@ -15,6 +15,7 @@ import {
   IconFileOff,
   IconGripVertical,
   IconLoader2,
+  IconEyeOff,
 } from "@tabler/icons-react";
 import { countWordsInContent } from "@/utils/word-count";
 
@@ -55,6 +56,7 @@ export default function NotebookSwitcher({
   };
 
   const totalNotesCount = notes.filter((n) => n.source === "supabase").length;
+  const hiddenNotebookCount = notebooks.filter((nb) => nb.isHidden && !nb.parentId).length;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -146,6 +148,12 @@ export default function NotebookSwitcher({
             </div>
             {activeNotebookId === null && <IconCheck size={12} className="text-[var(--color-accent)]" />}
           </button>
+          {hiddenNotebookCount > 0 && activeNotebookId === null && (
+            <div className="px-2.5 py-1 flex items-center gap-1.5 text-[10px] text-[var(--color-text-tertiary)]">
+              <IconEyeOff size={10} />
+              <span>{hiddenNotebookCount} hidden notebook{hiddenNotebookCount !== 1 ? "s" : ""}</span>
+            </div>
+          )}
 
           <button
             onClick={() => handleSelect("loose")}
@@ -171,7 +179,7 @@ export default function NotebookSwitcher({
               const childrenOf = (parentId: string) =>
                 notebooks.filter((nb) => nb.parentId === parentId);
 
-              const renderNotebook = (notebook: Notebook, depth: number) => {
+              const renderNotebook = (notebook: Notebook, depth: number, parentHidden = false) => {
                 const children = childrenOf(notebook.id);
                 const hasChildren = children.length > 0;
                 const isCollapsed = collapsedIds.has(notebook.id);
@@ -180,6 +188,7 @@ export default function NotebookSwitcher({
                   0,
                 );
                 const totalCount = (notebookCounts[notebook.id] || 0) + childNoteCount;
+                const effectivelyHidden = notebook.isHidden || parentHidden;
 
                 return (
                   <React.Fragment key={notebook.id}>
@@ -192,7 +201,9 @@ export default function NotebookSwitcher({
                       onDragEnd={() => { setDraggedId(null); setDragOverId(null); }}
                       className={`group/nb flex items-center ${
                         draggedId === notebook.id ? "opacity-40" : ""
-                      } ${dragOverId === notebook.id ? "bg-[var(--color-accent-subtle)]" : ""}`}
+                      } ${dragOverId === notebook.id ? "bg-[var(--color-accent-subtle)]" : ""} ${
+                        effectivelyHidden ? "opacity-50" : ""
+                      }`}
                       style={{ paddingLeft: depth * 12 }}
                     >
                       {hasChildren ? (
@@ -220,6 +231,7 @@ export default function NotebookSwitcher({
                         className="flex-1 flex items-center justify-between px-1.5 py-1.5 hover:bg-[var(--color-hover)] transition-colors min-w-0"
                       >
                         <div className="flex items-center gap-1.5 min-w-0">
+                          {effectivelyHidden && <IconEyeOff size={10} className="text-[var(--color-text-tertiary)] flex-shrink-0" />}
                           <span className="text-xs text-[var(--color-text-primary)] truncate">{notebook.name}</span>
                           <span className="text-[10px] text-[var(--color-text-tertiary)]">
                             {hasChildren ? totalCount : notebookCounts[notebook.id] || 0}
@@ -266,7 +278,7 @@ export default function NotebookSwitcher({
                         </button>
                       </div>
                     </div>
-                    {hasChildren && !isCollapsed && children.map((child) => renderNotebook(child, depth + 1))}
+                    {hasChildren && !isCollapsed && children.map((child) => renderNotebook(child, depth + 1, effectivelyHidden))}
                   </React.Fragment>
                 );
               };

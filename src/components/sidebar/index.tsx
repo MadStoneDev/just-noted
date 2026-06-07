@@ -365,6 +365,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
     coverValue: string;
     pendingFile?: File | null;
     wordGoal?: number;
+    isHidden?: boolean;
   }) => {
     if (editingNotebook) {
       // Update existing notebook
@@ -387,6 +388,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
         coverType: finalCoverType,
         coverValue: finalCoverValue,
         wordGoal: data.wordGoal,
+        isHidden: data.isHidden,
       });
 
       if (result.success && result.notebook) {
@@ -947,6 +949,11 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
         isOpen={isNotebookModalOpen}
         onClose={handleCloseNotebookModal}
         notebook={editingNotebook}
+        parentIsHidden={
+          editingNotebook?.parentId
+            ? notebooks.find((nb) => nb.id === editingNotebook.parentId)?.isHidden ?? false
+            : false
+        }
         onSave={handleSaveNotebook}
         onDelete={editingNotebook ? handleDeleteNotebook : undefined}
       />

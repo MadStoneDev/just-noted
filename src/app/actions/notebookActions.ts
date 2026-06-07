@@ -236,6 +236,14 @@ export async function updateNotebook(
       updateData.word_goal = updates.wordGoal;
     }
 
+    if (updates.isHidden !== undefined) {
+      updateData.is_hidden = updates.isHidden;
+    }
+
+    if (updates.showHiddenChildren !== undefined) {
+      updateData.show_hidden_children = updates.showHiddenChildren;
+    }
+
     if (updates.parentId !== undefined) {
       if (updates.parentId === null) {
         updateData.parent_id = null;
