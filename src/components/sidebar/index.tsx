@@ -20,6 +20,7 @@ import { NotebookCoverHeader } from "@/components/notebook-breadcrumb";
 import BulkActionBar from "@/components/bulk-action-bar";
 import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import { getPlainTextPreview as getPlainTextPreviewUtil } from "@/utils/html-utils";
+import { getSortedNotebookTree } from "@/utils/notebook-tree";
 import {
   IconX,
   IconSearch,
@@ -855,35 +856,15 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                                       Remove from notebook
                                     </DropdownItem>
                                   )}
-                                  {(() => {
-                                    const rootNbs = notebooks.filter((nb) => !nb.parentId && nb.id !== note.notebookId);
-                                    const items: React.ReactNode[] = [];
-                                    rootNbs.forEach((nb) => {
-                                      items.push(
-                                        <DropdownItem
-                                          key={nb.id}
-                                          icon={<IconNotebook size={12} />}
-                                          onClick={() => onMoveNote?.(note.id, nb.id)}
-                                        >
-                                          {nb.name}
-                                        </DropdownItem>
-                                      );
-                                      notebooks
-                                        .filter((child) => child.parentId === nb.id && child.id !== note.notebookId)
-                                        .forEach((child) => {
-                                          items.push(
-                                            <DropdownItem
-                                              key={child.id}
-                                              icon={<span className="pl-3"><IconNotebook size={12} /></span>}
-                                              onClick={() => onMoveNote?.(note.id, child.id)}
-                                            >
-                                              <span className="pl-3">{child.name}</span>
-                                            </DropdownItem>
-                                          );
-                                        });
-                                    });
-                                    return items;
-                                  })()}
+                                  {getSortedNotebookTree(notebooks, note.notebookId).map(({ notebook: nb, depth }) => (
+                                    <DropdownItem
+                                      key={nb.id}
+                                      icon={<span style={{ paddingLeft: depth * 12 }}><IconNotebook size={12} /></span>}
+                                      onClick={() => onMoveNote?.(note.id, nb.id)}
+                                    >
+                                      <span style={{ paddingLeft: depth * 12 }}>{nb.name}</span>
+                                    </DropdownItem>
+                                  ))}
                                   <DropdownSeparator />
                                 </>
                               )}

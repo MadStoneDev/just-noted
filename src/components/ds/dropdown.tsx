@@ -62,7 +62,7 @@ export function Dropdown({
             style={floatingStyles}
             {...getFloatingProps()}
             className={cn(
-              "z-50 min-w-[180px] py-1 bg-[var(--color-bg-elevated)] border border-[var(--color-border-primary)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] transition-opacity duration-[var(--duration-fast)]",
+              "z-50 min-w-[180px] max-h-[min(400px,60vh)] overflow-y-auto py-1 bg-[var(--color-bg-elevated)] border border-[var(--color-border-primary)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] transition-opacity duration-[var(--duration-fast)]",
               isPositioned ? "opacity-100" : "opacity-0",
               className,
             )}

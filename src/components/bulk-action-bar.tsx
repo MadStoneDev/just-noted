@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNotesStore } from "@/stores/notes-store";
 import { bulkAssignNotesToNotebook } from "@/app/actions/notebookActions";
+import { getSortedNotebookTree } from "@/utils/notebook-tree";
 import { ConfirmModal } from "@/components/ds/modal";
 import {
   IconX,
@@ -115,11 +116,12 @@ export default function BulkActionBar({
                 </button>
                 {notebooks.length > 0 && <div className="h-px bg-[var(--color-border-secondary)]" />}
                 <div className="max-h-32 overflow-y-auto">
-                  {notebooks.map((nb) => (
+                  {getSortedNotebookTree(notebooks).map(({ notebook: nb, depth }) => (
                     <button
                       key={nb.id}
                       onClick={() => handleAssign(nb.id)}
-                      className="w-full flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-[var(--color-hover)] transition-colors text-left"
+                      className="w-full flex items-center gap-1.5 py-1.5 hover:bg-[var(--color-hover)] transition-colors text-left"
+                      style={{ paddingLeft: `${10 + depth * 12}px`, paddingRight: 10 }}
                     >
                       <span className="text-[11px] text-[var(--color-text-primary)] truncate">{nb.name}</span>
                     </button>

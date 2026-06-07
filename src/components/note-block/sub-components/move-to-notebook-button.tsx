@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNotesStore } from "@/stores/notes-store";
 import { assignNoteToNotebook } from "@/app/actions/notebookActions";
 import { getCoverPreviewStyle } from "@/lib/notebook-covers";
+import { getSortedNotebookTree } from "@/utils/notebook-tree";
 import {
   IconNotebook,
   IconCheck,
@@ -151,7 +152,7 @@ export default function MoveToNotebookButton({
 
           {/* Notebooks list */}
           <div className="max-h-48 overflow-y-auto">
-            {notebooks.map((notebook) => {
+            {getSortedNotebookTree(notebooks, currentNotebookId).map(({ notebook, depth }) => {
               const isSelected = notebook.id === currentNotebookId;
               const previewStyle = getCoverPreviewStyle(
                 notebook.coverType,
@@ -162,9 +163,10 @@ export default function MoveToNotebookButton({
                 <button
                   key={notebook.id}
                   onClick={() => handleMove(notebook.id)}
-                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 hover:bg-[var(--color-bg-secondary)] transition-colors text-left ${
+                  className={`w-full flex items-center justify-between gap-2 py-2 hover:bg-[var(--color-bg-secondary)] transition-colors text-left ${
                     isSelected ? "bg-[var(--color-bg-secondary)]" : ""
                   }`}
+                  style={{ paddingLeft: `${12 + depth * 16}px`, paddingRight: 12 }}
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <div
