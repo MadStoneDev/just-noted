@@ -208,9 +208,8 @@ export default function NotebookModal({
               </div>
 
               {/* Private toggle */}
-              {isEditing && (
-                <div>
-                  <div
+              <div>
+                <div
                     className={`flex items-center justify-between p-3 rounded-[var(--radius-lg)] border transition-colors ${
                       parentIsHidden
                         ? "border-[var(--color-border-secondary)] bg-[var(--color-bg-tertiary)] opacity-60"
@@ -246,7 +245,6 @@ export default function NotebookModal({
                     </button>
                   </div>
                 </div>
-              )}
 
               {/* Cover picker */}
               <div>

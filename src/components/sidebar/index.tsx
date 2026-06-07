@@ -406,7 +406,17 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
 
       const result = await createNotebook(createData);
       if (result.success && result.notebook) {
-        addNotebook(result.notebook);
+        // Set hidden if toggled on during creation
+        if (data.isHidden) {
+          const hideResult = await updateNotebook(result.notebook.id, { isHidden: true });
+          if (hideResult.success && hideResult.notebook) {
+            addNotebook(hideResult.notebook);
+          } else {
+            addNotebook(result.notebook);
+          }
+        } else {
+          addNotebook(result.notebook);
+        }
 
         // If there's a pending file, upload it now
         if (data.pendingFile) {
