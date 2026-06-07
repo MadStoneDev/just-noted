@@ -102,6 +102,12 @@ export function useNotesOperations(
       newNote.author = userId;
     }
 
+    // Auto-assign to active notebook if viewing one
+    const { activeNotebookId } = useNotesStore.getState();
+    if (activeNotebookId && activeNotebookId !== "loose" && noteSource === "supabase") {
+      newNote.notebookId = activeNotebookId;
+    }
+
     // Optimistic update - note will be at the top
     setAnimating(true);
     setNewNoteId(newNote.id);
@@ -597,6 +603,19 @@ export function useNotesOperations(
 
       // Optimistic soft-delete (sets deletedAt, filtered from view)
       optimisticDeleteNote(noteId);
+
+      // Select next note if the deleted one was active
+      const { activeNoteId, setActiveNoteId, getFilteredNotes } = useNotesStore.getState();
+      if (activeNoteId === noteId) {
+        const remaining = getFilteredNotes();
+        if (remaining.length > 0) {
+          const deletedIndex = activeNotes.findIndex((n) => n.id === noteId);
+          const nextIndex = Math.min(deletedIndex, remaining.length - 1);
+          setActiveNoteId(remaining[nextIndex]?.id ?? remaining[0].id);
+        } else {
+          setActiveNoteId(null);
+        }
+      }
 
       // Update IDB cache with deletedAt
       saveNoteToLocal({ ...targetNote, deletedAt: Date.now(), updatedAt: Date.now() }).catch(() => {});
