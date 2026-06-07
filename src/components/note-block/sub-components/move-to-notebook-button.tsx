@@ -10,6 +10,7 @@ import {
   IconCheck,
   IconFileOff,
   IconLoader2,
+  IconX,
 } from "@tabler/icons-react";
 
 interface MoveToNotebookButtonProps {
@@ -152,8 +153,7 @@ export default function MoveToNotebookButton({
 
           {/* Notebooks list */}
           <div className="max-h-48 overflow-y-auto">
-            {getSortedNotebookTree(notebooks, currentNotebookId).map(({ notebook, depth }) => {
-              const isSelected = notebook.id === currentNotebookId;
+            {getSortedNotebookTree(notebooks, currentNotebookId).map(({ notebook, depth, isCurrent }) => {
               const previewStyle = getCoverPreviewStyle(
                 notebook.coverType,
                 notebook.coverValue
@@ -162,23 +162,27 @@ export default function MoveToNotebookButton({
               return (
                 <button
                   key={notebook.id}
-                  onClick={() => handleMove(notebook.id)}
+                  onClick={() => isCurrent ? handleMove(null) : handleMove(notebook.id)}
                   className={`w-full flex items-center justify-between gap-2 min-h-[44px] hover:bg-[var(--color-bg-secondary)] transition-colors text-left ${
-                    isSelected ? "bg-[var(--color-bg-secondary)]" : ""
+                    isCurrent ? "opacity-50" : ""
                   }`}
                   style={{ paddingLeft: `${12 + depth * 16}px`, paddingRight: 12 }}
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <div
-                      className="w-4 h-4 rounded-sm flex-shrink-0"
-                      style={previewStyle}
-                    />
-                    <span className="text-sm text-[var(--color-text-primary)] truncate">
+                    {isCurrent ? (
+                      <IconX size={14} className="text-[var(--color-text-tertiary)] flex-shrink-0" />
+                    ) : (
+                      <div
+                        className="w-4 h-4 rounded-sm flex-shrink-0"
+                        style={previewStyle}
+                      />
+                    )}
+                    <span className={`text-sm truncate ${isCurrent ? "text-[var(--color-text-tertiary)]" : "text-[var(--color-text-primary)]"}`}>
                       {notebook.name}
                     </span>
                   </div>
-                  {isSelected && (
-                    <IconCheck size={14} className="text-[var(--color-accent)] flex-shrink-0" />
+                  {isCurrent && (
+                    <span className="text-[10px] text-[var(--color-text-tertiary)] flex-shrink-0">current</span>
                   )}
                 </button>
               );
