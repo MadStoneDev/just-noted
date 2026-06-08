@@ -36,6 +36,7 @@ import {
   IconMinus,
   IconCodeDots,
   IconLink,
+  IconLinkOff,
 } from "@tabler/icons-react";
 
 interface FloatingToolbarProps {
@@ -280,9 +281,28 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
         <IconCode size={14} />
       </button>
       <button className={btn} onClick={() => {
-        const url = prompt("Enter URL:");
-        if (url) run(toggleLinkCommand.key, { href: url });
-      }} title="Add link">
+        const editor = getEditor();
+        if (!editor) return;
+        editor.action((ctx) => {
+          const view = ctx.get(editorViewCtx);
+          const { state } = view;
+          const { from, to } = state.selection;
+          const linkType = state.schema.marks.link;
+          if (!linkType) return;
+
+          let hasLink = false;
+          state.doc.nodesBetween(from, to, (node) => {
+            if (node.marks.some((m: any) => m.type === linkType)) hasLink = true;
+          });
+
+          if (hasLink) {
+            view.dispatch(state.tr.removeMark(from, to, linkType));
+          } else {
+            const url = prompt("Enter URL:");
+            if (url) callCommand(toggleLinkCommand.key, { href: url })(ctx);
+          }
+        });
+      }} title="Toggle link">
         <IconLink size={14} />
       </button>
 
