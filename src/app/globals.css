@@ -319,8 +319,12 @@ summary {
   font-family: var(--font-primary), sans-serif;
   color: var(--color-text-primary);
   line-height: 1.7;
-  min-height: 300px;
   padding: 0.5rem 0;
+}
+
+.milkdown .ProseMirror,
+.milkdown [data-milkdown-root] .ProseMirror {
+  min-height: 300px;
 }
 
 .milkdown [data-milkdown-root] {

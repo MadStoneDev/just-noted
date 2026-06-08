@@ -62,11 +62,12 @@ export default function SharedNotePage({
   };
 
   const renderContent = (content: string, format?: string): string => {
-    if (format === "markdown") {
-      const html = marked.parse(content, { async: false }) as string;
-      return sanitizeHtml(html);
+    const looksLikeHtml = /<[a-z][\s\S]*>/i.test(content.trim());
+    if (format === "html" && looksLikeHtml) {
+      return sanitizeHtml(content);
     }
-    return sanitizeHtml(content);
+    const html = marked.parse(content, { async: false, gfm: true, breaks: false }) as string;
+    return sanitizeHtml(html);
   };
 
   const fetchNote = async (pw?: string | null) => {
@@ -218,7 +219,7 @@ export default function SharedNotePage({
 
   // Note view
   return (
-    <main className="flex-grow print:block">
+    <main className="flex-grow pt-14 print:block print:pt-0">
       {/* Top bar */}
       <div className="max-w-[var(--content-width)] mx-auto px-4 md:px-8 py-3 flex items-center justify-between print:hidden">
         <Link
