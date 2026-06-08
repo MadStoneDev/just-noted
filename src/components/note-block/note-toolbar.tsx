@@ -1,12 +1,14 @@
 import React, { useCallback, useState, useRef, useEffect } from "react";
-import { IconDotsVertical, IconHistory, IconPrinter } from "@tabler/icons-react";
+import { IconDotsVertical, IconHistory, IconPrinter, IconTrash } from "@tabler/icons-react";
 import ExportMenu from "@/components/ui/export-menu";
 import TransferButton from "./sub-components/transfer-button";
-import MoveToNotebookButton from "./sub-components/move-to-notebook-button";
+import NotebookMoveMenu from "@/components/notebook-move-menu";
 import SaveButton from "./sub-components/save-button";
 import DeleteButton from "@/components/delete-button";
 import ShareNoteButton from "@/components/share-note-button";
 import TagPicker from "@/components/tag-picker";
+import { useNotesStore } from "@/stores/notes-store";
+import { assignNoteToNotebook } from "@/app/actions/notebookActions";
 import type { NoteSource, CombinedNote } from "@/types/combined-notes";
 
 interface NoteToolbarProps {
@@ -135,6 +137,27 @@ export default function NoteToolbar({
 </html>`);
     printWindow.document.close();
   }, [note]);
+
+  const { notebooks, optimisticUpdateNote, recalculateNotebookCounts } = useNotesStore();
+
+  const handleMobileMove = async (notebookId: string | null) => {
+    if (notebookId === note.notebookId) {
+      setMoreOpen(false);
+      return;
+    }
+    optimisticUpdateNote(noteId, { notebookId });
+    setMoreOpen(false);
+    try {
+      const result = await assignNoteToNotebook(noteId, notebookId);
+      if (result.success) {
+        recalculateNotebookCounts();
+      } else {
+        optimisticUpdateNote(noteId, { notebookId: note.notebookId });
+      }
+    } catch {
+      optimisticUpdateNote(noteId, { notebookId: note.notebookId });
+    }
+  };
 
   // Mobile overflow menu state
   const [moreOpen, setMoreOpen] = useState(false);
@@ -279,18 +302,20 @@ export default function NoteToolbar({
               </button>
             ))}
 
-            {/* Mobile auth actions inline in overflow */}
-            {isAuthenticated && noteSource === "supabase" && (
+            {/* Mobile: notebook move list */}
+            {isAuthenticated && noteSource === "supabase" && notebooks.length > 0 && (
               <div className="border-t border-[var(--color-border-secondary)] mt-1 pt-1">
-                <MoveToNotebookButton
-                  noteId={noteId}
+                <NotebookMoveMenu
+                  notebooks={notebooks}
                   currentNotebookId={note.notebookId}
-                  isPrivate={isPrivate}
+                  onMove={handleMobileMove}
                 />
               </div>
             )}
+
+            {/* Mobile: share */}
             {isAuthenticated && (
-              <div className={`${noteSource !== "supabase" && isAuthenticated ? "border-t border-[var(--color-border-secondary)] mt-1 pt-1" : ""}`}>
+              <div className="border-t border-[var(--color-border-secondary)] mt-1 pt-1">
                 <ShareNoteButton
                   noteId={noteId}
                   noteTitle={noteTitle}
@@ -299,6 +324,23 @@ export default function NoteToolbar({
                   isAuthenticated={isAuthenticated}
                   userId={userId}
                 />
+              </div>
+            )}
+
+            {/* Mobile: delete */}
+            {showDelete && onDelete && (
+              <div className="border-t border-[var(--color-border-secondary)] mt-1 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onDelete(noteId);
+                    setMoreOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-danger)] hover:bg-[var(--color-danger-subtle)] transition-colors"
+                >
+                  <IconTrash size={16} />
+                  Delete
+                </button>
               </div>
             )}
           </div>
