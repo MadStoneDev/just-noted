@@ -216,6 +216,9 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
     const container = containerRef.current;
     if (!container) return;
 
+    const TOOLBAR_H = 44;
+    const MARGIN = 8;
+
     const update = () => {
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
@@ -237,16 +240,24 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
       const range = sel.getRangeAt(0);
       const rect = range.getBoundingClientRect();
 
+      let y = rect.top;
+      if (y < TOOLBAR_H + MARGIN) {
+        y = Math.min(rect.bottom + MARGIN, window.innerHeight - MARGIN);
+      }
+
       setPos({
-        x: rect.left + rect.width / 2,
-        y: rect.top,
+        x: Math.max(120, Math.min(rect.left + rect.width / 2, window.innerWidth - 120)),
+        y,
       });
       setVisible(true);
     };
 
+    const scrollParent = container.closest("[class*='overflow']") || window;
     document.addEventListener("selectionchange", update);
+    scrollParent.addEventListener("scroll", update, { passive: true });
     return () => {
       document.removeEventListener("selectionchange", update);
+      scrollParent.removeEventListener("scroll", update);
       if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
     };
   }, [containerRef]);
