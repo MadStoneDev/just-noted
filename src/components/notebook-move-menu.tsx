@@ -41,25 +41,25 @@ export default function NotebookMoveMenu({
               key={notebook.id}
               onClick={() => isCurrent ? onMove(null) : onMove(notebook.id)}
               className={`w-full flex items-center justify-between gap-2 min-h-[44px] hover:bg-[var(--color-bg-secondary)] transition-colors text-left ${
-                isCurrent ? "opacity-50" : ""
+                isCurrent ? "opacity-70" : ""
               }`}
               style={{ paddingLeft: `${12 + depth * 16}px`, paddingRight: 12 }}
             >
               <div className="flex items-center gap-2 min-w-0">
                 {isCurrent ? (
-                  <IconX size={14} className="text-[var(--color-text-tertiary)] flex-shrink-0" />
+                  <IconX size={14} className="text-[var(--color-text-secondary)] flex-shrink-0" />
                 ) : (
                   <div
                     className="w-4 h-4 rounded-sm flex-shrink-0"
                     style={previewStyle}
                   />
                 )}
-                <span className={`text-sm truncate ${isCurrent ? "text-[var(--color-text-tertiary)]" : "text-[var(--color-text-primary)]"}`}>
+                <span className={`text-sm truncate ${isCurrent ? "text-[var(--color-text-secondary)]" : "text-[var(--color-text-primary)]"}`}>
                   {notebook.name}
                 </span>
               </div>
               {isCurrent && (
-                <span className="text-[10px] text-[var(--color-text-tertiary)] flex-shrink-0">current</span>
+                <span className="text-[10px] text-[var(--color-text-secondary)] flex-shrink-0">current</span>
               )}
             </button>
           );
