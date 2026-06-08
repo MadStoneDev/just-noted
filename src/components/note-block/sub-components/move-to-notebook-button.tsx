@@ -4,13 +4,10 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNotesStore } from "@/stores/notes-store";
 import { assignNoteToNotebook } from "@/app/actions/notebookActions";
 import { getCoverPreviewStyle } from "@/lib/notebook-covers";
-import { getSortedNotebookTree } from "@/utils/notebook-tree";
+import NotebookMoveMenu from "@/components/notebook-move-menu";
 import {
   IconNotebook,
-  IconCheck,
-  IconFileOff,
   IconLoader2,
-  IconX,
 } from "@tabler/icons-react";
 
 interface MoveToNotebookButtonProps {
@@ -32,7 +29,6 @@ export default function MoveToNotebookButton({
 
   const { notebooks, optimisticUpdateNote, recalculateNotebookCounts } = useNotesStore();
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -47,7 +43,6 @@ export default function MoveToNotebookButton({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
-  // Close on escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {
@@ -66,8 +61,6 @@ export default function MoveToNotebookButton({
     }
 
     setIsMoving(true);
-
-    // Optimistic update
     optimisticUpdateNote(noteId, { notebookId });
 
     try {
@@ -77,12 +70,10 @@ export default function MoveToNotebookButton({
         recalculateNotebookCounts();
         onMoved?.(notebookId);
       } else {
-        // Revert on failure
         optimisticUpdateNote(noteId, { notebookId: currentNotebookId });
         console.error("Failed to move note:", result.error);
       }
     } catch (error) {
-      // Revert on error
       optimisticUpdateNote(noteId, { notebookId: currentNotebookId });
       console.error("Failed to move note:", error);
     } finally {
@@ -91,7 +82,6 @@ export default function MoveToNotebookButton({
     }
   };
 
-  // Don't show if no notebooks exist
   if (notebooks.length === 0) {
     return null;
   }
@@ -134,60 +124,13 @@ export default function MoveToNotebookButton({
         </span>
       </button>
 
-      {/* Dropdown */}
       {isOpen && (
         <div className="absolute bottom-full left-0 mb-2 bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] border border-[var(--color-border-primary)] z-50 min-w-48 max-w-[calc(100vw-2rem)] overflow-hidden">
-          {/* Remove from notebook option */}
-          {currentNotebookId && (
-            <>
-              <button
-                onClick={() => handleMove(null)}
-                className="w-full flex items-center gap-2 px-3 min-h-[44px] hover:bg-[var(--color-bg-secondary)] transition-colors text-left"
-              >
-                <IconFileOff size={16} className="text-[var(--color-text-secondary)]" />
-                <span className="text-sm text-[var(--color-text-primary)]">Remove from notebook</span>
-              </button>
-              <div className="border-t border-[var(--color-border-primary)]" />
-            </>
-          )}
-
-          {/* Notebooks list */}
-          <div className="max-h-48 overflow-y-auto">
-            {getSortedNotebookTree(notebooks, currentNotebookId).map(({ notebook, depth, isCurrent }) => {
-              const previewStyle = getCoverPreviewStyle(
-                notebook.coverType,
-                notebook.coverValue
-              );
-
-              return (
-                <button
-                  key={notebook.id}
-                  onClick={() => isCurrent ? handleMove(null) : handleMove(notebook.id)}
-                  className={`w-full flex items-center justify-between gap-2 min-h-[44px] hover:bg-[var(--color-bg-secondary)] transition-colors text-left ${
-                    isCurrent ? "opacity-50" : ""
-                  }`}
-                  style={{ paddingLeft: `${12 + depth * 16}px`, paddingRight: 12 }}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    {isCurrent ? (
-                      <IconX size={14} className="text-[var(--color-text-tertiary)] flex-shrink-0" />
-                    ) : (
-                      <div
-                        className="w-4 h-4 rounded-sm flex-shrink-0"
-                        style={previewStyle}
-                      />
-                    )}
-                    <span className={`text-sm truncate ${isCurrent ? "text-[var(--color-text-tertiary)]" : "text-[var(--color-text-primary)]"}`}>
-                      {notebook.name}
-                    </span>
-                  </div>
-                  {isCurrent && (
-                    <span className="text-[10px] text-[var(--color-text-tertiary)] flex-shrink-0">current</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          <NotebookMoveMenu
+            notebooks={notebooks}
+            currentNotebookId={currentNotebookId}
+            onMove={handleMove}
+          />
         </div>
       )}
     </div>

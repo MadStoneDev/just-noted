@@ -3,12 +3,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNotesStore } from "@/stores/notes-store";
 import { bulkAssignNotesToNotebook } from "@/app/actions/notebookActions";
-import { getSortedNotebookTree } from "@/utils/notebook-tree";
+import NotebookMoveMenu from "@/components/notebook-move-menu";
 import { ConfirmModal } from "@/components/ds/modal";
 import {
   IconX,
   IconNotebook,
-  IconFileOff,
   IconLoader2,
   IconTrash,
 } from "@tabler/icons-react";
@@ -106,27 +105,11 @@ export default function BulkActionBar({
             </button>
 
             {showMoveMenu && (
-              <div className="absolute bottom-full right-0 mb-1 bg-[var(--color-bg-elevated)] rounded-[var(--radius-md)] shadow-[var(--shadow-lg)] border border-[var(--color-border-primary)] min-w-[160px] overflow-hidden z-50">
-                <button
-                  onClick={() => handleAssign(null)}
-                  className="w-full flex items-center gap-2 px-3 min-h-[44px] hover:bg-[var(--color-hover)] transition-colors text-left"
-                >
-                  <IconFileOff size={14} className="text-[var(--color-text-tertiary)]" />
-                  <span className="text-xs text-[var(--color-text-primary)]">Remove from notebook</span>
-                </button>
-                {notebooks.length > 0 && <div className="h-px bg-[var(--color-border-secondary)]" />}
-                <div className="max-h-48 overflow-y-auto">
-                  {getSortedNotebookTree(notebooks).map(({ notebook: nb, depth }) => (
-                    <button
-                      key={nb.id}
-                      onClick={() => handleAssign(nb.id)}
-                      className="w-full flex items-center gap-2 min-h-[44px] hover:bg-[var(--color-hover)] transition-colors text-left"
-                      style={{ paddingLeft: `${12 + depth * 12}px`, paddingRight: 12 }}
-                    >
-                      <span className="text-xs text-[var(--color-text-primary)] truncate">{nb.name}</span>
-                    </button>
-                  ))}
-                </div>
+              <div className="absolute bottom-full right-0 mb-1 bg-[var(--color-bg-elevated)] rounded-[var(--radius-md)] shadow-[var(--shadow-lg)] border border-[var(--color-border-primary)] min-w-[160px] max-w-[calc(100vw-2rem)] overflow-hidden z-50">
+                <NotebookMoveMenu
+                  notebooks={notebooks}
+                  onMove={handleAssign}
+                />
               </div>
             )}
           </div>

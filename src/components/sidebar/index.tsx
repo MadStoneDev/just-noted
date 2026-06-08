@@ -20,7 +20,7 @@ import { NotebookCoverHeader } from "@/components/notebook-breadcrumb";
 import BulkActionBar from "@/components/bulk-action-bar";
 import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import { getPlainTextPreview as getPlainTextPreviewUtil } from "@/utils/html-utils";
-import { getSortedNotebookTree } from "@/utils/notebook-tree";
+import NotebookMoveMenu from "@/components/notebook-move-menu";
 import {
   IconX,
   IconSearch,
@@ -848,24 +848,11 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                               {isAuthenticated && notebooks.length > 0 && (
                                 <>
                                   <DropdownLabel>Move to</DropdownLabel>
-                                  {note.notebookId && (
-                                    <DropdownItem
-                                      icon={<IconX size={12} />}
-                                      onClick={() => onMoveNote?.(note.id, null)}
-                                    >
-                                      Remove from notebook
-                                    </DropdownItem>
-                                  )}
-                                  {getSortedNotebookTree(notebooks, note.notebookId).map(({ notebook: nb, depth, isCurrent }) => (
-                                    <DropdownItem
-                                      key={nb.id}
-                                      icon={<span style={{ paddingLeft: depth * 12 }}>{isCurrent ? <IconX size={12} /> : <IconNotebook size={12} />}</span>}
-                                      onClick={() => isCurrent ? onMoveNote?.(note.id, null) : onMoveNote?.(note.id, nb.id)}
-                                      className={isCurrent ? "opacity-50" : ""}
-                                    >
-                                      <span style={{ paddingLeft: depth * 12 }} className={isCurrent ? "text-[var(--color-text-tertiary)]" : ""}>{nb.name}</span>
-                                    </DropdownItem>
-                                  ))}
+                                  <NotebookMoveMenu
+                                    notebooks={notebooks}
+                                    currentNotebookId={note.notebookId}
+                                    onMove={(notebookId) => onMoveNote?.(note.id, notebookId)}
+                                  />
                                   <DropdownSeparator />
                                 </>
                               )}
