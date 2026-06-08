@@ -28,7 +28,9 @@ import {
   IconPrinter,
   IconSelector,
 } from "@tabler/icons-react";
-import { Dropdown, DropdownItem, DropdownSeparator, DropdownLabel } from "@/components/ds/dropdown";
+import { Dropdown, DropdownItem, DropdownSeparator } from "@/components/ds/dropdown";
+import NotebookMoveMenu from "@/components/notebook-move-menu";
+import { assignNoteToNotebook } from "@/app/actions/notebookActions";
 import { Modal, ConfirmModal } from "@/components/ds/modal";
 import VersionHistoryPanel from "@/components/version-history-panel";
 import GoalSuggestionsModal from "@/components/goal-suggestions-modal";
@@ -579,41 +581,25 @@ function NoteEditor({
           >
             {isAuthenticated && notebooks.length > 0 && (
               <>
-                <DropdownLabel>Move to</DropdownLabel>
-                {note.notebookId && (
-                  <DropdownItem
-                    icon={<IconX size={14} />}
-                    onClick={() => {
-                      const { optimisticUpdateNote, recalculateNotebookCounts } = useNotesStore.getState();
-                      optimisticUpdateNote(note.id, { notebookId: null });
-                      recalculateNotebookCounts();
-                      import("@/app/actions/notebookActions").then(({ bulkAssignNotesToNotebook }) => {
-                        bulkAssignNotesToNotebook([note.id], null);
-                      });
-                    }}
-                  >
-                    Remove from notebook
-                  </DropdownItem>
-                )}
-                {notebooks
-                  .filter((nb) => nb.id !== note.notebookId)
-                  .map((nb) => (
-                    <DropdownItem
-                      key={nb.id}
-                      icon={<IconNotebook size={14} />}
-                      onClick={() => {
-                        const { optimisticUpdateNote, recalculateNotebookCounts } = useNotesStore.getState();
-                        optimisticUpdateNote(note.id, { notebookId: nb.id });
+                <NotebookMoveMenu
+                  notebooks={notebooks}
+                  currentNotebookId={note.notebookId}
+                  onMove={async (notebookId) => {
+                    if (notebookId === note.notebookId) return;
+                    const { optimisticUpdateNote, recalculateNotebookCounts } = useNotesStore.getState();
+                    optimisticUpdateNote(note.id, { notebookId });
+                    try {
+                      const result = await assignNoteToNotebook(note.id, notebookId);
+                      if (result.success) {
                         recalculateNotebookCounts();
-                        import("@/app/actions/notebookActions").then(({ bulkAssignNotesToNotebook }) => {
-                          bulkAssignNotesToNotebook([note.id], nb.id);
-                        });
-                      }}
-                    >
-                      {nb.name}
-                    </DropdownItem>
-                  ))
-                }
+                      } else {
+                        optimisticUpdateNote(note.id, { notebookId: note.notebookId });
+                      }
+                    } catch {
+                      optimisticUpdateNote(note.id, { notebookId: note.notebookId });
+                    }
+                  }}
+                />
                 <DropdownSeparator />
               </>
             )}
