@@ -29,7 +29,6 @@ import {
   IconSelector,
   IconFileImport,
   IconMarkdown,
-  IconEye,
 } from "@tabler/icons-react";
 import { useToast } from "@/components/ui/toast";
 import { readImportableFiles, IMPORT_ACCEPT } from "@/utils/import-file";
@@ -611,6 +610,24 @@ function NoteEditor({
         </div>
 
         <div className="flex items-center">
+          <IconButton
+            label="Formatting help"
+            size="sm"
+            onClick={() => setShowHelp(true)}
+          >
+            <IconHelp size={14} />
+          </IconButton>
+
+          {isAuthenticated && (
+            <IconButton
+              label="Version history"
+              size="sm"
+              onClick={() => setShowVersions(true)}
+            >
+              <IconHistory size={14} />
+            </IconButton>
+          )}
+
           <input
             ref={fileInputRef}
             type="file"
@@ -630,37 +647,7 @@ function NoteEditor({
             <IconFileImport size={14} />
           </IconButton>
 
-          <IconButton
-            label="Formatting help"
-            size="sm"
-            onClick={() => setShowHelp(true)}
-          >
-            <IconHelp size={14} />
-          </IconButton>
-
-          {isAuthenticated && (
-            <IconButton
-              label="Version history"
-              size="sm"
-              onClick={() => setShowVersions(true)}
-            >
-              <IconHistory size={14} />
-            </IconButton>
-          )}
-
           <div className="w-px h-3 bg-[var(--color-border-secondary)] mx-0.5" />
-
-          <IconButton
-            label={viewMode === "rendered" ? "View markdown source" : "View formatted"}
-            size="sm"
-            onClick={toggleViewMode}
-          >
-            {viewMode === "rendered" ? (
-              <IconMarkdown size={14} />
-            ) : (
-              <IconEye size={14} />
-            )}
-          </IconButton>
 
           <span className="hidden md:inline-flex">
             <IconButton
@@ -695,6 +682,15 @@ function NoteEditor({
               </IconButton>
             </span>
           )}
+
+          <IconButton
+            label={viewMode === "rendered" ? "View markdown source" : "View formatted"}
+            size="sm"
+            onClick={toggleViewMode}
+            className={viewMode === "source" ? "text-[var(--color-accent)]" : undefined}
+          >
+            <IconMarkdown size={14} />
+          </IconButton>
 
           <div className="w-px h-3 bg-[var(--color-border-secondary)] mx-0.5" />
 
