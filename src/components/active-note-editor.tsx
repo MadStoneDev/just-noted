@@ -27,7 +27,13 @@ import {
   IconX,
   IconPrinter,
   IconSelector,
+  IconFileImport,
+  IconMarkdown,
+  IconEye,
 } from "@tabler/icons-react";
+import { useToast } from "@/components/ui/toast";
+import { readImportableFiles, IMPORT_ACCEPT } from "@/utils/import-file";
+import { htmlToMarkdown } from "@/utils/html-to-markdown";
 import { Dropdown, DropdownItem, DropdownSeparator } from "@/components/ds/dropdown";
 import NotebookMoveMenu from "@/components/notebook-move-menu";
 import { assignNoteToNotebook } from "@/app/actions/notebookActions";
@@ -359,9 +365,16 @@ function NoteEditor({
   const [showGoalSuggestions, setShowGoalSuggestions] = useState(false);
   const lastVersionRef = useRef<number>(0);
   const [goalInput, setGoalInput] = useState(String(note.goal || ""));
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [editorRemountKey, setEditorRemountKey] = useState(0);
+  const [viewMode, setViewMode] = useState<"rendered" | "source">("rendered");
 
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const lastSavedContentRef = useRef(note.content);
+  const toast = useToast();
 
   const noteSource = note.source;
   const notebooks = useNotebooks();
@@ -457,6 +470,131 @@ function NoteEditor({
     [goalInput, note.id, content, notesOperations],
   );
 
+  const isNoteEmpty = !content || content.trim() === "";
+
+  // Toggle between the rendered (Milkdown) editor and a raw markdown textarea.
+  const toggleViewMode = useCallback(() => {
+    setViewMode((prev) => {
+      if (prev === "rendered") {
+        // Entering source: show markdown, never stored HTML from legacy notes.
+        if (
+          contentFormat !== "markdown" &&
+          /<[a-z][\s\S]*>/i.test(content.trim())
+        ) {
+          setContent(htmlToMarkdown(content));
+          setContentFormat("markdown");
+        }
+        return "source";
+      }
+      // Returning to rendered: remount the editor with the edited source.
+      setEditorRemountKey((k) => k + 1);
+      return "rendered";
+    });
+  }, [content, contentFormat]);
+
+  const handleImportFiles = useCallback(
+    async (files: FileList | File[]) => {
+      setIsImporting(true);
+      try {
+        const { imported, rejected } = await readImportableFiles(files);
+
+        if (imported.length === 0) {
+          toast.showError(
+            rejected.length
+              ? "Only .txt and .md files under 2 MB can be opened."
+              : "No files to open.",
+          );
+          return;
+        }
+
+        // Fill the current note in place only when it's empty; otherwise every
+        // imported file becomes its own new note (never overwrite existing text).
+        const fillCurrent = !content || content.trim() === "";
+        let startIdx = 0;
+
+        if (fillCurrent) {
+          const first = imported[0];
+          startIdx = 1;
+          if (first.title && first.title !== note.title) {
+            setTitle(first.title);
+            notesOperations.saveNoteTitle?.(note.id, first.title);
+          }
+          setContent(first.content);
+          setContentFormat("markdown");
+          await saveContent(first.content);
+          // Editor reads content only on mount — remount it to show the import.
+          setEditorRemountKey((k) => k + 1);
+        }
+
+        for (let i = startIdx; i < imported.length; i++) {
+          await notesOperations.addNote(imported[i].content, imported[i].title);
+        }
+
+        const opened = imported.length;
+        const skipped = rejected.length
+          ? ` · ${rejected.length} skipped (only .txt/.md under 2 MB)`
+          : "";
+        toast.showSuccess(
+          `Opened ${opened} file${opened === 1 ? "" : "s"}${skipped}`,
+        );
+      } finally {
+        setIsImporting(false);
+      }
+    },
+    [content, note.id, note.title, notesOperations, saveContent, toast],
+  );
+
+  // Native, capture-phase drag listeners so file drops are handled here and
+  // never reach ProseMirror's own drop handling.
+  const handleImportRef = useRef(handleImportFiles);
+  handleImportRef.current = handleImportFiles;
+
+  useEffect(() => {
+    const el = dropZoneRef.current;
+    if (!el) return;
+
+    const hasFiles = (e: DragEvent) =>
+      Array.from(e.dataTransfer?.types || []).includes("Files");
+
+    const onDragEnter = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      setIsDraggingFile(true);
+    };
+    const onDragOver = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+      setIsDraggingFile(true);
+    };
+    const onDragLeave = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      const related = e.relatedTarget as Node | null;
+      if (related && el.contains(related)) return; // moved within the zone
+      setIsDraggingFile(false);
+    };
+    const onDrop = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDraggingFile(false);
+      if (e.dataTransfer?.files?.length) {
+        handleImportRef.current(e.dataTransfer.files);
+      }
+    };
+
+    el.addEventListener("dragenter", onDragEnter, true);
+    el.addEventListener("dragover", onDragOver, true);
+    el.addEventListener("dragleave", onDragLeave, true);
+    el.addEventListener("drop", onDrop, true);
+    return () => {
+      el.removeEventListener("dragenter", onDragEnter, true);
+      el.removeEventListener("dragover", onDragOver, true);
+      el.removeEventListener("dragleave", onDragLeave, true);
+      el.removeEventListener("drop", onDrop, true);
+    };
+  }, []);
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Minimal toolbar */}
@@ -473,6 +611,25 @@ function NoteEditor({
         </div>
 
         <div className="flex items-center">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={IMPORT_ACCEPT}
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files?.length) handleImportFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
+          <IconButton
+            label="Open a .txt or .md file"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <IconFileImport size={14} />
+          </IconButton>
+
           <IconButton
             label="Formatting help"
             size="sm"
@@ -492,6 +649,18 @@ function NoteEditor({
           )}
 
           <div className="w-px h-3 bg-[var(--color-border-secondary)] mx-0.5" />
+
+          <IconButton
+            label={viewMode === "rendered" ? "View markdown source" : "View formatted"}
+            size="sm"
+            onClick={toggleViewMode}
+          >
+            {viewMode === "rendered" ? (
+              <IconMarkdown size={14} />
+            ) : (
+              <IconEye size={14} />
+            )}
+          </IconButton>
 
           <span className="hidden md:inline-flex">
             <IconButton
@@ -630,7 +799,7 @@ function NoteEditor({
 
       {/* Editor area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin">
-        <div className={`mx-auto px-4 md:px-8 py-6 transition-[max-width] duration-[var(--duration-slow)] ${wideMode ? "max-w-none" : "max-w-[var(--content-width)]"}`}>
+        <div className={`mx-auto px-4 md:px-8 py-6 min-h-full flex flex-col transition-[max-width] duration-[var(--duration-slow)] ${wideMode ? "max-w-none" : "max-w-[var(--content-width)]"}`}>
           {/* Title */}
           <input
             ref={titleInputRef}
@@ -750,15 +919,50 @@ function NoteEditor({
             </div>
           )}
 
-          {/* Content editor */}
-          <LazyTextBlock
-            noteId={note.id}
-            value={content}
-            contentFormat={contentFormat}
-            onChange={handleContentChange}
-            distractionFreeMode
-            placeholder="Start writing..."
-          />
+          {/* Content editor — grows to fill the remaining height */}
+          <div ref={dropZoneRef} className="jn-droppable relative flex-1 flex flex-col">
+            {isDraggingFile && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none rounded-[var(--radius-lg)] border-2 border-dashed border-[var(--color-accent)] bg-[var(--color-accent-subtle)]">
+                <div className="flex flex-col items-center gap-1.5 text-[var(--color-accent)]">
+                  <IconFileImport size={26} />
+                  <span className="text-sm font-medium">
+                    {isNoteEmpty
+                      ? "Drop to open in this note"
+                      : "Drop to open as a new note"}
+                  </span>
+                  <span className="text-[11px] opacity-70">.txt or .md</span>
+                </div>
+              </div>
+            )}
+            {isImporting && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center rounded-[var(--radius-lg)] bg-[var(--color-bg-primary)]/70 backdrop-blur-[1px]">
+                <div className="flex items-center gap-2 text-[var(--color-text-secondary)]">
+                  <span className="size-4 rounded-full border-2 border-[var(--color-border-primary)] border-t-[var(--color-accent)] animate-spin" />
+                  <span className="text-sm font-medium">Opening file…</span>
+                </div>
+              </div>
+            )}
+            {viewMode === "source" ? (
+              <textarea
+                value={content}
+                onChange={(e) => handleContentChange(e.target.value)}
+                spellCheck={false}
+                placeholder="# Markdown source"
+                className="flex-1 w-full resize-none bg-transparent border-none outline-none font-mono text-sm leading-relaxed text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]"
+              />
+            ) : (
+              <LazyTextBlock
+                key={`${note.id}-${editorRemountKey}`}
+                noteId={note.id}
+                value={content}
+                contentFormat={contentFormat}
+                onChange={handleContentChange}
+                distractionFreeMode
+                placeholder="Start writing..."
+                className="flex-1 flex flex-col overflow-visible"
+              />
+            )}
+          </div>
         </div>
       </div>
 

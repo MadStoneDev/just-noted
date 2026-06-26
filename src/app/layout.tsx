@@ -7,6 +7,7 @@ import React, { ReactNode } from "react";
 import LogRocket from "@/components/providers/logrocket-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import { ConsentBanner } from "@/components/ui/consent-banner";
+import PreventFileDropNavigation from "@/components/providers/prevent-file-drop";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -63,6 +64,7 @@ export default function RootLayout({
       >
         <LogRocket>
           <ToastProvider>
+            <PreventFileDropNavigation />
 
             {children}
 

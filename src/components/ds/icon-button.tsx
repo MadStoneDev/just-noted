@@ -36,6 +36,7 @@ const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
           className,
         )}
         aria-label={label}
+        title={label}
         {...props}
       >
         {children}

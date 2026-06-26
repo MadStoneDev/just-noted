@@ -109,7 +109,7 @@ export function DropdownItem({
 
 export function DropdownSeparator() {
   return (
-    <div className="my-1 h-px bg-[var(--color-border-secondary)]" role="separator" />
+    <div className="my-1 h-px bg-[var(--color-border-primary)]" role="separator" />
   );
 }
 

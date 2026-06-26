@@ -614,6 +614,33 @@ summary {
   left: 0;
 }
 
+/* Make the droppable editor fill all remaining height so clicking anywhere
+   below the text focuses the editor and the drop overlay spans the full area. */
+.jn-droppable .milkdown,
+.jn-droppable .milkdown [data-milkdown-root] {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.jn-droppable .milkdown .ProseMirror {
+  flex: 1 1 auto;
+}
+
+/* Secondary import hint — only in the droppable main editor */
+.jn-droppable .milkdown .ProseMirror > p:only-child:has(> br:only-child)::after {
+  content: "or drop a .txt or .md file here to open it";
+  color: var(--color-text-tertiary);
+  opacity: 0.3;
+  font-size: 0.8em;
+  pointer-events: none;
+  position: absolute;
+  top: 1.7em;
+  left: 0;
+  white-space: nowrap;
+}
+
 /* Readonly mode */
 [data-readonly] .ProseMirror {
   cursor: default;
