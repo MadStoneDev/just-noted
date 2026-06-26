@@ -17,7 +17,6 @@ import {
   IconTrash,
   IconDots,
   IconSquareRoundedPlus,
-  IconViewportNarrow,
   IconViewportWide,
   IconLayoutColumns,
   IconShare,
@@ -33,6 +32,13 @@ import {
 import { useToast } from "@/components/ui/toast";
 import { readImportableFiles, IMPORT_ACCEPT } from "@/utils/import-file";
 import { htmlToMarkdown } from "@/utils/html-to-markdown";
+import {
+  readWideDefault,
+  readWideOverride,
+  writeWideDefault,
+  writeWideOverride,
+  type WideLevel,
+} from "@/utils/wide-view";
 import { Dropdown, DropdownItem, DropdownSeparator } from "@/components/ds/dropdown";
 import NotebookMoveMenu from "@/components/notebook-move-menu";
 import { assignNoteToNotebook } from "@/app/actions/notebookActions";
@@ -355,7 +361,10 @@ function NoteEditor({
   const [content, setContent] = useState(note.content);
   const [contentFormat, setContentFormat] = useState(note.contentFormat || "html");
   const [isSaving, setIsSaving] = useState(false);
-  const [wideMode, setWideMode] = useState(false);
+  // Wide view: global default + per-note override (read once on mount; the
+  // component is keyed by note.id so this re-reads per note).
+  const [wideDefault, setWideDefault] = useState(() => readWideDefault());
+  const [noteWide, setNoteWide] = useState(() => readWideOverride(note.id));
   const [showPagePicker, setShowPagePicker] = useState(false);
   const [showGoalPicker, setShowGoalPicker] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -470,6 +479,33 @@ function NoteEditor({
   );
 
   const isNoteEmpty = !content || content.trim() === "";
+
+  const isWide = wideDefault || noteWide;
+  const wideLevel: WideLevel = wideDefault ? "all" : noteWide ? "one" : "off";
+  const wideTooltip =
+    wideLevel === "all"
+      ? "Wide view: all notes (click to turn off)"
+      : wideLevel === "one"
+        ? "Wide view: this note (click for all notes)"
+        : "Wide view: off (click to widen this note)";
+
+  // Cycle: off -> this note -> all notes -> off. Turning everything off also
+  // clears this note's override so it lands genuinely off; other notes' overrides
+  // are preserved (ignored while "all" is on, restored when it turns off).
+  const cycleWide = useCallback(() => {
+    if (wideDefault) {
+      writeWideDefault(false);
+      writeWideOverride(note.id, false);
+      setWideDefault(false);
+      setNoteWide(false);
+    } else if (noteWide) {
+      writeWideDefault(true);
+      setWideDefault(true);
+    } else {
+      writeWideOverride(note.id, true);
+      setNoteWide(true);
+    }
+  }, [wideDefault, noteWide, note.id]);
 
   // Toggle between the rendered (Milkdown) editor and a raw markdown textarea.
   const toggleViewMode = useCallback(() => {
@@ -650,13 +686,22 @@ function NoteEditor({
           <div className="w-px h-3 bg-[var(--color-border-secondary)] mx-0.5" />
 
           <span className="hidden md:inline-flex">
-            <IconButton
-              label={wideMode ? "Narrow view" : "Wide view"}
-              size="sm"
-              onClick={() => setWideMode((w) => !w)}
+            <button
+              type="button"
+              onClick={cycleWide}
+              title={wideTooltip}
+              aria-label={wideTooltip}
+              className={`inline-flex items-center justify-center gap-1 h-8 rounded-[var(--radius-md)] transition-colors duration-[var(--duration-fast)] outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-border-focus)] cursor-pointer hover:bg-[var(--color-hover)] [&_svg]:size-4 ${
+                isWide
+                  ? "text-[var(--color-accent)]"
+                  : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+              } ${wideLevel === "all" ? "px-2" : "w-8"}`}
             >
-              {wideMode ? <IconViewportNarrow size={14} /> : <IconViewportWide size={14} />}
-            </IconButton>
+              <IconViewportWide size={14} />
+              {wideLevel === "all" && (
+                <span className="text-[11px] font-medium leading-none">All</span>
+              )}
+            </button>
           </span>
 
           {onChangeSplitNote && (
@@ -795,7 +840,7 @@ function NoteEditor({
 
       {/* Editor area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin">
-        <div className={`mx-auto px-4 md:px-8 py-6 min-h-full flex flex-col transition-[max-width] duration-[var(--duration-slow)] ${wideMode ? "max-w-none" : "max-w-[var(--content-width)]"}`}>
+        <div className={`mx-auto px-4 md:px-8 py-6 min-h-full flex flex-col transition-[max-width] duration-[var(--duration-slow)] ${isWide ? "max-w-none" : "max-w-[var(--content-width)]"}`}>
           {/* Title */}
           <input
             ref={titleInputRef}
