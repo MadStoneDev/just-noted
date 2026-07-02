@@ -600,9 +600,6 @@ export function useNotesOperations(
       if (!targetNote) return;
 
       const activeNotes = notes.filter((n) => !n.deletedAt);
-      if (activeNotes.length <= 1) {
-        return;
-      }
 
       const { setRecentlyDeleted, clearRecentlyDeleted } = useNotesStore.getState();
 
