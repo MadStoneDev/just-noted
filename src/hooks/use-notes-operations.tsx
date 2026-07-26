@@ -624,10 +624,18 @@ export function useNotesOperations(
       const timeoutId = setTimeout(async () => {
         // Actually delete from backend after timeout
         try {
-          if (targetNote.source === "redis") {
-            await noteOperation("redis", { operation: "delete", userId, noteId });
+          const result =
+            targetNote.source === "redis"
+              ? await noteOperation("redis", { operation: "delete", userId, noteId })
+              : await deleteSupabaseNote(noteId);
+
+          if (result?.success) {
+            // Server delete confirmed — drop the IDB tombstone so it can't linger
+            deleteLocalNote(noteId).catch(() => {});
           } else {
-            await deleteSupabaseNote(noteId);
+            // Server reported failure without throwing — queue for retry
+            console.error("Delete returned failure, queuing for retry:", (result as { error?: string })?.error);
+            enqueue({ type: "delete", noteId, source: targetNote.source, userId });
           }
         } catch (error) {
           console.error("Failed to delete note, queuing for retry:", error);
@@ -718,11 +726,21 @@ export function useNotesOperations(
           result = await updateSupabaseNote(noteId, content, goal, goalType);
         }
 
-        // Clear error on success, set on failure
+        // Clear error on success; on a non-throwing failure, flag it AND
+        // queue for retry so the edit isn't lost to a later refresh.
         if (result.success) {
           setSaveError(noteId, false);
         } else {
           setSaveError(noteId, true);
+          enqueue({
+            type: "update",
+            noteId,
+            source: targetNote.source,
+            userId,
+            content,
+            goal,
+            goalType,
+          });
         }
 
         return result;
@@ -778,6 +796,17 @@ export function useNotesOperations(
           });
         } else {
           result = await updateSupabaseNoteTitle(noteId, title);
+        }
+
+        // Queue for retry on a non-throwing server failure so the rename sticks
+        if (!result?.success) {
+          enqueue({
+            type: "updateTitle",
+            noteId,
+            source: targetNote.source,
+            userId,
+            title,
+          });
         }
 
         return result;

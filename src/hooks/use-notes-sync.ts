@@ -267,7 +267,10 @@ export function useNotesSync() {
         recalculateNotebookCounts();
         markUpdated();
         lastUpdateTimestamp.current = Date.now();
-        saveAllNotesToLocal(sortedNotes).catch(() => {});
+        // Persist the merged store result (not the raw server list) so an
+        // in-flight local edit preserved by mergeWithBackend isn't clobbered
+        // in the cache by stale server content.
+        saveAllNotesToLocal(useNotesStore.getState().notes).catch(() => {});
       }
     } catch (error) {
       console.error("Failed to refresh notes:", error);
