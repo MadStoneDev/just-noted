@@ -609,6 +609,7 @@ async function handleSupabaseOperation(params: NoteOperationParams) {
           .from("notes")
           .select("*")
           .eq("author", userId)
+          .is("deleted_at", null)
           .order("is_pinned", { ascending: false })
           .order("order", { ascending: true })
           .order("created_at", { ascending: false });

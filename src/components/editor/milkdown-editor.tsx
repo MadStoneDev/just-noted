@@ -32,7 +32,7 @@ const codeBlockEscape = $prose(() =>
       // If code block is at the end of the document, insert a paragraph after it
       if (afterPos >= state.doc.content.size && dispatch) {
         const tr = state.tr.insert(afterPos, state.schema.nodes.paragraph.create());
-        dispatch(tr.setSelection(tr.selection.constructor.near(tr.doc.resolve(afterPos + 1)) as any));
+        dispatch(tr.setSelection((tr.selection.constructor as any).near(tr.doc.resolve(afterPos + 1))));
         return true;
       }
       return false;
@@ -47,7 +47,7 @@ const codeBlockEscape = $prose(() =>
       // If code block is at the start of the document, insert a paragraph before it
       if (beforePos === 0 && dispatch) {
         const tr = state.tr.insert(0, state.schema.nodes.paragraph.create());
-        dispatch(tr.setSelection(tr.selection.constructor.near(tr.doc.resolve(1)) as any));
+        dispatch(tr.setSelection((tr.selection.constructor as any).near(tr.doc.resolve(1))));
         return true;
       }
       return false;
@@ -134,7 +134,7 @@ function MilkdownEditorInner({
           listItemIndent: "one",
         });
         ctx.set(indentConfig.key, {
-          type: "space",
+          type: "space" as const,
           size: 2,
         });
 

@@ -154,6 +154,7 @@ export type Database = {
           content_html_backup: string | null
           created_at: string
           updated_at: string | null
+          deleted_at: string | null
         }
         Insert: {
           id?: string
@@ -171,6 +172,7 @@ export type Database = {
           content_html_backup?: string | null
           created_at?: string
           updated_at?: string | null
+          deleted_at?: string | null
         }
         Update: {
           id?: string
@@ -188,6 +190,7 @@ export type Database = {
           content_html_backup?: string | null
           created_at?: string
           updated_at?: string | null
+          deleted_at?: string | null
         }
         Relationships: [
           {

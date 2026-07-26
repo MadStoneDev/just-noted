@@ -7,10 +7,10 @@ const nextConfig: NextConfig = {
   // If you have webpack configuration, merge with this:
   turbopack: {},
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
 };
 

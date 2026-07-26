@@ -138,6 +138,7 @@ export function supabaseToCombi(note: SupabaseNote): CombinedNote {
     source: "supabase",
     notebookId: note.notebook_id ?? null,
     contentFormat: (note.content_format as ContentFormat) || "html",
+    deletedAt: note.deleted_at ? new Date(note.deleted_at).getTime() : null,
   };
 }
 

@@ -18,7 +18,9 @@ export default function TagPicker({ noteId }: TagPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState("");
-  const [newColor, setNewColor] = useState(TAG_COLORS[6]);
+  const [newColor, setNewColor] = useState<(typeof TAG_COLORS)[number]>(
+    TAG_COLORS[6],
+  );
   const menuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 

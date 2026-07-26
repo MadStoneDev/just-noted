@@ -140,6 +140,7 @@ export const getNoteById = async (noteId: string) => {
       .select("*")
       .eq("id", noteId)
       .eq("author", userId)
+      .is("deleted_at", null)
       .single();
 
     if (error) {
@@ -166,6 +167,7 @@ export const getNotesByUserId = async () => {
       .from("notes")
       .select("*")
       .eq("author", userId)
+      .is("deleted_at", null)
       .order("is_pinned", { ascending: false })
       .order("order", { ascending: true })
       .order("created_at", { ascending: false });

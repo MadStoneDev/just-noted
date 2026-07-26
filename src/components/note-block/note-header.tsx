@@ -182,7 +182,7 @@ export default function NoteHeader({
 
       {/* ADD: New note indicator */}
       {isNewNote && hasPinnedNotes && (
-        <div className="mb-2 px-3 py-2 bg-[var(--color-accent-subtle)] border border-blue-200 rounded-[var(--radius-lg)] text-sm text-[var(--color-info)] flex items-center gap-2">
+        <div className="mb-2 px-3 py-2 bg-[var(--color-accent-subtle)] border border-[var(--color-accent)] rounded-[var(--radius-lg)] text-sm text-[var(--color-info)] flex items-center gap-2">
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
             <path
               fillRule="evenodd"

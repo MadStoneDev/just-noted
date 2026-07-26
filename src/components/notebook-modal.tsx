@@ -330,7 +330,7 @@ export default function NotebookModal({
                           type="button"
                           onClick={handleDelete}
                           disabled={isDeleting}
-                          className="px-3 py-1 text-sm bg-[var(--color-danger-subtle)]0 text-white rounded-[var(--radius-lg)] hover:bg-[var(--color-danger)] disabled:opacity-50"
+                          className="px-3 py-1 text-sm bg-[var(--color-danger)] text-white rounded-[var(--radius-lg)] hover:opacity-90 disabled:opacity-50"
                         >
                           {isDeleting ? (
                             <IconLoader2 size={14} className="animate-spin" />

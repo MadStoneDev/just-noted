@@ -2,6 +2,7 @@ import React, { useCallback, useState, useRef, useEffect } from "react";
 import { IconDotsVertical, IconHistory, IconPrinter, IconTrash } from "@tabler/icons-react";
 import ExportMenu from "@/components/ui/export-menu";
 import TransferButton from "./sub-components/transfer-button";
+import MoveToNotebookButton from "./sub-components/move-to-notebook-button";
 import NotebookMoveMenu from "@/components/notebook-move-menu";
 import SaveButton from "./sub-components/save-button";
 import DeleteButton from "@/components/delete-button";
