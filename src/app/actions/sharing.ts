@@ -505,7 +505,11 @@ export async function sharingOperation(params: SharingOperationParams) {
           authorInfo = await fetchAuthorInfo(serviceClient, noteResult.note.author);
         }
 
-        viewClient.rpc("increment_view_count", { shortcode_param: shortcode });
+        // Fire-and-forget, but await so the promise can't reject unhandled and
+        // the increment actually persists before the response returns.
+        await viewClient
+          .rpc("increment_view_count", { shortcode_param: shortcode })
+          .then(undefined, (e: unknown) => console.error("increment_view_count failed:", e));
 
         return {
           success: true,

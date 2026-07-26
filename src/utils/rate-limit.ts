@@ -20,52 +20,36 @@ export async function checkRateLimit(
 ): Promise<RateLimitResult> {
   const key = `${RATE_LIMIT_PREFIX}${feature}:${userId}`;
   const now = Date.now();
+  const windowSec = Math.ceil(windowMs / 1000);
   const resetAt = now + windowMs;
 
   try {
-    // Get current count and TTL
-    const [count, ttl] = await Promise.all([
-      redis.get<number>(key),
-      redis.ttl(key),
-    ]);
-
-    // If no record exists, create one
-    if (count === null) {
-      await redis.setex(key, Math.ceil(windowMs / 1000), 1);
-      return {
-        allowed: true,
-        remaining: limit - 1,
-        resetAt,
-      };
+    // Atomic increment: INCR returns the new value and never races the way a
+    // separate GET+INCR would. Set the TTL only on the first hit of the window.
+    const count = await redis.incr(key);
+    if (count === 1) {
+      await redis.expire(key, windowSec);
     }
 
-    // Check if limit exceeded
-    if (count >= limit) {
-      // Calculate actual reset time based on TTL
-      const actualResetAt = ttl > 0 ? now + ttl * 1000 : resetAt;
-      return {
-        allowed: false,
-        remaining: 0,
-        resetAt: actualResetAt,
-      };
-    }
-
-    // Increment count
-    await redis.incr(key);
+    const ttl = await redis.ttl(key);
     const actualResetAt = ttl > 0 ? now + ttl * 1000 : resetAt;
+
+    if (count > limit) {
+      return { allowed: false, remaining: 0, resetAt: actualResetAt };
+    }
 
     return {
       allowed: true,
-      remaining: limit - count - 1,
+      remaining: Math.max(0, limit - count),
       resetAt: actualResetAt,
     };
   } catch (error) {
     console.error("Rate limit check failed:", error);
-    // On Redis error, allow the request but log the issue
-    // This prevents Redis outages from blocking all requests
+    // Fail CLOSED: these limits guard expensive paid (AI) calls, so a Redis
+    // outage must not become an unlimited-spend hole. Block rather than allow.
     return {
-      allowed: true,
-      remaining: limit,
+      allowed: false,
+      remaining: 0,
       resetAt,
     };
   }

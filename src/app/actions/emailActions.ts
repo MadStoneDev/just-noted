@@ -1,6 +1,8 @@
 "use server";
 
 import { z } from "zod";
+import { headers } from "next/headers";
+import { checkRateLimit } from "@/utils/rate-limit";
 
 // ===========================
 // VALIDATION SCHEMA
@@ -160,6 +162,21 @@ function escapeHtml(text: string): string {
 
 export async function submitContactForm(formData: FormData) {
   try {
+    // 0. Rate limit per IP so the endpoint can't be used as an email-spam relay
+    //    (reCAPTCHA v3 is score-based, not a hard block).
+    const hdrs = await headers();
+    const ip =
+      (hdrs.get("x-forwarded-for") || "").split(",")[0].trim() ||
+      hdrs.get("x-real-ip") ||
+      "unknown";
+    const rl = await checkRateLimit(ip, "contact", 5, 60 * 60 * 1000);
+    if (!rl.allowed) {
+      return {
+        success: false,
+        error: "Too many requests. Please try again later.",
+      };
+    }
+
     // 1. Validate form data
     const validatedData = FormSchema.parse(formData);
 
@@ -170,9 +187,10 @@ export async function submitContactForm(formData: FormData) {
     }
 
     // 3. Check API key
-    const apiKey = process.env.RESEND_API_KEY;
+    // Accept either RESEND_API_KEY or the shorter RESEND env var name.
+    const apiKey = process.env.RESEND_API_KEY || process.env.RESEND;
     if (!apiKey) {
-      console.error("RESEND_API_KEY is missing");
+      console.error("RESEND_API_KEY / RESEND is missing");
       return { success: false, error: getRandomErrorMessage() };
     }
 
@@ -297,7 +315,10 @@ async function verifyRecaptcha(
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: `secret=${recaptchaSecret}&response=${token}`,
+        body: new URLSearchParams({
+          secret: recaptchaSecret,
+          response: token ?? "",
+        }).toString(),
       },
     );
 

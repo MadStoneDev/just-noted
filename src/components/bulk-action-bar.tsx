@@ -31,7 +31,7 @@ export default function BulkActionBar({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const { notebooks, optimisticUpdateNote, recalculateNotebookCounts } =
+  const { notebooks, notes, optimisticUpdateNote, recalculateNotebookCounts } =
     useNotesStore();
 
   const count = selectedNoteIds.size;
@@ -52,7 +52,18 @@ export default function BulkActionBar({
     setShowMoveMenu(false);
 
     const noteIds = Array.from(selectedNoteIds);
+    // Snapshot prior notebook assignment per note so we can roll back on failure.
+    const prevNotebookIds = new Map(
+      noteIds.map((id) => [id, notes.find((n) => n.id === id)?.notebookId ?? null]),
+    );
     noteIds.forEach((id) => optimisticUpdateNote(id, { notebookId }));
+
+    const rollback = () => {
+      noteIds.forEach((id) =>
+        optimisticUpdateNote(id, { notebookId: prevNotebookIds.get(id) ?? null }),
+      );
+      recalculateNotebookCounts();
+    };
 
     try {
       const result = await bulkAssignNotesToNotebook(noteIds, notebookId);
@@ -60,7 +71,12 @@ export default function BulkActionBar({
         recalculateNotebookCounts();
         onAssignComplete();
         onClearSelection();
+      } else {
+        rollback();
       }
+    } catch (error) {
+      console.error("Bulk assign failed:", error);
+      rollback();
     } finally {
       setIsAssigning(false);
     }
@@ -105,7 +121,7 @@ export default function BulkActionBar({
             </button>
 
             {showMoveMenu && (
-              <div className="absolute bottom-full right-0 mb-1 bg-[var(--color-bg-elevated)] rounded-[var(--radius-md)] shadow-[var(--shadow-lg)] border border-[var(--color-border-primary)] min-w-[160px] max-w-[calc(100vw-2rem)] overflow-hidden z-50">
+              <div className="fixed bottom-14 left-2 right-2 sm:absolute sm:bottom-full sm:left-auto sm:right-0 sm:w-auto mb-1 bg-[var(--color-bg-elevated)] rounded-[var(--radius-md)] shadow-[var(--shadow-lg)] border border-[var(--color-border-primary)] min-w-[160px] overflow-hidden z-50">
                 <NotebookMoveMenu
                   notebooks={notebooks}
                   onMove={handleAssign}

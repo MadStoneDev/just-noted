@@ -2,7 +2,7 @@
 
 import { useState, useRef, FormEvent } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
-import { submitContactForm } from "@/app/actions/contactActions";
+import { submitContactForm } from "@/app/actions/emailActions";
 
 export default function ContactForm() {
   const [formData, setFormData] = useState({ name: "", email: "", message: "" });

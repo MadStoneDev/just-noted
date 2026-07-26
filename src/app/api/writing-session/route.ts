@@ -15,11 +15,21 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { wordsWritten, durationSeconds } = body;
 
-    if (typeof wordsWritten !== "number" || typeof durationSeconds !== "number") {
+    if (
+      typeof wordsWritten !== "number" ||
+      typeof durationSeconds !== "number" ||
+      !Number.isFinite(wordsWritten) ||
+      !Number.isFinite(durationSeconds)
+    ) {
       return Response.json({ error: "Invalid data" }, { status: 400 });
     }
 
-    if (wordsWritten === 0 && durationSeconds === 0) {
+    // Clamp to sane, non-negative bounds so a crafted request can't corrupt
+    // the user's aggregated stats (applies to both insert and update paths).
+    const safeWords = Math.min(Math.max(0, Math.floor(wordsWritten)), 1_000_000);
+    const safeDuration = Math.min(Math.max(0, Math.floor(durationSeconds)), 86_400);
+
+    if (safeWords === 0 && safeDuration === 0) {
       return Response.json({ success: true });
     }
 
@@ -36,8 +46,8 @@ export async function POST(request: Request) {
       await supabase
         .from("writing_sessions")
         .update({
-          words_written: existing.words_written + wordsWritten,
-          duration_seconds: existing.duration_seconds + durationSeconds,
+          words_written: Math.max(0, existing.words_written + safeWords),
+          duration_seconds: Math.max(0, existing.duration_seconds + safeDuration),
           updated_at: new Date().toISOString(),
         })
         .eq("id", existing.id);
@@ -45,8 +55,8 @@ export async function POST(request: Request) {
       await supabase.from("writing_sessions").insert({
         user_id: user.id,
         date: today,
-        words_written: Math.max(0, wordsWritten),
-        duration_seconds: Math.max(0, durationSeconds),
+        words_written: safeWords,
+        duration_seconds: safeDuration,
       });
     }
 

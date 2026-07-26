@@ -72,7 +72,7 @@ export async function updateTag(
   updates: { name?: string; color?: string },
 ): Promise<{ success: boolean; tag?: Tag; error?: string }> {
   try {
-    const { supabase } = await getAuthenticatedUser();
+    const { supabase, userId } = await getAuthenticatedUser();
     const updateData: Record<string, string> = {};
     if (updates.name !== undefined) {
       const name = updates.name.trim();
@@ -89,6 +89,7 @@ export async function updateTag(
       .from("tags")
       .update(updateData)
       .eq("id", id)
+      .eq("owner", userId)
       .select()
       .single();
 
@@ -108,8 +109,12 @@ export async function deleteTag(
   id: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { supabase } = await getAuthenticatedUser();
-    const { error } = await supabase.from("tags").delete().eq("id", id);
+    const { supabase, userId } = await getAuthenticatedUser();
+    const { error } = await supabase
+      .from("tags")
+      .delete()
+      .eq("id", id)
+      .eq("owner", userId);
     if (error) throw error;
     return { success: true };
   } catch (err: any) {
@@ -117,12 +122,32 @@ export async function deleteTag(
   }
 }
 
+/**
+ * Verify both the tag and the note belong to the caller before linking them.
+ * Defends against IDOR if RLS on note_tags is ever misapplied.
+ */
+async function assertOwnsTagAndNote(
+  supabase: Awaited<ReturnType<typeof getAuthenticatedUser>>["supabase"],
+  userId: string,
+  noteId: string,
+  tagId: string,
+): Promise<boolean> {
+  const [{ data: tag }, { data: note }] = await Promise.all([
+    supabase.from("tags").select("id").eq("id", tagId).eq("owner", userId).maybeSingle(),
+    supabase.from("notes").select("id").eq("id", noteId).eq("author", userId).maybeSingle(),
+  ]);
+  return !!tag && !!note;
+}
+
 export async function assignTagToNote(
   noteId: string,
   tagId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { supabase } = await getAuthenticatedUser();
+    const { supabase, userId } = await getAuthenticatedUser();
+    if (!(await assertOwnsTagAndNote(supabase, userId, noteId, tagId))) {
+      return { success: false, error: "Not found" };
+    }
     const { error } = await supabase
       .from("note_tags")
       .upsert({ note_id: noteId, tag_id: tagId }, { onConflict: "note_id,tag_id" });
@@ -138,7 +163,10 @@ export async function removeTagFromNote(
   tagId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { supabase } = await getAuthenticatedUser();
+    const { supabase, userId } = await getAuthenticatedUser();
+    if (!(await assertOwnsTagAndNote(supabase, userId, noteId, tagId))) {
+      return { success: false, error: "Not found" };
+    }
     const { error } = await supabase
       .from("note_tags")
       .delete()

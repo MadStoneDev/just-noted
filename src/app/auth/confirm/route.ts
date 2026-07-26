@@ -8,21 +8,21 @@ import { redirect } from "next/navigation";
  * Validates that a redirect URL is safe (relative path only)
  * Prevents open redirect attacks
  */
+function isUnsafePath(url: string): boolean {
+  // Reject protocol-relative (//host) and backslash variants (\host, /\host)
+  // which browsers normalise to // and treat as protocol-relative.
+  if (!url.startsWith("/")) return true;
+  if (url.startsWith("//") || url.startsWith("/\\") || url.startsWith("\\")) return true;
+  if (url.includes("\\")) return true;
+  if (url.includes("://")) return true;
+  return false;
+}
+
 function isValidRedirectUrl(url: string): boolean {
-  // Must start with / and not // (protocol-relative URL)
-  if (!url.startsWith("/") || url.startsWith("//")) {
-    return false;
-  }
-  // Must not contain protocol specifiers
-  if (url.includes("://")) {
-    return false;
-  }
-  // Must not contain encoded characters that could bypass validation
+  if (isUnsafePath(url)) return false;
+  // Also validate the decoded form to catch encoded bypasses.
   try {
-    const decoded = decodeURIComponent(url);
-    if (decoded.startsWith("//") || decoded.includes("://")) {
-      return false;
-    }
+    if (isUnsafePath(decodeURIComponent(url))) return false;
   } catch {
     // If decoding fails, reject the URL
     return false;
