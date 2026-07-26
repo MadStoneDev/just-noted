@@ -3,22 +3,47 @@ import { createServiceRoleClient } from "@/utils/supabase/server";
 import { PaddleWebhookEvent, SubscriptionTier } from "@/types/subscription";
 import crypto from "crypto";
 
-// Verify Paddle webhook signature
+// Reject events whose timestamp is older than this (replay protection).
+const MAX_SIGNATURE_AGE_MS = 5 * 60 * 1000;
+
+// Verify a Paddle webhook signature.
+// Paddle sends `Paddle-Signature: ts=<unix>;h1=<hex>` where h1 = HMAC-SHA256
+// over `${ts}:${rawBody}`. See https://developer.paddle.com/webhooks/signature-verification
 function verifyWebhookSignature(
-  payload: string,
-  signature: string,
+  rawBody: string,
+  signatureHeader: string,
   secretKey: string
 ): boolean {
-  if (!secretKey) return false;
+  if (!secretKey || !signatureHeader) return false;
 
-  const hmac = crypto.createHmac("sha256", secretKey);
-  hmac.update(payload);
-  const expectedSignature = hmac.digest("hex");
+  // Parse `ts=...;h1=...`
+  const parts = signatureHeader.split(";").reduce<Record<string, string>>((acc, part) => {
+    const [key, value] = part.split("=");
+    if (key && value) acc[key.trim()] = value.trim();
+    return acc;
+  }, {});
 
-  return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expectedSignature)
-  );
+  const ts = parts["ts"];
+  const h1 = parts["h1"];
+  if (!ts || !h1) return false;
+
+  // Replay protection: reject stale timestamps.
+  const tsMs = Number(ts) * 1000;
+  if (!Number.isFinite(tsMs) || Math.abs(Date.now() - tsMs) > MAX_SIGNATURE_AGE_MS) {
+    return false;
+  }
+
+  const expected = crypto
+    .createHmac("sha256", secretKey)
+    .update(`${ts}:${rawBody}`)
+    .digest("hex");
+
+  // Constant-time compare, guarding against length mismatch (which would
+  // otherwise make timingSafeEqual throw).
+  const a = Buffer.from(h1, "hex");
+  const b = Buffer.from(expected, "hex");
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
 // Map Paddle price IDs to tiers
@@ -37,12 +62,16 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get("paddle-signature") || "";
     const webhookSecret = process.env.PADDLE_WEBHOOK_SECRET;
 
-    // Verify signature when webhook secret is available
-    if (webhookSecret) {
-      if (!verifyWebhookSignature(payload, signature, webhookSecret)) {
-        console.error("Invalid Paddle webhook signature");
-        return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-      }
+    // Fail closed: without a configured secret we cannot verify authenticity,
+    // so we must reject rather than trust the payload (which grants entitlements).
+    if (!webhookSecret) {
+      console.error("PADDLE_WEBHOOK_SECRET is not configured; rejecting webhook");
+      return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
+    }
+
+    if (!verifyWebhookSignature(payload, signature, webhookSecret)) {
+      console.error("Invalid Paddle webhook signature");
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
     const event: PaddleWebhookEvent = JSON.parse(payload);

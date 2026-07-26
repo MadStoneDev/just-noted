@@ -212,10 +212,12 @@ DROP POLICY IF EXISTS "Service role full access authors" ON public.authors;
 CREATE POLICY "Service role full access authors" ON public.authors
   FOR ALL USING (auth.role() = 'service_role');
 
--- Allow reading any author's public info (for shared notes)
+-- NOTE: authors is NOT publicly readable. Cross-user author display (e.g. the
+-- author of a shared note) is served by the service-role client, which bypasses
+-- RLS. A `USING (true)` SELECT policy here would let the anon key enumerate every
+-- user, so it has been intentionally removed. Own-row read is covered above by
+-- "Users can read own author".
 DROP POLICY IF EXISTS "Anyone can read author public info" ON public.authors;
-CREATE POLICY "Anyone can read author public info" ON public.authors
-  FOR SELECT USING (true);
 
 -- Notes: users can CRUD their own
 DROP POLICY IF EXISTS "Users can read own notes" ON public.notes;
@@ -261,9 +263,25 @@ DROP POLICY IF EXISTS "Owner can manage readers" ON public.shared_notes_readers;
 CREATE POLICY "Owner can manage readers" ON public.shared_notes_readers
   FOR ALL USING (auth.role() = 'service_role');
 
+-- Readers list is NOT world-readable. Reads go through the service-role client;
+-- regular-client reads are scoped to the share owner or the reader themselves.
 DROP POLICY IF EXISTS "Readers can read own access" ON public.shared_notes_readers;
-CREATE POLICY "Readers can read own access" ON public.shared_notes_readers
-  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Note owners can view readers" ON public.shared_notes_readers;
+CREATE POLICY "Note owners can view readers" ON public.shared_notes_readers
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.shared_notes s
+      WHERE s.id = shared_notes_readers.shared_note
+        AND s.note_owner_id = auth.uid()::text
+    )
+  );
+
+DROP POLICY IF EXISTS "Readers can view own access" ON public.shared_notes_readers;
+CREATE POLICY "Readers can view own access" ON public.shared_notes_readers
+  FOR SELECT USING (
+    reader_username = (SELECT username FROM public.authors WHERE id = auth.uid())
+  );
 
 -- Subscriptions: service role only
 DROP POLICY IF EXISTS "Service role full access subscriptions" ON public.subscriptions;

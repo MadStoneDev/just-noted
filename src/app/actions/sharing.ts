@@ -398,7 +398,7 @@ export async function sharingOperation(params: SharingOperationParams) {
       }
 
       case "getByShortcode": {
-        const { shortcode, currentUsername, password: providedPassword = null } = params;
+        const { shortcode, password: providedPassword = null } = params;
 
         // Use service role — viewers aren't the owner, RLS would block
         const viewClient = createServiceRoleClient();
@@ -442,12 +442,29 @@ export async function sharingOperation(params: SharingOperationParams) {
           }
         }
 
-        // Check access permissions
+        // Check access permissions.
+        // Public shares are open to anyone with the link. Private (specific-user)
+        // shares are gated on the VIEWER'S authenticated identity, derived
+        // server-side — never on a client-supplied username, which could be forged.
         if (!shareData.is_public) {
-          if (!currentUsername) {
+          if (!authenticatedUserId) {
             return {
               success: false,
               error: "You need to sign in to access this shared note",
+            };
+          }
+
+          const { data: viewerAuthor } = await viewClient
+            .from("authors")
+            .select("username")
+            .eq("id", authenticatedUserId)
+            .single();
+
+          const viewerUsername = viewerAuthor?.username;
+          if (!viewerUsername) {
+            return {
+              success: false,
+              error: "You don't have access to this note",
             };
           }
 
@@ -455,7 +472,7 @@ export async function sharingOperation(params: SharingOperationParams) {
             .from("shared_notes_readers")
             .select("id")
             .eq("shared_note", shareData.id)
-            .eq("reader_username", currentUsername)
+            .eq("reader_username", viewerUsername)
             .single();
 
           if (!readerData) {
