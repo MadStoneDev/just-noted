@@ -682,6 +682,14 @@ summary {
    FOCUS STYLES
    ============================================ */
 
+/* Global keyboard-focus ring so hand-rolled buttons/links remain accessible.
+   Only shows for keyboard navigation (:focus-visible), not mouse clicks. */
+:focus-visible {
+  outline: 2px solid var(--color-border-focus, var(--color-accent));
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
 /* ============================================
    SCROLLBAR STYLING
    ============================================ */

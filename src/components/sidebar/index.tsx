@@ -546,7 +546,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 placeholder="Search notes..."
                 value={localSearchQuery}
                 onChange={handleSearchChange}
-                className="w-full pl-9 pr-9 py-2 text-sm bg-[var(--color-bg-tertiary)] rounded-[var(--radius-md)] border border-transparent focus:border-[var(--color-border-focus)] focus:bg-[var(--color-bg-primary)] focus:outline-none transition-all duration-[var(--duration-fast)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]"
+                className="w-full pl-9 pr-9 py-2 text-base md:text-sm bg-[var(--color-bg-tertiary)] rounded-[var(--radius-md)] border border-transparent focus:border-[var(--color-border-focus)] focus:bg-[var(--color-bg-primary)] focus:outline-none transition-all duration-[var(--duration-fast)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]"
               />
               {localSearchQuery && (
                 <button
@@ -836,11 +836,11 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                         </div>
                         {/* Actions menu */}
                         {!selectMode && (
-                          <div className="flex-shrink-0 opacity-0 group-hover/note:opacity-100 transition-opacity">
+                          <div className="flex-shrink-0 opacity-100 md:opacity-0 md:group-hover/note:opacity-100 transition-opacity">
                             <Dropdown
                               trigger={
-                                <button className="p-0.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] rounded transition-colors">
-                                  <IconDots size={12} />
+                                <button className="p-2 md:p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] rounded transition-colors" aria-label="Note actions">
+                                  <IconDots size={16} />
                                 </button>
                               }
                               placement="bottom-end"

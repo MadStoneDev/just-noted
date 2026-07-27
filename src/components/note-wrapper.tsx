@@ -252,6 +252,15 @@ export default function NoteWrapper() {
             unregisterNoteFlush={unregisterNoteFlush}
           />
         </main>
+
+        {/* Mobile-only floating action button for creating a new note */}
+        <button
+          onClick={() => notesOperations.addNote()}
+          className="md:hidden fixed right-5 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 flex items-center justify-center size-14 rounded-full bg-[var(--color-accent)] text-[var(--color-text-on-accent)] shadow-[var(--shadow-lg)] active:scale-95 transition-transform"
+          aria-label="New note"
+        >
+          <IconPlus size={24} />
+        </button>
       </div>
 
       {/* Distraction-free mode */}

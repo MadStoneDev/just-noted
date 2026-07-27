@@ -105,7 +105,7 @@ export default function NoteHeader({
                 {noteTitle}
               </span>
               <div
-                className={`w-fit max-w-0 group-hover:max-w-[999px] overflow-hidden transition-all duration-500 ease-in-out cursor-pointer`}
+                className={`w-fit max-w-[999px] md:max-w-0 md:group-hover:max-w-[999px] overflow-hidden transition-all duration-500 ease-in-out cursor-pointer`}
                 onClick={onEditTitle}
               >
                 <IconPencil

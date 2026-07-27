@@ -261,20 +261,22 @@ export default function NotebookSwitcher({
                         </div>
                         {activeNotebookId === notebook.id && <IconCheck size={12} className="text-[var(--color-accent)] flex-shrink-0" />}
                       </button>
-                      <div className="flex items-center pr-1.5 opacity-0 group-hover/nb:opacity-100 transition-opacity">
+                      <div className="flex items-center pr-1 opacity-100 md:opacity-0 md:group-hover/nb:opacity-100 transition-opacity">
                         <button
                           onClick={(e) => { e.stopPropagation(); setIsOpen(false); onEditNotebook(notebook); }}
-                          className="p-0.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] rounded transition-colors"
+                          className="p-2 md:p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] rounded transition-colors"
                           title="Edit"
+                          aria-label="Edit notebook"
                         >
-                          <IconSettings size={11} />
+                          <IconSettings size={16} />
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); setIsOpen(false); onDeleteNotebook(notebook); }}
-                          className="p-0.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] rounded transition-colors"
+                          className="p-2 md:p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] rounded transition-colors"
                           title="Delete"
+                          aria-label="Delete notebook"
                         >
-                          <IconTrash size={11} />
+                          <IconTrash size={16} />
                         </button>
                       </div>
                     </div>

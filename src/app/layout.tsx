@@ -51,6 +51,14 @@ export const metadata = {
   },
 };
 
+// viewport-fit=cover so env(safe-area-inset-*) works on notched devices
+// (used by the mobile new-note FAB and other fixed bottom UI).
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover" as const,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
