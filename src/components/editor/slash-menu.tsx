@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import type { Editor } from "@milkdown/core";
 import { editorViewCtx } from "@milkdown/core";
-import { callCommand, insert } from "@milkdown/utils";
+import { callCommand } from "@milkdown/utils";
 import {
   wrapInHeadingCommand,
   wrapInBulletListCommand,
@@ -13,6 +13,7 @@ import {
   insertHrCommand,
   createCodeBlockCommand,
 } from "@milkdown/preset-commonmark";
+import { insertTableCommand } from "@milkdown/preset-gfm";
 import {
   IconH1,
   IconH2,
@@ -108,6 +109,12 @@ const SLASH_ITEMS: SlashItem[] = [
     description: "Code with syntax highlighting",
     icon: <IconCodeDots size={16} />,
     action: (e) => e.action(callCommand(createCodeBlockCommand.key)),
+  },
+  {
+    label: "Table",
+    description: "Insert a table",
+    icon: <IconTable size={16} />,
+    action: (e) => e.action(callCommand(insertTableCommand.key)),
   },
   {
     label: "Divider",

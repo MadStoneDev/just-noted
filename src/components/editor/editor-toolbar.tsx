@@ -3,9 +3,12 @@
 import React, { useCallback, useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { Editor } from "@milkdown/core";
-import { callCommand, insert } from "@milkdown/utils";
+import { callCommand } from "@milkdown/utils";
 import { editorViewCtx } from "@milkdown/core";
 import { lift } from "@milkdown/prose/commands";
+import { sinkListItem, liftListItem } from "@milkdown/prose/schema-list";
+import type { EditorState } from "@milkdown/prose/state";
+import type { EditorView } from "@milkdown/prose/view";
 import {
   toggleStrongCommand,
   toggleEmphasisCommand,
@@ -16,27 +19,34 @@ import {
   wrapInOrderedListCommand,
   wrapInBlockquoteCommand,
   insertHrCommand,
+  insertImageCommand,
+  turnIntoTextCommand,
   createCodeBlockCommand,
 } from "@milkdown/preset-commonmark";
 import {
   toggleStrikethroughCommand,
+  insertTableCommand,
 } from "@milkdown/preset-gfm";
 import {
   IconBold,
   IconItalic,
   IconStrikethrough,
   IconCode,
+  IconPilcrow,
   IconH1,
   IconH2,
   IconH3,
   IconList,
   IconListNumbers,
   IconCheckbox,
+  IconIndentIncrease,
+  IconIndentDecrease,
   IconQuote,
   IconMinus,
   IconCodeDots,
+  IconTable,
+  IconPhoto,
   IconLink,
-  IconLinkOff,
 } from "@tabler/icons-react";
 
 interface FloatingToolbarProps {
@@ -44,11 +54,84 @@ interface FloatingToolbarProps {
   containerRef: React.RefObject<HTMLElement | null>;
 }
 
+interface ActiveState {
+  strong: boolean;
+  emphasis: boolean;
+  strike: boolean;
+  code: boolean;
+  link: boolean;
+  heading: number | null;
+  paragraph: boolean;
+  bulletList: boolean;
+  orderedList: boolean;
+  task: boolean;
+  blockquote: boolean;
+  codeBlock: boolean;
+}
+
+const EMPTY_ACTIVE: ActiveState = {
+  strong: false, emphasis: false, strike: false, code: false, link: false,
+  heading: null, paragraph: false, bulletList: false, orderedList: false,
+  task: false, blockquote: false, codeBlock: false,
+};
+
+function isMarkActive(state: EditorState, markName: string): boolean {
+  const markType = state.schema.marks[markName];
+  if (!markType) return false;
+  const { from, $from, to, empty } = state.selection;
+  if (empty) {
+    return !!markType.isInSet(state.storedMarks || $from.marks());
+  }
+  return state.doc.rangeHasMark(from, to, markType);
+}
+
+function computeActive(state: EditorState): ActiveState {
+  const { $from } = state.selection;
+  const active: ActiveState = { ...EMPTY_ACTIVE };
+
+  active.strong = isMarkActive(state, "strong");
+  active.emphasis = isMarkActive(state, "emphasis");
+  active.strike = isMarkActive(state, "strike_through");
+  active.code = isMarkActive(state, "inlineCode");
+  active.link = isMarkActive(state, "link");
+
+  const parent = $from.parent;
+  if (parent.type.name === "heading") active.heading = parent.attrs.level as number;
+  if (parent.type.name === "paragraph") active.paragraph = true;
+
+  for (let d = $from.depth; d > 0; d--) {
+    const node = $from.node(d);
+    const name = node.type.name;
+    if (name === "blockquote") active.blockquote = true;
+    else if (name === "code_block") active.codeBlock = true;
+    else if (name === "bullet_list") active.bulletList = true;
+    else if (name === "ordered_list") active.orderedList = true;
+    else if (name === "list_item" && node.attrs.checked != null) active.task = true;
+  }
+
+  return active;
+}
+
 export default function FloatingToolbar({ getEditor, containerRef }: FloatingToolbarProps) {
   const [visible, setVisible] = useState(false);
   const [pos, setPos] = useState({ x: 0, y: 0 });
+  const [active, setActive] = useState<ActiveState>(EMPTY_ACTIVE);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const withView = useCallback(
+    (fn: (view: EditorView, state: EditorState) => void) => {
+      const editor = getEditor();
+      if (!editor) return;
+      try {
+        editor.action((ctx) => {
+          const view = ctx.get(editorViewCtx);
+          fn(view, view.state);
+        });
+      } catch {}
+    },
+    [getEditor],
+  );
 
   const run = useCallback(
     (cmd: Parameters<typeof callCommand>[0], payload?: any) => {
@@ -86,6 +169,29 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
     },
     [getEditor],
   );
+
+  // Reset the current block back to paragraph / body text.
+  const setParagraph = useCallback(() => run(turnIntoTextCommand.key), [run]);
+
+  // Indent / outdent — only meaningful inside a list item.
+  const indent = useCallback(() => {
+    withView((view, state) => {
+      const itemType = state.schema.nodes.list_item;
+      if (itemType) sinkListItem(itemType)(state, view.dispatch);
+    });
+  }, [withView]);
+
+  const outdent = useCallback(() => {
+    withView((view, state) => {
+      const itemType = state.schema.nodes.list_item;
+      if (itemType) liftListItem(itemType)(state, view.dispatch);
+    });
+  }, [withView]);
+
+  const insertImage = useCallback(() => {
+    const src = prompt("Image URL:");
+    if (src) run(insertImageCommand.key, { src });
+  }, [run]);
 
   const handleList = useCallback(
     (type: "bullet" | "ordered" | "task") => {
@@ -159,7 +265,6 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
 
             if (currentType === wantedType) {
               // Same type — unwrap (lift)
-              
               lift(state, view.dispatch);
             } else {
               // Different type — convert
@@ -197,7 +302,6 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
             if ($from.node(d).type.name === blockName) {
               insideBlock = true;
               // Lift content out of the block
-              
               lift(state, view.dispatch);
               break;
             }
@@ -211,6 +315,26 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
     },
     [getEditor],
   );
+
+  const toggleLink = useCallback(() => {
+    withView((view, state) => {
+      const { from, to } = state.selection;
+      const linkType = state.schema.marks.link;
+      if (!linkType) return;
+
+      let hasLink = false;
+      state.doc.nodesBetween(from, to, (node) => {
+        if (node.marks.some((m: any) => m.type === linkType)) hasLink = true;
+      });
+
+      if (hasLink) {
+        view.dispatch(state.tr.removeMark(from, to, linkType));
+      } else {
+        const url = prompt("Enter URL:");
+        if (url) run(toggleLinkCommand.key, { href: url });
+      }
+    });
+  }, [withView, run]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -249,6 +373,17 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
         x: Math.max(120, Math.min(rect.left + rect.width / 2, window.innerWidth - 120)),
         y,
       });
+
+      // Reflect the selection's formatting on the buttons.
+      const editor = getEditor();
+      if (editor) {
+        try {
+          editor.action((ctx) => {
+            setActive(computeActive(ctx.get(editorViewCtx).state));
+          });
+        } catch {}
+      }
+
       setVisible(true);
     };
 
@@ -260,12 +395,14 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
       scrollParent.removeEventListener("scroll", update);
       if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
     };
-  }, [containerRef]);
+  }, [containerRef, getEditor]);
 
   if (!visible) return null;
 
   const btn = "p-1.5 text-[var(--color-text-inverse)] opacity-70 hover:opacity-100 hover:bg-[var(--color-bg-primary)]/10 rounded-[var(--radius-sm)] transition-all cursor-pointer";
+  const btnActive = "p-1.5 text-[var(--color-text-inverse)] opacity-100 bg-[var(--color-bg-primary)]/25 rounded-[var(--radius-sm)] transition-all cursor-pointer";
   const sep = "w-px self-stretch bg-[var(--color-bg-primary)]/15 mx-0.5";
+  const cls = (on: boolean) => (on ? btnActive : btn);
 
   const toolbar = (
     <div
@@ -275,81 +412,74 @@ export default function FloatingToolbar({ getEditor, containerRef }: FloatingToo
         left: `${pos.x}px`,
         top: `${pos.y - 8}px`,
         transform: "translate(-50%, -100%)",
-        maxWidth: 240,
+        maxWidth: "min(calc(100vw - 16px), 380px)",
       }}
       onMouseDown={(e) => e.preventDefault()}
     >
-      <button className={btn} onClick={() => run(toggleStrongCommand.key)} title="Bold (Ctrl+B)">
+      <button className={cls(active.strong)} onClick={() => run(toggleStrongCommand.key)} title="Bold (Ctrl+B)" aria-label="Bold" aria-pressed={active.strong}>
         <IconBold size={14} />
       </button>
-      <button className={btn} onClick={() => run(toggleEmphasisCommand.key)} title="Italic (Ctrl+I)">
+      <button className={cls(active.emphasis)} onClick={() => run(toggleEmphasisCommand.key)} title="Italic (Ctrl+I)" aria-label="Italic" aria-pressed={active.emphasis}>
         <IconItalic size={14} />
       </button>
-      <button className={btn} onClick={() => run(toggleStrikethroughCommand.key)} title="Strikethrough">
+      <button className={cls(active.strike)} onClick={() => run(toggleStrikethroughCommand.key)} title="Strikethrough" aria-label="Strikethrough" aria-pressed={active.strike}>
         <IconStrikethrough size={14} />
       </button>
-      <button className={btn} onClick={() => run(toggleInlineCodeCommand.key)} title="Inline code">
+      <button className={cls(active.code)} onClick={() => run(toggleInlineCodeCommand.key)} title="Inline code" aria-label="Inline code" aria-pressed={active.code}>
         <IconCode size={14} />
       </button>
-      <button className={btn} onClick={() => {
-        const editor = getEditor();
-        if (!editor) return;
-        editor.action((ctx) => {
-          const view = ctx.get(editorViewCtx);
-          const { state } = view;
-          const { from, to } = state.selection;
-          const linkType = state.schema.marks.link;
-          if (!linkType) return;
-
-          let hasLink = false;
-          state.doc.nodesBetween(from, to, (node) => {
-            if (node.marks.some((m: any) => m.type === linkType)) hasLink = true;
-          });
-
-          if (hasLink) {
-            view.dispatch(state.tr.removeMark(from, to, linkType));
-          } else {
-            const url = prompt("Enter URL:");
-            if (url) callCommand(toggleLinkCommand.key, { href: url })(ctx);
-          }
-        });
-      }} title="Toggle link">
+      <button className={cls(active.link)} onClick={toggleLink} title="Toggle link" aria-label="Toggle link" aria-pressed={active.link}>
         <IconLink size={14} />
       </button>
 
       <div className={sep} />
 
-      <button className={btn} onClick={() => toggleHeading(1)} title="Heading 1">
+      <button className={cls(active.paragraph)} onClick={setParagraph} title="Paragraph / body text" aria-label="Paragraph" aria-pressed={active.paragraph}>
+        <IconPilcrow size={14} />
+      </button>
+      <button className={cls(active.heading === 1)} onClick={() => toggleHeading(1)} title="Heading 1" aria-label="Heading 1" aria-pressed={active.heading === 1}>
         <IconH1 size={14} />
       </button>
-      <button className={btn} onClick={() => toggleHeading(2)} title="Heading 2">
+      <button className={cls(active.heading === 2)} onClick={() => toggleHeading(2)} title="Heading 2" aria-label="Heading 2" aria-pressed={active.heading === 2}>
         <IconH2 size={14} />
       </button>
-      <button className={btn} onClick={() => toggleHeading(3)} title="Heading 3">
+      <button className={cls(active.heading === 3)} onClick={() => toggleHeading(3)} title="Heading 3" aria-label="Heading 3" aria-pressed={active.heading === 3}>
         <IconH3 size={14} />
       </button>
 
       <div className={sep} />
 
-      <button className={btn} onClick={() => handleList("bullet")} title="Bullet list">
+      <button className={cls(active.bulletList && !active.task)} onClick={() => handleList("bullet")} title="Bullet list" aria-label="Bullet list" aria-pressed={active.bulletList && !active.task}>
         <IconList size={14} />
       </button>
-      <button className={btn} onClick={() => handleList("ordered")} title="Numbered list">
+      <button className={cls(active.orderedList)} onClick={() => handleList("ordered")} title="Numbered list" aria-label="Numbered list" aria-pressed={active.orderedList}>
         <IconListNumbers size={14} />
       </button>
-      <button className={btn} onClick={() => handleList("task")} title="Task list">
+      <button className={cls(active.task)} onClick={() => handleList("task")} title="Task list" aria-label="Task list" aria-pressed={active.task}>
         <IconCheckbox size={14} />
+      </button>
+      <button className={btn} onClick={outdent} title="Outdent" aria-label="Outdent">
+        <IconIndentDecrease size={14} />
+      </button>
+      <button className={btn} onClick={indent} title="Indent" aria-label="Indent">
+        <IconIndentIncrease size={14} />
       </button>
 
       <div className={sep} />
 
-      <button className={btn} onClick={() => toggleBlock("blockquote", wrapInBlockquoteCommand.key)} title="Blockquote (toggle)">
+      <button className={cls(active.blockquote)} onClick={() => toggleBlock("blockquote", wrapInBlockquoteCommand.key)} title="Blockquote (toggle)" aria-label="Blockquote" aria-pressed={active.blockquote}>
         <IconQuote size={14} />
       </button>
-      <button className={btn} onClick={() => toggleBlock("code_block", createCodeBlockCommand.key)} title="Code block (toggle)">
+      <button className={cls(active.codeBlock)} onClick={() => toggleBlock("code_block", createCodeBlockCommand.key)} title="Code block (toggle)" aria-label="Code block" aria-pressed={active.codeBlock}>
         <IconCodeDots size={14} />
       </button>
-      <button className={btn} onClick={() => run(insertHrCommand.key)} title="Horizontal rule">
+      <button className={btn} onClick={() => run(insertTableCommand.key)} title="Insert table" aria-label="Insert table">
+        <IconTable size={14} />
+      </button>
+      <button className={btn} onClick={insertImage} title="Insert image" aria-label="Insert image">
+        <IconPhoto size={14} />
+      </button>
+      <button className={btn} onClick={() => run(insertHrCommand.key)} title="Horizontal rule" aria-label="Horizontal rule">
         <IconMinus size={14} />
       </button>
     </div>
