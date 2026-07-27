@@ -13,7 +13,7 @@ import { cursor } from "@milkdown/plugin-cursor";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import { $prose } from "@milkdown/utils";
 import { keymap } from "@milkdown/prose/keymap";
-import FloatingToolbar from "./editor-toolbar";
+import DockedToolbar from "./docked-toolbar";
 import SlashMenu from "./slash-menu";
 import LinkPopover from "./link-popover";
 
@@ -211,12 +211,12 @@ function MilkdownEditorInner({
     >
       {!readOnly && (
         <>
-          <FloatingToolbar getEditor={get} containerRef={containerRef} />
           <SlashMenu getEditor={get} containerRef={containerRef} />
           <LinkPopover getEditor={get} containerRef={containerRef} />
         </>
       )}
       <Milkdown />
+      {!readOnly && <DockedToolbar getEditor={get} containerRef={containerRef} />}
     </div>
   );
 }
