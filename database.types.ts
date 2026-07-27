@@ -104,6 +104,66 @@ export type Database = {
           },
         ]
       }
+      note_tags: {
+        Row: {
+          note_id: string
+          tag_id: string
+        }
+        Insert: {
+          note_id: string
+          tag_id: string
+        }
+        Update: {
+          note_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_tags_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "note_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      note_versions: {
+        Row: {
+          id: string
+          note_id: string
+          author: string
+          title: string | null
+          content: string | null
+          content_format: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          note_id: string
+          author: string
+          title?: string | null
+          content?: string | null
+          content_format?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          note_id?: string
+          author?: string
+          title?: string | null
+          content?: string | null
+          content_format?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       notebooks: {
         Row: {
           id: string
@@ -114,6 +174,10 @@ export type Database = {
           display_order: number
           created_at: string
           updated_at: string
+          word_goal: number | null
+          parent_id: string | null
+          is_hidden: boolean
+          show_hidden_children: boolean
         }
         Insert: {
           id?: string
@@ -124,6 +188,10 @@ export type Database = {
           display_order?: number
           created_at?: string
           updated_at?: string
+          word_goal?: number | null
+          parent_id?: string | null
+          is_hidden?: boolean
+          show_hidden_children?: boolean
         }
         Update: {
           id?: string
@@ -134,8 +202,20 @@ export type Database = {
           display_order?: number
           created_at?: string
           updated_at?: string
+          word_goal?: number | null
+          parent_id?: string | null
+          is_hidden?: boolean
+          show_hidden_children?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notebooks_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "notebooks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notes: {
         Row: {
@@ -358,6 +438,76 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      tags: {
+        Row: {
+          id: string
+          owner: string
+          name: string
+          color: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          owner: string
+          name: string
+          color?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          owner?: string
+          name?: string
+          color?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tags_owner_fkey"
+            columns: ["owner"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      writing_sessions: {
+        Row: {
+          id: string
+          user_id: string
+          date: string
+          words_written: number
+          duration_seconds: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          date?: string
+          words_written?: number
+          duration_seconds?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          date?: string
+          words_written?: number
+          duration_seconds?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "writing_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
