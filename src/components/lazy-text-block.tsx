@@ -135,9 +135,14 @@ export default function LazyTextBlock({
   }, []);
 
   const editorContainerClass = useMemo(() => {
-    return `relative ${
-      distractionFreeMode ? "" : "min-h-[300px] md:min-h-[400px] max-h-[500px]"
-    } h-full bg-transparent rounded-[var(--radius-lg)] overflow-hidden overflow-y-auto ${className}`;
+    // Distraction-free (the full-screen editor) must NOT be its own scroll
+    // container: the page scroll area already scrolls, and an inner scroll box
+    // would trap the docked toolbar's `sticky bottom-0` at the box bottom
+    // instead of letting it pin to the viewport bottom.
+    if (distractionFreeMode) {
+      return `relative h-full bg-transparent rounded-[var(--radius-lg)] ${className}`;
+    }
+    return `relative min-h-[300px] md:min-h-[400px] max-h-[500px] h-full bg-transparent rounded-[var(--radius-lg)] overflow-hidden overflow-y-auto ${className}`;
   }, [distractionFreeMode, className]);
 
   if (isCollapsed && !hasBeenExpanded) {
