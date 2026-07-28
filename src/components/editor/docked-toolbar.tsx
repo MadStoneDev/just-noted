@@ -47,11 +47,10 @@ export default function DockedToolbar({ getEditor, containerRef }: DockedToolbar
   return (
     <div
       className="sticky bottom-0 z-20 shrink-0 border-t border-[var(--color-border-secondary)] bg-[var(--color-bg-secondary)]"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       // Keep the editor selection when tapping a button.
       onMouseDown={(e) => e.preventDefault()}
     >
-      <div className="flex items-center gap-px px-1.5 py-1 overflow-x-auto scrollbar-thin">
+      <div className="flex flex-nowrap items-center gap-px px-1.5 py-1 overflow-x-auto scrollbar-thin">
         <button className={cls(active.strong)} onClick={actions.bold} title="Bold (Ctrl+B)" aria-label="Bold" aria-pressed={active.strong}>
           <IconBold />
         </button>

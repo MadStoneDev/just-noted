@@ -480,21 +480,21 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
         onClick={() => setSidebarOpen(false)}
       />
 
-      {/* Sidebar — single element, animates between 48px (rail) and 248px (expanded) on desktop */}
+      {/* Sidebar — full-width drawer on mobile (below the header); animates
+          between 0 and 248px on desktop. */}
       <aside
         ref={sidebarRef}
-        className="fixed md:relative top-0 left-0 h-full z-50 md:z-auto bg-[var(--color-bg-secondary)] border-r border-[var(--color-border-secondary)] transition-all duration-[var(--duration-slow)] overflow-hidden"
+        className={`fixed md:relative top-14 md:top-0 left-0 h-[calc(100dvh-56px)] md:h-full z-40 md:z-auto bg-[var(--color-bg-secondary)] border-r border-[var(--color-border-secondary)] transition-all duration-[var(--duration-slow)] overflow-hidden ${
+          sidebarOpen ? "w-full md:w-[248px]" : "w-0"
+        }`}
         style={{
           transitionTimingFunction: "var(--ease-spring)",
           flexShrink: 0,
-          width: sidebarOpen ? 248 : 0,
         }}
       >
-        {/* Mobile: slide off-screen when closed. Desktop: handled by width. */}
-        <div
-          className="flex flex-col h-full"
-          style={{ width: 248, minWidth: 248 }}
-        >
+        {/* Fixed inner width so content doesn't reflow while the aside animates:
+            full viewport width on mobile, 248px on desktop. */}
+        <div className="flex flex-col h-full w-screen md:w-[248px]">
           {/* Header */}
           <div className="flex items-center justify-between px-3 py-3 border-b border-[var(--color-border-secondary)]">
             <h2 className="text-sm font-semibold text-[var(--color-text-primary)] tracking-tight">Notes</h2>
