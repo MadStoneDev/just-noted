@@ -23,6 +23,7 @@ import {
   IconLayoutSidebarLeftCollapse,
   IconSearch,
   IconPlus,
+  IconChevronRight,
 } from "@tabler/icons-react";
 
 import { CombinedNote } from "@/types/combined-notes";
@@ -236,6 +237,19 @@ export default function NoteWrapper() {
           onOpenTrash={() => setShowTrash(true)}
           onNewNote={() => notesOperations.addNote()}
         />
+
+        {/* Mobile: slim edge tab to reopen the sidebar when it's collapsed,
+            so the editor keeps full width while writing. */}
+        {!sidebarOpen && (
+          <button
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Show notes"
+            title="Show notes"
+            className="mobile-peek md:hidden fixed left-0 top-1/2 z-30 w-[18px] h-[46px] flex items-center justify-center rounded-r-[9px] text-white shadow-[var(--shadow-lg)]"
+          >
+            <IconChevronRight size={13} strokeWidth={2.4} className="-ml-[3px]" />
+          </button>
+        )}
 
         {/* Main editor area */}
         <main
