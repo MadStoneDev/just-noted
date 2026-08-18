@@ -20,9 +20,6 @@ import {
   IconArrowsMinimize,
   IconViewportNarrow,
   IconViewportWide,
-  IconLayoutSidebarLeftCollapse,
-  IconSearch,
-  IconPlus,
   IconChevronRight,
 } from "@tabler/icons-react";
 
@@ -181,44 +178,8 @@ export default function NoteWrapper() {
         onNewNote={() => notesOperations.addNote()}
       />
 
-      {/* Two-panel layout: rail + sidebar + editor */}
+      {/* Two-panel layout: sidebar + editor. Desktop reopen is via the header toggle. */}
       <div className="flex mt-14 h-[calc(100dvh-56px)]">
-        {/* Collapsed rail — visible on desktop when sidebar is closed */}
-        <div
-          className={`hidden md:flex flex-col items-center py-3 gap-1.5 bg-[var(--color-bg-secondary)] border-r border-[var(--color-border-secondary)] flex-shrink-0 transition-all duration-[var(--duration-slow)] ${
-            sidebarOpen ? "w-0 opacity-0 border-r-0 overflow-hidden pointer-events-none" : "w-12 opacity-100"
-          }`}
-          style={{ transitionTimingFunction: "var(--ease-spring)" }}
-        >
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors duration-[var(--duration-fast)] text-[var(--color-text-tertiary)]"
-            aria-label="Expand sidebar (Ctrl+\)"
-            title="Expand sidebar (Ctrl+\)"
-          >
-            <IconLayoutSidebarLeftCollapse size={16} className="rotate-180" />
-          </button>
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors duration-[var(--duration-fast)] text-[var(--color-text-tertiary)]"
-            aria-label="Search notes"
-            title="Search"
-          >
-            <IconSearch size={16} />
-          </button>
-          <button
-            onClick={() => {
-              setSidebarOpen(true);
-              notesOperations.addNote();
-            }}
-            className="p-2 rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors duration-[var(--duration-fast)] text-[var(--color-text-tertiary)]"
-            aria-label="New note (Ctrl+J)"
-            title="New note (Ctrl+J)"
-          >
-            <IconPlus size={16} />
-          </button>
-        </div>
-
         {/* Sidebar */}
         <Sidebar
           onNoteClick={() => {}}

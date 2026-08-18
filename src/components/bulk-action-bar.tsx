@@ -93,53 +93,54 @@ export default function BulkActionBar({
   if (count === 0) return null;
 
   return (
-    <div className="sticky bottom-0 left-0 right-0 px-3 py-2 bg-[var(--color-bg-tertiary)] border-t border-[var(--color-border-secondary)]">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-[var(--color-text-secondary)]">
-            {count} selected
-          </span>
+    <div className="sticky bottom-0 left-0 right-0 px-3 py-2.5 bg-[var(--color-bg-tertiary)] border-t border-[var(--color-border-secondary)]">
+      {/* Row 1 — selection count */}
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-semibold text-[var(--color-text-primary)]">
+          {count} selected
+        </span>
+        <button
+          onClick={onClearSelection}
+          className="flex items-center gap-1 text-[11px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
+          title="Clear selection"
+        >
+          <IconX size={13} />
+          Clear
+        </button>
+      </div>
+
+      {/* Row 2 — actions, split full width so nothing gets clipped */}
+      <div className="flex items-stretch gap-2">
+        {/* Move */}
+        <div ref={menuRef} className="relative flex-1">
           <button
-            onClick={onClearSelection}
-            className="p-2 -m-1 rounded text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
-            title="Clear"
+            onClick={() => setShowMoveMenu(!showMoveMenu)}
+            disabled={isAssigning}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium bg-[var(--color-bg-primary)] border border-[var(--color-border-primary)] rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover)] transition-colors disabled:opacity-50"
           >
-            <IconX size={14} />
+            {isAssigning ? <IconLoader2 size={14} className="animate-spin" /> : <IconNotebook size={14} />}
+            Move
           </button>
+
+          {showMoveMenu && (
+            <div className="absolute bottom-full left-0 right-0 mb-1 bg-[var(--color-bg-elevated)] rounded-[var(--radius-md)] shadow-[var(--shadow-lg)] border border-[var(--color-border-primary)] min-w-[160px] overflow-hidden z-50">
+              <NotebookMoveMenu
+                notebooks={notebooks}
+                onMove={handleAssign}
+              />
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Move */}
-          <div ref={menuRef} className="relative">
-            <button
-              onClick={() => setShowMoveMenu(!showMoveMenu)}
-              disabled={isAssigning}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-[var(--color-bg-primary)] border border-[var(--color-border-primary)] rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover)] transition-colors disabled:opacity-50"
-            >
-              {isAssigning ? <IconLoader2 size={14} className="animate-spin" /> : <IconNotebook size={14} />}
-              Move
-            </button>
-
-            {showMoveMenu && (
-              <div className="fixed bottom-14 left-2 right-2 sm:absolute sm:bottom-full sm:left-auto sm:right-0 sm:w-auto mb-1 bg-[var(--color-bg-elevated)] rounded-[var(--radius-md)] shadow-[var(--shadow-lg)] border border-[var(--color-border-primary)] min-w-[160px] overflow-hidden z-50">
-                <NotebookMoveMenu
-                  notebooks={notebooks}
-                  onMove={handleAssign}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Delete */}
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            disabled={isDeleting}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-[var(--color-danger-subtle)] border border-transparent rounded-[var(--radius-md)] text-[var(--color-danger)] hover:bg-[var(--color-danger)] hover:text-white transition-colors disabled:opacity-50"
-          >
-            <IconTrash size={14} />
-            Delete
-          </button>
-        </div>
+        {/* Delete */}
+        <button
+          onClick={() => setShowDeleteConfirm(true)}
+          disabled={isDeleting}
+          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium bg-[var(--color-danger-subtle)] border border-transparent rounded-[var(--radius-md)] text-[var(--color-danger)] hover:bg-[var(--color-danger)] hover:text-white transition-colors disabled:opacity-50"
+        >
+          <IconTrash size={14} />
+          Delete
+        </button>
       </div>
 
       <ConfirmModal

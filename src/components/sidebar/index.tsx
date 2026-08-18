@@ -31,7 +31,6 @@ import {
   IconSquare,
   IconSquareCheck,
   IconDeviceDesktop,
-  IconLayoutSidebarLeftCollapse,
   IconDots,
   IconTrash,
   IconNotebook,
@@ -39,7 +38,7 @@ import {
   IconPlus,
   IconChevronDown,
   IconAdjustmentsHorizontal,
-  IconBook,
+  IconNote,
   IconTag,
 } from "@tabler/icons-react";
 import { Dropdown, DropdownItem, DropdownSeparator, DropdownLabel } from "@/components/ds/dropdown";
@@ -524,7 +523,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 active={railView === "notes"}
                 onClick={() => { setActiveNotebookId(null); setRailView("notes"); }}
               >
-                <IconNotebook size={20} />
+                <IconNote size={20} />
               </RailButton>
             )}
             {isAuthenticated && (
@@ -533,7 +532,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 active={railView === "notebooks"}
                 onClick={() => setRailView("notebooks")}
               >
-                <IconBook size={20} />
+                <IconNotebook size={20} />
               </RailButton>
             )}
             {isAuthenticated && tags.length > 0 && (
@@ -551,10 +550,6 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
             </RailButton>
             <RailButton label="New note (Ctrl+J)" accent onClick={onNewNote}>
               <IconPlus size={20} />
-            </RailButton>
-            <RailButton label="Close sidebar (Ctrl+\)" onClick={() => setSidebarOpen(false)}>
-              <IconX size={20} className="md:hidden" />
-              <IconLayoutSidebarLeftCollapse size={20} className="hidden md:block" />
             </RailButton>
           </nav>
 
@@ -713,8 +708,10 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                           }}
                         >
                           <div className="flex items-start gap-1.5">
-                            {note.isPinned && (
-                              <IconPinFilled size={10} className="mt-[3px] text-[var(--color-accent)] flex-shrink-0" />
+                            {note.isPinned ? (
+                              <IconPinFilled size={13} className="mt-[3px] text-[var(--color-accent)] flex-shrink-0" />
+                            ) : (
+                              <IconNote size={13} className="mt-[3px] text-[var(--color-text-tertiary)] flex-shrink-0" />
                             )}
                             <h3 className="text-[13px] font-medium text-[var(--color-text-primary)] break-words">
                               {note.title}
@@ -881,9 +878,9 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
               </div>
             )}
 
-            {/* ===== FILTER SHEET ===== */}
+            {/* ===== FILTER SHEET (mobile) / MODAL (desktop) ===== */}
             <div
-              className={`absolute inset-0 z-30 ${filterSheetOpen ? "" : "pointer-events-none"}`}
+              className={`fixed inset-0 z-50 flex items-end md:items-center justify-center ${filterSheetOpen ? "" : "pointer-events-none"}`}
               aria-hidden={!filterSheetOpen}
             >
               <div
@@ -891,8 +888,8 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 onClick={() => setFilterSheetOpen(false)}
               />
               <div
-                className={`absolute left-0 right-0 bottom-0 bg-[var(--color-bg-elevated)] border-t border-[var(--color-border-primary)] rounded-t-[var(--radius-xl)] shadow-[var(--shadow-lg)] transition-transform duration-[var(--duration-slow)] flex flex-col ${filterSheetOpen ? "translate-y-0" : "translate-y-full"}`}
-                style={{ transitionTimingFunction: "var(--ease-spring)", maxHeight: "88%" }}
+                className={`relative w-full md:w-[440px] md:max-w-[92vw] max-h-[85vh] bg-[var(--color-bg-elevated)] border-t md:border border-[var(--color-border-primary)] rounded-t-[var(--radius-xl)] md:rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)] transition-all duration-[var(--duration-slow)] flex flex-col ${filterSheetOpen ? "translate-y-0 opacity-100 md:scale-100" : "translate-y-full opacity-100 md:translate-y-0 md:opacity-0 md:scale-95"}`}
+                style={{ transitionTimingFunction: "var(--ease-spring)" }}
               >
                 <div className="mx-auto mt-2.5 mb-1 h-1 w-10 rounded-full bg-[var(--color-border-primary)]" />
                 <div className="flex items-center justify-between px-4 py-2">
