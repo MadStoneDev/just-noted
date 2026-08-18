@@ -11,7 +11,7 @@ import {
   getNotebookNoteCounts,
 } from "@/app/actions/notebookActions";
 import { uploadNotebookCover } from "@/utils/storage/cover-upload";
-import NotebookSwitcher from "@/components/notebook-switcher";
+import NotebookNavList from "@/components/notebook-nav-list";
 import NotebookModal from "@/components/notebook-modal";
 import TagFilter from "@/components/tag-filter";
 import WritingSessionIndicator from "@/components/writing-session-indicator";
@@ -39,6 +39,8 @@ import {
   IconPlus,
   IconChevronDown,
   IconAdjustmentsHorizontal,
+  IconBook,
+  IconTag,
 } from "@tabler/icons-react";
 import { Dropdown, DropdownItem, DropdownSeparator, DropdownLabel } from "@/components/ds/dropdown";
 import { ConfirmModal } from "@/components/ds/modal";
@@ -87,6 +89,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
     notebooks,
     setNotebooks,
     activeNotebookId,
+    setActiveNotebookId,
     notebooksLoading,
     setNotebooksLoading,
     addNotebook,
@@ -119,16 +122,25 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
   // Delete confirmation
   const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null);
 
-  // Filters accordion — collapsed by default so the notes list keeps the height
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  // Rail navigation: which panel the content column shows
+  const [railView, setRailView] = useState<"notes" | "notebooks" | "tags">("notes");
+  // Filters live in a slide-up sheet, out of the list's way
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
 
   const filteredNotes = getFilteredNotes();
   const hasActiveFilters = searchQuery || filterSource !== "all" || filterPinned !== "all" || activeNotebookId !== null || filterTagIds.length > 0;
-  // Count of active filter dimensions inside the accordion (for the badge)
+  // Count of active filter dimensions (for the rail badge)
   const activeFilterCount =
     (filterSource !== "all" ? 1 : 0) +
     (filterPinned !== "all" ? 1 : 0) +
     (filterTagIds.length > 0 ? 1 : 0);
+  // Label for the notes-view header (current notebook context)
+  const viewContextName =
+    activeNotebookId === null
+      ? "All Notes"
+      : activeNotebookId === "loose"
+        ? "Loose Notes"
+        : notebooks.find((nb) => nb.id === activeNotebookId)?.name || "Notes";
   const deleteNoteTitle = deleteNoteId ? filteredNotes.find(n => n.id === deleteNoteId)?.title || "this note" : "";
 
   const hasLoadedNotebooks = useRef(false);
@@ -494,7 +506,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
       <aside
         ref={sidebarRef}
         className={`fixed md:relative top-14 md:top-0 left-0 h-[calc(100dvh-56px)] md:h-full z-40 md:z-auto bg-[var(--color-bg-secondary)] border-r border-[var(--color-border-secondary)] transition-all duration-[var(--duration-slow)] overflow-hidden ${
-          sidebarOpen ? "w-full md:w-[248px]" : "w-0"
+          sidebarOpen ? "w-full md:w-[300px]" : "w-0"
         }`}
         style={{
           transitionTimingFunction: "var(--ease-spring)",
@@ -503,42 +515,70 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
       >
         {/* Fixed inner width so content doesn't reflow while the aside animates:
             full viewport width on mobile, 248px on desktop. */}
-        <div className="flex flex-col h-full w-screen md:w-[248px]">
-          {/* Header */}
-          <div className="flex items-center justify-between px-3 py-3 border-b border-[var(--color-border-secondary)]">
-            <h2 className="text-sm font-semibold text-[var(--color-text-primary)] tracking-tight">Notes</h2>
-            <div className="flex items-center gap-0.5">
-              <button
-                onClick={onNewNote}
-                className="p-2 flex items-center justify-center rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors duration-[var(--duration-fast)] text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)]"
-                aria-label="New note (Ctrl+J)"
-                title="New note (Ctrl+J)"
+        <div className="flex h-full w-screen md:w-[300px]">
+          {/* Icon rail — primary navigation */}
+          <nav className="w-14 flex-none flex flex-col items-center gap-1 py-2 border-r border-[var(--color-border-secondary)] bg-[var(--color-bg-secondary)]">
+            {isAuthenticated && (
+              <RailButton
+                label="All notes"
+                active={railView === "notes"}
+                onClick={() => { setActiveNotebookId(null); setRailView("notes"); }}
               >
-                <IconPlus size={16} />
-              </button>
-              <button
-                onClick={() => setSidebarOpen(false)}
-                className="p-2 flex items-center justify-center rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors duration-[var(--duration-fast)] text-[var(--color-text-tertiary)]"
-                aria-label="Close sidebar (Ctrl+\)"
-                title="Close sidebar (Ctrl+\)"
+                <IconNotebook size={20} />
+              </RailButton>
+            )}
+            {isAuthenticated && (
+              <RailButton
+                label="Notebooks"
+                active={railView === "notebooks"}
+                onClick={() => setRailView("notebooks")}
               >
-                <IconX size={16} className="md:hidden" />
-                <IconLayoutSidebarLeftCollapse size={16} className="hidden md:block" />
-              </button>
-            </div>
-          </div>
+                <IconBook size={20} />
+              </RailButton>
+            )}
+            {isAuthenticated && tags.length > 0 && (
+              <RailButton
+                label="Tags"
+                active={railView === "tags"}
+                onClick={() => setRailView("tags")}
+              >
+                <IconTag size={20} />
+              </RailButton>
+            )}
+            <div className="flex-1" />
+            <RailButton label="Filters & sort" badge={activeFilterCount} onClick={() => setFilterSheetOpen(true)}>
+              <IconAdjustmentsHorizontal size={20} />
+            </RailButton>
+            <RailButton label="New note (Ctrl+J)" accent onClick={onNewNote}>
+              <IconPlus size={20} />
+            </RailButton>
+            <RailButton label="Close sidebar (Ctrl+\)" onClick={() => setSidebarOpen(false)}>
+              <IconX size={20} className="md:hidden" />
+              <IconLayoutSidebarLeftCollapse size={20} className="hidden md:block" />
+            </RailButton>
+          </nav>
 
-          {/* Notebook Switcher (authenticated users only) */}
-          {isAuthenticated && (
-            <div className="px-3 py-3 border-b border-[var(--color-border-secondary)]">
-              <NotebookSwitcher
-                onNewNotebook={handleNewNotebook}
-                onEditNotebook={handleEditNotebook}
-                onDeleteNotebook={handleDeleteNotebookFromSwitcher}
-              />
+          {/* Content column */}
+          <div className="flex-1 flex flex-col min-w-0 relative">
+            {/* View header */}
+            <div className="flex items-center justify-between px-3 h-[52px] flex-none border-b border-[var(--color-border-secondary)]">
+              <h2 className="text-sm font-semibold text-[var(--color-text-primary)] tracking-tight truncate">
+                {railView === "notebooks" ? "Notebooks" : railView === "tags" ? "Tags" : viewContextName}
+              </h2>
+              {railView === "notes" && hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="text-xs text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] flex items-center gap-1 transition-colors flex-none"
+                >
+                  <IconFilterOff size={12} />
+                  Clear
+                </button>
+              )}
             </div>
-          )}
 
+            {/* ===== NOTES VIEW ===== */}
+            {railView === "notes" && (
+            <>
           {/* Search */}
           <div className="px-3 py-3 border-b border-[var(--color-border-secondary)]">
             <div className="relative">
@@ -563,133 +603,6 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 </button>
               )}
             </div>
-          </div>
-
-          {/* Filters — collapsed into an accordion so the notes list keeps its height */}
-          <div className="px-3 py-2.5 border-b border-[var(--color-border-secondary)]">
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => setFiltersOpen((o) => !o)}
-                className="flex items-center gap-1.5 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
-                aria-expanded={filtersOpen}
-              >
-                <IconAdjustmentsHorizontal size={14} />
-                <span className="uppercase tracking-wider">Filters &amp; sort</span>
-                {activeFilterCount > 0 && (
-                  <span className="px-1.5 py-px text-[10px] font-semibold rounded-full bg-[var(--color-accent)] text-[var(--color-text-on-accent)]">
-                    {activeFilterCount}
-                  </span>
-                )}
-                <IconChevronDown
-                  size={14}
-                  className={`text-[var(--color-text-tertiary)] transition-transform ${filtersOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-              {hasActiveFilters && (
-                <button
-                  onClick={clearFilters}
-                  className="text-xs text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] flex items-center gap-1 transition-colors"
-                >
-                  <IconFilterOff size={12} />
-                  Clear
-                </button>
-              )}
-            </div>
-
-            {filtersOpen && (
-            <div className="space-y-2.5 mt-2.5">
-            {/* Sort */}
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-[var(--color-text-tertiary)]">Sort:</span>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="text-[10px] bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] rounded-[var(--radius-sm)] border-none px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
-              >
-                <option value="manual">Manual</option>
-                <option value="edited">Last Edited</option>
-                <option value="created">Date Created</option>
-                <option value="title">Title A-Z</option>
-                <option value="notebook">Notebook</option>
-              </select>
-            </div>
-
-            {/* Source filter */}
-            <div className="flex gap-2">
-              <FilterButton
-                active={filterSource === "all"}
-                onClick={() => setFilterSource("all")}
-              >
-                All
-              </FilterButton>
-              <FilterButton
-                active={filterSource === "local"}
-                onClick={() => setFilterSource("local")}
-              >
-                <IconDeviceDesktop size={14} />
-                Local
-              </FilterButton>
-              {isAuthenticated && (
-                <FilterButton
-                  active={filterSource === "cloud"}
-                  onClick={() => setFilterSource("cloud")}
-                >
-                  <IconCloud size={14} />
-                  Cloud
-                </FilterButton>
-              )}
-            </div>
-
-            {/* Pinned filter */}
-            <div className="flex gap-2">
-              <FilterButton
-                active={filterPinned === "all"}
-                onClick={() => setFilterPinned("all")}
-              >
-                All
-              </FilterButton>
-              <FilterButton
-                active={filterPinned === "pinned"}
-                onClick={() => setFilterPinned("pinned")}
-              >
-                <IconPinFilled size={14} />
-                Pinned
-              </FilterButton>
-              <FilterButton
-                active={filterPinned === "unpinned"}
-                onClick={() => setFilterPinned("unpinned")}
-              >
-                <IconPin size={14} />
-                Unpinned
-              </FilterButton>
-            </div>
-
-            {/* Tag filter */}
-            {isAuthenticated && tags.length > 0 && (
-              <div>
-                <span className="text-[10px] text-[var(--color-text-tertiary)] mb-1 block">Tags:</span>
-                <TagFilter />
-              </div>
-            )}
-
-            {/* Select mode toggle */}
-            {isAuthenticated && (
-              <div className="pt-2 border-t border-[var(--color-border-secondary)]">
-                <button
-                  onClick={handleToggleSelectMode}
-                  className={`flex items-center gap-2 px-3 py-2 text-xs rounded-[var(--radius-md)] transition-colors duration-[var(--duration-fast)] ${
-                    selectMode
-                      ? "bg-[var(--color-accent)] text-[var(--color-text-on-accent)]"
-                      : "bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-active)]"
-                  }`}
-                >
-                  <IconCheckbox size={14} />
-                  {selectMode ? "Done" : "Bulk Actions"}
-                </button>
-              </div>
-            )}
-            </div>
-            )}
           </div>
 
           {/* Notes List */}
@@ -947,6 +860,134 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
               </div>
             </div>
           )}
+            </>
+            )}
+
+            {/* ===== NOTEBOOKS VIEW ===== */}
+            {railView === "notebooks" && isAuthenticated && (
+              <NotebookNavList
+                onNewNotebook={handleNewNotebook}
+                onEditNotebook={handleEditNotebook}
+                onDeleteNotebook={handleDeleteNotebookFromSwitcher}
+                onSelected={() => setRailView("notes")}
+              />
+            )}
+
+            {/* ===== TAGS VIEW ===== */}
+            {railView === "tags" && isAuthenticated && (
+              <div className="flex-1 overflow-y-auto scrollbar-thin px-3 py-3">
+                <div className="text-[11px] text-[var(--color-text-tertiary)] mb-2">Filter notes by tag</div>
+                <TagFilter />
+              </div>
+            )}
+
+            {/* ===== FILTER SHEET ===== */}
+            <div
+              className={`absolute inset-0 z-30 ${filterSheetOpen ? "" : "pointer-events-none"}`}
+              aria-hidden={!filterSheetOpen}
+            >
+              <div
+                className={`absolute inset-0 bg-[var(--color-bg-overlay)] transition-opacity duration-[var(--duration-normal)] ${filterSheetOpen ? "opacity-100" : "opacity-0"}`}
+                onClick={() => setFilterSheetOpen(false)}
+              />
+              <div
+                className={`absolute left-0 right-0 bottom-0 bg-[var(--color-bg-elevated)] border-t border-[var(--color-border-primary)] rounded-t-[var(--radius-xl)] shadow-[var(--shadow-lg)] transition-transform duration-[var(--duration-slow)] flex flex-col ${filterSheetOpen ? "translate-y-0" : "translate-y-full"}`}
+                style={{ transitionTimingFunction: "var(--ease-spring)", maxHeight: "88%" }}
+              >
+                <div className="mx-auto mt-2.5 mb-1 h-1 w-10 rounded-full bg-[var(--color-border-primary)]" />
+                <div className="flex items-center justify-between px-4 py-2">
+                  <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Filter &amp; sort</h3>
+                  <div className="flex items-center gap-3">
+                    {hasActiveFilters && (
+                      <button
+                        onClick={clearFilters}
+                        className="text-xs text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] flex items-center gap-1"
+                      >
+                        <IconFilterOff size={12} /> Clear
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setFilterSheetOpen(false)}
+                      className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+                      aria-label="Close filters"
+                    >
+                      <IconX size={18} />
+                    </button>
+                  </div>
+                </div>
+                <div className="overflow-y-auto scrollbar-thin px-4 pb-5 pt-1 space-y-4">
+                  {/* Sort */}
+                  <div>
+                    <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-tertiary)] mb-2">Sort</div>
+                    <div className="flex flex-wrap gap-2">
+                      {([
+                        ["manual", "Manual"],
+                        ["edited", "Last edited"],
+                        ["created", "Created"],
+                        ["title", "Title A–Z"],
+                        ["notebook", "Notebook"],
+                      ] as const).map(([val, label]) => (
+                        <FilterButton key={val} active={sortBy === val} onClick={() => setSortBy(val as any)}>
+                          {label}
+                        </FilterButton>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Source */}
+                  <div>
+                    <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-tertiary)] mb-2">Source</div>
+                    <div className="flex flex-wrap gap-2">
+                      <FilterButton active={filterSource === "all"} onClick={() => setFilterSource("all")}>All</FilterButton>
+                      <FilterButton active={filterSource === "local"} onClick={() => setFilterSource("local")}>
+                        <IconDeviceDesktop size={14} />Local
+                      </FilterButton>
+                      {isAuthenticated && (
+                        <FilterButton active={filterSource === "cloud"} onClick={() => setFilterSource("cloud")}>
+                          <IconCloud size={14} />Cloud
+                        </FilterButton>
+                      )}
+                    </div>
+                  </div>
+                  {/* Pinned */}
+                  <div>
+                    <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-tertiary)] mb-2">Pinned</div>
+                    <div className="flex flex-wrap gap-2">
+                      <FilterButton active={filterPinned === "all"} onClick={() => setFilterPinned("all")}>All</FilterButton>
+                      <FilterButton active={filterPinned === "pinned"} onClick={() => setFilterPinned("pinned")}>
+                        <IconPinFilled size={14} />Pinned
+                      </FilterButton>
+                      <FilterButton active={filterPinned === "unpinned"} onClick={() => setFilterPinned("unpinned")}>
+                        <IconPin size={14} />Unpinned
+                      </FilterButton>
+                    </div>
+                  </div>
+                  {/* Tags */}
+                  {isAuthenticated && tags.length > 0 && (
+                    <div>
+                      <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-tertiary)] mb-2">Tags</div>
+                      <TagFilter />
+                    </div>
+                  )}
+                  {/* Bulk actions */}
+                  {isAuthenticated && (
+                    <div className="pt-1">
+                      <button
+                        onClick={() => { handleToggleSelectMode(); setFilterSheetOpen(false); }}
+                        className={`flex items-center gap-2 px-3 py-2 text-xs rounded-[var(--radius-md)] transition-colors ${
+                          selectMode
+                            ? "bg-[var(--color-accent)] text-[var(--color-text-on-accent)]"
+                            : "bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-active)]"
+                        }`}
+                      >
+                        <IconCheckbox size={14} />
+                        {selectMode ? "Exit bulk actions" : "Bulk actions"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </aside>
 
@@ -980,6 +1021,45 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
         destructive
       />
     </>
+  );
+}
+
+// Rail navigation button
+function RailButton({
+  children,
+  label,
+  active,
+  accent,
+  badge,
+  onClick,
+}: {
+  children: React.ReactNode;
+  label: string;
+  active?: boolean;
+  accent?: boolean;
+  badge?: number;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className={`relative w-10 h-10 flex items-center justify-center rounded-[var(--radius-md)] transition-colors duration-[var(--duration-fast)] ${
+        active
+          ? "bg-[var(--color-accent-subtle)] text-[var(--color-accent)]"
+          : accent
+            ? "text-[var(--color-accent)] hover:bg-[var(--color-hover)]"
+            : "text-[var(--color-text-tertiary)] hover:bg-[var(--color-hover)] hover:text-[var(--color-text-primary)]"
+      }`}
+    >
+      {children}
+      {badge && badge > 0 ? (
+        <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[9px] font-semibold rounded-full bg-[var(--color-accent)] text-[var(--color-text-on-accent)]">
+          {badge}
+        </span>
+      ) : null}
+    </button>
   );
 }
 

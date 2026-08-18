@@ -302,6 +302,32 @@ summary {
   animation: pulse-subtle 2s ease-in-out infinite;
 }
 
+/* Mobile edge tab: a couple of gentle bounces to announce itself, then settle
+   to a quiet neutral so it isn't distracting. Hover restores the accent. */
+@keyframes peek-settle {
+  0%   { transform: translateY(-50%) translateX(0);   opacity: 1; background: var(--color-accent); }
+  6%   { transform: translateY(-50%) translateX(3px); }
+  13%  { transform: translateY(-50%) translateX(0); }
+  20%  { transform: translateY(-50%) translateX(3px); }
+  27%  { transform: translateY(-50%) translateX(0); }
+  75%  { transform: translateY(-50%) translateX(0); opacity: 1; background: var(--color-accent); }
+  100% { transform: translateY(-50%) translateX(0); opacity: 0.6; background: var(--color-text-tertiary); }
+}
+.mobile-peek {
+  transform: translateY(-50%);
+  background: var(--color-accent);
+  animation: peek-settle 5s var(--ease-out) forwards;
+}
+.mobile-peek:hover,
+.mobile-peek:focus-visible {
+  animation: none;
+  opacity: 1;
+  background: var(--color-accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .mobile-peek { animation: none; opacity: 1; }
+}
+
 /* ============================================
    EDITOR & CONTENT STYLING
    .milkdown = shared note read-only render
