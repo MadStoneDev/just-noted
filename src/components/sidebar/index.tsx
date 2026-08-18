@@ -16,7 +16,6 @@ import NotebookModal from "@/components/notebook-modal";
 import TagFilter from "@/components/tag-filter";
 import WritingSessionIndicator from "@/components/writing-session-indicator";
 import { getTags, bulkGetNoteTags } from "@/app/actions/tagActions";
-import { NotebookCoverHeader } from "@/components/notebook-breadcrumb";
 import BulkActionBar from "@/components/bulk-action-bar";
 import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import { getPlainTextPreview as getPlainTextPreviewUtil } from "@/utils/html-utils";
@@ -38,6 +37,8 @@ import {
   IconNotebook,
   IconGripVertical,
   IconPlus,
+  IconChevronDown,
+  IconAdjustmentsHorizontal,
 } from "@tabler/icons-react";
 import { Dropdown, DropdownItem, DropdownSeparator, DropdownLabel } from "@/components/ds/dropdown";
 import { ConfirmModal } from "@/components/ds/modal";
@@ -118,8 +119,16 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
   // Delete confirmation
   const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null);
 
+  // Filters accordion — collapsed by default so the notes list keeps the height
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
   const filteredNotes = getFilteredNotes();
   const hasActiveFilters = searchQuery || filterSource !== "all" || filterPinned !== "all" || activeNotebookId !== null || filterTagIds.length > 0;
+  // Count of active filter dimensions inside the accordion (for the badge)
+  const activeFilterCount =
+    (filterSource !== "all" ? 1 : 0) +
+    (filterPinned !== "all" ? 1 : 0) +
+    (filterTagIds.length > 0 ? 1 : 0);
   const deleteNoteTitle = deleteNoteId ? filteredNotes.find(n => n.id === deleteNoteId)?.title || "this note" : "";
 
   const hasLoadedNotebooks = useRef(false);
@@ -530,9 +539,6 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
             </div>
           )}
 
-          {/* Notebook Cover Header (when viewing specific notebook) */}
-          {isAuthenticated && activeNotebookId && <NotebookCoverHeader />}
-
           {/* Search */}
           <div className="px-3 py-3 border-b border-[var(--color-border-secondary)]">
             <div className="relative">
@@ -559,23 +565,39 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
             </div>
           </div>
 
-          {/* Filters */}
-          <div className="px-3 py-3 border-b border-[var(--color-border-secondary)] space-y-2.5">
+          {/* Filters — collapsed into an accordion so the notes list keeps its height */}
+          <div className="px-3 py-2.5 border-b border-[var(--color-border-secondary)]">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider">Filters</span>
-              <div className="flex items-center gap-2">
-                {hasActiveFilters && (
-                  <button
-                    onClick={clearFilters}
-                    className="text-xs text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] flex items-center gap-1 transition-colors"
-                  >
-                    <IconFilterOff size={12} />
-                    Clear
-                  </button>
+              <button
+                onClick={() => setFiltersOpen((o) => !o)}
+                className="flex items-center gap-1.5 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+                aria-expanded={filtersOpen}
+              >
+                <IconAdjustmentsHorizontal size={14} />
+                <span className="uppercase tracking-wider">Filters &amp; sort</span>
+                {activeFilterCount > 0 && (
+                  <span className="px-1.5 py-px text-[10px] font-semibold rounded-full bg-[var(--color-accent)] text-[var(--color-text-on-accent)]">
+                    {activeFilterCount}
+                  </span>
                 )}
-              </div>
+                <IconChevronDown
+                  size={14}
+                  className={`text-[var(--color-text-tertiary)] transition-transform ${filtersOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="text-xs text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] flex items-center gap-1 transition-colors"
+                >
+                  <IconFilterOff size={12} />
+                  Clear
+                </button>
+              )}
             </div>
 
+            {filtersOpen && (
+            <div className="space-y-2.5 mt-2.5">
             {/* Sort */}
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-[var(--color-text-tertiary)]">Sort:</span>
@@ -665,6 +687,8 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                   {selectMode ? "Done" : "Bulk Actions"}
                 </button>
               </div>
+            )}
+            </div>
             )}
           </div>
 
@@ -775,11 +799,11 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                             }
                           }}
                         >
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-start gap-1.5">
                             {note.isPinned && (
-                              <IconPinFilled size={10} className="text-[var(--color-accent)] flex-shrink-0" />
+                              <IconPinFilled size={10} className="mt-[3px] text-[var(--color-accent)] flex-shrink-0" />
                             )}
-                            <h3 className="text-[13px] font-medium text-[var(--color-text-primary)] truncate">
+                            <h3 className="text-[13px] font-medium text-[var(--color-text-primary)] break-words">
                               {note.title}
                             </h3>
                           </div>
@@ -787,8 +811,8 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                             const notebook = notebooks.find((nb) => nb.id === note.notebookId);
                             if (notebook) {
                               return (
-                                <span className="inline-flex items-center gap-0.5 mt-0.5 px-1.5 py-px text-[9px] font-medium rounded-[var(--radius-sm)] bg-[var(--color-accent-subtle)] text-[var(--color-accent)] truncate max-w-[130px]">
-                                  <IconNotebook size={8} className="shrink-0" />
+                                <span className="inline-flex items-center gap-0.5 mt-1 px-1.5 py-px text-[11px] font-medium rounded-[var(--radius-sm)] bg-[var(--color-accent-subtle)] text-[var(--color-accent)] truncate max-w-[150px]">
+                                  <IconNotebook size={10} className="shrink-0" />
                                   {notebook.name}
                                 </span>
                               );
@@ -798,25 +822,25 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                           <p className="text-[11px] text-[var(--color-text-tertiary)] truncate mt-0.5 leading-relaxed">
                             {getPreview(note.content) || "Empty note"}
                           </p>
-                          <div className="flex items-center gap-1 mt-0.5">
+                          <div className="flex items-center gap-1.5 mt-1">
                             {note.source === "supabase" ? (
-                              <IconCloud size={9} className="text-[var(--color-info)] flex-shrink-0" />
+                              <IconCloud size={12} className="text-[var(--color-info)] flex-shrink-0" />
                             ) : (
-                              <IconDeviceDesktop size={9} className="text-[var(--color-warning)] flex-shrink-0" />
+                              <IconDeviceDesktop size={12} className="text-[var(--color-warning)] flex-shrink-0" />
                             )}
-                            <p className="text-[9px] text-[var(--color-text-tertiary)] opacity-50">
+                            <p className="text-[12px] text-[var(--color-text-tertiary)]">
                               {relativeTime(note.updatedAt)}
                             </p>
                           </div>
                           {noteTagMap[note.id]?.length > 0 && (
-                            <div className="flex flex-wrap gap-0.5 mt-0.5">
+                            <div className="flex flex-wrap gap-1 mt-1">
                               {noteTagMap[note.id].slice(0, 3).map((tagId) => {
                                 const tag = tags.find((t) => t.id === tagId);
                                 if (!tag) return null;
                                 return (
                                   <span
                                     key={tagId}
-                                    className="px-1 py-px text-[8px] rounded-full"
+                                    className="px-1.5 py-px text-[11px] rounded-full"
                                     style={{
                                       backgroundColor: tag.color + "20",
                                       color: tag.color,
@@ -827,7 +851,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                                 );
                               })}
                               {noteTagMap[note.id].length > 3 && (
-                                <span className="text-[8px] text-[var(--color-text-tertiary)]">
+                                <span className="text-[11px] text-[var(--color-text-tertiary)]">
                                   +{noteTagMap[note.id].length - 3}
                                 </span>
                               )}

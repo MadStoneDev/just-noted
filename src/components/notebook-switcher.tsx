@@ -121,16 +121,16 @@ export default function NotebookSwitcher({
       >
         <div className="flex items-center gap-1.5 min-w-0">
           {notebooksLoading ? (
-            <IconLoader2 size={13} className="text-[var(--color-text-tertiary)] animate-spin" />
+            <IconLoader2 size={15} className="text-[var(--color-text-tertiary)] animate-spin" />
           ) : (
-            <IconNotebook size={13} className="text-[var(--color-text-tertiary)]" />
+            <IconNotebook size={15} className="text-[var(--color-text-tertiary)]" />
           )}
-          <span className="text-xs font-medium text-[var(--color-text-primary)] truncate">
+          <span className="text-sm font-medium text-[var(--color-text-primary)] truncate">
             {notebooksLoading ? "Loading..." : getDisplayName()}
           </span>
         </div>
         <IconChevronDown
-          size={12}
+          size={14}
           className={`text-[var(--color-text-tertiary)] transition-transform ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
@@ -142,9 +142,9 @@ export default function NotebookSwitcher({
             className="w-full flex items-center justify-between px-2.5 min-h-[40px] hover:bg-[var(--color-hover)] transition-colors"
           >
             <div className="flex items-center gap-1.5">
-              <IconNotebook size={14} className="text-[var(--color-text-tertiary)]" />
-              <span className="text-xs text-[var(--color-text-primary)]">All Notes</span>
-              <span className="text-[10px] text-[var(--color-text-tertiary)]">{totalNotesCount}</span>
+              <IconNotebook size={16} className="text-[var(--color-text-tertiary)]" />
+              <span className="text-sm text-[var(--color-text-primary)]">All Notes</span>
+              <span className="text-[11px] text-[var(--color-text-tertiary)]">{totalNotesCount}</span>
             </div>
             {activeNotebookId === null && <IconCheck size={14} className="text-[var(--color-accent)]" />}
           </button>
@@ -160,9 +160,9 @@ export default function NotebookSwitcher({
             className="w-full flex items-center justify-between px-2.5 min-h-[40px] hover:bg-[var(--color-hover)] transition-colors"
           >
             <div className="flex items-center gap-1.5">
-              <IconFileOff size={14} className="text-[var(--color-text-tertiary)]" />
-              <span className="text-xs text-[var(--color-text-primary)]">Loose Notes</span>
-              <span className="text-[10px] text-[var(--color-text-tertiary)]">{looseNotesCount}</span>
+              <IconFileOff size={16} className="text-[var(--color-text-tertiary)]" />
+              <span className="text-sm text-[var(--color-text-primary)]">Loose Notes</span>
+              <span className="text-[11px] text-[var(--color-text-tertiary)]">{looseNotesCount}</span>
             </div>
             {activeNotebookId === "loose" && <IconCheck size={14} className="text-[var(--color-accent)]" />}
           </button>
@@ -199,7 +199,7 @@ export default function NotebookSwitcher({
                       onDragLeave={() => setDragOverId(null)}
                       onDrop={(e) => handleDrop(e, notebook.id)}
                       onDragEnd={() => { setDraggedId(null); setDragOverId(null); }}
-                      className={`group/nb flex items-center ${
+                      className={`group/nb flex items-start rounded-[var(--radius-md)] ${
                         draggedId === notebook.id ? "opacity-40" : ""
                       } ${dragOverId === notebook.id ? "bg-[var(--color-accent-subtle)]" : ""} ${
                         effectivelyHidden ? "opacity-50" : ""
@@ -217,31 +217,39 @@ export default function NotebookSwitcher({
                               return next;
                             });
                           }}
-                          className="pl-1 py-2 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+                          className="pl-1 pt-2.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
                         >
-                          {isCollapsed ? <IconChevronRight size={12} /> : <IconChevronDown size={12} />}
+                          {isCollapsed ? <IconChevronRight size={14} /> : <IconChevronDown size={14} />}
                         </button>
                       ) : (
-                        <div className="pl-1 py-2 cursor-grab text-[var(--color-text-tertiary)] opacity-0 group-hover/nb:opacity-50">
-                          <IconGripVertical size={12} />
+                        <div className="pl-1 pt-2.5 cursor-grab text-[var(--color-text-tertiary)] opacity-0 group-hover/nb:opacity-50">
+                          <IconGripVertical size={14} />
                         </div>
                       )}
-                      <button
-                        onClick={() => handleSelect(notebook.id)}
-                        className="flex-1 flex items-center justify-between px-1.5 min-h-[36px] hover:bg-[var(--color-hover)] transition-colors min-w-0"
-                      >
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          {effectivelyHidden && <IconEyeOff size={10} className="text-[var(--color-text-tertiary)] flex-shrink-0" />}
-                          <span className="text-xs text-[var(--color-text-primary)] truncate">{notebook.name}</span>
-                          <span className="text-[10px] text-[var(--color-text-tertiary)]">
-                            {hasChildren ? totalCount : notebookCounts[notebook.id] || 0}
+                      <div className="flex-1 min-w-0 py-1">
+                        {/* Line 1 — notebook name (click to open) */}
+                        <button
+                          onClick={() => handleSelect(notebook.id)}
+                          className="w-full flex items-center gap-1.5 text-left min-w-0 px-1.5 py-1 rounded hover:bg-[var(--color-hover)] transition-colors"
+                        >
+                          {effectivelyHidden && <IconEyeOff size={12} className="text-[var(--color-text-tertiary)] flex-shrink-0" />}
+                          <span className="flex-1 text-sm text-[var(--color-text-primary)] break-words">{notebook.name}</span>
+                          {activeNotebookId === notebook.id && <IconCheck size={14} className="text-[var(--color-accent)] flex-shrink-0" />}
+                        </button>
+                        {/* Line 2 — count + word goal, with edit / delete inline */}
+                        <div className="flex items-center gap-2 mt-0.5 pl-1.5 pr-0.5">
+                          <span className="text-[11px] text-[var(--color-text-tertiary)] flex-shrink-0">
+                            {(() => {
+                              const c = hasChildren ? totalCount : notebookCounts[notebook.id] || 0;
+                              return `${c} note${c !== 1 ? "s" : ""}`;
+                            })()}
                           </span>
                           {(() => {
                             const wc = getNotebookWordCount(notebook.id);
                             if (notebook.wordGoal > 0) {
                               const pct = Math.min(100, Math.round((wc / notebook.wordGoal) * 100));
                               return (
-                                <span className="flex items-center gap-1 text-[9px] text-[var(--color-text-tertiary)]" title={`${wc.toLocaleString()} / ${notebook.wordGoal.toLocaleString()} words`}>
+                                <span className="flex items-center gap-1 text-[10px] text-[var(--color-text-tertiary)] flex-shrink-0" title={`${wc.toLocaleString()} / ${notebook.wordGoal.toLocaleString()} words`}>
                                   <span className="inline-block w-6 h-1 rounded-full bg-[var(--color-border-primary)] overflow-hidden">
                                     <span className="block h-full rounded-full bg-[var(--color-accent)]" style={{ width: `${pct}%` }} />
                                   </span>
@@ -251,33 +259,33 @@ export default function NotebookSwitcher({
                             }
                             if (wc > 0) {
                               return (
-                                <span className="text-[9px] text-[var(--color-text-tertiary)]" title={`${wc.toLocaleString()} words`}>
+                                <span className="text-[10px] text-[var(--color-text-tertiary)] flex-shrink-0" title={`${wc.toLocaleString()} words`}>
                                   {wc.toLocaleString()}w
                                 </span>
                               );
                             }
                             return null;
                           })()}
+                          <div className="flex-1" />
+                          <div className="flex items-center opacity-100 md:opacity-0 md:group-hover/nb:opacity-100 transition-opacity">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setIsOpen(false); onEditNotebook(notebook); }}
+                              className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] rounded transition-colors"
+                              title="Edit"
+                              aria-label="Edit notebook"
+                            >
+                              <IconSettings size={20} />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setIsOpen(false); onDeleteNotebook(notebook); }}
+                              className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] rounded transition-colors"
+                              title="Delete"
+                              aria-label="Delete notebook"
+                            >
+                              <IconTrash size={20} />
+                            </button>
+                          </div>
                         </div>
-                        {activeNotebookId === notebook.id && <IconCheck size={12} className="text-[var(--color-accent)] flex-shrink-0" />}
-                      </button>
-                      <div className="flex items-center pr-1 opacity-100 md:opacity-0 md:group-hover/nb:opacity-100 transition-opacity">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setIsOpen(false); onEditNotebook(notebook); }}
-                          className="p-2 md:p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] rounded transition-colors"
-                          title="Edit"
-                          aria-label="Edit notebook"
-                        >
-                          <IconSettings size={16} />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setIsOpen(false); onDeleteNotebook(notebook); }}
-                          className="p-2 md:p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] rounded transition-colors"
-                          title="Delete"
-                          aria-label="Delete notebook"
-                        >
-                          <IconTrash size={16} />
-                        </button>
                       </div>
                     </div>
                     {hasChildren && !isCollapsed && children.map((child) => renderNotebook(child, depth + 1, effectivelyHidden))}
@@ -294,13 +302,13 @@ export default function NotebookSwitcher({
           <button
             onClick={() => { setIsOpen(false); onNewNotebook(); }}
             disabled={notebookLimitReached}
-            className={`w-full flex items-center gap-1.5 px-2.5 py-1.5 text-xs transition-colors ${
+            className={`w-full flex items-center gap-1.5 px-2.5 py-2 text-sm transition-colors ${
               notebookLimitReached
                 ? "text-[var(--color-text-tertiary)] cursor-not-allowed"
                 : "text-[var(--color-accent)] hover:bg-[var(--color-hover)]"
             }`}
           >
-            <IconPlus size={12} />
+            <IconPlus size={16} />
             New Notebook
           </button>
         </div>
