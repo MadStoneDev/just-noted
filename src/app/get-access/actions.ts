@@ -10,6 +10,7 @@ type AuthResponse = {
 };
 export async function handleAuth(formData: FormData): Promise<AuthResponse> {
   const email = formData.get("email") as string;
+  const captchaToken = (formData.get("captchaToken") as string) || undefined;
 
   if (!email) {
     return {
@@ -28,6 +29,7 @@ export async function handleAuth(formData: FormData): Promise<AuthResponse> {
       options: {
         shouldCreateUser: true,
         emailRedirectTo: `${siteUrl}/auth/confirm`,
+        ...(captchaToken ? { captchaToken } : {}),
       },
     });
 

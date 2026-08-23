@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { handleAuth, verifyOtp } from "./actions";
 import { IconArrowLeft, IconMail } from "@tabler/icons-react";
+import Turnstile from "@/components/turnstile";
 
 export default function GetAccessPage() {
   const [email, setEmail] = useState("");
@@ -15,6 +16,15 @@ export default function GetAccessPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaKey, setCaptchaKey] = useState(0);
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+
+  // Turnstile tokens are single-use — remount the widget to get a fresh one.
+  const resetCaptcha = () => {
+    setCaptchaToken("");
+    setCaptchaKey((k) => k + 1);
+  };
 
   const router = useRouter();
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -28,11 +38,16 @@ export default function GetAccessPage() {
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (turnstileSiteKey && !captchaToken) {
+      setError("Please complete the verification below.");
+      return;
+    }
     setError(null);
     setIsLoading(true);
 
     const formData = new FormData();
     formData.append("email", email);
+    if (captchaToken) formData.append("captchaToken", captchaToken);
 
     try {
       const result = await handleAuth(formData);
@@ -46,6 +61,7 @@ export default function GetAccessPage() {
       setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
+      resetCaptcha();
     }
   };
 
@@ -139,11 +155,16 @@ export default function GetAccessPage() {
 
   const requestNewCode = async () => {
     if (countdown > 0) return;
+    if (turnstileSiteKey && !captchaToken) {
+      setError("Please complete the verification below.");
+      return;
+    }
     setError(null);
     setIsLoading(true);
 
     const formData = new FormData();
     formData.append("email", email);
+    if (captchaToken) formData.append("captchaToken", captchaToken);
 
     try {
       const result = await handleAuth(formData);
@@ -157,6 +178,7 @@ export default function GetAccessPage() {
       setError("Failed to send a new code.");
     } finally {
       setIsLoading(false);
+      resetCaptcha();
     }
   };
 
@@ -227,16 +249,31 @@ export default function GetAccessPage() {
                   Verifying...
                 </div>
               ) : (
-                <button
-                  type="button"
-                  disabled={isLoading || countdown > 0}
-                  onClick={requestNewCode}
-                  className="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] transition-colors disabled:opacity-50"
-                >
-                  {countdown > 0
-                    ? `Resend code in ${countdown}s`
-                    : "Didn't get a code? Resend"}
-                </button>
+                <div className="flex flex-col items-center gap-3">
+                  {turnstileSiteKey && countdown === 0 && (
+                    <Turnstile
+                      key={`resend-${captchaKey}`}
+                      siteKey={turnstileSiteKey}
+                      onVerify={setCaptchaToken}
+                      onExpire={() => setCaptchaToken("")}
+                      onError={() => setCaptchaToken("")}
+                    />
+                  )}
+                  <button
+                    type="button"
+                    disabled={
+                      isLoading ||
+                      countdown > 0 ||
+                      (!!turnstileSiteKey && countdown === 0 && !captchaToken)
+                    }
+                    onClick={requestNewCode}
+                    className="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] transition-colors disabled:opacity-50"
+                  >
+                    {countdown > 0
+                      ? `Resend code in ${countdown}s`
+                      : "Didn't get a code? Resend"}
+                  </button>
+                </div>
               )}
             </div>
 
@@ -277,11 +314,23 @@ export default function GetAccessPage() {
               />
             </div>
 
+            {turnstileSiteKey && (
+              <div className="flex justify-center">
+                <Turnstile
+                  key={captchaKey}
+                  siteKey={turnstileSiteKey}
+                  onVerify={setCaptchaToken}
+                  onExpire={() => setCaptchaToken("")}
+                  onError={() => setCaptchaToken("")}
+                />
+              </div>
+            )}
+
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || (!!turnstileSiteKey && !captchaToken)}
               className={`w-full h-11 flex items-center justify-center text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-accent)] text-[var(--color-text-on-accent)] hover:bg-[var(--color-accent-hover)] transition-colors duration-[var(--duration-fast)] ${
-                isLoading ? "opacity-60 cursor-not-allowed" : ""
+                isLoading || (!!turnstileSiteKey && !captchaToken) ? "opacity-60 cursor-not-allowed" : ""
               }`}
             >
               {isLoading ? "Sending..." : "Continue with Email"}
