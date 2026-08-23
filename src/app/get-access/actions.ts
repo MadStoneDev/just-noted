@@ -32,7 +32,12 @@ export async function handleAuth(formData: FormData): Promise<AuthResponse> {
     });
 
     if (error) {
-      console.error("Auth error occurred");
+      // Server-side only — surface the real cause; the client still gets a generic message.
+      console.error("[auth] signInWithOtp failed:", {
+        message: error.message,
+        status: (error as { status?: number }).status,
+        code: (error as { code?: string }).code,
+      });
 
       if (error.message.includes("Invalid email")) {
         return {
@@ -63,7 +68,7 @@ export async function handleAuth(formData: FormData): Promise<AuthResponse> {
       success: true,
     };
   } catch (error: any) {
-    console.error("Unexpected auth error");
+    console.error("[auth] signInWithOtp threw:", error?.message || error);
     return {
       error: "Authentication failed. Please try again.",
       success: false,
@@ -92,7 +97,11 @@ export async function verifyOtp(formData: FormData): Promise<AuthResponse> {
     });
 
     if (error) {
-      console.error("OTP verification error");
+      console.error("[auth] verifyOtp failed:", {
+        message: error.message,
+        status: (error as { status?: number }).status,
+        code: (error as { code?: string }).code,
+      });
 
       if (error.message.includes("Invalid OTP")) {
         return {
@@ -123,7 +132,7 @@ export async function verifyOtp(formData: FormData): Promise<AuthResponse> {
       redirectTo: "/",
     };
   } catch (error: any) {
-    console.error("Unexpected OTP verification error");
+    console.error("[auth] verifyOtp threw:", error?.message || error);
     return {
       error: "Verification failed. Please try again.",
       success: false,

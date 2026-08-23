@@ -121,14 +121,21 @@ CREATE INDEX IF NOT EXISTS idx_shared_notes_note_id ON public.shared_notes(note_
 CREATE OR REPLACE FUNCTION public.generate_random_username()
 RETURNS TEXT AS $$
 DECLARE
-  adjectives TEXT[] := ARRAY['swift','bright','calm','bold','keen','warm','cool','wise','free','glad'];
-  nouns TEXT[] := ARRAY['fox','owl','elk','jay','bee','ant','cat','dog','bat','ram'];
-  result TEXT;
+  -- Rich word lists (28 x 28 x 10000 ≈ 7.8M combinations) so random names read
+  -- well and rarely collide. Matches the CamelCase style of existing accounts.
+  adjectives TEXT[] := ARRAY[
+    'Joyful','Bold','Brilliant','Whimsical','Legendary','Curious','Radiant','Serene',
+    'Clever','Epic','Noble','Poetic','Magical','Vibrant','Peaceful','Gentle',
+    'Mysterious','Graceful','Energetic','Fearless','Ancient','Cosmic','Enchanted',
+    'Majestic','Thoughtful','Inspired','Passionate','Adventurous'];
+  nouns TEXT[] := ARRAY[
+    'Manuscript','Chronicle','Chronicler','Scroll','Parchment','Journal','Novel','Poet',
+    'Author','Scribe','Storyteller','Bard','Muse','Page','Quill','Penman','Novelist',
+    'Writer','Diary','Haven','Library','Tale','Text','Soul','Voice','Garden','Mind','Heart'];
 BEGIN
-  result := adjectives[floor(random() * array_length(adjectives, 1) + 1)::int]
+  RETURN adjectives[floor(random() * array_length(adjectives, 1) + 1)::int]
     || nouns[floor(random() * array_length(nouns, 1) + 1)::int]
-    || floor(random() * 9000 + 1000)::text;
-  RETURN result;
+    || lpad(floor(random() * 10000)::int::text, 4, '0');
 END;
 $$ LANGUAGE plpgsql;
 
@@ -137,18 +144,42 @@ RETURNS JSON AS $$
 DECLARE
   new_username TEXT;
   result JSON;
+  attempts INT := 0;
 BEGIN
-  new_username := public.generate_random_username();
+  -- Already has an author (e.g. trigger fired twice / retry) → return it.
+  SELECT json_build_object('id', id, 'username', username) INTO result
+  FROM public.authors WHERE id = user_id;
+  IF result IS NOT NULL THEN
+    RETURN result;
+  END IF;
 
-  INSERT INTO public.authors (id, username)
-  VALUES (user_id, new_username)
-  ON CONFLICT (id) DO NOTHING;
+  -- Retry on a username collision so a random clash can never break signup.
+  -- (ON CONFLICT (id) alone did NOT cover the username UNIQUE constraint.)
+  LOOP
+    attempts := attempts + 1;
+    new_username := public.generate_random_username();
+    BEGIN
+      INSERT INTO public.authors (id, username) VALUES (user_id, new_username);
+      EXIT; -- success
+    EXCEPTION
+      WHEN unique_violation THEN
+        -- If the id already got an author (concurrent insert), we're done.
+        IF EXISTS (SELECT 1 FROM public.authors WHERE id = user_id) THEN
+          EXIT;
+        END IF;
+        -- After a few username clashes, guarantee uniqueness with a uuid suffix.
+        IF attempts >= 10 THEN
+          INSERT INTO public.authors (id, username)
+          VALUES (user_id, new_username || substr(user_id::text, 1, 8))
+          ON CONFLICT (id) DO NOTHING;
+          EXIT;
+        END IF;
+        -- otherwise loop and try a fresh username
+    END;
+  END LOOP;
 
-  SELECT json_build_object('id', id, 'username', username)
-  INTO result
-  FROM public.authors
-  WHERE id = user_id;
-
+  SELECT json_build_object('id', id, 'username', username) INTO result
+  FROM public.authors WHERE id = user_id;
   RETURN result;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -349,8 +380,24 @@ CREATE POLICY "Public read avatars" ON storage.objects
 -- 6. REALTIME
 -- ============================================
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.notes;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.notebooks;
+-- Idempotent: only add tables that aren't already members of the publication
+-- (re-running ADD TABLE on an existing member raises 42710 duplicate_object).
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'notes'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.notes;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'notebooks'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.notebooks;
+  END IF;
+END $$;
 
 -- ============================================
 -- DONE! Now export data from Cloud and import here.
