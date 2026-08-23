@@ -234,14 +234,24 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
   // Close sidebar on escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && sidebarOpen) {
+      if (e.key !== "Escape") return;
+      // Close the filter sheet first if it's open, otherwise the sidebar —
+      // the sheet is a fixed overlay and would otherwise orphan on screen.
+      if (filterSheetOpen) {
+        setFilterSheetOpen(false);
+      } else if (sidebarOpen) {
         setSidebarOpen(false);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [sidebarOpen, setSidebarOpen]);
+  }, [sidebarOpen, setSidebarOpen, filterSheetOpen]);
+
+  // Never leave the fixed filter sheet on screen after the sidebar closes.
+  useEffect(() => {
+    if (!sidebarOpen) setFilterSheetOpen(false);
+  }, [sidebarOpen]);
 
 
   const handleNoteClick = useCallback(

@@ -167,10 +167,12 @@ BEGIN
         IF EXISTS (SELECT 1 FROM public.authors WHERE id = user_id) THEN
           EXIT;
         END IF;
-        -- After a few username clashes, guarantee uniqueness with a uuid suffix.
+        -- After a few username clashes, guarantee uniqueness with the full
+        -- user id (globally unique) so this INSERT can't hit the username
+        -- constraint and re-raise from inside the handler.
         IF attempts >= 10 THEN
           INSERT INTO public.authors (id, username)
-          VALUES (user_id, new_username || substr(user_id::text, 1, 8))
+          VALUES (user_id, new_username || '-' || user_id::text)
           ON CONFLICT (id) DO NOTHING;
           EXIT;
         END IF;

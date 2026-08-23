@@ -27,7 +27,13 @@ function loadTurnstileScript(): Promise<void> {
     s.async = true;
     s.defer = true;
     s.onload = () => resolve();
-    s.onerror = () => reject(new Error("Failed to load Turnstile"));
+    s.onerror = () => {
+      // Don't cache the failure — allow a later remount to retry the load,
+      // otherwise a single network blip disables the captcha until reload.
+      scriptPromise = null;
+      s.remove();
+      reject(new Error("Failed to load Turnstile"));
+    };
     document.head.appendChild(s);
   });
   return scriptPromise;

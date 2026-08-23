@@ -105,7 +105,7 @@ export default function NotebookNavList({
   const rootNotebooks = notebooks.filter((nb) => !nb.parentId);
   const childrenOf = (parentId: string) => notebooks.filter((nb) => nb.parentId === parentId);
 
-  const renderNotebook = (notebook: Notebook, depth: number, parentHidden = false) => {
+  const renderNotebook = (notebook: Notebook, parentHidden = false) => {
     const children = childrenOf(notebook.id);
     const hasChildren = children.length > 0;
     const isCollapsed = collapsedIds.has(notebook.id);
@@ -240,7 +240,7 @@ export default function NotebookNavList({
         </div>
         {hasChildren && !isCollapsed && (
           <div className="ml-[26px] border-l border-[var(--color-border-primary)]">
-            {children.map((child) => renderNotebook(child, depth + 1, effectivelyHidden))}
+            {children.map((child) => renderNotebook(child, effectivelyHidden))}
           </div>
         )}
       </React.Fragment>
@@ -291,7 +291,7 @@ export default function NotebookNavList({
             Loading...
           </div>
         ) : (
-          rootNotebooks.map((nb) => renderNotebook(nb, 0))
+          rootNotebooks.map((nb) => renderNotebook(nb))
         )}
       </div>
 

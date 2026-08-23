@@ -123,7 +123,7 @@ export default function BulkActionBar({
           </button>
 
           {showMoveMenu && (
-            <div className="absolute bottom-full left-0 right-0 mb-1 bg-[var(--color-bg-elevated)] rounded-[var(--radius-md)] shadow-[var(--shadow-lg)] border border-[var(--color-border-primary)] min-w-[160px] overflow-hidden z-50">
+            <div className="absolute bottom-full left-0 right-0 mb-1 bg-[var(--color-bg-elevated)] rounded-[var(--radius-md)] shadow-[var(--shadow-lg)] border border-[var(--color-border-primary)] max-h-60 overflow-y-auto z-50">
               <NotebookMoveMenu
                 notebooks={notebooks}
                 onMove={handleAssign}
