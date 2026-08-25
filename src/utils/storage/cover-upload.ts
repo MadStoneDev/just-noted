@@ -1,53 +1,23 @@
-import { createClient } from "@/utils/supabase/client";
+import { uploadNotebookCoverR2 } from "@/app/actions/notebookCoverActions";
 
-const BUCKET = "notebook-covers";
-
+/**
+ * Uploads a notebook cover and returns its public URL (or null on failure).
+ * Thin client wrapper over the R2 server action — kept as a util so existing
+ * callers (`note-wrapper`, `sidebar`) don't need to change.
+ */
 export async function uploadNotebookCover(
   notebookId: string,
   file: File,
 ): Promise<string | null> {
   try {
-    const supabase = createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) return null;
-
-    const userId = user.id;
-    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-    const filePath = `${userId}/${notebookId}-${Date.now()}.${ext}`;
-
-    const { data: existingFiles } = await supabase.storage
-      .from(BUCKET)
-      .list(userId, { search: notebookId });
-
-    if (existingFiles && existingFiles.length > 0) {
-      await supabase.storage
-        .from(BUCKET)
-        .remove(existingFiles.map((f: { name: string }) => `${userId}/${f.name}`));
-    }
-
-    const arrayBuffer = await file.arrayBuffer();
-    const { error: uploadError } = await supabase.storage
-      .from(BUCKET)
-      .upload(filePath, arrayBuffer, {
-        cacheControl: "3600",
-        upsert: true,
-        contentType: file.type,
-      });
-
-    if (uploadError) {
-      console.error("Cover upload error:", uploadError.message);
+    const formData = new FormData();
+    formData.append("file", file);
+    const result = await uploadNotebookCoverR2(notebookId, formData);
+    if (!result.success || !result.url) {
+      console.error("Cover upload failed:", result.error);
       return null;
     }
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from(BUCKET).getPublicUrl(filePath);
-
-    return publicUrl;
+    return result.url;
   } catch (error) {
     console.error("Cover upload failed:", error);
     return null;

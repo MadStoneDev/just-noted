@@ -1,10 +1,16 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { uploadToR2, deleteFromR2, r2PublicUrl, isR2Configured } from "@/utils/storage/r2";
 
 const BUCKET_NAME = "notebook-covers";
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+/** R2 object key for a notebook's cover (deterministic → re-uploads overwrite). */
+function coverKey(userId: string, notebookId: string): string {
+  return `covers/${userId}/${notebookId}`;
+}
 
 // ===========================
 // AUTHENTICATION HELPER
@@ -176,23 +182,67 @@ export async function confirmCoverUpload(
 }
 
 /**
- * Legacy function - now uses signed URL approach internally.
- * Kept for backwards compatibility but prefer createUploadUrl + confirmCoverUpload.
+ * Uploads a notebook cover to Cloudflare R2 and saves the URL on the notebook.
+ * Deterministic key (covers/<userId>/<notebookId>) so re-uploads overwrite;
+ * a ?v= query busts caches. This is the active cover-upload path.
  */
-export async function uploadNotebookCover(
+export async function uploadNotebookCoverR2(
   notebookId: string,
   formData: FormData,
-): Promise<{
-  success: boolean;
-  url?: string;
-  error?: string;
-}> {
-  // This function is deprecated due to payload size limits
-  // Return an error directing to use the new approach
-  return {
-    success: false,
-    error: "Please use the signed URL upload method instead",
-  };
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  try {
+    const { supabase, userId } = await getAuthenticatedUser();
+
+    if (!isR2Configured()) {
+      return { success: false, error: "Image storage isn't configured." };
+    }
+
+    const file = formData.get("file");
+    if (!(file instanceof File)) {
+      return { success: false, error: "No image provided." };
+    }
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return { success: false, error: "Use a JPEG, PNG, or WebP image." };
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      return { success: false, error: "Image is too large (max 2MB)." };
+    }
+
+    // Verify ownership before writing anything.
+    const { data: notebook, error: notebookError } = await supabase
+      .from("notebooks")
+      .select("id")
+      .eq("id", notebookId)
+      .eq("owner", userId)
+      .single();
+    if (notebookError || !notebook) {
+      return { success: false, error: "Notebook not found or access denied." };
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const key = coverKey(userId, notebookId);
+    await uploadToR2(key, buffer, file.type);
+    const url = `${r2PublicUrl(key)}?v=${Date.now()}`;
+
+    const { error: updateError } = await supabase
+      .from("notebooks")
+      .update({
+        cover_type: "custom",
+        cover_value: url,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", notebookId)
+      .eq("owner", userId);
+    if (updateError) {
+      console.error("Cover saved to R2 but notebook update failed:", updateError);
+      return { success: false, error: "Uploaded, but couldn't update the notebook." };
+    }
+
+    return { success: true, url };
+  } catch (error) {
+    console.error("Notebook cover upload failed:", error);
+    return { success: false, error: "Failed to upload the cover." };
+  }
 }
 
 export async function deleteNotebookCover(
@@ -220,14 +270,9 @@ export async function deleteNotebookCover(
       };
     }
 
-    // Only delete from storage if it's a custom cover
+    // Only delete from storage if it's a custom cover.
     if (notebook.cover_type === "custom" && coverUrl) {
-      // Extract the file path from the URL
-      const urlParts = coverUrl.split(`${BUCKET_NAME}/`);
-      if (urlParts.length > 1) {
-        const filePath = urlParts[1];
-        await supabase.storage.from(BUCKET_NAME).remove([filePath]);
-      }
+      await deleteFromR2(coverKey(userId, notebookId));
     }
 
     return { success: true };

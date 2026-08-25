@@ -17,6 +17,13 @@ const nextConfig: NextConfig = {
     // which point flip this to false.
     ignoreDuringBuilds: true,
   },
+  experimental: {
+    // Avatar/cover uploads post the image through a server action; the default
+    // 1MB body limit is too small for images (avatars up to 4MB, covers 2MB).
+    serverActions: {
+      bodySizeLimit: "5mb",
+    },
+  },
 };
 
 export default nextConfig;

@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1117.0",
     "@floating-ui/react": "^0.27.10",
     "@milkdown/core": "^7.21.1",
     "@milkdown/ctx": "^7.21.1",
@@ -41,7 +42,7 @@
     "react-dom": "^19.0.0",
     "react-google-recaptcha": "^3.1.0",
     "react-markdown": "^10.1.0",
-    "supatypes": "^1.2.0",
+    "supatypes": "^1.3.0",
     "tailwind-merge": "^3.3.0",
     "turndown": "^7.2.4",
     "turndown-plugin-gfm": "^1.0.2",

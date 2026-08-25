@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ManageSharedNotes from "./manage-shared-notes";
 import { useToast } from "@/components/ui/toast";
+import { uploadAvatar } from "@/app/actions/avatarActions";
 
 interface ProfileBlockProps {
   user: any;
@@ -280,25 +281,17 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
       let newAvatarUrl = state.avatarUrl;
 
       if (state.avatarFile) {
-        const fileExt = state.avatarFile.name.split(".").pop();
-        const filePath = `${user.id}/${Date.now()}.${fileExt}`;
+        const avatarForm = new FormData();
+        avatarForm.append("file", state.avatarFile);
+        const uploadResult = await uploadAvatar(avatarForm);
 
-        const { error: uploadError } = await supabase.storage
-          .from("avatars")
-          .upload(filePath, state.avatarFile);
-
-        if (uploadError) {
-          console.error("Error uploading avatar:", uploadError);
-          showError("Failed to upload avatar");
+        if (!uploadResult.success || !uploadResult.url) {
+          showError(uploadResult.error || "Failed to upload avatar");
           dispatch({ type: "SET_SAVING", payload: false });
           return;
         }
 
-        const { data: publicUrl } = supabase.storage
-          .from("avatars")
-          .getPublicUrl(filePath);
-
-        newAvatarUrl = publicUrl.publicUrl;
+        newAvatarUrl = uploadResult.url;
       }
 
       // Update profile
