@@ -67,9 +67,10 @@ interface SidebarProps {
   onMoveNote?: (noteId: string, notebookId: string | null) => void;
   onOpenTrash?: () => void;
   onNewNote?: () => void;
+  onOpenShared?: (shortcode: string) => void;
 }
 
-export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMoveNote, onOpenTrash, onNewNote }: SidebarProps) {
+export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMoveNote, onOpenTrash, onNewNote, onOpenShared }: SidebarProps) {
   const {
     sidebarOpen,
     setSidebarOpen,
@@ -906,7 +907,9 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
             )}
 
             {/* ===== SHARED VIEW ===== */}
-            {railView === "shared" && isAuthenticated && <SharedNavList />}
+            {railView === "shared" && isAuthenticated && (
+              <SharedNavList onOpen={(sc) => onOpenShared?.(sc)} />
+            )}
 
             {/* ===== FILTER SHEET (mobile) / MODAL (desktop) ===== */}
             <div

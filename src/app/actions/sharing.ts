@@ -603,12 +603,18 @@ export async function sharingOperation(params: SharingOperationParams) {
 // SIDEBAR: SHARED LISTS
 // ===========================
 
+export type SharedSource = "owned" | "granted" | "saved";
+
 export interface SharedListItem {
   shortcode: string;
   title: string;
-  /** Owner username (for "shared with me") — "Anonymous" when the share hides it. */
+  /** "owned" = shared by you, "granted" = shared with you, "saved" = added by you via a link. */
+  source: SharedSource;
+  /** Owner username (for granted/saved) — "Anonymous" when the share hides it. */
   owner?: string;
-  /** For "shared by me". */
+  /** True when the user bookmarked this via a link (so it's removable). */
+  saved?: boolean;
+  /** For owned shares. */
   isPublic?: boolean;
   viewCount?: number;
   readerCount?: number;
@@ -618,7 +624,24 @@ export interface SharedListItem {
 const isExpired = (expiresAt: string | null | undefined) =>
   !!expiresAt && new Date(expiresAt) < new Date();
 
-/** Notes that other people have shared with the signed-in user. */
+/** Pull a shortcode out of a full share URL, a /n/<code> path, or a bare code. */
+function extractShortcode(input: string): string | null {
+  const trimmed = (input || "").trim();
+  if (!trimmed) return null;
+  const viaPath = trimmed.match(/\/n\/([A-Za-z0-9]{6,20})/);
+  if (viaPath) return viaPath[1];
+  if (/^[A-Za-z0-9]{6,20}$/.test(trimmed)) return trimmed;
+  const lastSeg = trimmed.match(/\/([A-Za-z0-9]{6,20})\/?(?:[?#].*)?$/);
+  if (lastSeg) return lastSeg[1];
+  return null;
+}
+
+/**
+ * Notes the signed-in user can view but doesn't own:
+ *   - "granted" — an owner added them as a reader (shared_notes_readers)
+ *   - "saved"   — they bookmarked a link themselves (saved_shared_notes)
+ * A note that's both counts as "granted".
+ */
 export async function getSharedWithMe(): Promise<{
   success: boolean;
   error?: string;
@@ -633,18 +656,36 @@ export async function getSharedWithMe(): Promise<{
   // Service role — the reader can't read the owner's shared_notes/notes under RLS.
   const svc = createServiceRoleClient();
 
+  // (a) owner-granted shares (via reader rows)
   const { data: readerRows } = await svc
     .from("shared_notes_readers")
     .select("shared_note")
     .eq("reader_id", user.id);
+  const readerShareIds = (readerRows || []).map((r: any) => r.shared_note);
 
-  const shareIds = (readerRows || []).map((r: any) => r.shared_note);
-  if (shareIds.length === 0) return { success: true, notes: [] };
+  const grantedSet = new Set<string>();
+  if (readerShareIds.length > 0) {
+    const { data } = await svc
+      .from("shared_notes")
+      .select("shortcode")
+      .in("id", readerShareIds);
+    (data || []).forEach((s: any) => grantedSet.add(s.shortcode));
+  }
+
+  // (b) saved-by-link bookmarks
+  const { data: savedRows } = await svc
+    .from("saved_shared_notes")
+    .select("shortcode")
+    .eq("user_id", user.id);
+  const savedSet = new Set<string>((savedRows || []).map((r: any) => r.shortcode));
+
+  const allShortcodes = Array.from(new Set<string>([...grantedSet, ...savedSet]));
+  if (allShortcodes.length === 0) return { success: true, notes: [] };
 
   const { data: shares } = await svc
     .from("shared_notes")
     .select("id, shortcode, note_id, note_owner_id, is_anonymous, storage, expires_at, created_at")
-    .in("id", shareIds);
+    .in("shortcode", allShortcodes);
 
   const notes: SharedListItem[] = [];
   for (const s of (shares as any[]) || []) {
@@ -662,7 +703,15 @@ export async function getSharedWithMe(): Promise<{
       owner = (a as any)?.username || "Unknown";
     }
 
-    notes.push({ shortcode: s.shortcode, title, owner, createdAt: s.created_at });
+    const granted = grantedSet.has(s.shortcode);
+    notes.push({
+      shortcode: s.shortcode,
+      title,
+      owner,
+      createdAt: s.created_at,
+      source: granted ? "granted" : "saved",
+      saved: savedSet.has(s.shortcode) && !granted,
+    });
   }
   return { success: true, notes };
 }
@@ -701,10 +750,107 @@ export async function getSharedByMe(): Promise<{
     notes.push({
       shortcode: s.shortcode,
       title,
+      source: "owned",
       isPublic: s.is_public,
       viewCount: s.view_count || 0,
       readerCount: count || 0,
     });
   }
   return { success: true, notes };
+}
+
+/**
+ * Bookmark a shared note the user received a LINK to. Accepts a full URL,
+ * a /n/<code> path, or a bare shortcode. Requires the share to be accessible
+ * (public, or the user is an explicit reader) and not owned by the user.
+ */
+export async function saveSharedNoteByLink(
+  link: string,
+): Promise<{ success: boolean; error?: string; title?: string; shortcode?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "You need to be signed in." };
+
+  const shortcode = extractShortcode(link);
+  if (!shortcode) {
+    return { success: false, error: "That doesn't look like a JustNoted share link." };
+  }
+
+  const svc = createServiceRoleClient();
+  const { data: share } = await svc
+    .from("shared_notes")
+    .select("id, note_id, note_owner_id, is_public, storage, expires_at")
+    .eq("shortcode", shortcode)
+    .single();
+
+  if (!share) return { success: false, error: "That shared note wasn't found." };
+  if (isExpired((share as any).expires_at)) {
+    return { success: false, error: "That shared link has expired." };
+  }
+  if ((share as any).note_owner_id === user.id) {
+    return { success: false, error: "You own this note — it's already under “Shared by you.”" };
+  }
+
+  // Access check for private shares.
+  if (!(share as any).is_public) {
+    const { data: viewerAuthor } = await svc
+      .from("authors")
+      .select("username")
+      .eq("id", user.id)
+      .single();
+    const viewerUsername = (viewerAuthor as any)?.username;
+    const reader = viewerUsername
+      ? (
+          await svc
+            .from("shared_notes_readers")
+            .select("id")
+            .eq("shared_note", (share as any).id)
+            .eq("reader_username", viewerUsername)
+            .maybeSingle()
+        ).data
+      : null;
+    if (!reader) {
+      return { success: false, error: "You don't have access to that note." };
+    }
+  }
+
+  const { error: insertErr } = await svc
+    .from("saved_shared_notes")
+    .upsert({ user_id: user.id, shortcode }, { onConflict: "user_id,shortcode", ignoreDuplicates: true });
+  if (insertErr) {
+    console.error("saveSharedNoteByLink insert failed:", insertErr);
+    return { success: false, error: "Couldn't save that note." };
+  }
+
+  let title = "Shared note";
+  if ((share as any).storage !== "redis") {
+    const { data: n } = await svc.from("notes").select("title").eq("id", (share as any).note_id).single();
+    title = (n as any)?.title || "Untitled";
+  }
+
+  revalidatePath("/");
+  return { success: true, title, shortcode };
+}
+
+/** Remove a bookmarked (added-by-link) shared note from the user's list. */
+export async function unsaveSharedNote(
+  shortcode: string,
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not signed in" };
+
+  const { error } = await supabase
+    .from("saved_shared_notes")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("shortcode", shortcode);
+  if (error) return { success: false, error: "Couldn't remove that." };
+
+  revalidatePath("/");
+  return { success: true };
 }

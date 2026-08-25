@@ -9,6 +9,7 @@ import SearchModal from "@/components/search-modal";
 import TrashView from "@/components/trash-view";
 import DistractionFreeNoteBlock from "@/components/distraction-free-note-block";
 import NotebookBreadcrumb from "@/components/notebook-breadcrumb";
+import SharedNoteInline from "@/components/shared-note-inline";
 import NotebookModal from "@/components/notebook-modal";
 import UndoDeleteToast from "@/components/ui/undo-toast";
 import OfflineIndicator from "@/components/ui/offline-indicator";
@@ -74,6 +75,8 @@ export default function NoteWrapper() {
   const [showNotebookModal, setShowNotebookModal] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
+  // Read-only shared note open in the main area (by shortcode)
+  const [sharedShortcode, setSharedShortcode] = useState<string | null>(null);
 
   const handleShowDistractionFree = useCallback((note: CombinedNote) => {
     setActiveNote(note);
@@ -182,7 +185,7 @@ export default function NoteWrapper() {
       <div className="flex mt-14 h-[calc(100dvh-56px)]">
         {/* Sidebar */}
         <Sidebar
-          onNoteClick={() => {}}
+          onNoteClick={() => setSharedShortcode(null)}
           onBulkDelete={(noteIds) => {
             noteIds.forEach((id) => notesOperations.deleteNote(id));
           }}
@@ -197,6 +200,12 @@ export default function NoteWrapper() {
           }}
           onOpenTrash={() => setShowTrash(true)}
           onNewNote={() => notesOperations.addNote()}
+          onOpenShared={(shortcode) => {
+            setSharedShortcode(shortcode);
+            if (typeof window !== "undefined" && window.innerWidth < 768) {
+              setSidebarOpen(false);
+            }
+          }}
         />
 
         {/* Mobile: slim edge tab to reopen the sidebar when it's collapsed,
@@ -212,20 +221,27 @@ export default function NoteWrapper() {
           </button>
         )}
 
-        {/* Main editor area */}
+        {/* Main area: the editor, or a read-only shared note when one is open. */}
         <main
           id="main-content"
           className="flex-1 flex flex-col min-w-0 bg-[var(--color-bg-primary)]"
           role="main"
-          aria-label="Note editor"
+          aria-label={sharedShortcode ? "Shared note" : "Note editor"}
         >
-          <ActiveNoteEditor
-            userId={userId || ""}
-            isAuthenticated={isAuthenticated}
-            notesOperations={notesOperations}
-            registerNoteFlush={registerNoteFlush}
-            unregisterNoteFlush={unregisterNoteFlush}
-          />
+          {sharedShortcode ? (
+            <SharedNoteInline
+              shortcode={sharedShortcode}
+              onClose={() => setSharedShortcode(null)}
+            />
+          ) : (
+            <ActiveNoteEditor
+              userId={userId || ""}
+              isAuthenticated={isAuthenticated}
+              notesOperations={notesOperations}
+              registerNoteFlush={registerNoteFlush}
+              unregisterNoteFlush={unregisterNoteFlush}
+            />
+          )}
         </main>
       </div>
 
