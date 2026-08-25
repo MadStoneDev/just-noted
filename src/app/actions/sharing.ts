@@ -586,3 +586,113 @@ export async function sharingOperation(params: SharingOperationParams) {
     return { success: false, error: "An unexpected error occurred" };
   }
 }
+
+// ===========================
+// SIDEBAR: SHARED LISTS
+// ===========================
+
+export interface SharedListItem {
+  shortcode: string;
+  title: string;
+  /** Owner username (for "shared with me") — "Anonymous" when the share hides it. */
+  owner?: string;
+  /** For "shared by me". */
+  isPublic?: boolean;
+  viewCount?: number;
+  readerCount?: number;
+  createdAt?: string | null;
+}
+
+const isExpired = (expiresAt: string | null | undefined) =>
+  !!expiresAt && new Date(expiresAt) < new Date();
+
+/** Notes that other people have shared with the signed-in user. */
+export async function getSharedWithMe(): Promise<{
+  success: boolean;
+  error?: string;
+  notes: SharedListItem[];
+}> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not signed in", notes: [] };
+
+  // Service role — the reader can't read the owner's shared_notes/notes under RLS.
+  const svc = createServiceRoleClient();
+
+  const { data: readerRows } = await svc
+    .from("shared_notes_readers")
+    .select("shared_note")
+    .eq("reader_id", user.id);
+
+  const shareIds = (readerRows || []).map((r: any) => r.shared_note);
+  if (shareIds.length === 0) return { success: true, notes: [] };
+
+  const { data: shares } = await svc
+    .from("shared_notes")
+    .select("id, shortcode, note_id, note_owner_id, is_anonymous, storage, expires_at, created_at")
+    .in("id", shareIds);
+
+  const notes: SharedListItem[] = [];
+  for (const s of (shares as any[]) || []) {
+    if (isExpired(s.expires_at)) continue;
+
+    let title = "Untitled";
+    if (s.storage !== "redis") {
+      const { data: n } = await svc.from("notes").select("title").eq("id", s.note_id).single();
+      title = (n as any)?.title || "Untitled";
+    }
+
+    let owner = "Anonymous";
+    if (!s.is_anonymous) {
+      const { data: a } = await svc.from("authors").select("username").eq("id", s.note_owner_id).single();
+      owner = (a as any)?.username || "Unknown";
+    }
+
+    notes.push({ shortcode: s.shortcode, title, owner, createdAt: s.created_at });
+  }
+  return { success: true, notes };
+}
+
+/** Notes the signed-in user has shared out. */
+export async function getSharedByMe(): Promise<{
+  success: boolean;
+  error?: string;
+  notes: SharedListItem[];
+}> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not signed in", notes: [] };
+
+  const svc = createServiceRoleClient();
+  const { data: shares } = await svc
+    .from("shared_notes")
+    .select("id, shortcode, note_id, is_public, view_count, storage, expires_at")
+    .eq("note_owner_id", user.id);
+
+  const notes: SharedListItem[] = [];
+  for (const s of (shares as any[]) || []) {
+    let title = "Untitled";
+    if (s.storage !== "redis") {
+      const { data: n } = await svc.from("notes").select("title").eq("id", s.note_id).single();
+      title = (n as any)?.title || "Untitled";
+    }
+
+    const { count } = await svc
+      .from("shared_notes_readers")
+      .select("id", { count: "exact", head: true })
+      .eq("shared_note", s.id);
+
+    notes.push({
+      shortcode: s.shortcode,
+      title,
+      isPublic: s.is_public,
+      viewCount: s.view_count || 0,
+      readerCount: count || 0,
+    });
+  }
+  return { success: true, notes };
+}

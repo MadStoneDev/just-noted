@@ -12,6 +12,7 @@ import {
 } from "@/app/actions/notebookActions";
 import { uploadNotebookCover } from "@/utils/storage/cover-upload";
 import NotebookNavList from "@/components/notebook-nav-list";
+import SharedNavList from "@/components/shared-nav-list";
 import NotebookModal from "@/components/notebook-modal";
 import TagFilter from "@/components/tag-filter";
 import WritingSessionIndicator from "@/components/writing-session-indicator";
@@ -40,6 +41,7 @@ import {
   IconAdjustmentsHorizontal,
   IconNote,
   IconTag,
+  IconShare2,
 } from "@tabler/icons-react";
 import { Dropdown, DropdownItem, DropdownSeparator, DropdownLabel } from "@/components/ds/dropdown";
 import { ConfirmModal } from "@/components/ds/modal";
@@ -122,7 +124,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
   const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null);
 
   // Rail navigation: which panel the content column shows
-  const [railView, setRailView] = useState<"notes" | "notebooks" | "tags">("notes");
+  const [railView, setRailView] = useState<"notes" | "notebooks" | "tags" | "shared">("notes");
   // Filters live in a slide-up sheet, out of the list's way
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
 
@@ -554,6 +556,15 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 <IconTag size={20} />
               </RailButton>
             )}
+            {isAuthenticated && (
+              <RailButton
+                label="Shared"
+                active={railView === "shared"}
+                onClick={() => setRailView("shared")}
+              >
+                <IconShare2 size={20} />
+              </RailButton>
+            )}
             <div className="flex-1" />
             <RailButton label="Filters & sort" badge={activeFilterCount} onClick={() => setFilterSheetOpen(true)}>
               <IconAdjustmentsHorizontal size={20} />
@@ -568,7 +579,13 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
             {/* View header */}
             <div className="flex items-center justify-between px-3 h-[52px] flex-none border-b border-[var(--color-border-secondary)]">
               <h2 className="text-sm font-semibold text-[var(--color-text-primary)] tracking-tight truncate">
-                {railView === "notebooks" ? "Notebooks" : railView === "tags" ? "Tags" : viewContextName}
+                {railView === "notebooks"
+                  ? "Notebooks"
+                  : railView === "tags"
+                    ? "Tags"
+                    : railView === "shared"
+                      ? "Shared"
+                      : viewContextName}
               </h2>
               {railView === "notes" && hasActiveFilters && (
                 <button
@@ -887,6 +904,9 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 <TagFilter />
               </div>
             )}
+
+            {/* ===== SHARED VIEW ===== */}
+            {railView === "shared" && isAuthenticated && <SharedNavList />}
 
             {/* ===== FILTER SHEET (mobile) / MODAL (desktop) ===== */}
             <div
