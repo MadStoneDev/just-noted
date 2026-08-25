@@ -518,7 +518,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
       <aside
         ref={sidebarRef}
         className={`fixed md:relative top-14 md:top-0 left-0 h-[calc(100dvh-56px)] md:h-full z-40 md:z-auto bg-[var(--color-bg-secondary)] border-r border-[var(--color-border-secondary)] transition-all duration-[var(--duration-slow)] overflow-hidden ${
-          sidebarOpen ? "w-full md:w-[300px]" : "w-0"
+          sidebarOpen ? "w-full md:w-[340px]" : "w-0"
         }`}
         style={{
           transitionTimingFunction: "var(--ease-spring)",
@@ -527,7 +527,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
       >
         {/* Fixed inner width so content doesn't reflow while the aside animates:
             full viewport width on mobile, 248px on desktop. */}
-        <div className="flex h-full w-screen md:w-[300px]">
+        <div className="flex h-full w-screen md:w-[340px]">
           {/* Icon rail — primary navigation */}
           <nav className="w-14 flex-none flex flex-col items-center gap-1 py-2 border-r border-[var(--color-border-secondary)] bg-[var(--color-bg-secondary)]">
             {isAuthenticated && (

@@ -4,47 +4,41 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   getSharedWithMe,
   getSharedByMe,
-  saveSharedNoteByLink,
   unsaveSharedNote,
   type SharedListItem,
   type SharedSource,
 } from "@/app/actions/sharing";
+import AddSharedDrawer from "@/components/add-shared-drawer";
 import {
   IconLoader2,
   IconWorld,
   IconLock,
   IconEye,
   IconUser,
+  IconUsers,
   IconShare2,
   IconPlus,
   IconX,
   IconBookmark,
-  IconLink,
+  IconSend,
+  IconLayoutGrid,
 } from "@tabler/icons-react";
 
 type Filter = "all" | "granted" | "saved" | "owned";
 
 interface SharedNavListProps {
-  /** Open a shared note read-only inside the app. */
   onOpen: (shortcode: string) => void;
 }
 
 /**
- * Sidebar "Shared" view. Three categories:
- *   - granted → "Shared with you" (an owner added you as a reader)
- *   - saved   → "Added by you" (you bookmarked a link)
- *   - owned   → "Shared by you" (notes you shared out)
- * plus a filter toggle and an "Add by link" action.
+ * Sidebar "Shared" view: granted ("Shared with you"), saved ("Added by you"),
+ * and owned ("Shared by you"), with an icon filter and a full-width add drawer.
  */
 export default function SharedNavList({ onOpen }: SharedNavListProps) {
   const [items, setItems] = useState<SharedListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
-
   const [addOpen, setAddOpen] = useState(false);
-  const [link, setLink] = useState("");
-  const [adding, setAdding] = useState(false);
-  const [addError, setAddError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -60,34 +54,17 @@ export default function SharedNavList({ onOpen }: SharedNavListProps) {
     load();
   }, [load]);
 
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!link.trim()) return;
-    setAdding(true);
-    setAddError(null);
-    const res = await saveSharedNoteByLink(link.trim());
-    setAdding(false);
-    if (res.success) {
-      setLink("");
-      setAddOpen(false);
-      setFilter("saved");
-      await load();
-    } else {
-      setAddError(res.error || "Couldn't add that link.");
-    }
-  };
-
   const handleRemove = async (shortcode: string) => {
     setItems((prev) => prev.filter((i) => !(i.source === "saved" && i.shortcode === shortcode)));
     await unsaveSharedNote(shortcode);
     load();
   };
 
-  const filters: { key: Filter; label: string }[] = [
-    { key: "all", label: "All" },
-    { key: "granted", label: "With you" },
-    { key: "saved", label: "Added" },
-    { key: "owned", label: "By you" },
+  const filters: { key: Filter; label: string; icon: React.ReactNode }[] = [
+    { key: "all", label: "All shared", icon: <IconLayoutGrid size={17} /> },
+    { key: "granted", label: "Shared with you", icon: <IconUsers size={17} /> },
+    { key: "saved", label: "Added by you", icon: <IconBookmark size={17} /> },
+    { key: "owned", label: "Shared by you", icon: <IconSend size={17} /> },
   ];
 
   const groups: { key: SharedSource; label: string }[] = [
@@ -100,66 +77,33 @@ export default function SharedNavList({ onOpen }: SharedNavListProps) {
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      {/* Toolbar: filter + add-by-link */}
-      <div className="flex-none px-2 pt-2 pb-1.5 border-b border-[var(--color-border-secondary)] space-y-2">
-        <div className="flex gap-1">
-          {filters.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              className={`flex-1 px-1 py-1 text-[11px] font-medium rounded-[var(--radius-sm)] transition-colors ${
-                filter === f.key
-                  ? "bg-[var(--color-accent)] text-[var(--color-text-on-accent)]"
-                  : "text-[var(--color-text-tertiary)] hover:bg-[var(--color-hover)]"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-
-        {addOpen ? (
-          <form onSubmit={handleAdd} className="space-y-1.5">
-            <div className="flex items-center gap-1.5 bg-[var(--color-bg-tertiary)] rounded-[var(--radius-md)] px-2">
-              <IconLink size={14} className="text-[var(--color-text-tertiary)] flex-none" />
-              <input
-                autoFocus
-                value={link}
-                onChange={(e) => setLink(e.target.value)}
-                placeholder="Paste a share link…"
-                className="flex-1 min-w-0 bg-transparent py-2 text-[13px] outline-none text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]"
-              />
-            </div>
-            {addError && <p className="text-[11px] text-[var(--color-danger)] px-1">{addError}</p>}
-            <div className="flex gap-1.5">
-              <button
-                type="submit"
-                disabled={adding || !link.trim()}
-                className="flex-1 py-1.5 text-xs font-medium rounded-[var(--radius-md)] bg-[var(--color-accent)] text-[var(--color-text-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
-              >
-                {adding ? "Adding…" : "Add"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAddOpen(false);
-                  setAddError(null);
-                  setLink("");
-                }}
-                className="px-3 py-1.5 text-xs rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover)]"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        ) : (
+      {/* Toolbar: icon filters + add */}
+      <div className="flex-none flex items-center gap-1 px-2 py-2 border-b border-[var(--color-border-secondary)]">
+        {filters.map((f) => (
           <button
-            onClick={() => setAddOpen(true)}
-            className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-[var(--radius-md)] border border-dashed border-[var(--color-border-primary)] text-[var(--color-accent)] hover:bg-[var(--color-accent-subtle)] hover:border-[var(--color-accent)] transition-colors"
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            title={f.label}
+            aria-label={f.label}
+            className={`w-9 h-8 flex items-center justify-center rounded-[var(--radius-md)] transition-colors ${
+              filter === f.key
+                ? "bg-[var(--color-accent-subtle)] text-[var(--color-accent)]"
+                : "text-[var(--color-text-tertiary)] hover:bg-[var(--color-hover)] hover:text-[var(--color-text-primary)]"
+            }`}
           >
-            <IconPlus size={14} /> Add by link
+            {f.icon}
           </button>
-        )}
+        ))}
+        <div className="flex-1" />
+        <button
+          onClick={() => setAddOpen(true)}
+          title="Add by link"
+          aria-label="Add by link"
+          className="inline-flex items-center gap-1 h-8 px-2.5 rounded-[var(--radius-md)] text-xs font-medium text-[var(--color-accent)] hover:bg-[var(--color-accent-subtle)] transition-colors"
+        >
+          <IconPlus size={16} />
+          Add
+        </button>
       </div>
 
       {/* List */}
@@ -237,12 +181,14 @@ export default function SharedNavList({ onOpen }: SharedNavListProps) {
               <IconShare2 size={22} className="text-[var(--color-text-tertiary)]" />
               <p className="text-sm text-[var(--color-text-tertiary)]">Nothing here yet</p>
               <p className="text-[11px] text-[var(--color-text-tertiary)]">
-                Share a note, or add one you received with &ldquo;Add by link&rdquo;.
+                Share a note, or add one you received with &ldquo;Add.&rdquo;
               </p>
             </div>
           )}
         </div>
       )}
+
+      <AddSharedDrawer open={addOpen} onClose={() => setAddOpen(false)} onAdded={load} />
     </div>
   );
 }

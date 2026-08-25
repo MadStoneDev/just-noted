@@ -759,48 +759,47 @@ export async function getSharedByMe(): Promise<{
   return { success: true, notes };
 }
 
-/**
- * Bookmark a shared note the user received a LINK to. Accepts a full URL,
- * a /n/<code> path, or a bare shortcode. Requires the share to be accessible
- * (public, or the user is an explicit reader) and not owned by the user.
- */
-export async function saveSharedNoteByLink(
-  link: string,
-): Promise<{ success: boolean; error?: string; title?: string; shortcode?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "You need to be signed in." };
+export interface SaveLinkResult {
+  input: string;
+  success: boolean;
+  title?: string;
+  shortcode?: string;
+  error?: string;
+}
 
-  const shortcode = extractShortcode(link);
+/**
+ * Validate one link/code and bookmark it. Runs the full ladder of checks:
+ * is it a link/code, does it resolve to a JustNoted share, does that share
+ * exist, is it expired, do you have access, is it your own note.
+ */
+async function resolveAndSaveLink(
+  svc: ReturnType<typeof createServiceRoleClient>,
+  userId: string,
+  viewerUsername: string | null,
+  rawLink: string,
+): Promise<SaveLinkResult> {
+  const input = (rawLink || "").trim();
+  if (!input) return { input, success: false, error: "Empty line." };
+
+  const shortcode = extractShortcode(input);
   if (!shortcode) {
-    return { success: false, error: "That doesn't look like a JustNoted share link." };
+    return { input, success: false, error: "Not a JustNoted share link or code." };
   }
 
-  const svc = createServiceRoleClient();
   const { data: share } = await svc
     .from("shared_notes")
     .select("id, note_id, note_owner_id, is_public, storage, expires_at")
     .eq("shortcode", shortcode)
     .single();
-
-  if (!share) return { success: false, error: "That shared note wasn't found." };
+  if (!share) return { input, success: false, error: "No shared note found for that." };
   if (isExpired((share as any).expires_at)) {
-    return { success: false, error: "That shared link has expired." };
+    return { input, success: false, error: "That link has expired." };
   }
-  if ((share as any).note_owner_id === user.id) {
-    return { success: false, error: "You own this note — it's already under “Shared by you.”" };
+  if ((share as any).note_owner_id === userId) {
+    return { input, success: false, error: "You own this note." };
   }
 
-  // Access check for private shares.
   if (!(share as any).is_public) {
-    const { data: viewerAuthor } = await svc
-      .from("authors")
-      .select("username")
-      .eq("id", user.id)
-      .single();
-    const viewerUsername = (viewerAuthor as any)?.username;
     const reader = viewerUsername
       ? (
           await svc
@@ -811,17 +810,15 @@ export async function saveSharedNoteByLink(
             .maybeSingle()
         ).data
       : null;
-    if (!reader) {
-      return { success: false, error: "You don't have access to that note." };
-    }
+    if (!reader) return { input, success: false, error: "You don't have access to this note." };
   }
 
   const { error: insertErr } = await svc
     .from("saved_shared_notes")
-    .upsert({ user_id: user.id, shortcode }, { onConflict: "user_id,shortcode", ignoreDuplicates: true });
+    .upsert({ user_id: userId, shortcode }, { onConflict: "user_id,shortcode", ignoreDuplicates: true });
   if (insertErr) {
-    console.error("saveSharedNoteByLink insert failed:", insertErr);
-    return { success: false, error: "Couldn't save that note." };
+    console.error("saveSharedNote insert failed:", insertErr);
+    return { input, success: false, error: "Couldn't save that note." };
   }
 
   let title = "Shared note";
@@ -829,9 +826,44 @@ export async function saveSharedNoteByLink(
     const { data: n } = await svc.from("notes").select("title").eq("id", (share as any).note_id).single();
     title = (n as any)?.title || "Untitled";
   }
+  return { input, success: true, title, shortcode };
+}
+
+/** Bookmark a single shared note by link/code. */
+export async function saveSharedNoteByLink(
+  link: string,
+): Promise<{ success: boolean; error?: string; title?: string; shortcode?: string }> {
+  const res = await saveSharedNotesByLinks([link]);
+  const r = res.results[0];
+  if (!r) return { success: false, error: res.error || "Couldn't add that." };
+  return { success: r.success, error: r.error, title: r.title, shortcode: r.shortcode };
+}
+
+/** Bookmark many shared notes at once — one link or code per entry. */
+export async function saveSharedNotesByLinks(
+  links: string[],
+): Promise<{ success: boolean; results: SaveLinkResult[]; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, results: [], error: "You need to be signed in." };
+
+  const svc = createServiceRoleClient();
+  const { data: viewerAuthor } = await svc
+    .from("authors")
+    .select("username")
+    .eq("id", user.id)
+    .single();
+  const viewerUsername = (viewerAuthor as any)?.username ?? null;
+
+  const results: SaveLinkResult[] = [];
+  for (const link of links) {
+    results.push(await resolveAndSaveLink(svc, user.id, viewerUsername, link));
+  }
 
   revalidatePath("/");
-  return { success: true, title, shortcode };
+  return { success: true, results };
 }
 
 /** Remove a bookmarked (added-by-link) shared note from the user's list. */
