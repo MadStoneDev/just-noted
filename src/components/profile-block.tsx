@@ -8,6 +8,7 @@ import Link from "next/link";
 import ManageSharedNotes from "./manage-shared-notes";
 import { useToast } from "@/components/ui/toast";
 import { uploadAvatar } from "@/app/actions/avatarActions";
+import { compressImage } from "@/utils/image/compress";
 
 interface ProfileBlockProps {
   user: any;
@@ -281,8 +282,11 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
       let newAvatarUrl = state.avatarUrl;
 
       if (state.avatarFile) {
+        // Downscale/compress client-side so we never exceed the server-action
+        // body limit (a phone photo can be 10-20MB; an avatar needs ~512px).
+        const compressed = await compressImage(state.avatarFile, { maxDim: 512 });
         const avatarForm = new FormData();
-        avatarForm.append("file", state.avatarFile);
+        avatarForm.append("file", compressed);
         const uploadResult = await uploadAvatar(avatarForm);
 
         if (!uploadResult.success || !uploadResult.url) {

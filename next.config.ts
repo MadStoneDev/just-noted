@@ -18,10 +18,11 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   experimental: {
-    // Avatar/cover uploads post the image through a server action; the default
-    // 1MB body limit is too small for images (avatars up to 4MB, covers 2MB).
+    // Avatar/cover uploads post the image through a server action. Images are
+    // downscaled/compressed client-side first (see utils/image/compress), so
+    // this is just a safety net for GIFs / compression fallbacks.
     serverActions: {
-      bodySizeLimit: "5mb",
+      bodySizeLimit: "8mb",
     },
   },
 };
