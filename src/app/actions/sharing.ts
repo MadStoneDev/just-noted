@@ -306,25 +306,34 @@ export async function sharingOperation(params: SharingOperationParams) {
           }
         }
 
-        // Handle specific user sharing
+        // Handle specific user sharing. `authors` and `shared_notes_readers`
+        // are intentionally not cross-user readable/writable under RLS, so the
+        // username lookup and reader insert must go through the service-role
+        // client (the anon/authenticated client can only see the caller's own
+        // author row, which is why this returned "Username not found").
         if (!isPublic && username) {
-          const { data: userData } = await supabase
+          const svc = createServiceRoleClient();
+
+          const { data: userData } = await svc
             .from("authors")
             .select("id, username")
-            .eq("username", username)
-            .single();
+            .ilike("username", username.trim()) // case-insensitive exact match
+            .maybeSingle();
 
           if (!userData) {
             return { success: false, error: "Username not found" };
           }
 
+          const readerId = (userData as any).id;
+          const canonicalUsername = (userData as any).username;
+
           // Check if user already has access
-          const { data: existingReaders } = await supabase
+          const { data: existingReaders } = await svc
             .from("shared_notes_readers")
             .select("id")
             .eq("shared_note", shareId)
-            .eq("reader_username", username)
-            .single();
+            .eq("reader_id", readerId)
+            .maybeSingle();
 
           if (existingReaders) {
             return {
@@ -334,13 +343,14 @@ export async function sharingOperation(params: SharingOperationParams) {
             };
           }
 
-          // Add reader
-          const { error: insertReaderError } = await supabase
+          // Add reader — store the canonical username so access checks in
+          // getByShortcode (which compare against authors.username) line up.
+          const { error: insertReaderError } = await svc
             .from("shared_notes_readers")
             .insert({
               shared_note: shareId,
-              reader_username: username,
-              reader_id: userData.id,
+              reader_username: canonicalUsername,
+              reader_id: readerId,
             });
 
           if (insertReaderError) {
@@ -547,7 +557,9 @@ export async function sharingOperation(params: SharingOperationParams) {
           };
         }
 
-        const { error } = await supabase
+        // Ownership verified above with the authenticated client; the actual
+        // delete needs the service role (readers table is service-role-only).
+        const { error } = await createServiceRoleClient()
           .from("shared_notes_readers")
           .delete()
           .eq("shared_note", shareData.id)
