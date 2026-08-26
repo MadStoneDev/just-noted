@@ -4,7 +4,8 @@ import React, { useState, useEffect } from "react";
 import { Notebook, CoverType } from "@/types/notebook";
 import NotebookCoverPicker from "./notebook-cover-picker";
 import { DEFAULT_COVER_TYPE, DEFAULT_COVER_VALUE } from "@/lib/notebook-covers";
-import { IconX, IconLoader2, IconTrash, IconEyeOff } from "@tabler/icons-react";
+import { IconLoader2, IconTrash, IconEyeOff } from "@tabler/icons-react";
+import { Drawer } from "@/components/ds/drawer";
 
 interface NotebookModalProps {
   isOpen: boolean;
@@ -71,18 +72,6 @@ export default function NotebookModal({
     }
   }, [isOpen, notebook]);
 
-  // Close on escape
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen && !isSaving && !isDeleting) {
-        onClose();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, isSaving, isDeleting, onClose]);
-
   const handleCoverSelect = (type: CoverType, value: string) => {
     setCoverType(type);
     setCoverValue(value);
@@ -135,42 +124,94 @@ export default function NotebookModal({
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <>
-      {/* Overlay */}
-      <div
-        className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-        onClick={(e) => {
-          if (e.target === e.currentTarget && !isSaving && !isDeleting) {
-            onClose();
-          }
-        }}
-      >
-        {/* Modal */}
-        <div
-          className="bg-[var(--color-bg-primary)] rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)] w-full max-w-md overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border-primary)]">
-            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
-              {isEditing ? "Edit Notebook" : "Create Notebook"}
-            </h2>
-            <button
-              onClick={onClose}
-              disabled={isSaving || isDeleting}
-              className="p-2 rounded-[var(--radius-lg)] hover:bg-[var(--color-bg-tertiary)] transition-colors disabled:opacity-50"
-              aria-label="Close"
-            >
-              <IconX size={20} />
-            </button>
+    <Drawer
+      open={isOpen}
+      onClose={onClose}
+      title={isEditing ? "Edit Notebook" : "Create Notebook"}
+      size="md"
+      dismissable={!isSaving && !isDeleting}
+      footer={
+        <div className="flex items-center justify-between">
+          {/* Delete (edit only) */}
+          <div>
+            {isEditing && onDelete && (
+              <>
+                {showDeleteConfirm ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-[var(--color-text-secondary)]">
+                      Delete?
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      disabled={isDeleting}
+                      className="px-3 py-1 text-sm bg-[var(--color-danger)] text-[var(--color-text-inverse)] rounded-[var(--radius-md)] hover:opacity-90 disabled:opacity-50"
+                    >
+                      {isDeleting ? (
+                        <IconLoader2 size={14} className="animate-spin" />
+                      ) : (
+                        "Yes"
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      disabled={isDeleting}
+                      className="px-3 py-1 text-sm bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] rounded-[var(--radius-md)] hover:bg-[var(--color-active)]"
+                    >
+                      No
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    disabled={isSaving || isDeleting}
+                    className="flex items-center gap-1 px-3 py-2 text-sm text-[var(--color-danger)] hover:bg-[var(--color-danger-subtle)] rounded-[var(--radius-md)] transition-colors disabled:opacity-50"
+                  >
+                    <IconTrash size={16} />
+                    Delete
+                  </button>
+                )}
+              </>
+            )}
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit}>
-            <div className="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSaving || isDeleting}
+              className="px-4 py-2 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] rounded-[var(--radius-md)] transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="notebook-form"
+              disabled={isSaving || isDeleting}
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-[var(--color-accent)] text-[var(--color-text-on-accent)] rounded-[var(--radius-md)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
+            >
+              {isSaving ? (
+                <>
+                  <IconLoader2 size={16} className="animate-spin" />
+                  Saving...
+                </>
+              ) : isEditing ? (
+                "Save Changes"
+              ) : (
+                "Create Notebook"
+              )}
+            </button>
+          </div>
+        </div>
+      }
+    >
+      {/* Form */}
+      <form id="notebook-form" onSubmit={handleSubmit}>
+        <div className="space-y-4">
               {/* Name input */}
               <div>
                 <label
@@ -317,82 +358,7 @@ export default function NotebookModal({
               )}
             </div>
 
-            {/* Footer */}
-            <div className="px-6 py-4 border-t border-[var(--color-border-primary)] flex items-center justify-between">
-              {/* Delete button (only when editing) */}
-              <div>
-                {isEditing && onDelete && (
-                  <>
-                    {showDeleteConfirm ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-[var(--color-text-secondary)]">Delete?</span>
-                        <button
-                          type="button"
-                          onClick={handleDelete}
-                          disabled={isDeleting}
-                          className="px-3 py-1 text-sm bg-[var(--color-danger)] text-white rounded-[var(--radius-lg)] hover:opacity-90 disabled:opacity-50"
-                        >
-                          {isDeleting ? (
-                            <IconLoader2 size={14} className="animate-spin" />
-                          ) : (
-                            "Yes"
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setShowDeleteConfirm(false)}
-                          disabled={isDeleting}
-                          className="px-3 py-1 text-sm bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] rounded-[var(--radius-lg)] hover:bg-[var(--color-active)]"
-                        >
-                          No
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setShowDeleteConfirm(true)}
-                        disabled={isSaving || isDeleting}
-                        className="flex items-center gap-1 px-3 py-2 text-sm text-[var(--color-danger)] hover:bg-[var(--color-danger-subtle)] rounded-[var(--radius-lg)] transition-colors disabled:opacity-50"
-                      >
-                        <IconTrash size={16} />
-                        Delete
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  disabled={isSaving || isDeleting}
-                  className="px-4 py-2 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] rounded-[var(--radius-lg)] transition-colors disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving || isDeleting}
-                  className="px-4 py-2 text-sm bg-[var(--color-accent)] text-white rounded-[var(--radius-lg)] hover:bg-[var(--color-accent)]/90 disabled:opacity-50 flex items-center gap-2"
-                >
-                  {isSaving ? (
-                    <>
-                      <IconLoader2 size={16} className="animate-spin" />
-                      Saving...
-                    </>
-                  ) : isEditing ? (
-                    "Save Changes"
-                  ) : (
-                    "Create Notebook"
-                  )}
-                </button>
-              </div>
-            </div>
-          </form>
-        </div>
-      </div>
-    </>
+      </form>
+    </Drawer>
   );
 }

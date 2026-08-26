@@ -3,7 +3,7 @@
 
 import React, { useState, useCallback } from "react";
 import { IconTrash } from "@tabler/icons-react";
-import { ConfirmModal } from "@/components/ui/modal";
+import { ConfirmDrawer } from "@/components/ds/drawer";
 import { useToast } from "@/components/ui/toast";
 import { deleteNote as deleteSupabaseNote } from "@/app/actions/supabaseActions";
 import { noteOperation } from "@/app/actions/notes";
@@ -96,16 +96,16 @@ export default function DeleteButton({
         <IconTrash size={20} strokeWidth={2} />
       </button>
 
-      <ConfirmModal
-        isOpen={showConfirm}
+      <ConfirmDrawer
+        open={showConfirm}
         onClose={handleCancel}
         onConfirm={handleConfirm}
         title="Delete Note"
         message={`Are you sure you want to delete "${noteTitle}"? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
-        isDestructive={true}
-        isLoading={isDeleting}
+        destructive={true}
+        loading={isDeleting}
       />
     </>
   );

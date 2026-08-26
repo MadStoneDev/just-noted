@@ -3,6 +3,7 @@ export type { ButtonProps } from "./button";
 export { IconButton } from "./icon-button";
 export { Input, Textarea } from "./input";
 export { Modal, ConfirmModal } from "./modal";
+export { Drawer, ConfirmDrawer } from "./drawer";
 export { Badge, badgeVariants } from "./badge";
 export { Skeleton, SkeletonText, SkeletonNote } from "./skeleton";
 export { ToastProvider as DSToastProvider, useToast as useDSToast } from "./toast";
