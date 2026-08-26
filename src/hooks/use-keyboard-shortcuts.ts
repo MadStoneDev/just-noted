@@ -130,6 +130,7 @@ export const KEYBOARD_SHORTCUTS = [
   { keys: ["Ctrl", "J"], description: "Create new note" },
   { keys: ["Ctrl", "S"], description: "Save current note" },
   { keys: ["Ctrl", "K"], description: "Open search" },
+  { keys: ["Ctrl", "Shift", "M"], description: "Note command menu" },
   { keys: ["Ctrl", "\\"], description: "Toggle sidebar" },
   { keys: ["Ctrl", "Shift", "F"], description: "Distraction-free mode" },
   { keys: ["Ctrl", "Shift", "T"], description: "Table of Contents" },

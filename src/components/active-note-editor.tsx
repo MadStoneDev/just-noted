@@ -11,9 +11,7 @@ import { CombinedNote } from "@/types/combined-notes";
 import { NotesOperations } from "@/hooks/use-notes-operations";
 import {
   IconPin,
-  IconPinFilled,
   IconLock,
-  IconLockOpen,
   IconTrash,
   IconDots,
   IconSquareRoundedPlus,
@@ -28,6 +26,8 @@ import {
   IconSelector,
   IconFileImport,
   IconMarkdown,
+  IconFileOff,
+  IconCheck,
 } from "@tabler/icons-react";
 import { useToast } from "@/components/ui/toast";
 import { readImportableFiles, IMPORT_ACCEPT } from "@/utils/import-file";
@@ -39,10 +39,11 @@ import {
   writeWideOverride,
   type WideLevel,
 } from "@/utils/wide-view";
-import { Dropdown, DropdownItem, DropdownSeparator } from "@/components/ds/dropdown";
-import NotebookMoveMenu from "@/components/notebook-move-menu";
 import { assignNoteToNotebook } from "@/app/actions/notebookActions";
 import { Modal, ConfirmModal } from "@/components/ds/modal";
+import { CommandPalette, type CommandPage } from "@/components/ds/command-palette";
+import { getSortedNotebookTree } from "@/utils/notebook-tree";
+import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import VersionHistoryPanel from "@/components/version-history-panel";
 import GoalSuggestionsModal from "@/components/goal-suggestions-modal";
 import SplitToolbar, { SplitToolbarMobile } from "@/components/editor/split-toolbar";
@@ -369,6 +370,7 @@ function NoteEditor({
   const [showGoalPicker, setShowGoalPicker] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
   const [showGoalSuggestions, setShowGoalSuggestions] = useState(false);
   const lastVersionRef = useRef<number>(0);
@@ -636,6 +638,164 @@ function NoteEditor({
     };
   }, []);
 
+  // ── Note command menu (Ctrl+Shift+M) ─────────────────────────────────────
+  const moveNoteToNotebook = useCallback(
+    async (notebookId: string | null) => {
+      if (notebookId === note.notebookId) return;
+      const { optimisticUpdateNote, recalculateNotebookCounts } = useNotesStore.getState();
+      optimisticUpdateNote(note.id, { notebookId });
+      try {
+        const result = await assignNoteToNotebook(note.id, notebookId);
+        if (result.success) recalculateNotebookCounts();
+        else optimisticUpdateNote(note.id, { notebookId: note.notebookId });
+      } catch {
+        optimisticUpdateNote(note.id, { notebookId: note.notebookId });
+      }
+    },
+    [note.id, note.notebookId],
+  );
+
+  const commandPage = useMemo<CommandPage>(() => {
+    const canOrganize = isAuthenticated && notebooks.length > 0;
+
+    const movePage: CommandPage = {
+      title: "Move to notebook",
+      placeholder: "Search notebooks…",
+      groups: [
+        {
+          id: "remove",
+          items: [
+            {
+              id: "nb-none",
+              label: "Remove from notebook",
+              icon: <IconFileOff size={16} />,
+              disabled: !note.notebookId,
+              perform: () => moveNoteToNotebook(null),
+            },
+          ],
+        },
+        {
+          id: "notebooks",
+          heading: "Notebooks",
+          items: getSortedNotebookTree(notebooks, note.notebookId).map(
+            ({ notebook, isCurrent }) => {
+              const parent = notebook.parentId
+                ? notebooks.find((nb) => nb.id === notebook.parentId)?.name
+                : undefined;
+              return {
+                id: `nb-${notebook.id}`,
+                label: notebook.name,
+                prefix: parent,
+                keywords: parent,
+                icon: (
+                  <span
+                    className="w-4 h-4 rounded-[var(--radius-sm)] block ring-1 ring-inset ring-[var(--color-border-secondary)]"
+                    style={getCoverPreviewStyle(notebook.coverType, notebook.coverValue)}
+                  />
+                ),
+                disabled: isCurrent,
+                trailing: isCurrent ? (
+                  <IconCheck size={16} className="text-[var(--color-accent)] flex-none" />
+                ) : undefined,
+                perform: () => moveNoteToNotebook(notebook.id),
+              };
+            },
+          ),
+        },
+      ],
+    };
+
+    const currentNotebookName = note.notebookId
+      ? notebooks.find((nb) => nb.id === note.notebookId)?.name
+      : undefined;
+
+    return {
+      title: "Note actions",
+      placeholder: "Search actions…",
+      groups: [
+        {
+          id: "actions",
+          items: [
+            {
+              id: "pin",
+              label: note.isPinned ? "Unpin note" : "Pin note",
+              keywords: "pin favourite",
+              icon: <IconPin size={16} />,
+              perform: () => notesOperations.updatePinStatus(note.id, !note.isPinned),
+            },
+            {
+              id: "privacy",
+              label: note.isPrivate ? "Make public" : "Make private",
+              keywords: "private public lock visibility",
+              icon: <IconLock size={16} />,
+              perform: () => notesOperations.updatePrivacyStatus(note.id, !note.isPrivate),
+            },
+            {
+              id: "print",
+              label: "Print / Save as PDF",
+              keywords: "print pdf export",
+              icon: <IconPrinter size={16} />,
+              perform: () => window.print(),
+            },
+          ],
+        },
+        ...(canOrganize
+          ? [
+              {
+                id: "organize",
+                items: [
+                  {
+                    id: "move",
+                    label: "Move to notebook",
+                    description: currentNotebookName
+                      ? `In ${currentNotebookName}`
+                      : "Not in a notebook",
+                    keywords: "move notebook folder organize",
+                    icon: <IconNotebook size={16} />,
+                    submenu: movePage,
+                  },
+                ],
+              },
+            ]
+          : []),
+        {
+          id: "danger",
+          items: [
+            {
+              id: "delete",
+              label: "Delete note",
+              keywords: "delete remove trash",
+              icon: <IconTrash size={16} />,
+              destructive: true,
+              perform: () => setShowDeleteConfirm(true),
+            },
+          ],
+        },
+      ],
+    };
+  }, [
+    isAuthenticated,
+    notebooks,
+    note.id,
+    note.notebookId,
+    note.isPinned,
+    note.isPrivate,
+    notesOperations,
+    moveNoteToNotebook,
+  ]);
+
+  // Ctrl/Cmd+Shift+M toggles the note command menu.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "m" || e.key === "M")) {
+        e.preventDefault();
+        setCommandOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Minimal toolbar */}
@@ -745,30 +905,6 @@ function NoteEditor({
 
           <div className="w-px h-3 bg-[var(--color-border-secondary)] mx-0.5" />
 
-          <IconButton
-            label={note.isPinned ? "Unpin" : "Pin"}
-            size="sm"
-            onClick={() => notesOperations.updatePinStatus(note.id, !note.isPinned)}
-          >
-            {note.isPinned ? (
-              <IconPinFilled size={14} className="text-[var(--color-accent)]" />
-            ) : (
-              <IconPin size={14} />
-            )}
-          </IconButton>
-
-          <IconButton
-            label={note.isPrivate ? "Public" : "Private"}
-            size="sm"
-            onClick={() => notesOperations.updatePrivacyStatus(note.id, !note.isPrivate)}
-          >
-            {note.isPrivate ? (
-              <IconLock size={14} />
-            ) : (
-              <IconLockOpen size={14} />
-            )}
-          </IconButton>
-
           {isAuthenticated && (
             <ShareNoteButton
               noteId={note.id}
@@ -780,55 +916,22 @@ function NoteEditor({
             />
           )}
 
+          {/* Pin, privacy, print, move and delete now live in the command menu */}
           <IconButton
-            label="Print"
+            label="Actions (Ctrl+Shift+M)"
             size="sm"
-            onClick={() => window.print()}
+            onClick={() => setCommandOpen(true)}
           >
-            <IconPrinter size={14} />
+            <IconDots size={14} />
           </IconButton>
-
-          <Dropdown
-            trigger={
-              <IconButton label="More" size="sm">
-                <IconDots size={14} />
-              </IconButton>
-            }
-          >
-            {isAuthenticated && notebooks.length > 0 && (
-              <>
-                <NotebookMoveMenu
-                  notebooks={notebooks}
-                  currentNotebookId={note.notebookId}
-                  onMove={async (notebookId) => {
-                    if (notebookId === note.notebookId) return;
-                    const { optimisticUpdateNote, recalculateNotebookCounts } = useNotesStore.getState();
-                    optimisticUpdateNote(note.id, { notebookId });
-                    try {
-                      const result = await assignNoteToNotebook(note.id, notebookId);
-                      if (result.success) {
-                        recalculateNotebookCounts();
-                      } else {
-                        optimisticUpdateNote(note.id, { notebookId: note.notebookId });
-                      }
-                    } catch {
-                      optimisticUpdateNote(note.id, { notebookId: note.notebookId });
-                    }
-                  }}
-                />
-                <DropdownSeparator />
-              </>
-            )}
-            <DropdownItem
-              icon={<IconTrash size={14} />}
-              destructive
-              onClick={() => setShowDeleteConfirm(true)}
-            >
-              Delete
-            </DropdownItem>
-          </Dropdown>
         </div>
       </div>
+
+      <CommandPalette
+        open={commandOpen}
+        onClose={() => setCommandOpen(false)}
+        page={commandPage}
+      />
 
       {/* Delete confirmation */}
       <ConfirmModal
