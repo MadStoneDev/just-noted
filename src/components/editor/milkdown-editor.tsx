@@ -2,7 +2,7 @@
 
 import React, { useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Editor, rootCtx, defaultValueCtx, remarkStringifyOptionsCtx, editorViewCtx, editorViewOptionsCtx } from "@milkdown/core";
+import { Editor, rootCtx, defaultValueCtx, remarkStringifyOptionsCtx, editorViewCtx } from "@milkdown/core";
 import { commonmark } from "@milkdown/preset-commonmark";
 import { gfm } from "@milkdown/preset-gfm";
 import { listener, listenerCtx } from "@milkdown/plugin-listener";
@@ -14,7 +14,7 @@ import { cursor } from "@milkdown/plugin-cursor";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import { $prose } from "@milkdown/utils";
 import { keymap } from "@milkdown/prose/keymap";
-import { undoInputRule } from "@milkdown/prose/inputrules";
+import { Plugin, PluginKey } from "@milkdown/prose/state";
 import DockedToolbar from "./docked-toolbar";
 import SlashMenu from "./slash-menu";
 import LinkPopover from "./link-popover";
@@ -55,6 +55,97 @@ const codeBlockEscape = $prose(() =>
       return false;
     },
   })
+);
+
+// Backspace immediately after a markdown input rule fired (e.g. "1. " → a
+// numbered list, "# " → a heading) should revert the conversion back to the
+// literal text instead of deleting it. Milkdown's Backspace already chains
+// undoInputRule, BUT a follow-up transaction (the trailing-paragraph plugin)
+// clears prosemirror's input-rule undo state before Backspace is pressed, so the
+// built-in behaviour never triggers. This plugin captures the undo info the
+// moment a rule fires — surviving those follow-up transactions — and reverts it.
+const inputRuleUndoKey = new PluginKey("jn-input-rule-undo");
+
+interface InputRuleUndoable {
+  transform: { steps: { invert(doc: unknown): unknown }[]; docs: unknown[] };
+  from: number;
+  to: number;
+  text: string | null;
+}
+
+function readInputRulesUndoable(state: {
+  plugins: readonly {
+    spec: { isInputRules?: boolean };
+    getState(s: unknown): unknown;
+  }[];
+}): InputRuleUndoable | null {
+  for (const plugin of state.plugins) {
+    if (plugin.spec?.isInputRules) {
+      const stored = plugin.getState(state);
+      if (stored) return stored as InputRuleUndoable;
+    }
+  }
+  return null;
+}
+
+const inputRuleUndo = $prose(
+  () =>
+    new Plugin<InputRuleUndoable | null>({
+      key: inputRuleUndoKey,
+      state: {
+        init: () => null,
+        apply(tr, value) {
+          const meta = tr.getMeta(inputRuleUndoKey);
+          if (meta !== undefined) return meta as InputRuleUndoable | null;
+          // Follow-up transactions (e.g. the trailing paragraph) must not clear
+          // the captured undo; only a real edit / selection change does.
+          if (tr.getMeta("appendedTransaction")) return value;
+          if (tr.docChanged || tr.selectionSet) return null;
+          return value;
+        },
+      },
+      // Runs after every plugin's apply, so the input-rules plugin's fresh undo
+      // state is readable here even though this plugin is ordered before it.
+      appendTransaction(_trs, _oldState, newState) {
+        const undoable = readInputRulesUndoable(
+          newState as unknown as Parameters<typeof readInputRulesUndoable>[0],
+        );
+        if (undoable && inputRuleUndoKey.getState(newState) == null) {
+          return newState.tr
+            .setMeta(inputRuleUndoKey, undoable)
+            .setMeta("addToHistory", false);
+        }
+        return null;
+      },
+      props: {
+        handleKeyDown(view, event) {
+          if (
+            event.key !== "Backspace" ||
+            event.ctrlKey ||
+            event.metaKey ||
+            event.altKey
+          ) {
+            return false;
+          }
+          const undoable = inputRuleUndoKey.getState(view.state);
+          if (!undoable) return false;
+
+          const { transform, from, to, text } = undoable;
+          const tr = view.state.tr;
+          for (let j = transform.steps.length - 1; j >= 0; j--) {
+            tr.step(transform.steps[j].invert(transform.docs[j]) as never);
+          }
+          if (text) {
+            const marks = tr.doc.resolve(from).marks();
+            tr.replaceWith(from, to, view.state.schema.text(text, marks));
+          } else {
+            tr.delete(from, to);
+          }
+          view.dispatch(tr);
+          return true;
+        },
+      },
+    }),
 );
 
 export interface CursorInfo {
@@ -147,30 +238,6 @@ function MilkdownEditorInner({
           size: 2,
         });
 
-        // Backspace right after a markdown input rule fired (e.g. "1. " → a
-        // numbered list, "# " → a heading) reverts the conversion to the literal
-        // text instead of deleting it. Handled on the editor's direct props so it
-        // runs before the base keymap's Backspace; undoInputRule returns false
-        // when there's nothing to undo, so ordinary Backspace is unaffected.
-        ctx.update(editorViewOptionsCtx, (prev) => {
-          const prevKeyDown = prev.handleKeyDown;
-          return {
-            ...prev,
-            handleKeyDown: (view, event) => {
-              if (
-                event.key === "Backspace" &&
-                !event.ctrlKey &&
-                !event.metaKey &&
-                !event.altKey &&
-                undoInputRule(view.state, view.dispatch)
-              ) {
-                return true;
-              }
-              return prevKeyDown ? prevKeyDown(view, event) : false;
-            },
-          };
-        });
-
         ctx.get(listenerCtx)
           .markdownUpdated((_ctx, markdown, prevMarkdown) => {
             if (markdown === prevMarkdown) return;
@@ -191,7 +258,8 @@ function MilkdownEditorInner({
       .use(trailing)
       .use(indent)
       .use(cursor)
-      .use(codeBlockEscape);
+      .use(codeBlockEscape)
+      .use(inputRuleUndo);
   }, []);
 
   const handleTaskClick = useCallback((e: React.MouseEvent) => {
