@@ -586,6 +586,11 @@ export function useNotesOperations(
     refreshNotes,
   ]);
 
+  // Tracks notes whose deferred (10s) backend delete has actually started firing.
+  // Undo before this point means the note was never deleted server-side, so
+  // restore must NOT re-create it (that caused duplicate-key/create errors).
+  const backendDeleteStartedRef = useRef<Set<string>>(new Set());
+
   // Delete Note with Undo support
   const deleteNote = useCallback(
     async (noteId: string) => {
@@ -622,6 +627,9 @@ export function useNotesOperations(
 
       // Set up undo - will auto-clear after 10 seconds
       const timeoutId = setTimeout(async () => {
+        // Mark that the deferred delete has begun — from here on, an undo must
+        // re-create the note rather than assume it still exists server-side.
+        backendDeleteStartedRef.current.add(noteId);
         // Actually delete from backend after timeout
         try {
           const result =
@@ -647,6 +655,7 @@ export function useNotesOperations(
           });
         }
         clearRecentlyDeleted();
+        backendDeleteStartedRef.current.delete(noteId);
       }, 10000);
 
       setRecentlyDeleted(targetNote, timeoutId);
@@ -659,10 +668,21 @@ export function useNotesOperations(
     const { recentlyDeleted, restoreDeletedNote: restoreFromStore } = useNotesStore.getState();
     if (!recentlyDeleted || !userId) return;
 
+    const noteId = recentlyDeleted.note.id;
     const restoredNote = restoreFromStore();
     if (!restoredNote) return;
 
-    // Re-save to backend
+    // Common case: undo happened before the deferred backend delete fired, so
+    // the note was never deleted server-side. restoreFromStore already cleared
+    // the local tombstone — just re-persist locally and stop. Re-creating here
+    // would duplicate a row that still exists (the original bug).
+    if (!backendDeleteStartedRef.current.has(noteId)) {
+      saveNoteToLocal(restoredNote).catch(() => {});
+      return;
+    }
+
+    // Race case: undo landed while/after the deferred delete began, so re-create.
+    backendDeleteStartedRef.current.delete(noteId);
     try {
       if (restoredNote.source === "redis") {
         await noteOperation("redis", {

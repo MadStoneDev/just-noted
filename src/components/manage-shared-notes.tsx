@@ -1,4 +1,6 @@
-﻿import { useState, useEffect } from "react";
+"use client";
+
+import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 import {
   IconLink,

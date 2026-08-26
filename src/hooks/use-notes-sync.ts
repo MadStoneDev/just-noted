@@ -528,9 +528,13 @@ export function useNotesSync() {
 
   // Periodic refresh - only when user is not actively editing
   useEffect(() => {
-    if (!hasInitialisedRef.current) return;
-
+    // The guard must be checked when the interval FIRES, not when the effect
+    // runs: refreshNotes is stable (singleton client), so this effect runs once
+    // on mount while hasInitialisedRef is still false. An early-return here would
+    // mean the interval is never created — leaving cross-device polling dead.
     const interval = setInterval(() => {
+      if (!hasInitialisedRef.current) return;
+
       const timeSinceLastUpdate = Date.now() - lastUpdateTimestamp.current;
       const { isEditing, isSaving } = useNotesStore.getState();
 
@@ -547,9 +551,12 @@ export function useNotesSync() {
 
   // Update last access on user activity (throttled to 5 minutes)
   useEffect(() => {
-    if (!hasInitialisedRef.current) return;
-
+    // Same as the periodic refresh above: check the guard at event time, not at
+    // effect-setup time, or the listeners are never attached (updateLastAccess is
+    // stable, so this effect only runs once — while hasInitialisedRef is false).
     const throttledUpdateLastAccess = () => {
+      if (!hasInitialisedRef.current) return;
+
       const now = Date.now();
       if (now - lastAccessTimestamp.current >= LAST_ACCESS_DEBOUNCE) {
         lastAccessTimestamp.current = now;

@@ -446,20 +446,32 @@ function BackupStatsGrid({ backupStats }: { backupStats: any }) {
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-      {stats.map((stat, index) => (
-        <div
-          key={index}
-          className={`text-center p-4 bg-${stat.color}-50 rounded-[var(--radius-lg)]`}
-        >
-          <div className={`text-sm font-semibold text-${stat.color}-600`}>
-            {stat.value}
+      {stats.map((stat, index) => {
+        const c = STAT_TILE_COLORS[stat.color] ?? STAT_TILE_COLORS.blue;
+        return (
+          <div
+            key={index}
+            className={`text-center p-4 ${c.bg} rounded-[var(--radius-lg)]`}
+          >
+            <div className={`text-sm font-semibold ${c.text}`}>
+              {stat.value}
+            </div>
+            <div className={`text-sm ${c.text}`}>{stat.label}</div>
           </div>
-          <div className={`text-sm text-${stat.color}-600`}>{stat.label}</div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
+
+// Static class strings so Tailwind's JIT can see them — interpolated names like
+// `bg-${color}-50` are purged at build time and render with no color.
+const STAT_TILE_COLORS: Record<string, { bg: string; text: string }> = {
+  blue: { bg: "bg-blue-50", text: "text-blue-600" },
+  orange: { bg: "bg-orange-50", text: "text-orange-600" },
+  green: { bg: "bg-green-50", text: "text-green-600" },
+  purple: { bg: "bg-purple-50", text: "text-purple-600" },
+};
 
 const BackupOverviewTab = memo(function BackupOverviewTab({
   uniqueNotes,

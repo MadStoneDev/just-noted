@@ -152,26 +152,35 @@ export async function getWritingStreak(): Promise<{
     let streak = 0;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const DAY_MS = 86400000;
 
+    // The run counts as a *current* streak only if the most recent session is
+    // today or yesterday. If the last write was 2+ days ago, the streak is 0.
+    const mostRecent = new Date(data[0].date + "T00:00:00");
+    mostRecent.setHours(0, 0, 0, 0);
+    const daysSinceMostRecent = Math.round(
+      (today.getTime() - mostRecent.getTime()) / DAY_MS,
+    );
+    if (daysSinceMostRecent > 1) {
+      return { success: true, streak: 0 };
+    }
+
+    // Walk consecutive days backward from the most recent session date, anchored
+    // to that date (not to `today`) so a run ending yesterday counts fully.
+    // Duplicate rows for the same day are skipped without advancing the anchor.
+    const expectedDate = new Date(mostRecent);
     for (let i = 0; i < data.length; i++) {
       const sessionDate = new Date(data[i].date + "T00:00:00");
-      const expectedDate = new Date(today);
-      expectedDate.setDate(expectedDate.getDate() - i);
-      expectedDate.setHours(0, 0, 0, 0);
+      sessionDate.setHours(0, 0, 0, 0);
 
       if (sessionDate.getTime() === expectedDate.getTime()) {
         streak++;
-      } else if (i === 0 && streak === 0) {
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-        if (sessionDate.getTime() === yesterday.getTime()) {
-          streak++;
-        } else {
-          break;
-        }
-      } else {
+        expectedDate.setDate(expectedDate.getDate() - 1);
+      } else if (sessionDate.getTime() < expectedDate.getTime()) {
+        // A day was skipped — the streak ends here.
         break;
       }
+      // sessionDate > expectedDate => duplicate/same-day row already counted; skip.
     }
 
     return { success: true, streak };
