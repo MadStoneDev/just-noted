@@ -9,10 +9,15 @@
 @theme {
   --breakpoint-xs: 30rem;
 
-  /* Typography */
-  --font-primary: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-secondary: "Playfair Display", serif;
-  --font-brand: "Playfair Display", serif;
+  /* Typography.
+     Inter and Playfair are loaded via next/font in layout.tsx, which exposes
+     them ONLY through the CSS vars --font-inter / --font-playfair (the actual
+     font-family names are hashed). Referencing the literal "Inter" /
+     "Playfair Display" here does NOT match the loaded faces, so the brand serif
+     silently fell back to a system serif — wire the next/font vars instead. */
+  --font-primary: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-secondary: var(--font-playfair), Georgia, "Times New Roman", serif;
+  --font-brand: var(--font-playfair), Georgia, "Times New Roman", serif;
   --font-mono: "JetBrains Mono", "SF Mono", "Monaco", "Menlo", "Ubuntu Mono", monospace;
 
   /* Brand */
