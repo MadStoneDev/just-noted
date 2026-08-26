@@ -788,6 +788,9 @@ function NoteEditor({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "m" || e.key === "M")) {
+        // In split view two editors are mounted — only the active note responds,
+        // so the shortcut doesn't open two palettes at once.
+        if (useNotesStore.getState().activeNoteId !== note.id) return;
         e.preventDefault();
         setCommandOpen((v) => !v);
       }
