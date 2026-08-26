@@ -18,6 +18,12 @@ interface DrawerProps {
   size?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl" | "full";
   className?: string;
   /**
+   * Max-width class for the inner content column. The sheet itself (background,
+   * borders) fills `size`; header/body/footer content is centered within this.
+   * Mainly meaningful for `size="full"` — smaller sizes already cap the panel.
+   */
+  contentClassName?: string;
+  /**
    * When false, Escape / backdrop / the close button won't dismiss the drawer
    * (e.g. while a save is in flight). Defaults to true.
    */
@@ -51,6 +57,7 @@ export function Drawer({
   footer,
   size = "md",
   className,
+  contentClassName = "max-w-5xl",
   dismissable = true,
 }: DrawerProps) {
   const contentRef = useRef<HTMLDivElement>(null);
@@ -155,38 +162,45 @@ export function Drawer({
         <div className="mx-auto mt-2.5 mb-1 h-1 w-10 shrink-0 rounded-full bg-[var(--color-border-primary)]" />
 
         {title && (
-          <div className="flex items-center justify-between gap-3 px-5 py-3 shrink-0">
-            <div className="min-w-0">
-              <h3
-                id="drawer-title"
-                className="truncate text-base font-semibold text-[var(--color-text-primary)]"
-              >
-                {title}
-              </h3>
-              {description && (
-                <p
-                  id="drawer-description"
-                  className="mt-0.5 text-sm text-[var(--color-text-secondary)]"
+          <div className="shrink-0 px-5 py-3">
+            <div
+              className={cn(
+                "mx-auto flex w-full items-center justify-between gap-3",
+                contentClassName,
+              )}
+            >
+              <div className="min-w-0">
+                <h3
+                  id="drawer-title"
+                  className="truncate text-base font-semibold text-[var(--color-text-primary)]"
                 >
-                  {description}
-                </p>
+                  {title}
+                </h3>
+                {description && (
+                  <p
+                    id="drawer-description"
+                    className="mt-0.5 text-sm text-[var(--color-text-secondary)]"
+                  >
+                    {description}
+                  </p>
+                )}
+              </div>
+              {dismissable && (
+                <IconButton label="Close" size="sm" onClick={onClose}>
+                  <IconX size={18} />
+                </IconButton>
               )}
             </div>
-            {dismissable && (
-              <IconButton label="Close" size="sm" onClick={onClose}>
-                <IconX size={18} />
-              </IconButton>
-            )}
           </div>
         )}
 
         <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin px-5 pb-5 pt-1">
-          {children}
+          <div className={cn("mx-auto w-full", contentClassName)}>{children}</div>
         </div>
 
         {footer && (
           <div className="shrink-0 border-t border-[var(--color-border-secondary)] px-5 py-3">
-            {footer}
+            <div className={cn("mx-auto w-full", contentClassName)}>{footer}</div>
           </div>
         )}
       </div>
