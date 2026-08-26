@@ -15,7 +15,7 @@ interface DrawerProps {
   children: React.ReactNode;
   /** Optional sticky action bar rendered below the scrollable body. */
   footer?: React.ReactNode;
-  size?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl";
+  size?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl" | "full";
   className?: string;
   /**
    * When false, Escape / backdrop / the close button won't dismiss the drawer
@@ -32,6 +32,7 @@ const sizeClasses: Record<NonNullable<DrawerProps["size"]>, string> = {
   "2xl": "max-w-2xl",
   "3xl": "max-w-3xl",
   "4xl": "max-w-4xl",
+  full: "max-w-none", // edge-to-edge, no width cap
 };
 
 /**
