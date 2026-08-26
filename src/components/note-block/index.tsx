@@ -237,7 +237,6 @@ export default function NoteBlock({
   const containerRef = useRef<HTMLElement | null>(null);
   const lastSavedContentRef = useRef(currentNote.content);
   const saveCounterRef = useRef(0);
-  const pendingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const prevIsTransferring = useRef(false);
   const collapseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const collapseSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -418,7 +417,7 @@ export default function NoteBlock({
     }
 
     try {
-      flushAutoSave();
+      await flushSave();
 
       const currentContent = getActiveEditorContent();
 
@@ -530,15 +529,6 @@ export default function NoteBlock({
     }
   }, [currentNote, versionHistory]);
 
-  // Create a stable save function using refs
-  const saveContentRef =
-    useRef<
-      (
-        content: string,
-        isManualSave?: boolean,
-        forceUpdate?: boolean,
-      ) => Promise<boolean> | undefined
-    >(undefined);
 
   const saveContent = useCallback(
     async (content: string, isManual = false): Promise<boolean> => {
@@ -639,31 +629,11 @@ export default function NoteBlock({
     [userId, details.id, noteSource, setStatus, saveNoteContent],
   );
 
-  const { debouncedSave, flushSave } = useAutoSave(
+  const { debouncedSave, flushSave, cancelSave } = useAutoSave(
     noteContent,
     saveContent,
     2000,
   );
-
-  const flushAutoSave = useCallback(() => {
-    if (pendingTimeoutRef.current) {
-      clearTimeout(pendingTimeoutRef.current);
-      pendingTimeoutRef.current = null;
-      saveContentRef.current?.(noteContent, false);
-    }
-  }, [noteContent]);
-
-  const cancelAutoSave = useCallback(() => {
-    if (pendingTimeoutRef.current) {
-      clearTimeout(pendingTimeoutRef.current);
-      pendingTimeoutRef.current = null;
-    }
-  }, []);
-
-  // Update the ref whenever saveContent changes
-  useEffect(() => {
-    saveContentRef.current = saveContent;
-  }, [saveContent]);
 
   const handleChange = useCallback(
     (value: string) => {
@@ -733,12 +703,8 @@ export default function NoteBlock({
     }
 
     return () => {
-      if (pendingTimeoutRef.current) {
-        clearTimeout(pendingTimeoutRef.current);
-      }
-
-      flushAutoSave();
-      cancelAutoSave();
+      flushSave();
+      cancelSave();
 
       if (collapseTimeoutRef.current) {
         clearTimeout(collapseTimeoutRef.current);
@@ -797,7 +763,7 @@ export default function NoteBlock({
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isPending) {
-        flushAutoSave();
+        flushSave();
         e.preventDefault();
       }
     };
@@ -807,7 +773,7 @@ export default function NoteBlock({
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [isPending, flushAutoSave]);
+  }, [isPending, flushSave]);
 
   useEffect(() => {
     wordCountGoalRef.current = wordCountGoal;

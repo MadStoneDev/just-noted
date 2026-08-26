@@ -404,12 +404,18 @@ function NoteEditor({
       setIsSaving(true);
       try {
         if (notesOperations.saveNoteContent) {
-          await notesOperations.saveNoteContent(
+          const result = await notesOperations.saveNoteContent(
             note.id,
             newContent,
             goalTarget,
             goalType,
           );
+          // A non-throwing failure (server rejected / queued offline) must
+          // propagate so useAutoSave keeps the content dirty and retries.
+          // Do NOT advance lastSavedContentRef or report success here.
+          if (result && result.success === false) {
+            return false;
+          }
         }
         lastSavedContentRef.current = newContent;
 

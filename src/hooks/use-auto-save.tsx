@@ -13,6 +13,15 @@ export function useAutoSave(
   const pendingRetryRef = useRef(false);
   const savePromiseRef = useRef<Promise<boolean | void> | null>(null);
 
+  // Keep the latest saveFunction in a ref so the unmount/beforeunload effect can
+  // call it without listing saveFunction as a dependency — otherwise that effect
+  // re-runs (and fires an unintended save) every time saveFunction's identity
+  // changes (e.g. on a goal edit).
+  const saveFunctionRef = useRef(saveFunction);
+  useEffect(() => {
+    saveFunctionRef.current = saveFunction;
+  }, [saveFunction]);
+
   // Update latest content ref when content changes
   useEffect(() => {
     latestContentRef.current = noteContent;
@@ -130,14 +139,28 @@ export function useAutoSave(
     }
   }, []);
 
-  // Cleanup on unmount — flush pending saves and add beforeunload backup
+  // Cleanup on unmount — flush pending saves and add beforeunload backup.
+  // Depends on [] (via saveFunctionRef) so it does NOT re-run on saveFunction
+  // identity changes; it only fires on real unmount / tab close.
   useEffect(() => {
+    // Fire-and-forget save of any unsaved content. Can't await here (beforeunload
+    // and cleanup are synchronous), but the save path writes to IndexedDB before
+    // the network call, so the latest content is persisted locally even if the
+    // tab closes. We deliberately do NOT advance lastSavedContentRef — that would
+    // falsely mark unpersisted content as saved.
+    const saveIfDirty = () => {
+      const content = latestContentRef.current;
+      if (content !== lastSavedContentRef.current && !saveInProgressRef.current) {
+        saveFunctionRef.current(content, false)?.catch?.(() => {});
+      }
+    };
+
     const handleBeforeUnload = () => {
-      // Best-effort: try to save synchronously via navigator.sendBeacon is not
-      // suitable for async saves, but clearing the timeout prevents orphaned timers
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
       }
+      saveIfDirty();
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -147,16 +170,9 @@ export function useAutoSave(
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
-      // Fire-and-forget flush — can't await in cleanup, but the
-      // save function writes to IDB first (via use-notes-operations)
-      // so even if the server save doesn't complete, data is in IDB.
-      const content = latestContentRef.current;
-      if (content !== lastSavedContentRef.current && !saveInProgressRef.current) {
-        lastSavedContentRef.current = content;
-        saveFunction(content, false).catch(() => {});
-      }
+      saveIfDirty();
     };
-  }, [flushSave]);
+  }, []);
 
   return {
     debouncedSave,
