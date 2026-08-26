@@ -77,6 +77,7 @@ export default function LazyTextBlock({
   distractionFreeMode = false,
   className = "",
   isCollapsed = false,
+  toolbarContainer,
 }: Props) {
   const [localValue, setLocalValue] = useState(value);
   const [localFormat, setLocalFormat] = useState<ContentFormat>(contentFormat);
@@ -164,6 +165,7 @@ export default function LazyTextBlock({
           contentFormat={localFormat}
           onChange={handleChange}
           placeholder={placeholder}
+          toolbarContainer={toolbarContainer}
         />
       </Suspense>
     </div>

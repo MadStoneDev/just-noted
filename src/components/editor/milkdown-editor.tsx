@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Editor, rootCtx, defaultValueCtx, remarkStringifyOptionsCtx, editorViewCtx } from "@milkdown/core";
 import { commonmark } from "@milkdown/preset-commonmark";
 import { gfm } from "@milkdown/preset-gfm";
@@ -69,6 +70,12 @@ interface MilkdownEditorProps {
   placeholder?: string;
   readOnly?: boolean;
   className?: string;
+  /**
+   * When provided, the formatting toolbar is portaled into this element (e.g. a
+   * full-width bar at the bottom of the editor pane) instead of rendering inline
+   * inside the scrolling content. Falls back to inline when omitted.
+   */
+  toolbarContainer?: HTMLElement | null;
 }
 
 function cleanCorruptedMarkdown(text: string): string {
@@ -105,6 +112,7 @@ function MilkdownEditorInner({
   placeholder = "Start writing...",
   readOnly = false,
   className,
+  toolbarContainer,
 }: MilkdownEditorProps) {
   const onChangeRef = useRef(onChange);
   const onFocusRef = useRef(onFocus);
@@ -216,7 +224,15 @@ function MilkdownEditorInner({
         </>
       )}
       <Milkdown />
-      {!readOnly && <DockedToolbar getEditor={get} containerRef={containerRef} />}
+      {!readOnly &&
+        (toolbarContainer ? (
+          createPortal(
+            <DockedToolbar getEditor={get} containerRef={containerRef} />,
+            toolbarContainer,
+          )
+        ) : (
+          <DockedToolbar getEditor={get} containerRef={containerRef} />
+        ))}
     </div>
   );
 }

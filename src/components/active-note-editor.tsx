@@ -371,6 +371,9 @@ function NoteEditor({
   const [showHelp, setShowHelp] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
+  // Full-width formatting bar is portaled into this pane-level slot (below the
+  // scroll area) so it spans the pane and never overlaps the note text.
+  const [toolbarSlot, setToolbarSlot] = useState<HTMLDivElement | null>(null);
   const [showVersions, setShowVersions] = useState(false);
   const [showGoalSuggestions, setShowGoalSuggestions] = useState(false);
   const lastVersionRef = useRef<number>(0);
@@ -1113,11 +1116,16 @@ function NoteEditor({
                 distractionFreeMode
                 placeholder="Start writing..."
                 className="flex-1 flex flex-col overflow-visible"
+                toolbarContainer={toolbarSlot}
               />
             )}
           </div>
         </div>
       </div>
+
+      {/* Full-width formatting bar, docked below the scroll area (never overlaps
+          the note text). The Milkdown editor portals its toolbar in here. */}
+      <div ref={setToolbarSlot} className="shrink-0 empty:hidden" />
 
       {/* Formatting help modal */}
       <Modal open={showHelp} onClose={() => setShowHelp(false)} title="Formatting" size="sm">
