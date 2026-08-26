@@ -414,7 +414,11 @@ export const useNotesStore = create<NotesStore>()(
       set((state) => ({
         notes: state.notes.map((note) =>
           note.id === noteId
-            ? { ...note, ...updates, updatedAt: Date.now() }
+            // updatedAt defaults to now for user edits, but a caller applying
+            // server data (realtime UPDATE, refreshSingleNote, create result)
+            // passes the real server updatedAt in `updates`, which must win —
+            // otherwise merge/realtime "which version is newer" checks corrupt.
+            ? { ...note, updatedAt: Date.now(), ...updates }
             : note
         ),
         lastUpdateTimestamp: Date.now(),
@@ -548,6 +552,7 @@ export const useNotesStore = create<NotesStore>()(
     mergeWithBackend: (backendNotes) => {
       set((state) => {
         const { isSaving, isEditing } = state;
+        const inFlight = (id: string) => isSaving.has(id) || isEditing.has(id);
 
         if (isSaving.size === 0 && isEditing.size === 0) {
           return {
@@ -556,20 +561,29 @@ export const useNotesStore = create<NotesStore>()(
           };
         }
 
-        const mergedNotes = backendNotes.map((backendNote) => {
-          const isNoteSaving = isSaving.has(backendNote.id);
-          const isNoteEditing = isEditing.has(backendNote.id);
+        const backendIds = new Set(backendNotes.map((n) => n.id));
 
-          if (isNoteSaving || isNoteEditing) {
+        const mergedNotes = backendNotes.map((backendNote) => {
+          if (inFlight(backendNote.id)) {
             const localNote = state.notes.find((n) => n.id === backendNote.id);
             return localNote || backendNote;
           }
-
           return backendNote;
         });
 
+        // Preserve notes that are actively being saved/edited but haven't landed
+        // on the backend yet (freshly created / created offline). Without this a
+        // refresh that fires mid-edit silently drops them. We deliberately keep
+        // ONLY in-flight notes — a local note that is not in-flight and missing
+        // from the backend was likely deleted elsewhere, so we must not resurrect it.
+        const inFlightLocalOnly = state.notes.filter(
+          (n) => !backendIds.has(n.id) && inFlight(n.id),
+        );
+
         return {
-          notes: mergedNotes,
+          notes: inFlightLocalOnly.length
+            ? [...mergedNotes, ...inFlightLocalOnly]
+            : mergedNotes,
           lastUpdateTimestamp: Date.now(),
         };
       });
@@ -704,9 +718,21 @@ function computeFilteredNotesCacheKey(state: {
   activeNotebookId: string | null;
   filterTagIds: string[];
   noteTagMap: Record<string, string[]>;
+  sortBy: string;
+  notebooks: Notebook[];
 }): string {
   const noteTagFingerprint = Object.keys(state.noteTagMap).length;
-  return `${state.notes.length}:${state.notes.map((n) => n.id + n.isPinned + n.source + n.notebookId + n.updatedAt).join(",")}:${state.searchQuery}:${state.filterSource}:${state.filterPinned}:${state.activeNotebookId}:${state.filterTagIds.join(",")}:${noteTagFingerprint}`;
+  // Per-note fingerprint MUST include deletedAt: optimisticDeleteNote/restore
+  // change deletedAt without bumping updatedAt, so omitting it left deleted or
+  // restored notes rendering from a stale cache. sortBy and the notebook
+  // hidden-state fingerprint must be here too — both change the filtered output.
+  const noteFingerprint = state.notes
+    .map((n) => n.id + n.isPinned + n.source + n.notebookId + n.updatedAt + n.deletedAt)
+    .join(",");
+  const notebookFingerprint = state.notebooks
+    .map((nb) => nb.id + nb.isHidden + nb.showHiddenChildren + nb.parentId)
+    .join(",");
+  return `${state.notes.length}:${noteFingerprint}:${state.searchQuery}:${state.filterSource}:${state.filterPinned}:${state.activeNotebookId}:${state.filterTagIds.join(",")}:${noteTagFingerprint}:${state.sortBy}:${notebookFingerprint}`;
 }
 
 // Selector hooks for better performance
