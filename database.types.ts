@@ -282,6 +282,27 @@ export type Database = {
           },
         ]
       }
+      saved_shared_notes: {
+        Row: {
+          id: string
+          user_id: string
+          shortcode: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          shortcode: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          shortcode?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       shared_notes: {
         Row: {
           id: string
