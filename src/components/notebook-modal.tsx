@@ -129,7 +129,7 @@ export default function NotebookModal({
       open={isOpen}
       onClose={onClose}
       title={isEditing ? "Edit Notebook" : "Create Notebook"}
-      size="md"
+      size="2xl"
       dismissable={!isSaving && !isDeleting}
       footer={
         <div className="flex items-center justify-between">
