@@ -70,6 +70,9 @@ interface SidebarProps {
   onOpenShared?: (shortcode: string) => void;
 }
 
+const RAIL_VIEW_KEY = "jn_sidebar_rail_view";
+const RAIL_VIEWS = ["notes", "notebooks", "tags", "shared"] as const;
+
 export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMoveNote, onOpenTrash, onNewNote, onOpenShared }: SidebarProps) {
   const {
     sidebarOpen,
@@ -124,10 +127,33 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
   // Delete confirmation
   const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null);
 
-  // Rail navigation: which panel the content column shows
+  // Rail navigation: which panel the content column shows. Defaults to "notes";
+  // the last-open view is restored from localStorage on mount (see effects below).
   const [railView, setRailView] = useState<"notes" | "notebooks" | "tags" | "shared">("notes");
   // Filters live in a slide-up sheet, out of the list's way
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+
+  // Restore the last-open rail view on mount (in an effect, not the useState
+  // initialiser, to avoid a hydration mismatch — server always renders "notes").
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(RAIL_VIEW_KEY);
+      if (stored && (RAIL_VIEWS as readonly string[]).includes(stored)) {
+        setRailView(stored as (typeof RAIL_VIEWS)[number]);
+      }
+    } catch {
+      // localStorage unavailable — keep the default.
+    }
+  }, []);
+
+  // Persist the rail view whenever it changes.
+  useEffect(() => {
+    try {
+      localStorage.setItem(RAIL_VIEW_KEY, railView);
+    } catch {
+      // localStorage unavailable — ignore.
+    }
+  }, [railView]);
 
   const filteredNotes = getFilteredNotes();
   const hasActiveFilters = searchQuery || filterSource !== "all" || filterPinned !== "all" || activeNotebookId !== null || filterTagIds.length > 0;
@@ -530,15 +556,8 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
         <div className="flex h-full w-screen md:w-[340px]">
           {/* Icon rail — primary navigation */}
           <nav className="w-14 flex-none flex flex-col items-center gap-1 py-2 border-r border-[var(--color-border-secondary)] bg-[var(--color-bg-secondary)]">
-            {isAuthenticated && (
-              <RailButton
-                label="All notes"
-                active={railView === "notes"}
-                onClick={() => { setActiveNotebookId(null); setRailView("notes"); }}
-              >
-                <IconNote size={20} />
-              </RailButton>
-            )}
+            {/* Notebooks first, Notes second — mirrors the hierarchy (notes live
+                inside notebooks) even though Notes is the default view. */}
             {isAuthenticated && (
               <RailButton
                 label="Notebooks"
@@ -546,6 +565,15 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 onClick={() => setRailView("notebooks")}
               >
                 <IconNotebook size={20} />
+              </RailButton>
+            )}
+            {isAuthenticated && (
+              <RailButton
+                label="All notes"
+                active={railView === "notes"}
+                onClick={() => { setActiveNotebookId(null); setRailView("notes"); }}
+              >
+                <IconNote size={20} />
               </RailButton>
             )}
             {isAuthenticated && tags.length > 0 && (
