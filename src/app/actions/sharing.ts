@@ -207,6 +207,19 @@ export async function sharingOperation(params: SharingOperationParams) {
   const { data: { user: authUser } } = await supabase.auth.getUser();
   const authenticatedUserId = authUser?.id || null;
 
+  // Security: an authenticated session always wins. The client-supplied
+  // `currentUserId` is only trusted for the anonymous (Redis) tier, whose users
+  // legitimately have no session and whose LocalStorage token *is* their
+  // identity. Never let an unauthenticated caller act on a Supabase-backed share
+  // by passing someone else's user id.
+  const resolveOwnerId = (
+    currentUserId: string | null | undefined,
+    storage: "redis" | "supabase",
+  ): string | null => {
+    if (authenticatedUserId) return authenticatedUserId;
+    return storage === "redis" ? currentUserId ?? null : null;
+  };
+
   try {
     switch (operation) {
       case "share": {
@@ -221,8 +234,17 @@ export async function sharingOperation(params: SharingOperationParams) {
           expiresAt = null,
         } = params;
 
-        // Use server-side auth for ownership — more reliable than client-passed ID
-        const ownerId = authenticatedUserId || currentUserId;
+        // Use server-side auth for ownership — more reliable than client-passed ID.
+        // For Supabase-backed notes a real session is required; the anonymous
+        // Redis tier falls back to the client's LocalStorage token.
+        const ownerId = resolveOwnerId(currentUserId, storage);
+
+        if (!ownerId) {
+          return {
+            success: false,
+            error: "You must be signed in to share this note",
+          };
+        }
 
         const noteExists =
           storage === "supabase"
@@ -241,7 +263,7 @@ export async function sharingOperation(params: SharingOperationParams) {
           .from("shared_notes")
           .select("id, shortcode")
           .eq("note_id", noteId)
-          .eq("note_owner_id", authenticatedUserId || currentUserId);
+          .eq("note_owner_id", ownerId);
 
         let shortcode: string;
         let shareId: string;
@@ -299,7 +321,7 @@ export async function sharingOperation(params: SharingOperationParams) {
             .from("shared_notes")
             .update(updateData)
             .eq("id", shareId)
-            .eq("note_owner_id", authenticatedUserId || currentUserId);
+            .eq("note_owner_id", ownerId);
 
           if (updateError) {
             return { success: false, error: "Failed to update share" };
@@ -365,12 +387,15 @@ export async function sharingOperation(params: SharingOperationParams) {
       case "getUsers": {
         const { noteId, currentUserId } = params;
 
-        const { data: shareData } = await supabase
+        let getUsersQuery = supabase
           .from("shared_notes")
           .select("id, shortcode, is_public, storage, is_anonymous, password_hash, expires_at, view_count")
           .eq("note_id", noteId)
-          .eq("note_owner_id", authenticatedUserId || currentUserId)
-          .single();
+          .eq("note_owner_id", authenticatedUserId || currentUserId);
+        // Without a session, only the anonymous (Redis) tier may be managed via
+        // the client token — never a Supabase-backed share.
+        if (!authenticatedUserId) getUsersQuery = getUsersQuery.eq("storage", "redis");
+        const { data: shareData } = await getUsersQuery.single();
 
         if (!shareData) {
           return {
@@ -521,10 +546,17 @@ export async function sharingOperation(params: SharingOperationParams) {
           .rpc("increment_view_count", { shortcode_param: shortcode })
           .then(undefined, (e: unknown) => console.error("increment_view_count failed:", e));
 
+        // Never expose the note owner's id to viewers. For the anonymous (Redis)
+        // tier this id IS the LocalStorage capability token — leaking it would let
+        // any viewer read or destroy all of that owner's notes. Viewers only need
+        // the display fields (authorUsername / authorAvatar) resolved above.
+        const { author: _ownerId, ...safeNote } =
+          noteResult.note as typeof noteResult.note & { author?: string };
+
         return {
           success: true,
           note: {
-            ...noteResult.note,
+            ...safeNote,
             authorUsername: authorInfo.username,
             authorAvatar: isAnonymous ? null : authorInfo.avatar_url,
             content_format: (noteResult.note as any).content_format,
@@ -543,12 +575,13 @@ export async function sharingOperation(params: SharingOperationParams) {
       case "removeUser": {
         const { noteId, username, currentUserId } = params;
 
-        const { data: shareData } = await supabase
+        let removeUserQuery = supabase
           .from("shared_notes")
           .select("id")
           .eq("note_id", noteId)
-          .eq("note_owner_id", authenticatedUserId || currentUserId)
-          .single();
+          .eq("note_owner_id", authenticatedUserId || currentUserId);
+        if (!authenticatedUserId) removeUserQuery = removeUserQuery.eq("storage", "redis");
+        const { data: shareData } = await removeUserQuery.single();
 
         if (!shareData) {
           return {
@@ -576,11 +609,13 @@ export async function sharingOperation(params: SharingOperationParams) {
       case "stopSharing": {
         const { noteId, currentUserId } = params;
 
-        const { error } = await supabase
+        let stopSharingQuery = supabase
           .from("shared_notes")
           .delete()
           .eq("note_id", noteId)
           .eq("note_owner_id", authenticatedUserId || currentUserId);
+        if (!authenticatedUserId) stopSharingQuery = stopSharingQuery.eq("storage", "redis");
+        const { error } = await stopSharingQuery;
 
         if (error) {
           return { success: false, error: "Failed to stop sharing" };
