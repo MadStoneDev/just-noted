@@ -2,7 +2,7 @@
 
 import React, { useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Editor, rootCtx, defaultValueCtx, remarkStringifyOptionsCtx, editorViewCtx } from "@milkdown/core";
+import { Editor, rootCtx, defaultValueCtx, remarkStringifyOptionsCtx, editorViewCtx, editorViewOptionsCtx } from "@milkdown/core";
 import { commonmark } from "@milkdown/preset-commonmark";
 import { gfm } from "@milkdown/preset-gfm";
 import { listener, listenerCtx } from "@milkdown/plugin-listener";
@@ -14,6 +14,7 @@ import { cursor } from "@milkdown/plugin-cursor";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import { $prose } from "@milkdown/utils";
 import { keymap } from "@milkdown/prose/keymap";
+import { undoInputRule } from "@milkdown/prose/inputrules";
 import DockedToolbar from "./docked-toolbar";
 import SlashMenu from "./slash-menu";
 import LinkPopover from "./link-popover";
@@ -144,6 +145,30 @@ function MilkdownEditorInner({
         ctx.set(indentConfig.key, {
           type: "space" as const,
           size: 2,
+        });
+
+        // Backspace right after a markdown input rule fired (e.g. "1. " → a
+        // numbered list, "# " → a heading) reverts the conversion to the literal
+        // text instead of deleting it. Handled on the editor's direct props so it
+        // runs before the base keymap's Backspace; undoInputRule returns false
+        // when there's nothing to undo, so ordinary Backspace is unaffected.
+        ctx.update(editorViewOptionsCtx, (prev) => {
+          const prevKeyDown = prev.handleKeyDown;
+          return {
+            ...prev,
+            handleKeyDown: (view, event) => {
+              if (
+                event.key === "Backspace" &&
+                !event.ctrlKey &&
+                !event.metaKey &&
+                !event.altKey &&
+                undoInputRule(view.state, view.dispatch)
+              ) {
+                return true;
+              }
+              return prevKeyDown ? prevKeyDown(view, event) : false;
+            },
+          };
         });
 
         ctx.get(listenerCtx)
