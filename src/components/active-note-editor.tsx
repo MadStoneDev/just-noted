@@ -39,7 +39,8 @@ import {
   writeWideOverride,
   type WideLevel,
 } from "@/utils/wide-view";
-import { assignNoteToNotebook } from "@/app/actions/notebookActions";
+import { assignNoteToNotebook, createNotebook } from "@/app/actions/notebookActions";
+import { DEFAULT_COVER_TYPE, DEFAULT_COVER_VALUE } from "@/lib/notebook-covers";
 import { Modal, ConfirmModal } from "@/components/ds/modal";
 import { CommandPalette, type CommandPage } from "@/components/ds/command-palette";
 import { getSortedNotebookTree } from "@/utils/notebook-tree";
@@ -658,12 +659,38 @@ function NoteEditor({
     [note.id, note.notebookId],
   );
 
+  const createNotebookAndMove = useCallback(
+    async (name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      try {
+        const result = await createNotebook({
+          name: trimmed,
+          coverType: DEFAULT_COVER_TYPE,
+          coverValue: DEFAULT_COVER_VALUE,
+        });
+        if (result.success && result.notebook) {
+          useNotesStore.getState().addNotebook(result.notebook);
+          await moveNoteToNotebook(result.notebook.id);
+          toast.showSuccess(`Created “${trimmed}” and moved note here`);
+        } else {
+          toast.showError(result.error || "Couldn't create notebook");
+        }
+      } catch {
+        toast.showError("Couldn't create notebook");
+      }
+    },
+    [moveNoteToNotebook, toast],
+  );
+
   const commandPage = useMemo<CommandPage>(() => {
     const canOrganize = isAuthenticated && notebooks.length > 0;
 
     const movePage: CommandPage = {
       title: "Move to notebook",
-      placeholder: "Search notebooks…",
+      placeholder: "Search or create a notebook…",
+      onCreate: createNotebookAndMove,
+      createLabel: (q) => `Create “${q}” and move here`,
       groups: [
         {
           id: "remove",
@@ -785,6 +812,7 @@ function NoteEditor({
     note.isPrivate,
     notesOperations,
     moveNoteToNotebook,
+    createNotebookAndMove,
   ]);
 
   // Ctrl/Cmd+Shift+M toggles the note command menu.

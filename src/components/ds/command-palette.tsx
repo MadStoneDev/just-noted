@@ -8,7 +8,12 @@ import React, {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { IconSearch, IconChevronRight, IconArrowLeft } from "@tabler/icons-react";
+import {
+  IconSearch,
+  IconChevronRight,
+  IconArrowLeft,
+  IconPlus,
+} from "@tabler/icons-react";
 
 export interface CommandItem {
   id: string;
@@ -22,6 +27,8 @@ export interface CommandItem {
   /** Extra text matched by the filter but not shown. */
   keywords?: string;
   destructive?: boolean;
+  /** Renders the row in the accent colour (e.g. an inline "create" action). */
+  accent?: boolean;
   disabled?: boolean;
   /** Right-aligned node (e.g. a check for the current selection). */
   trailing?: React.ReactNode;
@@ -43,6 +50,13 @@ export interface CommandPage {
   title: string;
   placeholder?: string;
   groups: CommandGroup[];
+  /**
+   * When set, a "Create …" row appears at the bottom while the user is typing
+   * (and nothing matches the query exactly), calling this with the typed text.
+   */
+  onCreate?: (query: string) => void;
+  /** Label for the create row; defaults to `Create “{query}”`. */
+  createLabel?: (query: string) => string;
 }
 
 interface CommandPaletteProps {
@@ -94,10 +108,36 @@ export function CommandPalette({ open, onClose, page }: CommandPaletteProps) {
       .filter((group) => group.items.length > 0);
   }, [current, query]);
 
+  // Optional inline "Create …" row: shown while typing when the page opts in and
+  // no item matches the query exactly.
+  const createItem = useMemo<CommandItem | null>(() => {
+    const q = query.trim();
+    if (!current.onCreate || !q) return null;
+    const exists = current.groups.some((g) =>
+      g.items.some((it) => it.label.toLowerCase() === q.toLowerCase()),
+    );
+    if (exists) return null;
+    return {
+      id: "__create__",
+      label: current.createLabel ? current.createLabel(q) : `Create “${q}”`,
+      icon: <IconPlus size={16} />,
+      accent: true,
+      perform: () => current.onCreate?.(q),
+    };
+  }, [current, query]);
+
+  const groupsToRender = useMemo(
+    () =>
+      createItem
+        ? [...filteredGroups, { id: "__create__group", items: [createItem] }]
+        : filteredGroups,
+    [filteredGroups, createItem],
+  );
+
   // Flatten to a single navigable list of selectable (non-disabled) items.
   const flatItems = useMemo(
-    () => filteredGroups.flatMap((g) => g.items),
-    [filteredGroups],
+    () => groupsToRender.flatMap((g) => g.items),
+    [groupsToRender],
   );
 
   // Keep the active index in range as the list changes.
@@ -239,7 +279,7 @@ export function CommandPalette({ open, onClose, page }: CommandPaletteProps) {
             </div>
           )}
 
-          {filteredGroups.map((group) => (
+          {groupsToRender.map((group) => (
             <div key={group.id} className="px-1.5 pb-1">
               {group.heading && (
                 <div className="px-2.5 pt-2 pb-1 text-[10.5px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
@@ -274,7 +314,9 @@ export function CommandPalette({ open, onClose, page }: CommandPaletteProps) {
                         className={`flex-none grid place-items-center [&_svg]:size-4 ${
                           item.destructive
                             ? "text-[var(--color-danger)]"
-                            : "text-[var(--color-text-secondary)]"
+                            : item.accent
+                              ? "text-[var(--color-accent)]"
+                              : "text-[var(--color-text-secondary)]"
                         }`}
                       >
                         {item.icon}
@@ -285,7 +327,9 @@ export function CommandPalette({ open, onClose, page }: CommandPaletteProps) {
                         className={`text-sm truncate ${
                           item.destructive
                             ? "text-[var(--color-danger)]"
-                            : "text-[var(--color-text-primary)]"
+                            : item.accent
+                              ? "text-[var(--color-accent)] font-medium"
+                              : "text-[var(--color-text-primary)]"
                         }`}
                       >
                         {item.prefix && (
