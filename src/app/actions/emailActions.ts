@@ -52,97 +52,90 @@ const EMAIL_CONFIG = {
 // EMAIL TEMPLATES (HTML)
 // ===========================
 
-function getAdminEmailHtml(name: string, email: string, score: number | undefined, message: string): string {
-  return `
-<!DOCTYPE html>
-<html>
+// Shared branded shell: a centered white card on a soft ground, a "Just Noted"
+// serif wordmark, and a quiet footer. `content` is the inner body HTML.
+function emailShell(opts: { preheader: string; content: string; maxWidth?: number }): string {
+  const { preheader, content, maxWidth = 520 } = opts;
+  return `<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>New Contact Form Submission</title>
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
 </head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #03BFB5 0%, #029e96 100%); padding: 30px; border-radius: 12px 12px 0 0;">
-    <h1 style="color: white; margin: 0; font-size: 24px;">New Contact Form Submission</h1>
-  </div>
-
-  <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 12px 12px; border: 1px solid #e9ecef; border-top: none;">
-    <table style="width: 100%; border-collapse: collapse;">
-      <tr>
-        <td style="padding: 10px 0; border-bottom: 1px solid #dee2e6; font-weight: 600; width: 120px;">Name:</td>
-        <td style="padding: 10px 0; border-bottom: 1px solid #dee2e6;">${escapeHtml(name)}</td>
-      </tr>
-      <tr>
-        <td style="padding: 10px 0; border-bottom: 1px solid #dee2e6; font-weight: 600;">Email:</td>
-        <td style="padding: 10px 0; border-bottom: 1px solid #dee2e6;">
-          <a href="mailto:${escapeHtml(email)}" style="color: #03BFB5;">${escapeHtml(email)}</a>
-        </td>
-      </tr>
-      ${score !== undefined ? `
-      <tr>
-        <td style="padding: 10px 0; border-bottom: 1px solid #dee2e6; font-weight: 600;">reCAPTCHA Score:</td>
-        <td style="padding: 10px 0; border-bottom: 1px solid #dee2e6;">
-          <span style="background: ${score >= 0.7 ? '#d4edda' : score >= 0.5 ? '#fff3cd' : '#f8d7da'}; padding: 2px 8px; border-radius: 4px; font-size: 14px;">
-            ${score.toFixed(2)}
-          </span>
-        </td>
-      </tr>
-      ` : ''}
-    </table>
-
-    <div style="margin-top: 20px;">
-      <h3 style="color: #03BFB5; margin-bottom: 10px;">Message:</h3>
-      <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #dee2e6; white-space: pre-wrap;">${escapeHtml(message)}</div>
-    </div>
-  </div>
-
-  <p style="text-align: center; color: #6c757d; font-size: 12px; margin-top: 20px;">
-    This email was sent from the Just Noted contact form.
-  </p>
+<body style="margin:0;padding:0;background:#f4f7f7;-webkit-text-size-adjust:100%;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#f4f7f7;">${preheader}</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f7f7;">
+    <tr>
+      <td align="center" style="padding:40px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:${maxWidth}px;background:#ffffff;border:1px solid #ececec;border-radius:14px;">
+          <tr>
+            <td style="padding:32px 36px 0;">
+              <span style="font-family:'Playfair Display',Georgia,'Times New Roman',serif;font-size:22px;font-weight:700;color:#03BFB5;letter-spacing:-0.01em;">Just Noted</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 36px 36px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#1a1a1a;">
+              ${content}
+            </td>
+          </tr>
+        </table>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:${maxWidth}px;">
+          <tr>
+            <td align="center" style="padding:18px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#9aa0a0;">
+              Just Noted &middot; <a href="https://justnoted.app" style="color:#9aa0a0;text-decoration:underline;">justnoted.app</a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
-</html>
-  `;
+</html>`;
 }
 
-function getUserConfirmationHtml(email: string): string {
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Thank you for contacting Just Noted</title>
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #03BFB5 0%, #029e96 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-    <h1 style="color: white; margin: 0; font-size: 28px;">Just Noted</h1>
-    <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Distraction-free note taking</p>
-  </div>
+function getAdminEmailHtml(name: string, email: string, score: number | undefined, message: string): string {
+  const scoreColor = score === undefined ? "" : score >= 0.7 ? "#059a93" : score >= 0.5 ? "#b45309" : "#dc2626";
+  return emailShell({
+    preheader: `New contact message from ${escapeHtml(name)}`,
+    content: `
+      <p style="margin:0 0 4px;font-size:17px;font-weight:600;">New contact message</p>
+      <p style="margin:0 0 22px;color:#6b6b6b;font-size:14px;">Sent through the Just Noted contact form.</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">
+        <tr>
+          <td style="padding:10px 0;border-bottom:1px solid #eef1f1;color:#6b6b6b;width:110px;vertical-align:top;">From</td>
+          <td style="padding:10px 0;border-bottom:1px solid #eef1f1;">${escapeHtml(name)}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;border-bottom:1px solid #eef1f1;color:#6b6b6b;vertical-align:top;">Email</td>
+          <td style="padding:10px 0;border-bottom:1px solid #eef1f1;"><a href="mailto:${escapeHtml(email)}" style="color:#03BFB5;text-decoration:none;">${escapeHtml(email)}</a></td>
+        </tr>${score !== undefined ? `
+        <tr>
+          <td style="padding:10px 0;border-bottom:1px solid #eef1f1;color:#6b6b6b;vertical-align:top;">reCAPTCHA</td>
+          <td style="padding:10px 0;border-bottom:1px solid #eef1f1;color:${scoreColor};font-weight:600;">${score.toFixed(2)}</td>
+        </tr>` : ""}
+      </table>
+      <p style="margin:24px 0 8px;color:#6b6b6b;font-size:13px;text-transform:uppercase;letter-spacing:0.06em;">Message</p>
+      <div style="background:#f7f9f9;border:1px solid #eef1f1;border-radius:10px;padding:18px;white-space:pre-wrap;font-size:15px;line-height:1.6;">${escapeHtml(message)}</div>
+    `,
+  });
+}
 
-  <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 12px 12px; border: 1px solid #e9ecef; border-top: none;">
-    <h2 style="color: #03BFB5; margin-top: 0;">Thank you for reaching out!</h2>
-
-    <p>We've received your message and will get back to you as soon as possible.</p>
-
-    <p>In the meantime, feel free to explore Just Noted and start capturing your thoughts with our distraction-free editor.</p>
-
-    <div style="text-align: center; margin: 30px 0;">
-      <a href="https://justnoted.app" style="display: inline-block; background: #03BFB5; color: white; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: 600;">
-        Go to Just Noted
-      </a>
-    </div>
-
-    <p style="color: #6c757d; font-size: 14px;">
-      If you didn't submit a contact form on Just Noted, you can safely ignore this email.
-    </p>
-  </div>
-
-  <p style="text-align: center; color: #6c757d; font-size: 12px; margin-top: 20px;">
-    © ${new Date().getFullYear()} Just Noted. All rights reserved.
-  </p>
-</body>
-</html>
-  `;
+function getUserConfirmationHtml(_email: string): string {
+  return emailShell({
+    preheader: "Thanks for reaching out — we've got your message.",
+    content: `
+      <p style="margin:0 0 16px;">Hi,</p>
+      <p style="margin:0 0 16px;">Thanks for reaching out. We've got your message and we'll get back to you as soon as we can.</p>
+      <p style="margin:0 0 24px;">In the meantime, feel free to keep writing.</p>
+      <p style="margin:0 0 28px;">
+        <a href="https://justnoted.app" style="display:inline-block;background:#03BFB5;color:#ffffff;padding:11px 22px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Open Just Noted</a>
+      </p>
+      <p style="margin:0 0 16px;color:#6b6b6b;font-size:14px;">If you didn't contact Just Noted, you can safely ignore this email — no action is needed.</p>
+      <p style="margin:0;">Best regards,<br>Just Noted</p>
+    `,
+  });
 }
 
 function escapeHtml(text: string): string {

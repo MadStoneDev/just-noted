@@ -1,0 +1,69 @@
+<!--
+  Just Noted — passwordless login code email.
+
+  WHERE THIS GOES: Supabase Dashboard → Authentication → Email Templates →
+  "Magic Link" (that's the template signInWithOtp uses). Paste the <body> markup
+  below into the "Message body" field.
+
+  SUBJECT LINE (set in the same screen):
+      {{ .Token }} — Your Just Noted login code
+
+  Supabase Go-template variables used:
+      {{ .Token }}  → the 6-digit login code
+      {{ .Email }}  → the recipient's address
+
+  Note: the "valid for 1 hour" copy matches Supabase's default OTP expiry
+  (3600s). If you change Authentication → Providers → Email → OTP expiry, update
+  the wording below to match.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+</head>
+<body style="margin:0;padding:0;background:#f4f7f7;-webkit-text-size-adjust:100%;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#f4f7f7;">Your Just Noted login code — enter it to finish signing in.</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f7f7;">
+    <tr>
+      <td align="center" style="padding:40px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border:1px solid #ececec;border-radius:14px;">
+          <tr>
+            <td style="padding:32px 36px 0;">
+              <span style="font-family:'Playfair Display',Georgia,'Times New Roman',serif;font-size:22px;font-weight:700;color:#03BFB5;letter-spacing:-0.01em;">Just Noted</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 36px 4px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#1a1a1a;">
+              <p style="margin:0 0 16px;">Hi,</p>
+              <p style="margin:0 0 8px;">Enter this code to finish logging in — no password needed.</p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:12px 36px 8px;">
+              <div style="background:#f2f6f6;border:1px solid #e3eae9;border-radius:12px;padding:18px 12px;font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:36px;font-weight:700;letter-spacing:10px;color:#1a1a1a;text-indent:10px;">{{ .Token }}</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:14px 36px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#1a1a1a;">
+              <p style="margin:0 0 16px;color:#6b6b6b;font-size:14px;">This code is valid for 1 hour and confirms that <strong style="color:#1a1a1a;">{{ .Email }}</strong> is the address on your account.</p>
+              <p style="margin:0 0 20px;color:#6b6b6b;font-size:14px;">If you didn't try to log in, you can safely ignore this email — no action is needed.</p>
+              <p style="margin:0;">Best regards,<br>Just Noted</p>
+            </td>
+          </tr>
+        </table>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;">
+          <tr>
+            <td align="center" style="padding:18px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#9aa0a0;">
+              This is an automated message from a passwordless sign-in request.<br>
+              Just Noted &middot; <a href="https://justnoted.app" style="color:#9aa0a0;text-decoration:underline;">justnoted.app</a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
