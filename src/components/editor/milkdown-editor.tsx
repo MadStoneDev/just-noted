@@ -278,6 +278,29 @@ function cleanCorruptedMarkdown(text: string): string {
   return cleaned;
 }
 
+/**
+ * Milkdown's commonmark preset bundles `remark-preserve-empty-line`, which
+ * serialises every blank line the user types between paragraphs as a standalone
+ * `<br />` node. That literal `<br />` then leaks into stored markdown, exports
+ * and shared-note HTML (the design brief calls this out as a bug: paragraph
+ * breaks must be real markdown newlines, never `<br />`).
+ *
+ * We normalise at the single point markdown leaves the editor: drop standalone
+ * `<br />` lines (each was an empty paragraph — the surrounding blank lines
+ * already encode the paragraph break), neutralise any stray inline `<br>` to a
+ * newline, then collapse 3+ blank lines to a single blank line.
+ */
+function stripEmptyParagraphBreaks(md: string): string {
+  if (!md || md.indexOf("<br") === -1) return md;
+  const withoutStandalone = md
+    .split("\n")
+    .filter((line) => !/^\s*<br\s*\/?>\s*$/i.test(line))
+    .join("\n");
+  return withoutStandalone
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/\n{3,}/g, "\n\n");
+}
+
 function MilkdownEditorInner({
   content,
   contentFormat,
@@ -340,7 +363,9 @@ function MilkdownEditorInner({
         ctx.get(listenerCtx)
           .markdownUpdated((_ctx, markdown, prevMarkdown) => {
             if (markdown === prevMarkdown) return;
-            onChangeRef.current?.(markdown);
+            // Normalise away the preset's empty-paragraph <br /> before the
+            // markdown is stored, exported or shared.
+            onChangeRef.current?.(stripEmptyParagraphBreaks(markdown));
           })
           .focus(() => {
             onFocusRef.current?.();
