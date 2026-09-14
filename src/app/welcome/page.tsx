@@ -100,7 +100,7 @@ export default async function WelcomePage() {
             <Feature
               icon={<IconLock size={20} />}
               title="Privacy first"
-              description="Your notes are yours. End-to-end encrypted sync. Self-hostable backend."
+              description="Your notes are yours. Encrypted in transit and at rest. Mark any note local-only and it never leaves your device."
             />
             <Feature
               icon={<IconPencil size={20} />}
