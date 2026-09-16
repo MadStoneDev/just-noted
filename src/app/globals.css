@@ -185,6 +185,207 @@
 }
 
 /* ============================================
+   REDESIGN TOKENS (design handoff — Phase 2)
+   The canonical token system for the revamp. New surfaces consume these
+   (var(--color-canvas), var(--color-ink-2), var(--color-accent-fill), …).
+   Legacy --color-bg-* / --color-text-* tokens above are intentionally left
+   in place so the current UI is unchanged; each surface migrates onto these
+   tokens as it is rebuilt. No component should reference a raw hex.
+
+   Light values live in :root; dark values are duplicated under the system
+   media query and the explicit .dark class, matching the pattern above.
+   ============================================ */
+
+:root {
+  /* Surfaces */
+  --color-canvas: #FBFCFB;
+  --color-panel: #F2F5F4;
+  --color-panel-alt: #FFFFFF;
+  --color-raised: #FFFFFF;
+  --color-raised-soft: #EFF2F1;
+  --color-pane-inactive: #F7F9F8;
+  --color-hairline: #DFE4E2;
+  --color-hairline-soft: #E7EBEA;
+  --color-border-control: #D2D8D6;
+  --color-border-control-strong: #C5CCCA;
+
+  /* Ink (text) */
+  --color-ink: #131817;
+  --color-ink-1: #242B2A;
+  --color-ink-2: #333B39;
+  --color-ink-3: #5C6664;
+  --color-ink-4: #77817F;
+  --color-ink-5: #8B9593;
+  --color-ink-6: #9BA5A3;
+  --color-ink-7: #AAB3B1;
+
+  /* Accent — on light, the bright teal is a FILL colour only (never text/thin
+     borders). accent-text/accent-tint-border use the darker, legible values. */
+  --color-accent-fill: #0A8E88;
+  --color-accent-on-fill: #FFFFFF;
+  --color-accent-text: #0A7F7A;
+  --color-accent-text-soft: #0A7F7A;
+  --color-accent-deep: #086B67;
+  --color-accent-tint: #E2F3F1;
+  --color-accent-tint-border: #B4DEDA;
+
+  /* Status */
+  --color-warn: #9A7412;
+  --color-warn-tint: #FDF6E3;
+  --color-warn-tint-border: #E8D9A8;
+  --color-danger-strong: #C0392B;
+  --color-danger-tint: #FDEDEA;
+  --color-danger-tint-border: #F2C7BF;
+
+  /* Notebook colours */
+  --color-nb-violet: #6D5CD8;
+  --color-nb-violet-light: #8877E8;
+  --color-nb-blue: #2F6FD0;
+  --color-nb-indigo: #4F52D4;
+  --color-nb-pink: #C8327C;
+  --color-nb-green: #0B9467;
+
+  /* Collaborator identity — carets hold across themes; avatar grounds are 12%
+     tints on light, solid on dark. */
+  --color-caret-violet: #8B7BF0;
+  --color-caret-teal: #0FB8B0;
+  --color-caret-neutral: #9AA3A1;
+  --color-avatar-violet-bg: rgba(139, 123, 240, 0.12);
+  --color-avatar-violet-text: #6D5CD8;
+  --color-avatar-teal-bg: rgba(15, 184, 176, 0.12);
+  --color-avatar-teal-text: #0A7F7A;
+  --color-avatar-neutral-bg: rgba(154, 163, 161, 0.12);
+  --color-avatar-neutral-text: #5C6664;
+
+  /* Typography families (Newsreader / Public Sans fall back until loaded) */
+  --font-editor: "Newsreader", "Playfair Display", Georgia, serif;
+  --font-ui: "Public Sans", "Inter", system-ui, sans-serif;
+  --font-meta: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Radius scale (px, per handoff) */
+  --radius-4: 4px;
+  --radius-5: 5px;
+  --radius-6: 6px;
+  --radius-7: 7px;
+  --radius-8: 8px;
+  --radius-9: 9px;
+  --radius-10: 10px;
+  --radius-11: 11px;
+  --radius-12: 12px;
+  --radius-14: 14px;
+  --radius-16: 16px;
+  --radius-20: 20px;
+
+  /* Focus ring — 2px accent-fill @60%, 2px offset */
+  --focus-ring: 0 0 0 2px var(--color-canvas), 0 0 0 4px color-mix(in srgb, var(--color-accent-fill) 60%, transparent);
+}
+
+/* Dark values — kept in sync across the two selectors below. */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --color-canvas: #050606;
+    --color-panel: #0A0C0C;
+    --color-panel-alt: #0C0E0E;
+    --color-raised: #141818;
+    --color-raised-soft: #101313;
+    --color-pane-inactive: #080909;
+    --color-hairline: #1C2020;
+    --color-hairline-soft: #141818;
+    --color-border-control: #262B2B;
+    --color-border-control-strong: #2B3130;
+
+    --color-ink: #EEF1F0;
+    --color-ink-1: #DFE4E3;
+    --color-ink-2: #CFD6D4;
+    --color-ink-3: #9AA3A1;
+    --color-ink-4: #7D8785;
+    --color-ink-5: #5F6867;
+    --color-ink-6: #4B5352;
+    --color-ink-7: #3C4443;
+
+    --color-accent-fill: #0FB8B0;
+    --color-accent-on-fill: #04100F;
+    --color-accent-text: #0FB8B0;
+    --color-accent-text-soft: #8FD8D3;
+    --color-accent-deep: #0B8A84;
+    --color-accent-tint: #12211F;
+    --color-accent-tint-border: #1D3A37;
+
+    --color-warn: #E0B341;
+    --color-warn-tint: #1A1508;
+    --color-warn-tint-border: #3A2F11;
+    --color-danger-strong: #E8624A;
+    --color-danger-tint: #1C1210;
+    --color-danger-tint-border: #3D201B;
+
+    --color-nb-violet: #8B7BF0;
+    --color-nb-violet-light: #A897F7;
+    --color-nb-blue: #3B82F6;
+    --color-nb-indigo: #6366F1;
+    --color-nb-pink: #EC4899;
+    --color-nb-green: #10B981;
+
+    --color-avatar-violet-bg: #3A2F6B;
+    --color-avatar-violet-text: #CABCFF;
+    --color-avatar-teal-bg: #1F4D47;
+    --color-avatar-teal-text: #8FD8D3;
+    --color-avatar-neutral-bg: #2B3130;
+    --color-avatar-neutral-text: #C9D1CF;
+  }
+}
+
+.dark {
+  --color-canvas: #050606;
+  --color-panel: #0A0C0C;
+  --color-panel-alt: #0C0E0E;
+  --color-raised: #141818;
+  --color-raised-soft: #101313;
+  --color-pane-inactive: #080909;
+  --color-hairline: #1C2020;
+  --color-hairline-soft: #141818;
+  --color-border-control: #262B2B;
+  --color-border-control-strong: #2B3130;
+
+  --color-ink: #EEF1F0;
+  --color-ink-1: #DFE4E3;
+  --color-ink-2: #CFD6D4;
+  --color-ink-3: #9AA3A1;
+  --color-ink-4: #7D8785;
+  --color-ink-5: #5F6867;
+  --color-ink-6: #4B5352;
+  --color-ink-7: #3C4443;
+
+  --color-accent-fill: #0FB8B0;
+  --color-accent-on-fill: #04100F;
+  --color-accent-text: #0FB8B0;
+  --color-accent-text-soft: #8FD8D3;
+  --color-accent-deep: #0B8A84;
+  --color-accent-tint: #12211F;
+  --color-accent-tint-border: #1D3A37;
+
+  --color-warn: #E0B341;
+  --color-warn-tint: #1A1508;
+  --color-warn-tint-border: #3A2F11;
+  --color-danger-strong: #E8624A;
+  --color-danger-tint: #1C1210;
+  --color-danger-tint-border: #3D201B;
+
+  --color-nb-violet: #8B7BF0;
+  --color-nb-violet-light: #A897F7;
+  --color-nb-blue: #3B82F6;
+  --color-nb-indigo: #6366F1;
+  --color-nb-pink: #EC4899;
+  --color-nb-green: #10B981;
+
+  --color-avatar-violet-bg: #3A2F6B;
+  --color-avatar-violet-text: #CABCFF;
+  --color-avatar-teal-bg: #1F4D47;
+  --color-avatar-teal-text: #8FD8D3;
+  --color-avatar-neutral-bg: #2B3130;
+  --color-avatar-neutral-text: #C9D1CF;
+}
+
+/* ============================================
    BASE STYLES
    ============================================ */
 
