@@ -307,9 +307,9 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
           });
 
           // Add highlight effect
-          noteElement.classList.add("ring-2", "ring-[var(--color-accent)]", "ring-offset-2");
+          noteElement.classList.add("ring-2", "ring-[var(--color-accent-text)]", "ring-offset-2");
           setTimeout(() => {
-            noteElement.classList.remove("ring-2", "ring-[var(--color-accent)]", "ring-offset-2");
+            noteElement.classList.remove("ring-2", "ring-[var(--color-accent-text)]", "ring-offset-2");
           }, 2000);
         }
       }, 100);
@@ -543,7 +543,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
           between 0 and 248px on desktop. */}
       <aside
         ref={sidebarRef}
-        className={`fixed md:relative top-14 md:top-0 left-0 h-[calc(100dvh-56px)] md:h-full z-40 md:z-auto bg-[var(--color-bg-secondary)] border-r border-[var(--color-border-secondary)] transition-all duration-[var(--duration-slow)] overflow-hidden ${
+        className={`fixed md:relative top-14 md:top-0 left-0 h-[calc(100dvh-56px)] md:h-full z-40 md:z-auto bg-[var(--color-panel)] border-r border-[var(--color-hairline-soft)] transition-all duration-[var(--duration-slow)] overflow-hidden ${
           sidebarOpen ? "w-full md:w-[340px]" : "w-0"
         }`}
         style={{
@@ -555,7 +555,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
             full viewport width on mobile, 248px on desktop. */}
         <div className="flex h-full w-screen md:w-[340px]">
           {/* Icon rail — primary navigation */}
-          <nav className="w-14 flex-none flex flex-col items-center gap-1 py-2 border-r border-[var(--color-border-secondary)] bg-[var(--color-bg-secondary)]">
+          <nav className="w-14 flex-none flex flex-col items-center gap-1 py-2 border-r border-[var(--color-hairline-soft)] bg-[var(--color-panel)]">
             {/* Notebooks first, Notes second — mirrors the hierarchy (notes live
                 inside notebooks) even though Notes is the default view. */}
             {isAuthenticated && (
@@ -606,8 +606,8 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
           {/* Content column */}
           <div className="flex-1 flex flex-col min-w-0 relative">
             {/* View header */}
-            <div className="flex items-center justify-between px-3 h-[52px] flex-none border-b border-[var(--color-border-secondary)]">
-              <h2 className="text-sm font-semibold text-[var(--color-text-primary)] tracking-tight truncate">
+            <div className="flex items-center justify-between px-3 h-[52px] flex-none border-b border-[var(--color-hairline-soft)]">
+              <h2 className="text-sm font-semibold text-[var(--color-ink-1)] tracking-tight truncate">
                 {railView === "notebooks"
                   ? "Notebooks"
                   : railView === "tags"
@@ -619,7 +619,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
               {railView === "notes" && hasActiveFilters && (
                 <button
                   onClick={clearFilters}
-                  className="text-xs text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] flex items-center gap-1 transition-colors flex-none"
+                  className="text-xs text-[var(--color-accent-text)] hover:text-[var(--color-accent-deep)] flex items-center gap-1 transition-colors flex-none"
                 >
                   <IconFilterOff size={12} />
                   Clear
@@ -631,11 +631,11 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
             {railView === "notes" && (
             <>
           {/* Search */}
-          <div className="px-3 py-3 border-b border-[var(--color-border-secondary)]">
+          <div className="px-3 py-3 border-b border-[var(--color-hairline-soft)]">
             <div className="relative">
               <IconSearch
                 size={15}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)]"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-ink-5)]"
               />
               <input
                 ref={searchInputRef}
@@ -643,12 +643,12 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 placeholder="Search notes..."
                 value={localSearchQuery}
                 onChange={handleSearchChange}
-                className="w-full pl-9 pr-9 py-2 text-base md:text-sm bg-[var(--color-bg-tertiary)] rounded-[var(--radius-md)] border border-transparent focus:border-[var(--color-border-focus)] focus:bg-[var(--color-bg-primary)] focus:outline-none transition-all duration-[var(--duration-fast)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]"
+                className="w-full pl-9 pr-9 py-2 text-base md:text-sm bg-[var(--color-raised-soft)] rounded-[var(--radius-md)] border border-transparent focus:border-[var(--color-accent-fill)] focus:bg-[var(--color-raised)] focus:outline-none transition-all duration-[var(--duration-fast)] text-[var(--color-ink-1)] placeholder:text-[var(--color-ink-5)]"
               />
               {localSearchQuery && (
                 <button
                   onClick={handleClearSearch}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-ink-5)] hover:text-[var(--color-ink-3)]"
                 >
                   <IconX size={14} />
                 </button>
@@ -662,16 +662,16 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
               <div className="p-6 text-center">
                 {hasActiveFilters ? (
                   <>
-                    <p className="text-sm text-[var(--color-text-tertiary)]">No notes match your filters</p>
+                    <p className="text-sm text-[var(--color-ink-5)]">No notes match your filters</p>
                     <button
                       onClick={clearFilters}
-                      className="mt-2 text-xs text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] transition-colors"
+                      className="mt-2 text-xs text-[var(--color-accent-text)] hover:text-[var(--color-accent-deep)] transition-colors"
                     >
                       Clear filters
                     </button>
                   </>
                 ) : (
-                  <p className="text-sm text-[var(--color-text-tertiary)]">No notes yet</p>
+                  <p className="text-sm text-[var(--color-ink-5)]">No notes yet</p>
                 )}
               </div>
             ) : (
@@ -712,24 +712,19 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                       setDraggedNoteId(null);
                     }}
                     onDragEnd={() => { setDraggedNoteId(null); setDragOverNoteId(null); }}
-                    className={dragOverNoteId === note.id ? "border-t border-[var(--color-accent)]" : ""}
+                    className={dragOverNoteId === note.id ? "border-t border-[var(--color-accent-text)]" : ""}
                   >
                     <div
-                      className={`group/note relative w-full px-1 py-2.5 text-left transition-colors duration-[var(--duration-fast)] rounded-[var(--radius-md)] ${
+                      className={`group/note relative w-full px-2.5 py-2.5 text-left transition-colors duration-[var(--duration-fast)] rounded-[var(--radius-9)] border ${
                         draggedNoteId === note.id ? "opacity-40" : ""
                       } ${
-                        isSelected
-                          ? "bg-[var(--color-selected)]"
-                          : isActive
-                            ? "bg-[var(--color-selected)]"
-                            : "hover:bg-[var(--color-hover)]"
+                        isSelected || isActive
+                          ? "bg-[var(--color-accent-tint)] border-[var(--color-accent-tint-border)]"
+                          : "border-transparent hover:bg-[var(--color-raised-soft)]"
                       }`}
                     >
-                      {isActive && !selectMode && (
-                        <div className="absolute left-0 top-2 bottom-2 w-[2px] rounded-full bg-[var(--color-accent)]" />
-                      )}
                       {shortcutKey !== null && !selectMode && (
-                        <span className="absolute top-1 right-1 text-[8px] font-mono text-[var(--color-text-tertiary)] opacity-0 group-hover/note:opacity-50 transition-opacity" title={`Ctrl+Alt+${shortcutKey}`}>
+                        <span className="absolute top-1 right-1 text-[8px] font-mono text-[var(--color-ink-5)] opacity-0 group-hover/note:opacity-50 transition-opacity" title={`Ctrl+Alt+${shortcutKey}`}>
                           {shortcutKey}
                         </span>
                       )}
@@ -744,12 +739,12 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                           <div className="flex-shrink-0 pt-0.5" onClick={() => handleToggleNoteSelection(note.id)}>
                             {note.source === "supabase" ? (
                               isSelected ? (
-                                <IconSquareCheck size={16} className="text-[var(--color-accent)]" />
+                                <IconSquareCheck size={16} className="text-[var(--color-accent-text)]" />
                               ) : (
-                                <IconSquare size={16} className="text-[var(--color-text-tertiary)]" />
+                                <IconSquare size={16} className="text-[var(--color-ink-5)]" />
                               )
                             ) : (
-                              <IconSquare size={16} className="text-[var(--color-border-primary)]" />
+                              <IconSquare size={16} className="text-[var(--color-hairline)]" />
                             )}
                           </div>
                         )}
@@ -765,11 +760,11 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                         >
                           <div className="flex items-start gap-1.5">
                             {note.isPinned ? (
-                              <IconPinFilled size={13} className="mt-[3px] text-[var(--color-accent)] flex-shrink-0" />
+                              <IconPinFilled size={13} className="mt-[3px] text-[var(--color-accent-text)] flex-shrink-0" />
                             ) : (
-                              <IconNote size={13} className="mt-[3px] text-[var(--color-text-tertiary)] flex-shrink-0" />
+                              <IconNote size={13} className="mt-[3px] text-[var(--color-ink-5)] flex-shrink-0" />
                             )}
-                            <h3 className="text-[13px] font-medium text-[var(--color-text-primary)] break-words">
+                            <h3 className="text-[13px] font-medium text-[var(--color-ink-1)] break-words">
                               {note.title}
                             </h3>
                           </div>
@@ -777,7 +772,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                             const notebook = notebooks.find((nb) => nb.id === note.notebookId);
                             if (notebook) {
                               return (
-                                <span className="inline-flex items-center gap-0.5 mt-1 px-1.5 py-px text-[11px] font-medium rounded-[var(--radius-sm)] bg-[var(--color-accent-subtle)] text-[var(--color-accent)] truncate max-w-[150px]">
+                                <span className="inline-flex items-center gap-0.5 mt-1 px-1.5 py-px text-[11px] font-medium rounded-[var(--radius-sm)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)] truncate max-w-[150px]">
                                   <IconNotebook size={10} className="shrink-0" />
                                   {notebook.name}
                                 </span>
@@ -785,7 +780,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                             }
                             return null;
                           })()}
-                          <p className="text-[11px] text-[var(--color-text-tertiary)] truncate mt-0.5 leading-relaxed">
+                          <p className="text-[11px] text-[var(--color-ink-5)] truncate mt-0.5 leading-relaxed">
                             {getPreview(note.content) || "Empty note"}
                           </p>
                           <div className="flex items-center gap-1.5 mt-1">
@@ -794,7 +789,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                             ) : (
                               <IconDeviceDesktop size={12} className="text-[var(--color-warning)] flex-shrink-0" />
                             )}
-                            <p className="text-[12px] text-[var(--color-text-tertiary)]">
+                            <p className="text-[12px] text-[var(--color-ink-5)]">
                               {relativeTime(note.updatedAt)}
                             </p>
                           </div>
@@ -817,7 +812,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                                 );
                               })}
                               {noteTagMap[note.id].length > 3 && (
-                                <span className="text-[11px] text-[var(--color-text-tertiary)]">
+                                <span className="text-[11px] text-[var(--color-ink-5)]">
                                   +{noteTagMap[note.id].length - 3}
                                 </span>
                               )}
@@ -829,7 +824,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                           <div className="flex-shrink-0 opacity-100 md:opacity-0 md:group-hover/note:opacity-100 transition-opacity">
                             <Dropdown
                               trigger={
-                                <button className="p-2 md:p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] rounded transition-colors" aria-label="Note actions">
+                                <button className="p-2 md:p-1 text-[var(--color-ink-5)] hover:text-[var(--color-ink-3)] rounded transition-colors" aria-label="Note actions">
                                   <IconDots size={16} />
                                 </button>
                               }
@@ -877,14 +872,14 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
 
           {/* Writing session indicator */}
           {isAuthenticated && !selectMode && (
-            <div className="px-3 py-1.5 border-t border-[var(--color-border-secondary)]">
+            <div className="px-3 py-1.5 border-t border-[var(--color-hairline-soft)]">
               <WritingSessionIndicator />
             </div>
           )}
 
           {/* Footer */}
           {!selectMode && (
-            <div className="px-3 py-2.5 border-t border-[var(--color-border-secondary)] flex items-center justify-between text-[10px] text-[var(--color-text-tertiary)]">
+            <div className="px-3 py-2.5 border-t border-[var(--color-hairline-soft)] flex items-center justify-between text-[10px] text-[var(--color-ink-5)]">
               <span>
                 {notes.length} note{notes.length !== 1 ? "s" : ""}
                 {hasActiveFilters && ` · ${filteredNotes.length} shown`}
@@ -892,7 +887,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => onOpenTrash?.()}
-                  className="hover:text-[var(--color-text-secondary)] transition-colors flex items-center gap-0.5"
+                  className="hover:text-[var(--color-ink-3)] transition-colors flex items-center gap-0.5"
                   title="Trash"
                 >
                   <IconTrash size={10} />
@@ -905,7 +900,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                       exportAsMarkdownZip(notes);
                     });
                   }}
-                  className="hover:text-[var(--color-text-secondary)] transition-colors"
+                  className="hover:text-[var(--color-ink-3)] transition-colors"
                   title="Export all notes"
                 >
                   Export
@@ -929,7 +924,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
             {/* ===== TAGS VIEW ===== */}
             {railView === "tags" && isAuthenticated && (
               <div className="flex-1 overflow-y-auto scrollbar-thin px-3 py-3">
-                <div className="text-[11px] text-[var(--color-text-tertiary)] mb-2">Filter notes by tag</div>
+                <div className="text-[11px] text-[var(--color-ink-5)] mb-2">Filter notes by tag</div>
                 <TagFilter />
               </div>
             )}
@@ -949,24 +944,24 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 onClick={() => setFilterSheetOpen(false)}
               />
               <div
-                className={`relative w-full md:w-[440px] md:max-w-[92vw] max-h-[85vh] bg-[var(--color-bg-elevated)] border-t md:border border-[var(--color-border-primary)] rounded-t-[var(--radius-xl)] md:rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)] transition-all duration-[var(--duration-slow)] flex flex-col ${filterSheetOpen ? "translate-y-0 opacity-100 md:scale-100" : "translate-y-full opacity-100 md:translate-y-0 md:opacity-0 md:scale-95"}`}
+                className={`relative w-full md:w-[440px] md:max-w-[92vw] max-h-[85vh] bg-[var(--color-raised)] border-t md:border border-[var(--color-hairline)] rounded-t-[var(--radius-xl)] md:rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)] transition-all duration-[var(--duration-slow)] flex flex-col ${filterSheetOpen ? "translate-y-0 opacity-100 md:scale-100" : "translate-y-full opacity-100 md:translate-y-0 md:opacity-0 md:scale-95"}`}
                 style={{ transitionTimingFunction: "var(--ease-spring)" }}
               >
-                <div className="mx-auto mt-2.5 mb-1 h-1 w-10 rounded-full bg-[var(--color-border-primary)]" />
+                <div className="mx-auto mt-2.5 mb-1 h-1 w-10 rounded-full bg-[var(--color-hairline)]" />
                 <div className="flex items-center justify-between px-4 py-2">
-                  <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Filter &amp; sort</h3>
+                  <h3 className="text-sm font-semibold text-[var(--color-ink-1)]">Filter &amp; sort</h3>
                   <div className="flex items-center gap-3">
                     {hasActiveFilters && (
                       <button
                         onClick={clearFilters}
-                        className="text-xs text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] flex items-center gap-1"
+                        className="text-xs text-[var(--color-accent-text)] hover:text-[var(--color-accent-deep)] flex items-center gap-1"
                       >
                         <IconFilterOff size={12} /> Clear
                       </button>
                     )}
                     <button
                       onClick={() => setFilterSheetOpen(false)}
-                      className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+                      className="text-[var(--color-ink-5)] hover:text-[var(--color-ink-1)]"
                       aria-label="Close filters"
                     >
                       <IconX size={18} />
@@ -976,7 +971,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 <div className="overflow-y-auto scrollbar-thin px-4 pb-5 pt-1 space-y-4">
                   {/* Sort */}
                   <div>
-                    <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-tertiary)] mb-2">Sort</div>
+                    <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-ink-5)] mb-2">Sort</div>
                     <div className="flex flex-wrap gap-2">
                       {([
                         ["manual", "Manual"],
@@ -993,7 +988,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                   </div>
                   {/* Source */}
                   <div>
-                    <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-tertiary)] mb-2">Source</div>
+                    <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-ink-5)] mb-2">Source</div>
                     <div className="flex flex-wrap gap-2">
                       <FilterButton active={filterSource === "all"} onClick={() => setFilterSource("all")}>All</FilterButton>
                       <FilterButton active={filterSource === "local"} onClick={() => setFilterSource("local")}>
@@ -1008,7 +1003,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                   </div>
                   {/* Pinned */}
                   <div>
-                    <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-tertiary)] mb-2">Pinned</div>
+                    <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-ink-5)] mb-2">Pinned</div>
                     <div className="flex flex-wrap gap-2">
                       <FilterButton active={filterPinned === "all"} onClick={() => setFilterPinned("all")}>All</FilterButton>
                       <FilterButton active={filterPinned === "pinned"} onClick={() => setFilterPinned("pinned")}>
@@ -1022,7 +1017,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                   {/* Tags */}
                   {isAuthenticated && tags.length > 0 && (
                     <div>
-                      <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-tertiary)] mb-2">Tags</div>
+                      <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-ink-5)] mb-2">Tags</div>
                       <TagFilter />
                     </div>
                   )}
@@ -1033,8 +1028,8 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                         onClick={() => { handleToggleSelectMode(); setFilterSheetOpen(false); }}
                         className={`flex items-center gap-2 px-3 py-2 text-xs rounded-[var(--radius-md)] transition-colors ${
                           selectMode
-                            ? "bg-[var(--color-accent)] text-[var(--color-text-on-accent)]"
-                            : "bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-active)]"
+                            ? "bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)]"
+                            : "bg-[var(--color-raised-soft)] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)]"
                         }`}
                       >
                         <IconCheckbox size={14} />
@@ -1105,15 +1100,15 @@ function RailButton({
       aria-label={label}
       className={`relative w-10 h-10 flex items-center justify-center rounded-[var(--radius-md)] transition-colors duration-[var(--duration-fast)] ${
         active
-          ? "bg-[var(--color-accent-subtle)] text-[var(--color-accent)]"
+          ? "bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]"
           : accent
-            ? "text-[var(--color-accent)] hover:bg-[var(--color-hover)]"
-            : "text-[var(--color-text-tertiary)] hover:bg-[var(--color-hover)] hover:text-[var(--color-text-primary)]"
+            ? "bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:opacity-90"
+            : "text-[var(--color-ink-5)] hover:bg-[var(--color-raised-soft)] hover:text-[var(--color-ink-1)]"
       }`}
     >
       {children}
       {badge && badge > 0 ? (
-        <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[9px] font-semibold rounded-full bg-[var(--color-accent)] text-[var(--color-text-on-accent)]">
+        <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[9px] font-semibold rounded-full bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)]">
           {badge}
         </span>
       ) : null}
@@ -1136,8 +1131,8 @@ function FilterButton({
       onClick={onClick}
       className={`px-2.5 py-1.5 text-xs rounded-[var(--radius-md)] flex items-center gap-1 transition-colors duration-[var(--duration-fast)] ${
         active
-          ? "bg-[var(--color-accent)] text-[var(--color-text-on-accent)]"
-          : "bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-active)]"
+          ? "bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)]"
+          : "bg-[var(--color-raised-soft)] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)]"
       }`}
     >
       {children}
