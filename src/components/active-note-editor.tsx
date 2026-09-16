@@ -1060,34 +1060,34 @@ function NoteEditor({
           {/* Notebook pill + stats */}
           <div className="print:hidden flex items-center gap-2 flex-wrap">
             {notebook && (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-px text-[9px] font-medium rounded-[var(--radius-sm)] bg-[var(--color-accent-subtle)] text-[var(--color-accent)]">
-                <IconNotebook size={8} className="shrink-0" />
+              <span className="inline-flex items-center gap-1 px-1.5 py-px text-[11px] rounded-[var(--radius-5)] bg-[var(--color-raised-soft)] text-[var(--color-ink-3)]">
+                <IconNotebook size={9} className="shrink-0" />
                 {notebook.name}
               </span>
             )}
-            <span className="text-[10px] text-[var(--color-text-tertiary)] opacity-80">
+            <span className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
               <span title={`${wordCount} words`}>{wordCount}w</span> · <span title={`${charCount} characters`}>{charCount}c</span> · <span title="Estimated reading time">{readingTime}</span> ·{" "}
               <button
                 onClick={() => setShowPagePicker((s) => !s)}
-                className="underline decoration-dotted underline-offset-2 hover:text-[var(--color-text-secondary)] transition-colors"
+                className="underline decoration-dotted underline-offset-2 hover:text-[var(--color-ink-3)] transition-colors"
               >
                 {pageEstimate}
               </button>
               {" "}·{" "}
               <button
                 onClick={() => setShowGoalPicker((s) => !s)}
-                className="underline decoration-dotted underline-offset-2 hover:text-[var(--color-text-secondary)] transition-colors"
+                className="underline decoration-dotted underline-offset-2 hover:text-[var(--color-ink-3)] transition-colors"
               >
                 {goalTarget > 0 ? `${Math.round(progressPercentage)}% of ${goalTarget} ${goalType}` : "set goal"}
               </button>
             </span>
             {goalTarget > 0 && (
               <span
-                className="inline-block h-1 rounded-full bg-[var(--color-border-primary)] overflow-hidden"
-                style={{ width: 40 }}
+                className="inline-block h-[3px] rounded-full bg-[var(--color-hairline)] overflow-hidden"
+                style={{ width: 64 }}
               >
                 <span
-                  className="block h-full rounded-full bg-[var(--color-accent)] transition-all duration-300"
+                  className="block h-full rounded-full bg-[var(--color-accent-fill)] transition-all duration-300"
                   style={{ width: `${Math.min(progressPercentage, 100)}%` }}
                 />
               </span>
