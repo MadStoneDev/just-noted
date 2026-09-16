@@ -19,7 +19,7 @@ import {
   supabaseToCombi,
 } from "@/types/combined-notes";
 import { getAllLocalNotes, saveAllNotesToLocal, clearLocalNotes } from "@/utils/notes-idb-cache";
-import { clearQueue } from "@/utils/offline-queue";
+import { clearQueue, processQueue } from "@/utils/offline-queue";
 import { stripHtmlToText } from "@/utils/html-utils";
 import {
   HAS_INITIALISED_KEY,
@@ -381,8 +381,11 @@ export function useNotesSync() {
         hasInitialisedRef.current = true;
         initRetryCount.current = 0;
 
-        // Clear stale offline queue — state is now reconciled from server
-        clearQueue().catch(() => {});
+        // Drain any pending offline writes to the server rather than discarding
+        // them. Queued ops are edits that never reached the cloud; clearing here
+        // (the old behaviour) silently lost offline work when a reload out-raced
+        // the queue. processQueue removes each op only after it succeeds.
+        processQueue().catch(() => {});
       } catch (error) {
         console.error("Initialization error:", error);
         // Schedule retry with exponential backoff
@@ -399,6 +402,9 @@ export function useNotesSync() {
       } finally {
         isInitializingRef.current = false;
         setLoading(false);
+        // Release the editor hydration lock once we've reconciled with the
+        // server (or exhausted the attempt, so offline users aren't locked out).
+        useNotesStore.getState().setServerSynced(true);
       }
     };
 

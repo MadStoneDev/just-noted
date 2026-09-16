@@ -9,10 +9,23 @@ import ManageSharedNotes from "./manage-shared-notes";
 import { useToast } from "@/components/ui/toast";
 import { uploadAvatar } from "@/app/actions/avatarActions";
 import { compressImage } from "@/utils/image/compress";
+import { processQueue } from "@/utils/offline-queue";
 
 interface ProfileBlockProps {
   user: any;
   authorData: any;
+  stats?: {
+    totalWords: number;
+    noteCount: number;
+    memberSince: string | null;
+  };
+}
+
+function formatMemberSince(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
 }
 
 // State type
@@ -114,7 +127,7 @@ function validateUsername(username: string): string | null {
   return null;
 }
 
-export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
+export default function ProfileBlock({ user, authorData, stats }: ProfileBlockProps) {
   const initialState: ProfileState = {
     username: authorData?.username || "",
     originalUsername: authorData?.username || "",
@@ -339,6 +352,15 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
 
   // Handle logout
   const handleLogout = useCallback(async () => {
+    // Flush any mounted editor's pending edits and drain queued offline writes
+    // to the cloud BEFORE signing out — once signed out, cloud writes fail auth
+    // and the auth listener wipes the local cache + queue.
+    try {
+      window.dispatchEvent(new Event("justnoted:flush"));
+      await processQueue();
+    } catch {
+      // Best-effort; proceed with logout regardless.
+    }
     await supabase.auth.signOut();
     router.push("/");
   }, [supabase, router]);
@@ -400,6 +422,36 @@ export default function ProfileBlock({ user, authorData }: ProfileBlockProps) {
 
         {state.activeTab === "profile" ? (
           <section>
+            {/* Lifetime writing stats — foundation for future achievements */}
+            {stats && (
+              <div className="mb-6 grid grid-cols-3 gap-3">
+                <div className="p-3 bg-[var(--color-bg-secondary)] rounded-[var(--radius-md)] border border-[var(--color-border-primary)]">
+                  <div className="text-lg font-semibold text-[var(--color-text-primary)]">
+                    {stats.totalWords.toLocaleString()}
+                  </div>
+                  <div className="text-[11px] text-[var(--color-text-tertiary)]">
+                    words across your notes
+                  </div>
+                </div>
+                <div className="p-3 bg-[var(--color-bg-secondary)] rounded-[var(--radius-md)] border border-[var(--color-border-primary)]">
+                  <div className="text-lg font-semibold text-[var(--color-text-primary)]">
+                    {stats.noteCount.toLocaleString()}
+                  </div>
+                  <div className="text-[11px] text-[var(--color-text-tertiary)]">
+                    {stats.noteCount === 1 ? "note" : "notes"}
+                  </div>
+                </div>
+                <div className="p-3 bg-[var(--color-bg-secondary)] rounded-[var(--radius-md)] border border-[var(--color-border-primary)]">
+                  <div className="text-lg font-semibold text-[var(--color-text-primary)]">
+                    {formatMemberSince(stats.memberSince) || "—"}
+                  </div>
+                  <div className="text-[11px] text-[var(--color-text-tertiary)]">
+                    writing since
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div>
               <h2 className="text-sm font-semibold mb-4 text-[var(--color-text-primary)]">
                 Account Information

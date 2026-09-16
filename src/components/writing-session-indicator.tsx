@@ -14,14 +14,16 @@ function formatDuration(seconds: number): string {
 }
 
 export default function WritingSessionIndicator() {
-  const { todayWordCount, streak, sessionDuration } = useWritingSession();
+  const { sessionWordCount, streak, sessionDuration } = useWritingSession();
 
   return (
     <div className="flex items-center gap-3 text-[10px] text-[var(--color-text-tertiary)]">
-      <span className="flex items-center gap-1" title="Words written today">
-        <IconPencil size={11} />
-        {todayWordCount.toLocaleString()}w today
-      </span>
+      {sessionWordCount > 0 && (
+        <span className="flex items-center gap-1" title="Words written this session">
+          <IconPencil size={11} />
+          {sessionWordCount.toLocaleString()}w
+        </span>
+      )}
       {streak > 0 && (
         <span
           className="flex items-center gap-0.5"
@@ -31,7 +33,9 @@ export default function WritingSessionIndicator() {
           {streak}d
         </span>
       )}
-      <span title="Session duration">{formatDuration(sessionDuration)}</span>
+      <span title="Time in this writing session (resets after 30 min idle)">
+        {formatDuration(sessionDuration)}
+      </span>
     </div>
   );
 }

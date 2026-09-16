@@ -25,6 +25,7 @@ interface Props {
   distractionFreeMode?: boolean;
   className?: string;
   isCollapsed?: boolean;
+  readOnly?: boolean;
   [key: string]: any;
 }
 
@@ -78,6 +79,7 @@ export default function LazyTextBlock({
   className = "",
   isCollapsed = false,
   toolbarContainer,
+  readOnly = false,
 }: Props) {
   const [localValue, setLocalValue] = useState(value);
   const [localFormat, setLocalFormat] = useState<ContentFormat>(contentFormat);
@@ -87,6 +89,11 @@ export default function LazyTextBlock({
   const lastExternalValueRef = useRef(value);
   const isInternalChangeRef = useRef(false);
   const onChangeRef = useRef(onChange);
+  const readOnlyRef = useRef(readOnly);
+
+  useEffect(() => {
+    readOnlyRef.current = readOnly;
+  }, [readOnly]);
 
   const isEditing = useNotesStore((state) =>
     noteId ? state.isEditing.has(noteId) : false,
@@ -103,6 +110,7 @@ export default function LazyTextBlock({
   }, [isCollapsed, hasBeenExpanded]);
 
   const handleChange = useCallback((newContent: string) => {
+    if (readOnlyRef.current) return;
     isInternalChangeRef.current = true;
 
     setLocalValue(newContent);
@@ -166,6 +174,7 @@ export default function LazyTextBlock({
           onChange={handleChange}
           placeholder={placeholder}
           toolbarContainer={toolbarContainer}
+          readOnly={readOnly}
         />
       </Suspense>
     </div>

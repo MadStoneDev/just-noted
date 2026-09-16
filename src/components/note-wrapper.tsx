@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 
 import Sidebar from "@/components/sidebar";
 import ActiveNoteEditor from "@/components/active-note-editor";
@@ -98,6 +98,26 @@ export default function NoteWrapper() {
       try { flushFn(); } catch {}
     });
   }, [noteFlushFunctions]);
+
+  // Phase 0 — flush pending edits when the tab is hidden or closed.
+  // visibilitychange→hidden is the signal browsers reliably deliver before a
+  // tab is discarded (and while the page is still alive, so async saves can
+  // complete); pagehide is the backup for bfcache/navigation. beforeunload
+  // alone is not dependable for saving.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") handleForceSave();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", handleForceSave);
+    // Explicit flush request (e.g. just before logout, while still authenticated).
+    window.addEventListener("justnoted:flush", handleForceSave);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", handleForceSave);
+      window.removeEventListener("justnoted:flush", handleForceSave);
+    };
+  }, [handleForceSave]);
 
 
   const handleSaveNotebook = useCallback(async (data: {

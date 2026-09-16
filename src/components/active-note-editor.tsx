@@ -6,6 +6,7 @@ const LAST_NOTE_KEY = "justnoted_last_note";
 import LazyTextBlock from "@/components/lazy-text-block";
 import { useNotesStore, useNotebooks } from "@/stores/notes-store";
 import { useAutoSave } from "@/hooks/use-auto-save";
+import { saveNoteToLocal } from "@/utils/notes-idb-cache";
 import { useNoteStatistics } from "@/hooks/use-note-statistics";
 import { CombinedNote } from "@/types/combined-notes";
 import { NotesOperations } from "@/hooks/use-notes-operations";
@@ -390,6 +391,12 @@ function NoteEditor({
   const lastSavedContentRef = useRef(note.content);
   const toast = useToast();
 
+  // Hydration lock: while the app is still reconciling with the server on load,
+  // hold the editor read-only so the (possibly stale) cached content can't be
+  // edited and then overwrite newer cloud content. Releases once reconciled.
+  const hasServerSynced = useNotesStore((s) => s.hasServerSynced);
+  const isHydrating = !hasServerSynced;
+
   const noteSource = note.source;
   const notebooks = useNotebooks();
   const notebook = note.notebookId
@@ -448,15 +455,68 @@ function NoteEditor({
     return () => unregisterNoteFlush(note.id);
   }, [note.id, flushSave, registerNoteFlush, unregisterNoteFlush]);
 
+  // Immediate local persistence (Phase 0 — local-first): keep the store + IDB
+  // cache within ~0.5s of the latest keystroke, decoupled from the 2s cloud
+  // debounce, so a tab close / crash / note switch never loses more than a
+  // moment's typing even if the cloud save hasn't fired yet.
+  const localPersistTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const persistLocal = useCallback(
+    (value: string) => {
+      if (localPersistTimerRef.current) clearTimeout(localPersistTimerRef.current);
+      localPersistTimerRef.current = setTimeout(() => {
+        const { optimisticUpdateNote } = useNotesStore.getState();
+        optimisticUpdateNote(note.id, { content: value, contentFormat: "markdown" });
+        saveNoteToLocal({
+          ...note,
+          content: value,
+          contentFormat: "markdown",
+          updatedAt: Date.now(),
+        }).catch(() => {});
+      }, 500);
+    },
+    [note],
+  );
+
+  // Cancel any pending local write on unmount — the final content is covered by
+  // the auto-save flush; this just prevents a stray post-unmount store write.
+  useEffect(() => {
+    return () => {
+      if (localPersistTimerRef.current) {
+        clearTimeout(localPersistTimerRef.current);
+        localPersistTimerRef.current = null;
+      }
+    };
+  }, []);
+
   const handleContentChange = useCallback(
     (value: string) => {
+      // Ignore edits while the hydration lock is engaged — no local edits should
+      // exist yet, so nothing to lose; this just guards any programmatic path.
+      if (!useNotesStore.getState().hasServerSynced) return;
       setContent(value);
       setContentFormat("markdown");
       useNotesStore.getState().setEditing(note.id, true);
+      persistLocal(value);
       debouncedSave();
     },
-    [note.id, debouncedSave],
+    [note.id, debouncedSave, persistLocal],
   );
+
+  // When the hydration lock releases, pull the freshest reconciled content in
+  // from the store and remount the editor so Milkdown (mount-only) shows it.
+  // Safe because the editor was read-only throughout hydration.
+  const didReconcileRef = useRef(false);
+  useEffect(() => {
+    if (!hasServerSynced || didReconcileRef.current) return;
+    didReconcileRef.current = true;
+    const latest = useNotesStore.getState().notes.find((n) => n.id === note.id);
+    if (latest && latest.content !== content) {
+      setContent(latest.content);
+      setContentFormat(latest.contentFormat || "markdown");
+      lastSavedContentRef.current = latest.content;
+      setEditorRemountKey((k) => k + 1);
+    }
+  }, [hasServerSynced, note.id, content]);
 
   const handleTitleBlur = useCallback(() => {
     if (title !== note.title) {
@@ -1104,7 +1164,12 @@ function NoteEditor({
           )}
 
           {/* Content editor — grows to fill the remaining height */}
-          <div ref={dropZoneRef} className="jn-droppable relative flex-1 flex flex-col">
+          <div
+            ref={dropZoneRef}
+            className={`jn-droppable relative flex-1 flex flex-col ${
+              isHydrating ? "pointer-events-none select-none" : ""
+            }`}
+          >
             {isDraggingFile && (
               <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none rounded-[var(--radius-lg)] border-2 border-dashed border-[var(--color-accent)] bg-[var(--color-accent-subtle)]">
                 <div className="flex flex-col items-center gap-1.5 text-[var(--color-accent)]">
@@ -1126,10 +1191,21 @@ function NoteEditor({
                 </div>
               </div>
             )}
+            {isHydrating && (
+              <div className="absolute top-0 left-0 right-0 z-20 flex items-center gap-2 px-1 pointer-events-none">
+                <span className="h-[2px] flex-1 rounded-full bg-[var(--color-accent-subtle)] overflow-hidden">
+                  <span className="block h-full w-1/3 rounded-full bg-[var(--color-accent)] animate-pulse" />
+                </span>
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--color-text-tertiary)]">
+                  Syncing
+                </span>
+              </div>
+            )}
             {viewMode === "source" ? (
               <textarea
                 value={content}
                 onChange={(e) => handleContentChange(e.target.value)}
+                readOnly={isHydrating}
                 spellCheck={false}
                 placeholder="# Markdown source"
                 className="flex-1 w-full resize-none bg-transparent border-none outline-none font-mono text-sm leading-relaxed text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]"
@@ -1141,6 +1217,7 @@ function NoteEditor({
                 value={content}
                 contentFormat={contentFormat}
                 onChange={handleContentChange}
+                readOnly={isHydrating}
                 distractionFreeMode
                 placeholder="Start writing..."
                 className="flex-1 flex flex-col overflow-visible"

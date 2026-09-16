@@ -25,6 +25,10 @@ interface NotesStore {
   // ========== Notes State ==========
   notes: CombinedNote[];
   isLoading: boolean;
+  // False from page load until the first server reconciliation completes. Gates
+  // the editor read-only during that window so a stale cached note can't be
+  // edited and then overwrite newer cloud content (last-write-wins).
+  hasServerSynced: boolean;
   animating: boolean;
   newNoteId: string | null;
   isReorderingInProgress: boolean;
@@ -80,6 +84,7 @@ interface NotesStore {
   // ========== Notes Actions ==========
   setNotes: (notes: CombinedNote[]) => void;
   setLoading: (loading: boolean) => void;
+  setServerSynced: (synced: boolean) => void;
   setAnimating: (animating: boolean) => void;
   setNewNoteId: (id: string | null) => void;
   setReordering: (reordering: boolean) => void;
@@ -163,6 +168,7 @@ export const useNotesStore = create<NotesStore>()(
     // ========== Initial Notes State ==========
     notes: [],
     isLoading: true,
+    hasServerSynced: false,
     animating: false,
     newNoteId: null,
     isReorderingInProgress: false,
@@ -237,6 +243,7 @@ export const useNotesStore = create<NotesStore>()(
     // ========== Notes Actions ==========
     setNotes: (notes) => set({ notes }),
     setLoading: (isLoading) => set({ isLoading }),
+    setServerSynced: (hasServerSynced) => set({ hasServerSynced }),
     setAnimating: (animating) => set({ animating }),
     setNewNoteId: (newNoteId) => set({ newNoteId }),
     setReordering: (isReorderingInProgress) => set({ isReorderingInProgress }),
