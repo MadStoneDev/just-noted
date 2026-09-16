@@ -257,9 +257,9 @@
   --color-avatar-neutral-bg: rgba(154, 163, 161, 0.12);
   --color-avatar-neutral-text: #5C6664;
 
-  /* Typography families (Newsreader / Public Sans fall back until loaded) */
-  --font-editor: "Newsreader", "Playfair Display", Georgia, serif;
-  --font-ui: "Public Sans", "Inter", system-ui, sans-serif;
+  /* Typography families — loaded via next/font in layout.tsx */
+  --font-editor: var(--font-newsreader), "Playfair Display", Georgia, serif;
+  --font-ui: var(--font-public-sans), "Inter", system-ui, sans-serif;
   --font-meta: "JetBrains Mono", ui-monospace, monospace;
 
   /* Radius scale (px, per handoff) */

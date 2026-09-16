@@ -5,6 +5,7 @@ import React, { useState, useCallback, useMemo, useEffect } from "react";
 import Sidebar from "@/components/sidebar";
 import ActiveNoteEditor from "@/components/active-note-editor";
 import GlobalHeader from "@/components/global-header";
+import Rail from "@/components/shell/rail";
 import SearchModal from "@/components/search-modal";
 import TrashView from "@/components/trash-view";
 import DistractionFreeNoteBlock from "@/components/distraction-free-note-block";
@@ -24,6 +25,7 @@ import {
   IconChevronRight,
 } from "@tabler/icons-react";
 
+import { useRouter } from "next/navigation";
 import { CombinedNote } from "@/types/combined-notes";
 import { NotesErrorBoundary } from "@/components/error-boundary";
 import { useNotesSync } from "@/hooks/use-notes-sync";
@@ -33,6 +35,7 @@ import { useNotesStore } from "@/stores/notes-store";
 import { SkipLinks } from "@/hooks/use-accessibility";
 
 export default function NoteWrapper() {
+  const router = useRouter();
   const {
     userId,
     isAuthenticated,
@@ -203,6 +206,18 @@ export default function NoteWrapper() {
 
       {/* Two-panel layout: sidebar + editor. Desktop reopen is via the header toggle. */}
       <div className="flex mt-14 h-[calc(100dvh-56px)]">
+        {/* Permanent navigation rail — owns primary navigation (redesign) */}
+        <Rail
+          active="notes"
+          onNotes={() => setSidebarOpen(true)}
+          onNotebooks={() => setSidebarOpen(true)}
+          onShared={() => router.push("/profile")}
+          onSearch={() => setShowSearch(true)}
+          onSettings={() => router.push("/profile")}
+          onHelp={() => router.push("/the-how")}
+          onNewNote={() => notesOperations.addNote()}
+        />
+
         {/* Sidebar */}
         <Sidebar
           onNoteClick={() => setSharedShortcode(null)}

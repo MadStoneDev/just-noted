@@ -1,7 +1,7 @@
 import "./globals.css";
 
 import { GoogleAnalytics } from "@next/third-parties/google";
-import { Inter, Playfair_Display } from "next/font/google";
+import { Inter, Playfair_Display, Newsreader, Public_Sans } from "next/font/google";
 
 import React, { ReactNode } from "react";
 import LogRocket from "@/components/providers/logrocket-provider";
@@ -19,6 +19,20 @@ const playfair = Playfair_Display({
   variable: "--font-playfair",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800", "900"],
+});
+
+// Redesign typefaces (handoff): Newsreader for editor/headings, Public Sans for UI chrome.
+const newsreader = Newsreader({
+  variable: "--font-newsreader",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
+});
+
+const publicSans = Public_Sans({
+  variable: "--font-public-sans",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata = {
@@ -67,7 +81,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`min-h-dvh print:min-h-0 flex flex-col ${inter.variable} ${playfair.variable} antialiased`}
+        className={`min-h-dvh print:min-h-0 flex flex-col ${inter.variable} ${playfair.variable} ${newsreader.variable} ${publicSans.variable} antialiased`}
         style={{ backgroundColor: "var(--color-bg-secondary)", color: "var(--color-text-primary)" }}
       >
         <LogRocket>
