@@ -78,7 +78,7 @@ export default function SharedNavList({ onOpen }: SharedNavListProps) {
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* Toolbar: icon filters + add */}
-      <div className="flex-none flex items-center gap-1 px-2 py-2 border-b border-[var(--color-border-secondary)]">
+      <div className="flex-none flex items-center gap-1 px-2 py-2 border-b border-[var(--color-hairline-soft)]">
         {filters.map((f) => (
           <button
             key={f.key}
@@ -87,8 +87,8 @@ export default function SharedNavList({ onOpen }: SharedNavListProps) {
             aria-label={f.label}
             className={`w-9 h-8 flex items-center justify-center rounded-[var(--radius-md)] transition-colors ${
               filter === f.key
-                ? "bg-[var(--color-accent-subtle)] text-[var(--color-accent)]"
-                : "text-[var(--color-text-tertiary)] hover:bg-[var(--color-hover)] hover:text-[var(--color-text-primary)]"
+                ? "bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]"
+                : "text-[var(--color-ink-5)] hover:bg-[var(--color-raised-soft)] hover:text-[var(--color-ink-1)]"
             }`}
           >
             {f.icon}
@@ -99,7 +99,7 @@ export default function SharedNavList({ onOpen }: SharedNavListProps) {
           onClick={() => setAddOpen(true)}
           title="Add by link"
           aria-label="Add by link"
-          className="inline-flex items-center gap-1 h-8 px-2.5 rounded-[var(--radius-md)] text-xs font-medium text-[var(--color-accent)] hover:bg-[var(--color-accent-subtle)] transition-colors"
+          className="inline-flex items-center gap-1 h-8 px-2.5 rounded-[var(--radius-md)] text-xs font-medium text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint)] transition-colors"
         >
           <IconPlus size={16} />
           Add
@@ -108,7 +108,7 @@ export default function SharedNavList({ onOpen }: SharedNavListProps) {
 
       {/* List */}
       {loading ? (
-        <div className="flex-1 flex items-center justify-center text-[var(--color-text-tertiary)]">
+        <div className="flex-1 flex items-center justify-center text-[var(--color-ink-5)]">
           <IconLoader2 size={18} className="animate-spin" />
         </div>
       ) : (
@@ -118,31 +118,31 @@ export default function SharedNavList({ onOpen }: SharedNavListProps) {
             if (rows.length === 0) return null;
             return (
               <div key={g.key} className="mb-1">
-                <div className="px-2 pt-1.5 pb-1 text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-tertiary)]">
+                <div className="px-2 pt-1.5 pb-1 text-[11px] font-medium uppercase tracking-wider text-[var(--color-ink-5)]">
                   {g.label}
                 </div>
                 {rows.map((n) => (
                   <div key={g.key + n.shortcode} className="group/sh relative">
                     <button
                       onClick={() => onOpen(n.shortcode)}
-                      className="w-full text-left flex items-start gap-2 px-2 py-2 rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors"
+                      className="w-full text-left flex items-start gap-2 px-2 py-2 rounded-[var(--radius-md)] hover:bg-[var(--color-raised-soft)] transition-colors"
                     >
                       <span className="mt-[3px] flex-shrink-0">
                         {g.key === "owned" ? (
                           n.isPublic ? (
                             <IconWorld size={14} className="text-[var(--color-info)]" />
                           ) : (
-                            <IconLock size={14} className="text-[var(--color-text-tertiary)]" />
+                            <IconLock size={14} className="text-[var(--color-ink-5)]" />
                           )
                         ) : g.key === "saved" ? (
-                          <IconBookmark size={14} className="text-[var(--color-text-tertiary)]" />
+                          <IconBookmark size={14} className="text-[var(--color-ink-5)]" />
                         ) : (
-                          <IconUser size={14} className="text-[var(--color-text-tertiary)]" />
+                          <IconUser size={14} className="text-[var(--color-ink-5)]" />
                         )}
                       </span>
                       <div className="flex-1 min-w-0 pr-4">
-                        <div className="text-sm text-[var(--color-text-primary)] break-words">{n.title}</div>
-                        <div className="text-[11px] text-[var(--color-text-tertiary)] mt-0.5 flex items-center gap-2">
+                        <div className="text-sm text-[var(--color-ink-1)] break-words">{n.title}</div>
+                        <div className="text-[11px] text-[var(--color-ink-5)] mt-0.5 flex items-center gap-2">
                           {g.key === "owned" ? (
                             <>
                               <span>
@@ -165,7 +165,7 @@ export default function SharedNavList({ onOpen }: SharedNavListProps) {
                       <button
                         onClick={() => handleRemove(n.shortcode)}
                         title="Remove from your list"
-                        className="absolute top-2 right-1 p-1 rounded text-[var(--color-text-tertiary)] opacity-0 group-hover/sh:opacity-100 hover:text-[var(--color-danger)] hover:bg-[var(--color-hover)] transition-opacity"
+                        className="absolute top-2 right-1 p-1 rounded text-[var(--color-ink-5)] opacity-0 group-hover/sh:opacity-100 hover:text-[var(--color-danger)] hover:bg-[var(--color-raised-soft)] transition-opacity"
                       >
                         <IconX size={14} />
                       </button>
@@ -178,9 +178,9 @@ export default function SharedNavList({ onOpen }: SharedNavListProps) {
 
           {visibleCount === 0 && (
             <div className="flex flex-col items-center justify-center gap-2 p-6 text-center">
-              <IconShare2 size={22} className="text-[var(--color-text-tertiary)]" />
-              <p className="text-sm text-[var(--color-text-tertiary)]">Nothing here yet</p>
-              <p className="text-[11px] text-[var(--color-text-tertiary)]">
+              <IconShare2 size={22} className="text-[var(--color-ink-5)]" />
+              <p className="text-sm text-[var(--color-ink-5)]">Nothing here yet</p>
+              <p className="text-[11px] text-[var(--color-ink-5)]">
                 Share a note, or add one you received with &ldquo;Add.&rdquo;
               </p>
             </div>

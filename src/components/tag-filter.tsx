@@ -43,7 +43,7 @@ export default function TagFilter() {
       {filterTagIds.length > 0 && (
         <button
           onClick={() => setFilterTagIds([])}
-          className="px-2 py-0.5 rounded-full text-[10px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
+          className="px-2 py-0.5 rounded-full text-[10px] text-[var(--color-ink-5)] hover:text-[var(--color-ink-3)] transition-colors"
         >
           Clear
         </button>

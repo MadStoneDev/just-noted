@@ -65,17 +65,17 @@ export default function AddSharedDrawer({ open, onClose, onAdded }: AddSharedDra
         onClick={close}
       />
       <div
-        className={`relative w-full max-w-2xl bg-[var(--color-bg-elevated)] border-t border-[var(--color-border-primary)] rounded-t-[var(--radius-xl)] shadow-[var(--shadow-lg)] flex flex-col max-h-[85vh] transition-transform duration-[var(--duration-slow)] ${
+        className={`relative w-full max-w-2xl bg-[var(--color-raised)] border-t border-[var(--color-hairline)] rounded-t-[var(--radius-xl)] shadow-[var(--shadow-lg)] flex flex-col max-h-[85vh] transition-transform duration-[var(--duration-slow)] ${
           open ? "translate-y-0" : "translate-y-full"
         }`}
         style={{ transitionTimingFunction: "var(--ease-spring)" }}
       >
-        <div className="mx-auto mt-2.5 mb-1 h-1 w-10 rounded-full bg-[var(--color-border-primary)]" />
+        <div className="mx-auto mt-2.5 mb-1 h-1 w-10 rounded-full bg-[var(--color-hairline)]" />
         <div className="flex items-center justify-between px-4 py-2">
-          <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Add shared notes</h3>
+          <h3 className="text-sm font-semibold text-[var(--color-ink-1)]">Add shared notes</h3>
           <button
             onClick={close}
-            className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+            className="text-[var(--color-ink-5)] hover:text-[var(--color-ink-1)]"
             aria-label="Close"
           >
             <IconX size={18} />
@@ -84,7 +84,7 @@ export default function AddSharedDrawer({ open, onClose, onAdded }: AddSharedDra
 
         <div className="overflow-y-auto scrollbar-thin px-4 pb-5 pt-1 space-y-3">
           {/* Single / bulk toggle */}
-          <div className="inline-flex gap-1 p-0.5 bg-[var(--color-bg-tertiary)] rounded-[var(--radius-md)]">
+          <div className="inline-flex gap-1 p-0.5 bg-[var(--color-raised-soft)] rounded-[var(--radius-md)]">
             {(["single", "bulk"] as const).map((m) => (
               <button
                 key={m}
@@ -95,8 +95,8 @@ export default function AddSharedDrawer({ open, onClose, onAdded }: AddSharedDra
                 }}
                 className={`px-3 py-1 text-xs font-medium rounded-[var(--radius-sm)] transition-colors ${
                   mode === m
-                    ? "bg-[var(--color-bg-elevated)] shadow-sm text-[var(--color-text-primary)]"
-                    : "text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+                    ? "bg-[var(--color-raised)] shadow-sm text-[var(--color-ink-1)]"
+                    : "text-[var(--color-ink-5)] hover:text-[var(--color-ink-3)]"
                 }`}
               >
                 {m === "single" ? "One link" : "Bulk"}
@@ -106,8 +106,8 @@ export default function AddSharedDrawer({ open, onClose, onAdded }: AddSharedDra
 
           <form onSubmit={submit} className="space-y-2">
             {mode === "single" ? (
-              <div className="flex items-center gap-2 bg-[var(--color-bg-tertiary)] rounded-[var(--radius-md)] px-3">
-                <IconLink size={15} className="text-[var(--color-text-tertiary)] flex-none" />
+              <div className="flex items-center gap-2 bg-[var(--color-raised-soft)] rounded-[var(--radius-md)] px-3">
+                <IconLink size={15} className="text-[var(--color-ink-5)] flex-none" />
                 <input
                   autoFocus
                   value={value}
@@ -116,7 +116,7 @@ export default function AddSharedDrawer({ open, onClose, onAdded }: AddSharedDra
                     setResults(null);
                   }}
                   placeholder="Paste a share link or code…"
-                  className="flex-1 min-w-0 bg-transparent py-2.5 text-sm outline-none text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]"
+                  className="flex-1 min-w-0 bg-transparent py-2.5 text-sm outline-none text-[var(--color-ink-1)] placeholder:text-[var(--color-ink-5)]"
                 />
               </div>
             ) : (
@@ -129,16 +129,16 @@ export default function AddSharedDrawer({ open, onClose, onAdded }: AddSharedDra
                 }}
                 rows={6}
                 placeholder={"One link or code per line…\nhttps://justnoted.app/n/AbC123xyz\nAbC123xyz"}
-                className="w-full bg-[var(--color-bg-tertiary)] rounded-[var(--radius-md)] px-3 py-2.5 text-sm outline-none text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] resize-y font-mono leading-relaxed"
+                className="w-full bg-[var(--color-raised-soft)] rounded-[var(--radius-md)] px-3 py-2.5 text-sm outline-none text-[var(--color-ink-1)] placeholder:text-[var(--color-ink-5)] resize-y font-mono leading-relaxed"
               />
             )}
-            <p className="text-[11px] text-[var(--color-text-tertiary)]">
+            <p className="text-[11px] text-[var(--color-ink-5)]">
               Accepts full links, <code>/n/</code> paths, or bare share codes.
             </p>
             <button
               type="submit"
               disabled={submitting || lines.length === 0}
-              className="w-full py-2.5 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-accent)] text-[var(--color-text-on-accent)] hover:bg-[var(--color-accent-hover)] transition-colors disabled:opacity-50"
+              className="w-full py-2.5 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:bg-[var(--color-accent-deep)] transition-colors disabled:opacity-50"
             >
               {submitting
                 ? "Checking…"
@@ -150,7 +150,7 @@ export default function AddSharedDrawer({ open, onClose, onAdded }: AddSharedDra
 
           {results && (
             <div className="space-y-1.5 pt-1">
-              <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-tertiary)]">
+              <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-ink-5)]">
                 {addedCount} added{results.length - addedCount > 0 ? `, ${results.length - addedCount} skipped` : ""}
               </div>
               {results.map((r, i) => (
@@ -161,7 +161,7 @@ export default function AddSharedDrawer({ open, onClose, onAdded }: AddSharedDra
                     <IconAlertTriangle size={15} className="mt-[1px] text-[var(--color-danger)] flex-none" />
                   )}
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[var(--color-text-primary)]">
+                    <div className="truncate text-[var(--color-ink-1)]">
                       {r.success ? r.title || "Added" : r.input}
                     </div>
                     {!r.success && <div className="text-[var(--color-danger)]">{r.error}</div>}
@@ -170,7 +170,7 @@ export default function AddSharedDrawer({ open, onClose, onAdded }: AddSharedDra
               ))}
               <button
                 onClick={close}
-                className="w-full mt-2 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-active)] transition-colors"
+                className="w-full mt-2 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-raised-soft)] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)] transition-colors"
               >
                 Done
               </button>

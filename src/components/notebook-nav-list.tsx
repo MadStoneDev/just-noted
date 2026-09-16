@@ -127,7 +127,7 @@ export default function NotebookNavList({
           }}
           className={`group/nb flex items-start rounded-[var(--radius-md)] ${
             draggedId === notebook.id ? "opacity-40" : ""
-          } ${dragOverId === notebook.id ? "bg-[var(--color-accent-subtle)]" : ""}`}
+          } ${dragOverId === notebook.id ? "bg-[var(--color-accent-tint)]" : ""}`}
         >
           {hasChildren ? (
             <button
@@ -140,13 +140,13 @@ export default function NotebookNavList({
                   return next;
                 });
               }}
-              className="pl-1 pt-2.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+              className="pl-1 pt-2.5 text-[var(--color-ink-5)] hover:text-[var(--color-ink-3)]"
               aria-label={isCollapsed ? "Expand" : "Collapse"}
             >
               {isCollapsed ? <IconChevronRight size={14} /> : <IconChevronDown size={14} />}
             </button>
           ) : (
-            <div className="pl-1 pt-2.5 cursor-grab text-[var(--color-text-tertiary)] opacity-0 group-hover/nb:opacity-50">
+            <div className="pl-1 pt-2.5 cursor-grab text-[var(--color-ink-5)] opacity-0 group-hover/nb:opacity-50">
               <IconGripVertical size={14} />
             </div>
           )}
@@ -154,26 +154,26 @@ export default function NotebookNavList({
             {/* Line 1 — notebook name (click to open) */}
             <button
               onClick={() => handleSelect(notebook.id)}
-              className="w-full flex items-center gap-2 text-left min-w-0 px-1.5 py-1 rounded hover:bg-[var(--color-hover)] transition-colors"
+              className="w-full flex items-center gap-2 text-left min-w-0 px-1.5 py-1 rounded hover:bg-[var(--color-raised-soft)] transition-colors"
             >
               <IconNotebook
                 size={15}
                 className="flex-shrink-0"
-                style={{ color: effectivelyHidden ? PRIVATE_COLOR : "var(--color-text-tertiary)" }}
+                style={{ color: effectivelyHidden ? PRIVATE_COLOR : "var(--color-ink-5)" }}
               />
-              <span className="flex-1 text-sm text-[var(--color-text-primary)] break-words">
+              <span className="flex-1 text-sm text-[var(--color-ink-1)] break-words">
                 {notebook.name}
               </span>
               {effectivelyHidden && (
                 <IconEyeOff size={13} className="flex-shrink-0" style={{ color: PRIVATE_COLOR }} />
               )}
               {activeNotebookId === notebook.id && (
-                <IconCheck size={14} className="text-[var(--color-accent)] flex-shrink-0" />
+                <IconCheck size={14} className="text-[var(--color-accent-text)] flex-shrink-0" />
               )}
             </button>
             {/* Line 2 — count + word goal, with edit / delete inline */}
             <div className="flex items-center gap-2 mt-0.5 pl-1.5 pr-0.5">
-              <span className="text-[11px] text-[var(--color-text-tertiary)] flex-shrink-0">
+              <span className="text-[11px] text-[var(--color-ink-5)] flex-shrink-0">
                 {(() => {
                   const c = hasChildren ? totalCount : notebookCounts[notebook.id] || 0;
                   return `${c} note${c !== 1 ? "s" : ""}`;
@@ -185,12 +185,12 @@ export default function NotebookNavList({
                   const pct = Math.min(100, Math.round((wc / notebook.wordGoal) * 100));
                   return (
                     <span
-                      className="flex items-center gap-1 text-[10px] text-[var(--color-text-tertiary)] flex-shrink-0"
+                      className="flex items-center gap-1 text-[10px] text-[var(--color-ink-5)] flex-shrink-0"
                       title={`${wc.toLocaleString()} / ${notebook.wordGoal.toLocaleString()} words`}
                     >
-                      <span className="inline-block w-6 h-1 rounded-full bg-[var(--color-border-primary)] overflow-hidden">
+                      <span className="inline-block w-6 h-1 rounded-full bg-[var(--color-hairline)] overflow-hidden">
                         <span
-                          className="block h-full rounded-full bg-[var(--color-accent)]"
+                          className="block h-full rounded-full bg-[var(--color-accent-fill)]"
                           style={{ width: `${pct}%` }}
                         />
                       </span>
@@ -201,7 +201,7 @@ export default function NotebookNavList({
                 if (wc > 0) {
                   return (
                     <span
-                      className="text-[10px] text-[var(--color-text-tertiary)] flex-shrink-0"
+                      className="text-[10px] text-[var(--color-ink-5)] flex-shrink-0"
                       title={`${wc.toLocaleString()} words`}
                     >
                       {wc.toLocaleString()}w
@@ -217,7 +217,7 @@ export default function NotebookNavList({
                     e.stopPropagation();
                     onEditNotebook(notebook);
                   }}
-                  className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] rounded transition-colors"
+                  className="p-1.5 text-[var(--color-ink-5)] hover:text-[var(--color-ink-3)] rounded transition-colors"
                   title="Edit"
                   aria-label="Edit notebook"
                 >
@@ -228,7 +228,7 @@ export default function NotebookNavList({
                     e.stopPropagation();
                     onDeleteNotebook(notebook);
                   }}
-                  className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] rounded transition-colors"
+                  className="p-1.5 text-[var(--color-ink-5)] hover:text-[var(--color-danger)] rounded transition-colors"
                   title="Delete"
                   aria-label="Delete notebook"
                 >
@@ -239,7 +239,7 @@ export default function NotebookNavList({
           </div>
         </div>
         {hasChildren && !isCollapsed && (
-          <div className="ml-[26px] border-l border-[var(--color-border-primary)]">
+          <div className="ml-[26px] border-l border-[var(--color-hairline)]">
             {children.map((child) => renderNotebook(child, effectivelyHidden))}
           </div>
         )}
@@ -253,14 +253,14 @@ export default function NotebookNavList({
         {/* All Notes */}
         <button
           onClick={() => handleSelect(null)}
-          className="w-full flex items-center justify-between px-2.5 min-h-[44px] rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors"
+          className="w-full flex items-center justify-between px-2.5 min-h-[44px] rounded-[var(--radius-md)] hover:bg-[var(--color-raised-soft)] transition-colors"
         >
           <div className="flex items-center gap-2">
-            <IconNote size={16} className="text-[var(--color-text-tertiary)]" />
-            <span className="text-sm text-[var(--color-text-primary)]">All Notes</span>
-            <span className="text-[11px] text-[var(--color-text-tertiary)]">{totalNotesCount}</span>
+            <IconNote size={16} className="text-[var(--color-ink-5)]" />
+            <span className="text-sm text-[var(--color-ink-1)]">All Notes</span>
+            <span className="text-[11px] text-[var(--color-ink-5)]">{totalNotesCount}</span>
           </div>
-          {activeNotebookId === null && <IconCheck size={16} className="text-[var(--color-accent)]" />}
+          {activeNotebookId === null && <IconCheck size={16} className="text-[var(--color-accent-text)]" />}
         </button>
         {hiddenNotebookCount > 0 && activeNotebookId === null && (
           <div className="px-2.5 py-1 flex items-center gap-1.5 text-[11px]" style={{ color: PRIVATE_COLOR }}>
@@ -274,20 +274,20 @@ export default function NotebookNavList({
         {/* Loose Notes */}
         <button
           onClick={() => handleSelect("loose")}
-          className="w-full flex items-center justify-between px-2.5 min-h-[44px] rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors"
+          className="w-full flex items-center justify-between px-2.5 min-h-[44px] rounded-[var(--radius-md)] hover:bg-[var(--color-raised-soft)] transition-colors"
         >
           <div className="flex items-center gap-2">
-            <IconFileOff size={16} className="text-[var(--color-text-tertiary)]" />
-            <span className="text-sm text-[var(--color-text-primary)]">Loose Notes</span>
-            <span className="text-[11px] text-[var(--color-text-tertiary)]">{looseNotesCount}</span>
+            <IconFileOff size={16} className="text-[var(--color-ink-5)]" />
+            <span className="text-sm text-[var(--color-ink-1)]">Loose Notes</span>
+            <span className="text-[11px] text-[var(--color-ink-5)]">{looseNotesCount}</span>
           </div>
-          {activeNotebookId === "loose" && <IconCheck size={16} className="text-[var(--color-accent)]" />}
+          {activeNotebookId === "loose" && <IconCheck size={16} className="text-[var(--color-accent-text)]" />}
         </button>
 
-        {notebooks.length > 0 && <div className="h-px bg-[var(--color-border-secondary)] my-1.5" />}
+        {notebooks.length > 0 && <div className="h-px bg-[var(--color-hairline-soft)] my-1.5" />}
 
         {notebooksLoading ? (
-          <div className="px-2.5 py-3 text-center text-[11px] text-[var(--color-text-tertiary)]">
+          <div className="px-2.5 py-3 text-center text-[11px] text-[var(--color-ink-5)]">
             Loading...
           </div>
         ) : (
@@ -296,14 +296,14 @@ export default function NotebookNavList({
       </div>
 
       {/* Create notebook — pinned to the bottom so the list never hides behind it */}
-      <div className="flex-none border-t border-[var(--color-border-secondary)] p-1.5">
+      <div className="flex-none border-t border-[var(--color-hairline-soft)] p-1.5">
         <button
           onClick={onNewNotebook}
           disabled={notebookLimitReached}
           className={`w-full flex items-center justify-center gap-2 px-2.5 min-h-[42px] rounded-[var(--radius-md)] border border-dashed transition-colors ${
             notebookLimitReached
-              ? "text-[var(--color-text-tertiary)] border-[var(--color-border-secondary)] cursor-not-allowed"
-              : "text-[var(--color-accent)] border-[var(--color-border-primary)] hover:bg-[var(--color-accent-subtle)] hover:border-[var(--color-accent)]"
+              ? "text-[var(--color-ink-5)] border-[var(--color-hairline-soft)] cursor-not-allowed"
+              : "text-[var(--color-accent-text)] border-[var(--color-hairline)] hover:bg-[var(--color-accent-tint)] hover:border-[var(--color-accent-text)]"
           }`}
         >
           <IconPlus size={16} />
