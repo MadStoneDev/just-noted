@@ -232,24 +232,24 @@ export function CommandPalette({ open, onClose, page }: CommandPaletteProps) {
       />
 
       <div
-        className="relative w-full max-w-lg flex flex-col max-h-[70vh] overflow-hidden rounded-[var(--radius-xl)] border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-modal)] animate-scale-in"
+        className="relative w-full max-w-lg flex flex-col max-h-[70vh] overflow-hidden rounded-[var(--radius-xl)] border border-[var(--color-hairline)] bg-[var(--color-panel-alt)] shadow-[var(--shadow-modal)] animate-scale-in"
         onKeyDown={handleKeyDown}
       >
         {/* Search header */}
-        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--color-border-secondary)]">
+        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--color-hairline-soft)]">
           {stack.length > 1 ? (
             <button
               type="button"
               onClick={goBack}
               aria-label="Back"
-              className="flex-none text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] transition-colors"
+              className="flex-none text-[var(--color-ink-5)] hover:text-[var(--color-ink-1)] transition-colors"
             >
               <IconArrowLeft size={16} />
             </button>
           ) : (
             <IconSearch
               size={16}
-              className="flex-none text-[var(--color-text-tertiary)]"
+              className="flex-none text-[var(--color-ink-5)]"
             />
           )}
           <input
@@ -260,12 +260,12 @@ export function CommandPalette({ open, onClose, page }: CommandPaletteProps) {
               setActiveIndex(0);
             }}
             placeholder={current.placeholder ?? "Type a command…"}
-            className="flex-1 min-w-0 bg-transparent text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] outline-none"
+            className="flex-1 min-w-0 bg-transparent text-sm text-[var(--color-ink-1)] placeholder:text-[var(--color-ink-5)] outline-none"
             autoComplete="off"
             spellCheck={false}
           />
           {stack.length > 1 && (
-            <span className="flex-none text-[11px] text-[var(--color-text-tertiary)] truncate max-w-[40%]">
+            <span className="flex-none text-[11px] text-[var(--color-ink-5)] truncate max-w-[40%]">
               {current.title}
             </span>
           )}
@@ -274,7 +274,7 @@ export function CommandPalette({ open, onClose, page }: CommandPaletteProps) {
         {/* Command list */}
         <div ref={listRef} className="flex-1 overflow-y-auto scrollbar-thin py-1.5">
           {flatItems.length === 0 && (
-            <div className="px-4 py-6 text-center text-sm text-[var(--color-text-tertiary)]">
+            <div className="px-4 py-6 text-center text-sm text-[var(--color-ink-5)]">
               No matches
             </div>
           )}
@@ -282,7 +282,7 @@ export function CommandPalette({ open, onClose, page }: CommandPaletteProps) {
           {groupsToRender.map((group) => (
             <div key={group.id} className="px-1.5 pb-1">
               {group.heading && (
-                <div className="px-2.5 pt-2 pb-1 text-[10.5px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+                <div className="px-2.5 pt-2 pb-1 text-[10.5px] font-semibold uppercase tracking-wider text-[var(--color-ink-5)]">
                   {group.heading}
                 </div>
               )}
@@ -305,7 +305,7 @@ export function CommandPalette({ open, onClose, page }: CommandPaletteProps) {
                         : active
                           ? item.destructive
                             ? "bg-[var(--color-danger-subtle)]"
-                            : "bg-[var(--color-selected)]"
+                            : "bg-[var(--color-accent-tint)]"
                           : ""
                     }`}
                   >
@@ -315,8 +315,8 @@ export function CommandPalette({ open, onClose, page }: CommandPaletteProps) {
                           item.destructive
                             ? "text-[var(--color-danger)]"
                             : item.accent
-                              ? "text-[var(--color-accent)]"
-                              : "text-[var(--color-text-secondary)]"
+                              ? "text-[var(--color-accent-text)]"
+                              : "text-[var(--color-ink-3)]"
                         }`}
                       >
                         {item.icon}
@@ -328,33 +328,33 @@ export function CommandPalette({ open, onClose, page }: CommandPaletteProps) {
                           item.destructive
                             ? "text-[var(--color-danger)]"
                             : item.accent
-                              ? "text-[var(--color-accent)] font-medium"
-                              : "text-[var(--color-text-primary)]"
+                              ? "text-[var(--color-accent-text)] font-medium"
+                              : "text-[var(--color-ink-1)]"
                         }`}
                       >
                         {item.prefix && (
-                          <span className="text-[var(--color-text-tertiary)]">
+                          <span className="text-[var(--color-ink-5)]">
                             {item.prefix} /{" "}
                           </span>
                         )}
                         {item.label}
                       </span>
                       {item.description && (
-                        <span className="text-xs text-[var(--color-text-tertiary)] truncate">
+                        <span className="text-xs text-[var(--color-ink-5)] truncate">
                           {item.description}
                         </span>
                       )}
                     </span>
                     {item.trailing}
                     {!item.trailing && item.hint && (
-                      <span className="flex-none text-[11px] text-[var(--color-text-tertiary)]">
+                      <span className="flex-none text-[11px] text-[var(--color-ink-5)]">
                         {item.hint}
                       </span>
                     )}
                     {!item.trailing && !item.hint && item.submenu && (
                       <IconChevronRight
                         size={15}
-                        className="flex-none text-[var(--color-text-tertiary)]"
+                        className="flex-none text-[var(--color-ink-5)]"
                       />
                     )}
                   </button>
@@ -365,17 +365,17 @@ export function CommandPalette({ open, onClose, page }: CommandPaletteProps) {
         </div>
 
         {/* Footer hints */}
-        <div className="flex items-center gap-4 px-4 py-2 border-t border-[var(--color-border-secondary)] text-[11px] text-[var(--color-text-tertiary)]">
+        <div className="flex items-center gap-4 px-4 py-2 border-t border-[var(--color-hairline-soft)] text-[11px] text-[var(--color-ink-5)]">
           <span className="flex items-center gap-1.5">
-            <kbd className="font-mono border border-[var(--color-border-primary)] rounded px-1">↑↓</kbd>
+            <kbd className="font-mono border border-[var(--color-hairline)] rounded px-1">↑↓</kbd>
             navigate
           </span>
           <span className="flex items-center gap-1.5">
-            <kbd className="font-mono border border-[var(--color-border-primary)] rounded px-1">↵</kbd>
+            <kbd className="font-mono border border-[var(--color-hairline)] rounded px-1">↵</kbd>
             select
           </span>
           <span className="flex items-center gap-1.5">
-            <kbd className="font-mono border border-[var(--color-border-primary)] rounded px-1">esc</kbd>
+            <kbd className="font-mono border border-[var(--color-hairline)] rounded px-1">esc</kbd>
             {stack.length > 1 ? "back" : "close"}
           </span>
         </div>
