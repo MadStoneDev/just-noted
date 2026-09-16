@@ -259,7 +259,7 @@ export default function NoteWrapper() {
         {/* Main area: the editor, or a read-only shared note when one is open. */}
         <main
           id="main-content"
-          className="flex-1 flex flex-col min-w-0 bg-[var(--color-bg-primary)]"
+          className="flex-1 flex flex-col min-w-0 bg-[var(--color-canvas)]"
           role="main"
           aria-label={sharedShortcode ? "Shared note" : "Note editor"}
         >

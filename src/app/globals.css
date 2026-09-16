@@ -548,9 +548,9 @@ summary {
   outline: none !important;
   box-shadow: none !important;
   border: none !important;
-  font-family: var(--font-primary), sans-serif;
+  font-family: var(--font-editor);
   color: var(--color-text-primary);
-  line-height: 1.7;
+  line-height: 1.72;
   padding: 0.5rem 0;
 }
 

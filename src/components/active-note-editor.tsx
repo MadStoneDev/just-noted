@@ -892,15 +892,15 @@ function NoteEditor({
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
-      {/* Minimal toolbar */}
-      <div className="print:hidden flex items-center justify-between px-4 md:px-8 py-1.5 border-b border-[var(--color-border-secondary)] bg-[var(--color-bg-primary)]">
+      {/* Editor top bar */}
+      <div className="print:hidden flex items-center justify-between px-4 md:px-8 py-2 border-b border-[var(--color-hairline)] bg-[var(--color-canvas)]">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-[var(--color-text-tertiary)] opacity-60">
+          <span className="px-1.5 py-0.5 rounded-[var(--radius-5)] bg-[var(--color-raised-soft)] text-[11px] text-[var(--color-ink-4)]">
             {noteSource === "supabase" ? "Cloud" : "Local"}
           </span>
           {isSaving && (
-            <span className="text-[10px] text-[var(--color-text-tertiary)] animate-pulse-subtle">
-              Saving...
+            <span className="text-[11px] text-[var(--color-ink-4)] animate-pulse-subtle">
+              Saving…
             </span>
           )}
         </div>
@@ -943,7 +943,7 @@ function NoteEditor({
             <IconFileImport size={14} />
           </IconButton>
 
-          <div className="w-px h-3 bg-[var(--color-border-secondary)] mx-0.5" />
+          <div className="w-px h-3 bg-[var(--color-hairline)] mx-0.5" />
 
           <span className="hidden md:inline-flex">
             <button
@@ -997,7 +997,7 @@ function NoteEditor({
             <IconMarkdown size={14} />
           </IconButton>
 
-          <div className="w-px h-3 bg-[var(--color-border-secondary)] mx-0.5" />
+          <div className="w-px h-3 bg-[var(--color-hairline)] mx-0.5" />
 
           {isAuthenticated && (
             <ShareNoteButton
@@ -1047,13 +1047,14 @@ function NoteEditor({
           {/* Title */}
           <input
             ref={titleInputRef}
+            data-note-title
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onBlur={handleTitleBlur}
             onKeyDown={handleTitleKeyDown}
             placeholder="Untitled"
-            className="w-full text-2xl md:text-3xl font-bold text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] bg-transparent border-none outline-none mb-1"
+            className="w-full font-[family-name:var(--font-editor)] text-[32px] md:text-[46px] leading-[1.1] font-medium tracking-[-0.015em] text-[var(--color-ink)] placeholder:text-[var(--color-ink-6)] bg-transparent border-none outline-none mb-1"
           />
 
           {/* Notebook pill + stats */}
