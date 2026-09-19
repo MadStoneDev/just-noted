@@ -28,6 +28,7 @@ import {
   IconPinFilled,
   IconCloud,
   IconFilterOff,
+  IconLayoutGrid,
   IconCheckbox,
   IconSquare,
   IconSquareCheck,
@@ -389,6 +390,12 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
     setIsNotebookModalOpen(true);
   }, []);
 
+  // Let the notebooks grid (main area) open the create-notebook modal.
+  useEffect(() => {
+    window.addEventListener("justnoted:new-notebook", handleNewNotebook);
+    return () => window.removeEventListener("justnoted:new-notebook", handleNewNotebook);
+  }, [handleNewNotebook]);
+
   const handleEditNotebook = useCallback((notebook: Notebook) => {
     setEditingNotebook(notebook);
     setIsNotebookModalOpen(true);
@@ -623,6 +630,17 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 >
                   <IconFilterOff size={12} />
                   Clear
+                </button>
+              )}
+              {railView === "notebooks" && (
+                <button
+                  onClick={() => window.dispatchEvent(new Event("justnoted:open-notebooks-grid"))}
+                  title="Browse as grid"
+                  aria-label="Browse notebooks as grid"
+                  className="flex items-center gap-1 text-[11px] text-[var(--color-ink-4)] hover:text-[var(--color-ink-1)] transition-colors flex-none"
+                >
+                  <IconLayoutGrid size={14} />
+                  Grid
                 </button>
               )}
             </div>

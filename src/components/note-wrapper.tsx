@@ -10,6 +10,7 @@ import TrashView from "@/components/trash-view";
 import DistractionFreeNoteBlock from "@/components/distraction-free-note-block";
 import NotebookBreadcrumb from "@/components/notebook-breadcrumb";
 import SharedNoteInline from "@/components/shared-note-inline";
+import NotebooksGrid from "@/components/notebooks-grid";
 import NotebookModal from "@/components/notebook-modal";
 import UndoDeleteToast from "@/components/ui/undo-toast";
 import OfflineIndicator from "@/components/ui/offline-indicator";
@@ -77,6 +78,15 @@ export default function NoteWrapper() {
   const [showTrash, setShowTrash] = useState(false);
   // Read-only shared note open in the main area (by shortcode)
   const [sharedShortcode, setSharedShortcode] = useState<string | null>(null);
+  // Notebooks cover grid open in the main area
+  const [showNotebooksGrid, setShowNotebooksGrid] = useState(false);
+
+  // Open the notebooks grid from the sidebar (cross-component trigger).
+  useEffect(() => {
+    const open = () => setShowNotebooksGrid(true);
+    window.addEventListener("justnoted:open-notebooks-grid", open);
+    return () => window.removeEventListener("justnoted:open-notebooks-grid", open);
+  }, []);
 
   const handleShowDistractionFree = useCallback((note: CombinedNote) => {
     setActiveNote(note);
@@ -248,7 +258,18 @@ export default function NoteWrapper() {
           role="main"
           aria-label={sharedShortcode ? "Shared note" : "Note editor"}
         >
-          {sharedShortcode ? (
+          {showNotebooksGrid ? (
+            <NotebooksGrid
+              onClose={() => setShowNotebooksGrid(false)}
+              onOpenNotebook={(id) => {
+                useNotesStore.getState().setActiveNotebookId(id);
+                setShowNotebooksGrid(false);
+              }}
+              onNewNotebook={() =>
+                window.dispatchEvent(new Event("justnoted:new-notebook"))
+              }
+            />
+          ) : sharedShortcode ? (
             <SharedNoteInline
               shortcode={sharedShortcode}
               onClose={() => setSharedShortcode(null)}
