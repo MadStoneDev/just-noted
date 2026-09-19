@@ -376,8 +376,8 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
   if (state.isLoading) {
     return (
       <div className="py-16 text-center">
-        <div className="animate-spin rounded-full h-6 w-6 border-2 border-[var(--color-accent)] border-t-transparent mx-auto mb-3"></div>
-        <p className="text-sm text-[var(--color-text-tertiary)]">Loading profile...</p>
+        <div className="animate-spin rounded-full h-6 w-6 border-2 border-[var(--color-accent-tint-border)] border-t-transparent mx-auto mb-3"></div>
+        <p className="text-sm text-[var(--color-ink-5)]">Loading profile...</p>
       </div>
     );
   }
@@ -387,7 +387,7 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
       <div>
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
-          <div className="w-14 h-14 bg-[var(--color-bg-tertiary)] rounded-full flex items-center justify-center shrink-0 overflow-hidden">
+          <div className="w-14 h-14 bg-[var(--color-raised-soft)] rounded-full flex items-center justify-center shrink-0 overflow-hidden">
             {state.avatarPreview || state.avatarUrl ? (
               <img
                 src={state.avatarPreview || state.avatarUrl || ""}
@@ -395,19 +395,19 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
                 className="w-full h-full object-cover"
               />
             ) : (
-              <span className="text-[var(--color-text-tertiary)] text-xl font-light">?</span>
+              <span className="text-[var(--color-ink-5)] text-xl font-light">?</span>
             )}
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">
+            <h1 className="text-lg font-semibold text-[var(--color-ink-1)]">
               {state.username || "Your Profile"}
             </h1>
-            <p className="text-xs text-[var(--color-text-tertiary)]">{user?.email}</p>
+            <p className="text-xs text-[var(--color-ink-5)]">{user?.email}</p>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex mb-4 bg-[var(--color-bg-tertiary)] rounded-[var(--radius-md)] p-0.5">
+        <div className="flex mb-4 bg-[var(--color-raised-soft)] rounded-[var(--radius-md)] p-0.5">
           <TabButton
             label="Profile Settings"
             isActive={state.activeTab === "profile"}
@@ -425,27 +425,27 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
             {/* Lifetime writing stats — foundation for future achievements */}
             {stats && (
               <div className="mb-6 grid grid-cols-3 gap-3">
-                <div className="p-3 bg-[var(--color-bg-secondary)] rounded-[var(--radius-md)] border border-[var(--color-border-primary)]">
-                  <div className="text-lg font-semibold text-[var(--color-text-primary)]">
+                <div className="p-3 bg-[var(--color-panel)] rounded-[var(--radius-md)] border border-[var(--color-hairline)]">
+                  <div className="text-lg font-semibold text-[var(--color-ink-1)]">
                     {stats.totalWords.toLocaleString()}
                   </div>
-                  <div className="text-[11px] text-[var(--color-text-tertiary)]">
+                  <div className="text-[11px] text-[var(--color-ink-5)]">
                     words across your notes
                   </div>
                 </div>
-                <div className="p-3 bg-[var(--color-bg-secondary)] rounded-[var(--radius-md)] border border-[var(--color-border-primary)]">
-                  <div className="text-lg font-semibold text-[var(--color-text-primary)]">
+                <div className="p-3 bg-[var(--color-panel)] rounded-[var(--radius-md)] border border-[var(--color-hairline)]">
+                  <div className="text-lg font-semibold text-[var(--color-ink-1)]">
                     {stats.noteCount.toLocaleString()}
                   </div>
-                  <div className="text-[11px] text-[var(--color-text-tertiary)]">
+                  <div className="text-[11px] text-[var(--color-ink-5)]">
                     {stats.noteCount === 1 ? "note" : "notes"}
                   </div>
                 </div>
-                <div className="p-3 bg-[var(--color-bg-secondary)] rounded-[var(--radius-md)] border border-[var(--color-border-primary)]">
-                  <div className="text-lg font-semibold text-[var(--color-text-primary)]">
+                <div className="p-3 bg-[var(--color-panel)] rounded-[var(--radius-md)] border border-[var(--color-hairline)]">
+                  <div className="text-lg font-semibold text-[var(--color-ink-1)]">
                     {formatMemberSince(stats.memberSince) || "—"}
                   </div>
-                  <div className="text-[11px] text-[var(--color-text-tertiary)]">
+                  <div className="text-[11px] text-[var(--color-ink-5)]">
                     writing since
                   </div>
                 </div>
@@ -453,19 +453,19 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
             )}
 
             <div>
-              <h2 className="text-sm font-semibold mb-4 text-[var(--color-text-primary)]">
+              <h2 className="text-sm font-semibold mb-4 text-[var(--color-ink-1)]">
                 Account Information
               </h2>
 
               {/* Email Display - Modern card style */}
               <div className="mb-4">
-                <label className="block mb-2 text-xs font-medium text-[var(--color-text-secondary)]">
+                <label className="block mb-2 text-xs font-medium text-[var(--color-ink-3)]">
                   Email Address
                 </label>
-                <div className="px-3 py-2 bg-[var(--color-bg-secondary)] rounded-[var(--radius-md)] border border-[var(--color-border-primary)] text-[var(--color-text-secondary)]">
+                <div className="px-3 py-2 bg-[var(--color-panel)] rounded-[var(--radius-md)] border border-[var(--color-hairline)] text-[var(--color-ink-3)]">
                   {user?.email}
                 </div>
-                <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
+                <p className="mt-2 text-xs text-[var(--color-ink-3)]">
                   Your email is used for authentication and cannot be changed
                   here.
                 </p>
@@ -473,7 +473,7 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
 
               {/* Username Input - Enhanced */}
               <div className="mb-4">
-                <label className="block mb-2 text-xs font-medium text-[var(--color-text-secondary)]">
+                <label className="block mb-2 text-xs font-medium text-[var(--color-ink-3)]">
                   Username
                 </label>
                 <div className="relative">
@@ -481,15 +481,15 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
                     type="text"
                     value={state.username}
                     onChange={handleUsernameChange}
-                    className="w-full px-3 py-2 border border-[var(--color-border-primary)] rounded-[var(--radius-md)] focus:outline-none focus:border-[var(--color-accent)] transition-colors bg-[var(--color-bg-primary)]"
+                    className="w-full px-3 py-2 border border-[var(--color-hairline)] rounded-[var(--radius-md)] focus:outline-none focus:border-[var(--color-accent-tint-border)] transition-colors bg-[var(--color-raised)]"
                     placeholder="Enter username"
                     maxLength={30}
                   />
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--color-text-tertiary)]">
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--color-ink-5)]">
                     {state.username.length}/30
                   </div>
                 </div>
-                <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
+                <p className="mt-2 text-xs text-[var(--color-ink-3)]">
                   Letters, numbers, and underscores only. Must be 3-30
                   characters.
                 </p>
@@ -497,11 +497,11 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
 
               {/* Avatar Upload - Card style */}
               <div className="mb-8">
-                <label className="block mb-3 text-xs font-medium text-[var(--color-text-secondary)]">
+                <label className="block mb-3 text-xs font-medium text-[var(--color-ink-3)]">
                   Profile Picture
                 </label>
-                <div className="flex items-center space-x-4 p-5 bg-[var(--color-bg-secondary)] rounded-[var(--radius-md)] border-2 border-dashed border-[var(--color-border-primary)] hover:border-[var(--color-accent)]/50 transition-colors">
-                  <div className="shrink-0 w-24 h-24 bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] overflow-hidden flex items-center justify-center shadow-sm ring-1 ring-gray-200">
+                <div className="flex items-center space-x-4 p-5 bg-[var(--color-panel)] rounded-[var(--radius-md)] border-2 border-dashed border-[var(--color-hairline)] hover:border-[var(--color-accent-tint-border)]/50 transition-colors">
+                  <div className="shrink-0 w-24 h-24 bg-[var(--color-raised)] rounded-[var(--radius-lg)] overflow-hidden flex items-center justify-center shadow-sm ring-1 ring-gray-200">
                     {state.avatarPreview || state.avatarUrl ? (
                       <img
                         src={state.avatarPreview || state.avatarUrl || ""}
@@ -509,7 +509,7 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span className="text-[var(--color-text-tertiary)] text-xl font-light">
+                      <span className="text-[var(--color-ink-5)] text-xl font-light">
                         ?
                       </span>
                     )}
@@ -525,7 +525,7 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
                     />
                     <label
                       htmlFor="avatar-upload"
-                      className="inline-flex items-center px-4 py-2.5 bg-[var(--color-accent)] text-white rounded-[var(--radius-lg)] font-medium cursor-pointer hover:bg-[var(--color-accent)]/90 transition-colors shadow-sm"
+                      className="inline-flex items-center px-4 py-2.5 bg-[var(--color-accent-fill)] text-white rounded-[var(--radius-lg)] font-medium cursor-pointer hover:bg-[var(--color-accent-fill)]/90 transition-colors shadow-sm"
                     >
                       <svg
                         className="w-5 h-5 mr-2"
@@ -542,7 +542,7 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
                       </svg>
                       Choose Image
                     </label>
-                    <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
+                    <p className="mt-2 text-xs text-[var(--color-ink-3)]">
                       Recommended: Square image, at least 200x200px
                     </p>
                   </div>
@@ -551,17 +551,17 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
             </div>
 
             {/* Action Buttons - Sticky footer */}
-            <div className="flex justify-between items-center px-0 py-4 bg-[var(--color-bg-secondary)] border-t border-[var(--color-border-secondary)]">
+            <div className="flex justify-between items-center px-0 py-4 bg-[var(--color-panel)] border-t border-[var(--color-hairline-soft)]">
               <button
                 onClick={handleLogout}
-                className="px-3 py-1.5 text-[var(--color-text-primary)] font-medium rounded-[var(--radius-lg)] hover:bg-[var(--color-active)] transition-colors"
+                className="px-3 py-1.5 text-[var(--color-ink-1)] font-medium rounded-[var(--radius-lg)] hover:bg-[var(--color-raised-soft)] transition-colors"
               >
                 Log Out
               </button>
 
               <div className="flex items-center space-x-3">
                 {hasChanges && (
-                  <span className="text-sm text-[var(--color-text-secondary)] mr-2">
+                  <span className="text-sm text-[var(--color-ink-3)] mr-2">
                     Unsaved changes
                   </span>
                 )}
@@ -570,8 +570,8 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
                   disabled={state.isSaving || !hasChanges}
                   className={`px-6 py-2.5 rounded-[var(--radius-lg)] font-medium shadow-sm transition-all ${
                     state.isSaving || !hasChanges
-                      ? "bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)] cursor-not-allowed"
-                      : "bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent)]/90 hover:shadow-md"
+                      ? "bg-[var(--color-raised-soft)] text-[var(--color-ink-5)] cursor-not-allowed"
+                      : "bg-[var(--color-accent-fill)] text-white hover:bg-[var(--color-accent-fill)]/90 hover:shadow-md"
                   }`}
                 >
                   {state.isSaving ? (
@@ -587,10 +587,10 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
             </div>
 
             {/* Back link */}
-            <div className="px-8 py-4 bg-[var(--color-bg-primary)]">
+            <div className="px-8 py-4 bg-[var(--color-raised)]">
               <Link
                 href="/"
-                className="inline-flex items-center text-[var(--color-accent)] hover:text-[var(--color-accent)]/80 font-medium transition-colors"
+                className="inline-flex items-center text-[var(--color-accent-text)] hover:text-[var(--color-accent-text)]/80 font-medium transition-colors"
               >
                 <svg
                   className="w-4 h-4 mr-2"
@@ -610,13 +610,13 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
             </div>
           </section>
         ) : (
-          <section className="bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] shadow-sm border border-[var(--color-border-secondary)] p-0">
+          <section className="bg-[var(--color-raised)] rounded-[var(--radius-lg)] shadow-sm border border-[var(--color-hairline-soft)] p-0">
             {user && <ManageSharedNotes userId={user.id} />}
 
-            <div className="mt-8 pt-6 border-t border-[var(--color-border-secondary)]">
+            <div className="mt-8 pt-6 border-t border-[var(--color-hairline-soft)]">
               <Link
                 href="/"
-                className="inline-flex items-center text-[var(--color-accent)] hover:text-[var(--color-accent)]/80 font-medium transition-colors"
+                className="inline-flex items-center text-[var(--color-accent-text)] hover:text-[var(--color-accent-text)]/80 font-medium transition-colors"
               >
                 <svg
                   className="w-4 h-4 mr-2"
@@ -656,8 +656,8 @@ const TabButton = memo(function TabButton({
       onClick={onClick}
       className={`flex-1 py-1.5 text-xs font-medium rounded-[var(--radius-sm)] transition-colors ${
         isActive
-          ? "bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] shadow-xs"
-          : "text-[var(--color-text-tertiary)]"
+          ? "bg-[var(--color-raised)] text-[var(--color-ink-1)] shadow-xs"
+          : "text-[var(--color-ink-5)]"
       }`}
     >
       {label}
