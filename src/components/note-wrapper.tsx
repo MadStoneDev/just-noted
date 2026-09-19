@@ -258,7 +258,9 @@ export default function NoteWrapper() {
           role="main"
           aria-label={sharedShortcode ? "Shared note" : "Note editor"}
         >
-          {showNotebooksGrid ? (
+          {showTrash ? (
+            <TrashView onClose={() => setShowTrash(false)} />
+          ) : showNotebooksGrid ? (
             <NotebooksGrid
               onClose={() => setShowNotebooksGrid(false)}
               onOpenNotebook={(id) => {
@@ -329,7 +331,6 @@ export default function NoteWrapper() {
       <UndoDeleteToast />
       <OfflineIndicator />
       <SearchModal open={showSearch} onClose={() => setShowSearch(false)} />
-      <TrashView open={showTrash} onClose={() => setShowTrash(false)} />
 
       <NotebookModal
         isOpen={showNotebookModal}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   getTrashedNotes,
   restoreNote,
@@ -8,38 +8,47 @@ import {
 } from "@/app/actions/supabaseActions";
 import { supabaseToCombi } from "@/types/combined-notes";
 import type { CombinedNote } from "@/types/combined-notes";
-import { IconTrash, IconArrowBackUp, IconX } from "@tabler/icons-react";
+import { useNotesStore } from "@/stores/notes-store";
+import { countWordsInContent } from "@/utils/word-count";
+import { getCoverPreviewStyle } from "@/lib/notebook-covers";
+import { IconX } from "@tabler/icons-react";
 import { ConfirmModal } from "@/components/ds/modal";
 
 interface TrashViewProps {
-  open: boolean;
   onClose: () => void;
 }
 
+const DAY = 86400000;
+const PURGE_DAYS = 30;
+
 function relativeTime(timestamp: number): string {
-  const diff = Date.now() - timestamp;
-  const days = Math.floor(diff / 86400000);
-  if (days < 1) return "Today";
-  if (days === 1) return "Yesterday";
+  const days = Math.floor((Date.now() - timestamp) / DAY);
+  if (days < 1) return "today";
+  if (days === 1) return "yesterday";
   if (days < 7) return `${days}d ago`;
   if (days < 30) return `${Math.floor(days / 7)}w ago`;
   return `${Math.floor(days / 30)}mo ago`;
 }
 
-export default function TrashView({ open, onClose }: TrashViewProps) {
+// Design handoff surface 10 — Trash as a real main-area view.
+export default function TrashView({ onClose }: TrashViewProps) {
+  const notebooks = useNotesStore((s) => s.notebooks);
   const [notes, setNotes] = useState<CombinedNote[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [confirmEmpty, setConfirmEmpty] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const loadTrash = useCallback(async () => {
     setLoading(true);
     try {
       const result = await getTrashedNotes();
       if (result.success && result.notes) {
-        setNotes(result.notes.map((n: any) => ({
-          ...supabaseToCombi(n),
-          deletedAt: n.deleted_at ? new Date(n.deleted_at).getTime() : null,
-        })));
+        setNotes(
+          result.notes.map((n: any) => ({
+            ...supabaseToCombi(n),
+            deletedAt: n.deleted_at ? new Date(n.deleted_at).getTime() : null,
+          })),
+        );
       }
     } finally {
       setLoading(false);
@@ -47,98 +56,174 @@ export default function TrashView({ open, onClose }: TrashViewProps) {
   }, []);
 
   useEffect(() => {
-    if (open) loadTrash();
-  }, [open, loadTrash]);
+    loadTrash();
+  }, [loadTrash]);
+
+  const totalWords = useMemo(
+    () => notes.reduce((sum, n) => sum + countWordsInContent(n.content || ""), 0),
+    [notes],
+  );
 
   const handleRestore = useCallback(async (noteId: string) => {
     const result = await restoreNote(noteId);
-    if (result.success) {
-      setNotes((prev) => prev.filter((n) => n.id !== noteId));
-    }
+    if (result.success) setNotes((prev) => prev.filter((n) => n.id !== noteId));
   }, []);
 
-  const handlePermanentDelete = useCallback(async (noteId: string) => {
-    const result = await permanentlyDeleteNote(noteId);
-    if (result.success) {
-      setNotes((prev) => prev.filter((n) => n.id !== noteId));
-    }
-    setConfirmDeleteId(null);
-  }, []);
+  const handleRestoreAll = useCallback(async () => {
+    setBusy(true);
+    const ids = notes.map((n) => n.id);
+    for (const id of ids) await restoreNote(id);
+    setNotes([]);
+    setBusy(false);
+  }, [notes]);
 
-  if (!open) return null;
+  const handleEmptyTrash = useCallback(async () => {
+    setBusy(true);
+    const ids = notes.map((n) => n.id);
+    for (const id of ids) await permanentlyDeleteNote(id);
+    setNotes([]);
+    setBusy(false);
+    setConfirmEmpty(false);
+  }, [notes]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh]" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="absolute inset-0 bg-[var(--color-bg-overlay)]" />
-      <div className="relative w-full max-w-md mx-4 bg-[var(--color-bg-elevated)] rounded-[var(--radius-xl)] shadow-[var(--shadow-modal)] border border-[var(--color-border-secondary)] overflow-hidden animate-scale-in">
+    <div className="flex-1 overflow-y-auto scrollbar-thin bg-[var(--color-canvas)]">
+      <div className="mx-auto max-w-[900px] px-6 md:px-10 py-10">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--color-border-secondary)]">
-          <div className="flex items-center gap-2">
-            <IconTrash size={16} className="text-[var(--color-text-tertiary)]" />
-            <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Trash</h3>
-            <span className="text-[10px] text-[var(--color-text-tertiary)]">{notes.length} note{notes.length !== 1 ? "s" : ""}</span>
+        <div className="flex items-start justify-between gap-4 mb-8">
+          <div>
+            <h1 className="font-[family-name:var(--font-editor)] text-[34px] leading-[1.05] font-medium tracking-[-0.01em] text-[var(--color-ink)]">
+              Trash
+            </h1>
+            <p className="mt-1.5 text-[11.5px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
+              {notes.length} note{notes.length !== 1 ? "s" : ""} · deleted notes are removed after {PURGE_DAYS} days
+            </p>
           </div>
-          <button onClick={onClose} className="p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] rounded transition-colors">
-            <IconX size={16} />
-          </button>
+          <div className="flex items-center gap-2">
+            {notes.length > 0 && (
+              <>
+                <button
+                  onClick={handleRestoreAll}
+                  disabled={busy}
+                  className="h-8 px-3 rounded-[var(--radius-7)] text-[12.5px] font-medium border border-[var(--color-border-control)] text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)] transition-colors disabled:opacity-50"
+                >
+                  Restore all
+                </button>
+                <button
+                  onClick={() => setConfirmEmpty(true)}
+                  disabled={busy}
+                  className="h-8 px-3 rounded-[var(--radius-7)] text-[12.5px] font-medium bg-[var(--color-danger-tint)] border border-[var(--color-danger-tint-border)] text-[var(--color-danger-strong)] hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  Empty trash
+                </button>
+              </>
+            )}
+            <button
+              onClick={onClose}
+              aria-label="Close trash"
+              className="flex items-center justify-center w-8 h-8 rounded-[var(--radius-7)] text-[var(--color-ink-4)] hover:bg-[var(--color-raised-soft)] hover:text-[var(--color-ink-1)] transition-colors"
+            >
+              <IconX size={16} />
+            </button>
+          </div>
         </div>
 
-        {/* Content */}
-        <div className="max-h-[50vh] overflow-y-auto scrollbar-thin">
-          {loading ? (
-            <div className="py-8 text-center text-sm text-[var(--color-text-tertiary)]">Loading...</div>
-          ) : notes.length === 0 ? (
-            <div className="py-8 text-center">
-              <p className="text-sm text-[var(--color-text-tertiary)]">Trash is empty</p>
-              <p className="text-[10px] text-[var(--color-text-tertiary)] mt-1">Deleted notes appear here for 30 days</p>
+        {loading ? (
+          <div className="space-y-2">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="skeleton h-12 w-full rounded-[var(--radius-9)]" />
+            ))}
+          </div>
+        ) : notes.length === 0 ? (
+          <div className="flex flex-col items-center justify-center text-center py-24 max-w-[320px] mx-auto">
+            <h2 className="font-[family-name:var(--font-editor)] text-[24px] font-medium text-[var(--color-ink)]">
+              Trash is empty
+            </h2>
+            <p className="mt-2 text-[13.5px] leading-[1.55] text-[var(--color-ink-4)]">
+              Deleted notes appear here for {PURGE_DAYS} days, then they're gone for good.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-[var(--radius-12)] border border-[var(--color-hairline)] overflow-hidden">
+            {/* Column header */}
+            <div className="grid grid-cols-[1fr_150px_100px_140px] gap-3 px-4 py-2 bg-[var(--color-panel)] border-b border-[var(--color-hairline)] text-[10px] font-[family-name:var(--font-meta)] uppercase tracking-[0.12em] text-[var(--color-ink-5)]">
+              <span>Note</span>
+              <span>Notebook</span>
+              <span>Deleted</span>
+              <span className="text-right">Removed in</span>
             </div>
-          ) : (
-            <ul>
-              {notes.map((note) => (
-                <li key={note.id} className="flex items-center justify-between px-5 py-2.5 border-b border-[var(--color-border-secondary)] last:border-0 hover:bg-[var(--color-hover)] transition-colors">
-                  <div className="flex-1 min-w-0 mr-3">
-                    <p className="text-[13px] font-medium text-[var(--color-text-primary)] truncate">{note.title}</p>
-                    <p className="text-[10px] text-[var(--color-text-tertiary)]">
-                      Deleted {note.deletedAt ? relativeTime(note.deletedAt) : ""}
-                    </p>
+            {notes.map((note) => {
+              const words = countWordsInContent(note.content || "");
+              const nb = note.notebookId
+                ? notebooks.find((n) => n.id === note.notebookId)
+                : null;
+              const purgeAt = (note.deletedAt || Date.now()) + PURGE_DAYS * DAY;
+              const daysLeft = Math.max(0, Math.ceil((purgeAt - Date.now()) / DAY));
+              const countdownColor =
+                daysLeft < 3
+                  ? "var(--color-danger-strong)"
+                  : daysLeft < 14
+                    ? "var(--color-warn)"
+                    : "var(--color-ink-4)";
+              return (
+                <div
+                  key={note.id}
+                  className="grid grid-cols-[1fr_150px_100px_140px] gap-3 px-4 py-2.5 items-center border-b border-[var(--color-hairline-soft)] last:border-0 hover:bg-[var(--color-raised-soft)] transition-colors"
+                >
+                  <div className="min-w-0">
+                    <div className="text-[13.5px] text-[var(--color-ink-1)] truncate">
+                      {note.title || "Untitled"}
+                    </div>
+                    <div className="text-[10.5px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
+                      {words.toLocaleString()}w
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {nb ? (
+                      <>
+                        <span
+                          className="w-[7px] h-[7px] rounded-[2px] shrink-0"
+                          style={getCoverPreviewStyle(nb.coverType, nb.coverValue)}
+                        />
+                        <span className="text-[12px] text-[var(--color-ink-3)] truncate">{nb.name}</span>
+                      </>
+                    ) : (
+                      <span className="text-[12px] text-[var(--color-ink-5)]">Loose notes</span>
+                    )}
+                  </div>
+                  <div className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
+                    {note.deletedAt ? relativeTime(note.deletedAt) : ""}
+                  </div>
+                  <div className="flex items-center justify-end gap-2">
+                    <span
+                      className="text-[11px] font-[family-name:var(--font-meta)]"
+                      style={{ color: countdownColor }}
+                    >
+                      {daysLeft}d
+                    </span>
                     <button
                       onClick={() => handleRestore(note.id)}
-                      className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] rounded transition-colors"
-                      title="Restore"
+                      className="text-[11.5px] text-[var(--color-accent-text)] hover:text-[var(--color-accent-deep)] transition-colors"
                     >
-                      <IconArrowBackUp size={14} />
-                    </button>
-                    <button
-                      onClick={() => setConfirmDeleteId(note.id)}
-                      className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] rounded transition-colors"
-                      title="Delete permanently"
-                    >
-                      <IconTrash size={14} />
+                      Restore
                     </button>
                   </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-5 py-2.5 border-t border-[var(--color-border-secondary)] text-[10px] text-[var(--color-text-tertiary)]">
-          Notes in trash are automatically deleted after 30 days
-        </div>
-
-        <ConfirmModal
-          open={!!confirmDeleteId}
-          onClose={() => setConfirmDeleteId(null)}
-          onConfirm={() => confirmDeleteId && handlePermanentDelete(confirmDeleteId)}
-          title="Delete permanently"
-          message="This note will be gone forever. Are you sure?"
-          confirmText="Delete Forever"
-          destructive
-        />
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
+
+      <ConfirmModal
+        open={confirmEmpty}
+        onClose={() => setConfirmEmpty(false)}
+        onConfirm={handleEmptyTrash}
+        title="Empty trash"
+        message={`This will permanently delete ${notes.length} note${notes.length !== 1 ? "s" : ""} (${totalWords.toLocaleString()} words). This cannot be undone.`}
+        confirmText="Empty trash"
+        destructive
+      />
     </div>
   );
 }

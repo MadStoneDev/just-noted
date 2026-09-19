@@ -319,20 +319,20 @@ function LoadingSkeleton() {
 
 function EmptyState({ onNewNote }: { onNewNote: () => void }) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-20">
-      <div className="max-w-xs">
-        <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">
-          No note selected
+    <div className="flex-1 flex flex-col items-center justify-center text-center px-6 bg-[var(--color-canvas)]">
+      <div className="max-w-[320px]">
+        <h2 className="font-[family-name:var(--font-editor)] text-[24px] font-medium text-[var(--color-ink)]">
+          Nothing open yet
         </h2>
-        <p className="text-sm text-[var(--color-text-tertiary)] mb-6 leading-relaxed">
-          Select a note from the sidebar or create a new one to get started.
+        <p className="mt-2 text-[13.5px] leading-[1.55] text-[var(--color-ink-4)]">
+          Pick a note from the sidebar, or press ⌘N to start a new one.
         </p>
         <button
           onClick={onNewNote}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-[var(--color-accent)] text-[var(--color-text-on-accent)] hover:bg-[var(--color-accent-hover)] rounded-[var(--radius-md)] text-sm font-medium transition-colors duration-[var(--duration-fast)]"
+          className="mt-5 inline-flex items-center gap-2 h-9 px-4 rounded-[var(--radius-7)] text-[13px] font-semibold bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:opacity-90 transition-opacity"
         >
           <IconSquareRoundedPlus size={16} />
-          New Note
+          New note
         </button>
       </div>
     </div>
