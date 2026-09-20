@@ -677,19 +677,41 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
           {/* Notes List */}
           <div className="flex-1 overflow-y-auto scrollbar-thin">
             {filteredNotes.length === 0 ? (
-              <div className="p-6 text-center">
+              <div className="px-4 py-10 text-center">
                 {hasActiveFilters ? (
                   <>
-                    <p className="text-sm text-[var(--color-ink-5)]">No notes match your filters</p>
+                    <h3 className="font-[family-name:var(--font-editor)] text-[19px] font-medium text-[var(--color-ink)]">
+                      {searchQuery ? `No notes match “${searchQuery}”` : "No notes match your filters"}
+                    </h3>
+                    <p className="mt-1.5 text-[12.5px] leading-[1.5] text-[var(--color-ink-4)]">
+                      {(() => {
+                        const total = notes.filter((n) => !n.deletedAt).length;
+                        return `Clearing filters shows ${total} note${total !== 1 ? "s" : ""}.`;
+                      })()}
+                    </p>
                     <button
                       onClick={clearFilters}
-                      className="mt-2 text-xs text-[var(--color-accent-text)] hover:text-[var(--color-accent-deep)] transition-colors"
+                      className="mt-3 h-7 px-3 rounded-[var(--radius-7)] text-[12px] font-medium border border-[var(--color-border-control)] text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)] transition-colors"
                     >
                       Clear filters
                     </button>
                   </>
                 ) : (
-                  <p className="text-sm text-[var(--color-ink-5)]">No notes yet</p>
+                  <>
+                    <h3 className="font-[family-name:var(--font-editor)] text-[19px] font-medium text-[var(--color-ink)]">
+                      Nothing written yet
+                    </h3>
+                    <p className="mt-1.5 text-[12.5px] leading-[1.5] text-[var(--color-ink-4)]">
+                      Your notes will appear here, newest first. Press ⌘N to start one.
+                    </p>
+                    <button
+                      onClick={onNewNote}
+                      className="mt-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-[var(--radius-7)] text-[12.5px] font-semibold bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:opacity-90 transition-opacity"
+                    >
+                      <IconPlus size={14} stroke={2} />
+                      New note
+                    </button>
+                  </>
                 )}
               </div>
             ) : (
