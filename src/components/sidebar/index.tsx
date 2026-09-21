@@ -926,6 +926,14 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
               </span>
               <div className="flex items-center gap-2">
                 <button
+                  onClick={() => window.dispatchEvent(new Event("justnoted:open-settings"))}
+                  className="hover:text-[var(--color-ink-1)] transition-colors"
+                  title="Settings"
+                >
+                  Settings
+                </button>
+                <span>·</span>
+                <button
                   onClick={() => onOpenTrash?.()}
                   className="hover:text-[var(--color-ink-3)] transition-colors flex items-center gap-0.5"
                   title="Trash"

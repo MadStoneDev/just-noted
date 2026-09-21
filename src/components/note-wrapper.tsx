@@ -11,6 +11,8 @@ import DistractionFreeNoteBlock from "@/components/distraction-free-note-block";
 import NotebookBreadcrumb from "@/components/notebook-breadcrumb";
 import SharedNoteInline from "@/components/shared-note-inline";
 import NotebooksGrid from "@/components/notebooks-grid";
+import SettingsView from "@/components/settings-view";
+import { readEditorFont, applyEditorFont } from "@/utils/editor-font";
 import NotebookModal from "@/components/notebook-modal";
 import UndoDeleteToast from "@/components/ui/undo-toast";
 import OfflineIndicator from "@/components/ui/offline-indicator";
@@ -80,12 +82,24 @@ export default function NoteWrapper() {
   const [sharedShortcode, setSharedShortcode] = useState<string | null>(null);
   // Notebooks cover grid open in the main area
   const [showNotebooksGrid, setShowNotebooksGrid] = useState(false);
+  // In-shell settings view open in the main area
+  const [showSettings, setShowSettings] = useState(false);
 
-  // Open the notebooks grid from the sidebar (cross-component trigger).
+  // Apply the saved editor font once on load.
   useEffect(() => {
-    const open = () => setShowNotebooksGrid(true);
-    window.addEventListener("justnoted:open-notebooks-grid", open);
-    return () => window.removeEventListener("justnoted:open-notebooks-grid", open);
+    applyEditorFont(readEditorFont());
+  }, []);
+
+  // Cross-component triggers from the sidebar.
+  useEffect(() => {
+    const openGrid = () => setShowNotebooksGrid(true);
+    const openSettings = () => setShowSettings(true);
+    window.addEventListener("justnoted:open-notebooks-grid", openGrid);
+    window.addEventListener("justnoted:open-settings", openSettings);
+    return () => {
+      window.removeEventListener("justnoted:open-notebooks-grid", openGrid);
+      window.removeEventListener("justnoted:open-settings", openSettings);
+    };
   }, []);
 
   const handleShowDistractionFree = useCallback((note: CombinedNote) => {
@@ -258,7 +272,9 @@ export default function NoteWrapper() {
           role="main"
           aria-label={sharedShortcode ? "Shared note" : "Note editor"}
         >
-          {showTrash ? (
+          {showSettings ? (
+            <SettingsView onClose={() => setShowSettings(false)} />
+          ) : showTrash ? (
             <TrashView onClose={() => setShowTrash(false)} />
           ) : showNotebooksGrid ? (
             <NotebooksGrid
