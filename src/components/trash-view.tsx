@@ -144,9 +144,9 @@ export default function TrashView({ onClose }: TrashViewProps) {
             </p>
           </div>
         ) : (
-          <div className="rounded-[var(--radius-12)] border border-[var(--color-hairline)] overflow-hidden">
+          <div className="rounded-[var(--radius-12)] border border-[var(--color-hairline)] overflow-x-auto">
             {/* Column header */}
-            <div className="grid grid-cols-[1fr_150px_100px_140px] gap-3 px-4 py-2 bg-[var(--color-panel)] border-b border-[var(--color-hairline)] text-[10px] font-[family-name:var(--font-meta)] uppercase tracking-[0.12em] text-[var(--color-ink-5)]">
+            <div className="grid min-w-[560px] grid-cols-[1fr_150px_100px_140px] gap-3 px-4 py-2 bg-[var(--color-panel)] border-b border-[var(--color-hairline)] text-[10px] font-[family-name:var(--font-meta)] uppercase tracking-[0.12em] text-[var(--color-ink-5)]">
               <span>Note</span>
               <span>Notebook</span>
               <span>Deleted</span>
@@ -168,7 +168,7 @@ export default function TrashView({ onClose }: TrashViewProps) {
               return (
                 <div
                   key={note.id}
-                  className="grid grid-cols-[1fr_150px_100px_140px] gap-3 px-4 py-2.5 items-center border-b border-[var(--color-hairline-soft)] last:border-0 hover:bg-[var(--color-raised-soft)] transition-colors"
+                  className="grid min-w-[560px] grid-cols-[1fr_150px_100px_140px] gap-3 px-4 py-2.5 items-center border-b border-[var(--color-hairline-soft)] last:border-0 hover:bg-[var(--color-raised-soft)] transition-colors"
                 >
                   <div className="min-w-0">
                     <div className="text-[13.5px] text-[var(--color-ink-1)] truncate">
