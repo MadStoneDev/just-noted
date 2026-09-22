@@ -42,6 +42,7 @@ import {
   IconPlus,
   IconChevronDown,
   IconAdjustmentsHorizontal,
+  IconLogin2,
   IconHelp,
   IconNote,
   IconTag,
@@ -681,11 +682,21 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
             <RailButton label="New note" accent onClick={onNewNote}>
               <IconPlus size={20} />
             </RailButton>
-            {/* Account switcher (design surface 12) */}
-            {isAuthenticated && (
+            {/* Account switcher (design surface 12), or a log-in entry point
+                in the same slot when signed out. */}
+            {isAuthenticated ? (
               <div className="mt-1.5">
                 <AccountMenu />
               </div>
+            ) : (
+              <a
+                href="/get-access"
+                aria-label="Log in"
+                title="Log in"
+                className="mt-1.5 w-[26px] h-[26px] rounded-full flex items-center justify-center bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:opacity-90 transition-opacity"
+              >
+                <IconLogin2 size={15} />
+              </a>
             )}
           </nav>
 

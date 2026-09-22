@@ -153,7 +153,12 @@ export default function GetAccessPage() {
     try {
       const result = await verifyOtp(formData);
       if (result.success) {
-        router.push(result.redirectTo || "/");
+        // verifyOtp is a server action that sets the session cookie server-side.
+        // A full reload (not router.push) re-initialises the client Supabase
+        // instance from that cookie, so getUser() reflects the account that just
+        // signed in — otherwise the client keeps the previous session and
+        // presence/collab/avatar identify as the wrong account until a refresh.
+        window.location.href = result.redirectTo || "/";
       } else {
         setError(result.error);
       }

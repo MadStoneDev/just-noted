@@ -64,7 +64,7 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
           .eq("id", userData.user.id)
           .single();
         username = (a as any)?.username ?? null;
-        setMe({ name: username || "you", color: colorForUser(userData.user.id) });
+        setMe({ name: username || "Someone", color: colorForUser(userData.user.id) });
       }
       const result = (await sharingOperation({
         operation: "getByShortcode",

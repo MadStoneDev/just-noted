@@ -124,7 +124,7 @@ export default function SharedNotePage({
           username = authorData.username;
           setCurrentUsername(username);
         }
-        setMe({ name: username || "you", color: colorForUser(userData.user.id) });
+        setMe({ name: username || "Someone", color: colorForUser(userData.user.id) });
       }
 
       const result = await sharingOperation({

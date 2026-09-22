@@ -411,7 +411,7 @@ function NoteEditor({
         if (cancelled) return;
         setCollabConfig({
           roomKey: note.id,
-          user: { name: (a as any)?.username || "you", color: colorForUser(userId) },
+          user: { name: (a as any)?.username || "Someone", color: colorForUser(userId) },
         });
       } catch {}
     })();
