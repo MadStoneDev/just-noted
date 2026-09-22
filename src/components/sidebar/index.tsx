@@ -22,6 +22,7 @@ import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import { getPlainTextPreview as getPlainTextPreviewUtil } from "@/utils/html-utils";
 import NotebookMoveMenu from "@/components/notebook-move-menu";
 import AccountMenu from "@/components/account-menu";
+import { SwipeableRow } from "@/components/mobile-chrome";
 import {
   IconX,
   IconSearch,
@@ -71,6 +72,7 @@ interface SidebarProps {
   onOpenTrash?: () => void;
   onNewNote?: () => void;
   onOpenShared?: (shortcode: string) => void;
+  onTogglePin?: (noteId: string, isPinned: boolean) => void;
 }
 
 const SORT_LABELS: Record<"manual" | "edited" | "created" | "title" | "notebook", string> = {
@@ -89,7 +91,7 @@ const SOURCE_LABELS: Record<"all" | "cloud" | "local", string> = {
 const RAIL_VIEW_KEY = "jn_sidebar_rail_view";
 const RAIL_VIEWS = ["notes", "notebooks", "tags", "shared"] as const;
 
-export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMoveNote, onOpenTrash, onNewNote, onOpenShared }: SidebarProps) {
+export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMoveNote, onOpenTrash, onNewNote, onOpenShared, onTogglePin }: SidebarProps) {
   const {
     sidebarOpen,
     setSidebarOpen,
@@ -142,6 +144,8 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
 
   // Delete confirmation
   const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null);
+  // Mobile: note being moved via swipe-right → shows a notebook picker sheet.
+  const [moveNoteId, setMoveNoteId] = useState<string | null>(null);
 
   // Rail navigation: which panel the content column shows. Defaults to "notes";
   // the last-open view is restored from localStorage on mount (see effects below).
@@ -732,7 +736,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                   )}
                 </nav>
               ) : (
-                <h2 className="text-sm font-semibold text-[var(--color-ink-1)] tracking-tight truncate">
+                <h2 className="text-[22px] md:text-sm font-semibold text-[var(--color-ink-1)] tracking-tight truncate">
                   {railView === "notebooks"
                     ? "Notebooks"
                     : railView === "tags"
@@ -780,7 +784,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 placeholder="Search notes..."
                 value={localSearchQuery}
                 onChange={handleSearchChange}
-                className="w-full pl-9 pr-9 py-2 text-base md:text-sm bg-[var(--color-raised-soft)] rounded-[var(--radius-md)] border border-transparent focus:border-[var(--color-accent-fill)] focus:bg-[var(--color-raised)] focus:outline-none transition-all duration-[var(--duration-fast)] text-[var(--color-ink-1)] placeholder:text-[var(--color-ink-5)]"
+                className="w-full pl-9 pr-9 py-3 md:py-2 text-base md:text-sm bg-[var(--color-raised-soft)] rounded-[var(--radius-md)] border border-transparent focus:border-[var(--color-accent-fill)] focus:bg-[var(--color-raised)] focus:outline-none transition-all duration-[var(--duration-fast)] text-[var(--color-ink-1)] placeholder:text-[var(--color-ink-5)]"
               />
               {localSearchQuery && (
                 <button
@@ -791,12 +795,13 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 </button>
               )}
             </div>
-            {/* Three inline controls: sort · source · filter (design) */}
-            <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+            {/* Three inline controls: sort · source · filter (design). On mobile
+                the row scrolls horizontally with 44px targets. */}
+            <div className="mt-2 flex items-center gap-1.5 flex-nowrap overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mx-3 px-3 md:mx-0 md:px-0 md:flex-wrap md:overflow-visible">
               <Dropdown
                 placement="bottom-start"
                 trigger={
-                  <button className="flex items-center gap-1 px-2 h-7 rounded-[var(--radius-6)] text-[12px] border border-[var(--color-border-control)] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)] transition-colors">
+                  <button className="shrink-0 flex items-center gap-1 px-3 h-11 md:px-2 md:h-7 rounded-[var(--radius-6)] text-[12px] border border-[var(--color-border-control)] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)] transition-colors">
                     {SORT_LABELS[sortBy]}
                     <IconChevronDown size={12} className="opacity-60" />
                   </button>
@@ -811,7 +816,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 placement="bottom-start"
                 trigger={
                   <button
-                    className={`flex items-center gap-1 px-2 h-7 rounded-[var(--radius-6)] text-[12px] border transition-colors ${
+                    className={`shrink-0 flex items-center gap-1 px-3 h-11 md:px-2 md:h-7 rounded-[var(--radius-6)] text-[12px] border transition-colors ${
                       filterSource !== "all"
                         ? "border-[var(--color-accent-tint-border)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]"
                         : "border-[var(--color-border-control)] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)]"
@@ -829,7 +834,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
 
               <button
                 onClick={() => setFilterSheetOpen(true)}
-                className={`flex items-center gap-1 px-2 h-7 rounded-[var(--radius-6)] text-[12px] border transition-colors ${
+                className={`shrink-0 flex items-center gap-1 px-3 h-11 md:px-2 md:h-7 rounded-[var(--radius-6)] text-[12px] border transition-colors ${
                   filterPinned !== "all" || activeNotebookId !== null || filterTagIds.length > 0
                     ? "border-[var(--color-accent-tint-border)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]"
                     : "border-[var(--color-border-control)] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)]"
@@ -927,8 +932,21 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                     onDragEnd={() => { setDraggedNoteId(null); setDragOverNoteId(null); }}
                     className={dragOverNoteId === note.id ? "border-t border-[var(--color-accent-text)]" : ""}
                   >
+                    <SwipeableRow
+                      isPinned={!!note.isPinned}
+                      disabled={selectMode}
+                      onDelete={() => setDeleteNoteId(note.id)}
+                      onPin={() => onTogglePin?.(note.id, !note.isPinned)}
+                      onMove={() => setMoveNoteId(note.id)}
+                      onLongPress={() => {
+                        if (note.source === "supabase") {
+                          setSelectMode(true);
+                          setSelectedNoteIds(new Set([note.id]));
+                        }
+                      }}
+                    >
                     <div
-                      className={`group/note relative w-full px-2 py-2 text-left transition-colors duration-[var(--duration-fast)] rounded-[var(--radius-8)] border ${
+                      className={`group/note relative w-full px-2.5 py-3 md:px-2 md:py-2 text-left transition-colors duration-[var(--duration-fast)] rounded-[var(--radius-8)] border ${
                         draggedNoteId === note.id ? "opacity-40" : ""
                       } ${
                         isSelected || isActive
@@ -977,7 +995,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                             ) : (
                               <IconNote size={13} className="mt-[3px] text-[var(--color-ink-5)] flex-shrink-0" />
                             )}
-                            <h3 className="flex-1 min-w-0 text-[13px] font-medium text-[var(--color-ink-1)] leading-snug whitespace-normal break-words">
+                            <h3 className="flex-1 min-w-0 text-[16px] md:text-[13px] font-medium text-[var(--color-ink-1)] leading-snug whitespace-normal break-words">
                               {note.title}
                             </h3>
                           </div>
@@ -1001,7 +1019,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                             }
                             return null;
                           })()}
-                          <p className="text-[11px] text-[var(--color-ink-5)] truncate mt-0.5 leading-relaxed">
+                          <p className="text-[13.5px] md:text-[11px] text-[var(--color-ink-5)] truncate mt-0.5 leading-relaxed">
                             {getPreview(note.content) || "Empty note"}
                           </p>
                           <div className="flex items-center gap-1.5 mt-1">
@@ -1044,7 +1062,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                         {!selectMode && (
                           <button
                             onClick={(e) => { e.stopPropagation(); setDeleteNoteId(note.id); }}
-                            className="flex-shrink-0 p-1.5 rounded-[var(--radius-6)] text-[var(--color-ink-5)] hover:text-[var(--color-danger-strong)] hover:bg-[var(--color-raised-soft)] opacity-100 md:opacity-0 md:group-hover/note:opacity-100 transition-opacity"
+                            className="hidden md:block flex-shrink-0 p-1.5 rounded-[var(--radius-6)] text-[var(--color-ink-5)] hover:text-[var(--color-danger-strong)] hover:bg-[var(--color-raised-soft)] md:opacity-0 md:group-hover/note:opacity-100 transition-opacity"
                             aria-label="Delete note"
                             title="Delete"
                           >
@@ -1053,6 +1071,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                         )}
                       </div>
                     </div>
+                    </SwipeableRow>
                   </li>
                   );
                 })}
@@ -1281,6 +1300,45 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
         confirmText="Delete"
         destructive
       />
+
+      {/* Move-to-notebook sheet (mobile swipe-right → Move) */}
+      <div
+        className={`fixed inset-0 z-50 flex items-end md:items-center justify-center ${moveNoteId ? "" : "pointer-events-none"}`}
+        aria-hidden={!moveNoteId}
+      >
+        <div
+          className={`absolute inset-0 bg-[var(--color-bg-overlay)] transition-opacity duration-[var(--duration-normal)] ${moveNoteId ? "opacity-100" : "opacity-0"}`}
+          onClick={() => setMoveNoteId(null)}
+        />
+        <div
+          className={`relative w-full md:w-[420px] md:max-w-[92vw] max-h-[80vh] bg-[var(--color-raised)] border-t md:border border-[var(--color-hairline)] rounded-t-[var(--radius-xl)] md:rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)] transition-all duration-[var(--duration-slow)] flex flex-col ${moveNoteId ? "translate-y-0 opacity-100 md:scale-100" : "translate-y-full opacity-100 md:translate-y-0 md:opacity-0 md:scale-95"}`}
+          style={{ transitionTimingFunction: "var(--ease-spring)" }}
+        >
+          <div className="mx-auto mt-2.5 mb-1 h-1 w-10 rounded-full bg-[var(--color-hairline)]" />
+          <div className="flex items-center justify-between px-4 py-2">
+            <h3 className="text-sm font-semibold text-[var(--color-ink-1)]">Move to notebook</h3>
+            <button
+              onClick={() => setMoveNoteId(null)}
+              className="text-[var(--color-ink-5)] hover:text-[var(--color-ink-1)]"
+              aria-label="Close"
+            >
+              <IconX size={18} />
+            </button>
+          </div>
+          <div className="overflow-y-auto scrollbar-thin px-2 pb-5 pt-1">
+            {moveNoteId && (
+              <NotebookMoveMenu
+                notebooks={notebooks}
+                currentNotebookId={notes.find((n) => n.id === moveNoteId)?.notebookId ?? null}
+                onMove={(notebookId) => {
+                  onMoveNote?.(moveNoteId, notebookId);
+                  setMoveNoteId(null);
+                }}
+              />
+            )}
+          </div>
+        </div>
+      </div>
     </>
   );
 }

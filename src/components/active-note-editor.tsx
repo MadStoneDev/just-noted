@@ -373,6 +373,12 @@ function NoteEditor({
   const [showHelp, setShowHelp] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
+  // The mobile editor nav's ··· button opens the note actions menu by event.
+  useEffect(() => {
+    const openActions = () => setCommandOpen(true);
+    window.addEventListener("justnoted:open-note-actions", openActions);
+    return () => window.removeEventListener("justnoted:open-note-actions", openActions);
+  }, []);
   // Full-width formatting bar is portaled into this pane-level slot (below the
   // scroll area) so it spans the pane and never overlaps the note text.
   const [toolbarSlot, setToolbarSlot] = useState<HTMLDivElement | null>(null);

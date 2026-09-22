@@ -315,6 +315,7 @@ export default function NoteWrapper() {
           }}
           onOpenTrash={() => setShowTrash(true)}
           onNewNote={() => notesOperations.addNote()}
+          onTogglePin={(noteId, isPinned) => notesOperations.updatePinStatus(noteId, isPinned)}
           onOpenShared={(shortcode) => {
             setSharedShortcode(shortcode);
             if (typeof window !== "undefined" && window.innerWidth < 768) {
@@ -372,6 +373,7 @@ export default function NoteWrapper() {
                 onBack={() => { setSidebarOpen(true); setMobileTab("notes"); }}
                 onFocus={openFocusForActive}
                 onShare={() => window.dispatchEvent(new Event("justnoted:open-share"))}
+                onMore={() => window.dispatchEvent(new Event("justnoted:open-note-actions"))}
               />
               <ActiveNoteEditor
                 userId={userId || ""}
