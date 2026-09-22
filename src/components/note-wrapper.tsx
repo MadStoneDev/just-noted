@@ -13,6 +13,8 @@ import SharedNoteInline from "@/components/shared-note-inline";
 import NotebooksGrid from "@/components/notebooks-grid";
 import SettingsView from "@/components/settings-view";
 import { readEditorFont, applyEditorFont, readEditorFontSize, applyEditorFontSize } from "@/utils/editor-font";
+import { captureCurrentAccount } from "@/utils/accounts";
+import { createClient } from "@/utils/supabase/client";
 import NotebookModal from "@/components/notebook-modal";
 import UndoDeleteToast from "@/components/ui/undo-toast";
 import OfflineIndicator from "@/components/ui/offline-indicator";
@@ -89,6 +91,12 @@ export default function NoteWrapper() {
   useEffect(() => {
     applyEditorFont(readEditorFont());
     applyEditorFontSize(readEditorFontSize());
+  }, []);
+
+  // Record the current account (fresh tokens) into the device store so it's
+  // listed in the account switcher and switchable later.
+  useEffect(() => {
+    captureCurrentAccount(createClient()).catch(() => {});
   }, []);
 
   // Cross-component triggers from the rail.

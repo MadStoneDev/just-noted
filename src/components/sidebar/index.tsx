@@ -21,6 +21,7 @@ import BulkActionBar from "@/components/bulk-action-bar";
 import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import { getPlainTextPreview as getPlainTextPreviewUtil } from "@/utils/html-utils";
 import NotebookMoveMenu from "@/components/notebook-move-menu";
+import AccountMenu from "@/components/account-menu";
 import {
   IconX,
   IconSearch,
@@ -41,7 +42,6 @@ import {
   IconChevronDown,
   IconAdjustmentsHorizontal,
   IconHelp,
-  IconUser,
   IconNote,
   IconTag,
   IconShare,
@@ -671,23 +671,10 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
             <RailButton label="New note" accent onClick={onNewNote}>
               <IconPlus size={20} />
             </RailButton>
-            {/* Account avatar — entry point for account switching (opens Settings
-                for now; becomes the account popover with surface 12). */}
+            {/* Account switcher (design surface 12) */}
             {isAuthenticated && (
-              <div className="group relative flex justify-center mt-1.5">
-                <button
-                  onClick={() => window.dispatchEvent(new Event("justnoted:open-settings"))}
-                  aria-label="Account"
-                  className="w-[26px] h-[26px] rounded-full bg-[var(--color-raised-soft)] ring-1 ring-[var(--color-hairline)] flex items-center justify-center text-[var(--color-ink-4)] hover:ring-[var(--color-accent-tint-border)] transition-colors"
-                >
-                  <IconUser size={15} />
-                </button>
-                <span
-                  className="pointer-events-none absolute left-[calc(100%+8px)] top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded-[var(--radius-6)] px-2 py-1 text-[11px] opacity-0 transition-opacity delay-[400ms] duration-100 group-hover:opacity-100"
-                  style={{ backgroundColor: "var(--color-raised)", color: "var(--color-ink-2)", border: "1px solid var(--color-hairline)" }}
-                >
-                  Account
-                </span>
+              <div className="mt-1.5">
+                <AccountMenu />
               </div>
             )}
           </nav>
