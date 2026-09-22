@@ -427,6 +427,17 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
     setIsNotebookModalOpen(true);
   }, []);
 
+  // Let the notebooks grid's detail modal open the full edit modal (cover etc.).
+  useEffect(() => {
+    const onEdit = (e: Event) => {
+      const id = (e as CustomEvent).detail as string;
+      const nb = useNotesStore.getState().notebooks.find((n) => n.id === id);
+      if (nb) handleEditNotebook(nb);
+    };
+    window.addEventListener("justnoted:edit-notebook", onEdit);
+    return () => window.removeEventListener("justnoted:edit-notebook", onEdit);
+  }, [handleEditNotebook]);
+
   const handleCloseNotebookModal = useCallback(() => {
     setIsNotebookModalOpen(false);
     setEditingNotebook(null);
@@ -826,6 +837,9 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                     onDragStart={(e) => {
                       setDraggedNoteId(note.id);
                       e.dataTransfer.effectAllowed = "move";
+                      // Payload so cross-component drop targets (e.g. the
+                      // notebooks grid) can identify the note being dragged.
+                      e.dataTransfer.setData("application/x-jn-note", note.id);
                     }}
                     onDragOver={(e) => {
                       e.preventDefault();

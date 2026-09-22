@@ -301,6 +301,17 @@ export default function NoteWrapper() {
               onNewNotebook={() =>
                 window.dispatchEvent(new Event("justnoted:new-notebook"))
               }
+              onEditCover={(id) =>
+                window.dispatchEvent(new CustomEvent("justnoted:edit-notebook", { detail: id }))
+              }
+              onDropNote={(noteId, notebookId) => {
+                const s = useNotesStore.getState();
+                s.optimisticUpdateNote(noteId, { notebookId });
+                s.recalculateNotebookCounts();
+                import("@/app/actions/notebookActions").then(({ bulkAssignNotesToNotebook }) => {
+                  bulkAssignNotesToNotebook([noteId], notebookId);
+                });
+              }}
             />
           ) : sharedShortcode ? (
             <SharedNoteInline

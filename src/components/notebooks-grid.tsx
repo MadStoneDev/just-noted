@@ -1,14 +1,17 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useNotesStore } from "@/stores/notes-store";
 import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import { countWordsInContent } from "@/utils/word-count";
+import NotebookDetailModal from "@/components/notebook-detail-modal";
 import { IconPlus, IconX, IconLock } from "@tabler/icons-react";
 
 interface NotebooksGridProps {
   onNewNotebook: () => void;
   onOpenNotebook: (id: string) => void;
+  onEditCover: (id: string) => void;
+  onDropNote: (noteId: string, notebookId: string) => void;
   onClose: () => void;
 }
 
@@ -16,10 +19,14 @@ interface NotebooksGridProps {
 export default function NotebooksGrid({
   onNewNotebook,
   onOpenNotebook,
+  onEditCover,
+  onDropNote,
   onClose,
 }: NotebooksGridProps) {
   const notebooks = useNotesStore((s) => s.notebooks);
   const notes = useNotesStore((s) => s.notes);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const { wordByNb, countByNb, subByNb, totalFiled, looseCount } = useMemo(() => {
     const wordByNb: Record<string, number> = {};
@@ -105,13 +112,32 @@ export default function NotebooksGrid({
               return (
                 <button
                   key={nb.id}
-                  onClick={() => onOpenNotebook(nb.id)}
+                  onClick={() => setDetailId(nb.id)}
+                  onDragOver={(e) => {
+                    if (e.dataTransfer.types.includes("application/x-jn-note")) {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      setDragOverId(nb.id);
+                    }
+                  }}
+                  onDragLeave={() => setDragOverId((cur) => (cur === nb.id ? null : cur))}
+                  onDrop={(e) => {
+                    const noteId = e.dataTransfer.getData("application/x-jn-note");
+                    setDragOverId(null);
+                    if (noteId) { e.preventDefault(); onDropNote(noteId, nb.id); }
+                  }}
                   className="group text-left"
                 >
                   {/* Cover */}
                   <div
-                    className="relative w-full aspect-[4/3] rounded-[var(--radius-10)] overflow-hidden ring-1 ring-[var(--color-hairline)] transition-shadow group-hover:ring-[var(--color-border-control)]"
-                    style={getCoverPreviewStyle(nb.coverType, nb.coverValue)}
+                    className="relative w-full aspect-[4/3] rounded-[var(--radius-10)] overflow-hidden transition-shadow"
+                    style={{
+                      ...getCoverPreviewStyle(nb.coverType, nb.coverValue),
+                      boxShadow:
+                        dragOverId === nb.id
+                          ? `0 0 0 2px ${barColor}`
+                          : "inset 0 0 0 1px var(--color-hairline)",
+                    }}
                   >
                     <div className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" />
                     {nb.isHidden && (
@@ -158,6 +184,14 @@ export default function NotebooksGrid({
           </div>
         )}
       </div>
+
+      <NotebookDetailModal
+        notebookId={detailId}
+        onClose={() => setDetailId(null)}
+        onGoTo={(id) => { setDetailId(null); onOpenNotebook(id); }}
+        onEditCover={(id) => { setDetailId(null); onEditCover(id); }}
+        onOpenSub={(id) => setDetailId(id)}
+      />
     </div>
   );
 }
