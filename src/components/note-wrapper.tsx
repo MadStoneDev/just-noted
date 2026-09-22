@@ -12,7 +12,7 @@ import NotebookBreadcrumb from "@/components/notebook-breadcrumb";
 import SharedNoteInline from "@/components/shared-note-inline";
 import NotebooksGrid from "@/components/notebooks-grid";
 import SettingsView from "@/components/settings-view";
-import { readEditorFont, applyEditorFont } from "@/utils/editor-font";
+import { readEditorFont, applyEditorFont, readEditorFontSize, applyEditorFontSize } from "@/utils/editor-font";
 import NotebookModal from "@/components/notebook-modal";
 import UndoDeleteToast from "@/components/ui/undo-toast";
 import OfflineIndicator from "@/components/ui/offline-indicator";
@@ -85,15 +85,17 @@ export default function NoteWrapper() {
   // In-shell settings view open in the main area
   const [showSettings, setShowSettings] = useState(false);
 
-  // Apply the saved editor font once on load.
+  // Apply the saved editor font + size once on load.
   useEffect(() => {
     applyEditorFont(readEditorFont());
+    applyEditorFontSize(readEditorFontSize());
   }, []);
 
   // Cross-component triggers from the rail.
   useEffect(() => {
     const openGrid = () => setShowNotebooksGrid(true);
-    const openSettings = () => setShowSettings(true);
+    // Settings replaces the notes sidebar (its own section list stands in for it).
+    const openSettings = () => { setShowSettings(true); setSidebarOpen(false); };
     const openSearch = () => setShowSearch(true);
     const openHelp = () => { window.open("/the-how", "_blank"); };
     window.addEventListener("justnoted:open-notebooks-grid", openGrid);
@@ -282,7 +284,7 @@ export default function NoteWrapper() {
           aria-label={sharedShortcode ? "Shared note" : "Note editor"}
         >
           {showSettings ? (
-            <SettingsView onClose={() => setShowSettings(false)} />
+            <SettingsView onClose={() => { setShowSettings(false); setSidebarOpen(true); }} />
           ) : showTrash ? (
             <TrashView onClose={() => setShowTrash(false)} />
           ) : showNotebooksGrid ? (

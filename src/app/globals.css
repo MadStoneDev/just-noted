@@ -549,7 +549,7 @@ summary {
   box-shadow: none !important;
   border: none !important;
   font-family: var(--font-editor);
-  font-size: 20px;
+  font-size: var(--editor-font-size, 18px);
   color: var(--color-ink-2);
   line-height: 1.72;
   padding: 0.5rem 0;

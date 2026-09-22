@@ -743,7 +743,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 )}
               </div>
             ) : (
-              <ul className="flex flex-col p-1.5">
+              <ul className="flex flex-col px-1 py-1 gap-0.5">
                 {filteredNotes.map((note, noteIndex) => {
                   const isSelected = selectedNoteIds.has(note.id);
                   const canSelect = selectMode && note.source === "supabase";
@@ -783,7 +783,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                     className={dragOverNoteId === note.id ? "border-t border-[var(--color-accent-text)]" : ""}
                   >
                     <div
-                      className={`group/note relative w-full px-2.5 py-2.5 text-left transition-colors duration-[var(--duration-fast)] rounded-[var(--radius-9)] border ${
+                      className={`group/note relative w-full px-2 py-2 text-left transition-colors duration-[var(--duration-fast)] rounded-[var(--radius-8)] border ${
                         draggedNoteId === note.id ? "opacity-40" : ""
                       } ${
                         isSelected || isActive
@@ -796,13 +796,13 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                           {shortcutKey}
                         </span>
                       )}
+                      {/* Drag handle — absolute so it doesn't consume left space */}
+                      {!selectMode && (
+                        <div className="absolute left-0.5 top-3 cursor-grab opacity-0 group-hover/note:opacity-30 transition-opacity">
+                          <IconGripVertical size={10} />
+                        </div>
+                      )}
                       <div className="flex items-start gap-1.5">
-                        {/* Drag handle */}
-                        {!selectMode && (
-                          <div className="flex-shrink-0 pt-1 cursor-grab opacity-0 group-hover/note:opacity-40 transition-opacity">
-                            <IconGripVertical size={10} />
-                          </div>
-                        )}
                         {selectMode && (
                           <div className="flex-shrink-0 pt-0.5" onClick={() => handleToggleNoteSelection(note.id)}>
                             {note.source === "supabase" ? (
@@ -887,37 +887,16 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                             </div>
                           )}
                         </div>
-                        {/* Actions menu */}
+                        {/* Delete — appears on hover (desktop); swipe on mobile is the follow-up */}
                         {!selectMode && (
-                          <div className="flex-shrink-0 opacity-100 md:opacity-0 md:group-hover/note:opacity-100 transition-opacity">
-                            <Dropdown
-                              trigger={
-                                <button className="p-2 md:p-1 text-[var(--color-ink-5)] hover:text-[var(--color-ink-3)] rounded transition-colors" aria-label="Note actions">
-                                  <IconDots size={16} />
-                                </button>
-                              }
-                              placement="bottom-end"
-                            >
-                              {isAuthenticated && notebooks.length > 0 && (
-                                <>
-                                  <DropdownLabel>Move to</DropdownLabel>
-                                  <NotebookMoveMenu
-                                    notebooks={notebooks}
-                                    currentNotebookId={note.notebookId}
-                                    onMove={(notebookId) => onMoveNote?.(note.id, notebookId)}
-                                  />
-                                  <DropdownSeparator />
-                                </>
-                              )}
-                              <DropdownItem
-                                icon={<IconTrash size={12} />}
-                                destructive
-                                onClick={() => setDeleteNoteId(note.id)}
-                              >
-                                Delete
-                              </DropdownItem>
-                            </Dropdown>
-                          </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setDeleteNoteId(note.id); }}
+                            className="flex-shrink-0 p-1.5 rounded-[var(--radius-6)] text-[var(--color-ink-5)] hover:text-[var(--color-danger-strong)] hover:bg-[var(--color-raised-soft)] opacity-100 md:opacity-0 md:group-hover/note:opacity-100 transition-opacity"
+                            aria-label="Delete note"
+                            title="Delete"
+                          >
+                            <IconTrash size={15} />
+                          </button>
                         )}
                       </div>
                     </div>

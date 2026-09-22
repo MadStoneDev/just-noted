@@ -3,7 +3,15 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useTheme } from "@/components/ds/theme-toggle";
-import { readEditorFont, writeEditorFont, type EditorFont } from "@/utils/editor-font";
+import {
+  readEditorFont,
+  writeEditorFont,
+  type EditorFont,
+  readEditorFontSize,
+  writeEditorFontSize,
+  FONT_SIZE_MIN,
+  FONT_SIZE_MAX,
+} from "@/utils/editor-font";
 import {
   IconX,
   IconSun,
@@ -41,10 +49,12 @@ const FONT_OPTIONS: { value: EditorFont; label: string; family: string }[] = [
 export default function SettingsView({ onClose }: SettingsViewProps) {
   const { theme, setTheme } = useTheme();
   const [font, setFont] = useState<EditorFont>("serif");
+  const [fontSize, setFontSize] = useState(18);
   const [section, setSection] = useState<Section>("Appearance");
 
   useEffect(() => {
     setFont(readEditorFont());
+    setFontSize(readEditorFontSize());
   }, []);
 
   const chooseFont = (f: EditorFont) => {
@@ -52,10 +62,15 @@ export default function SettingsView({ onClose }: SettingsViewProps) {
     writeEditorFont(f);
   };
 
+  const chooseFontSize = (px: number) => {
+    setFontSize(px);
+    writeEditorFontSize(px);
+  };
+
   return (
     <div className="flex-1 flex min-h-0 bg-[var(--color-canvas)]">
-      {/* Section list */}
-      <nav className="w-[200px] flex-none border-r border-[var(--color-hairline)] py-6 px-3 overflow-y-auto scrollbar-thin">
+      {/* Section list — stands in for the notes sidebar while Settings is open */}
+      <nav className="w-[260px] flex-none border-r border-[var(--color-hairline)] bg-[var(--color-panel)] py-6 px-3 overflow-y-auto scrollbar-thin">
         <div className="px-2 mb-3 text-[10px] font-[family-name:var(--font-meta)] uppercase tracking-[0.14em] text-[var(--color-ink-5)]">
           Settings
         </div>
@@ -84,7 +99,7 @@ export default function SettingsView({ onClose }: SettingsViewProps) {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto scrollbar-thin">
-        <div className="mx-auto max-w-[640px] px-8 py-8">
+        <div className="max-w-[680px] px-10 py-8">
           <div className="flex items-start justify-between mb-6">
             <h1 className="font-[family-name:var(--font-editor)] text-[32px] leading-[1.05] font-medium tracking-[-0.01em] text-[var(--color-ink)]">
               {section}
@@ -173,6 +188,26 @@ export default function SettingsView({ onClose }: SettingsViewProps) {
                 <p className="mt-2 text-[12px] text-[var(--color-ink-5)]">
                   Changes the editor body and title only — the rest of the app stays as is.
                 </p>
+              </div>
+
+              {/* Font size */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-[13.5px] font-semibold text-[var(--color-ink-1)]">Font size</h2>
+                  <span className="text-[11.5px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">{fontSize}px</span>
+                </div>
+                <input
+                  type="range"
+                  min={FONT_SIZE_MIN}
+                  max={FONT_SIZE_MAX}
+                  value={fontSize}
+                  onChange={(e) => chooseFontSize(parseInt(e.target.value, 10))}
+                  className="w-full accent-[var(--color-accent-fill)]"
+                />
+                <div className="flex justify-between text-[10px] font-[family-name:var(--font-meta)] text-[var(--color-ink-6)]">
+                  <span>{FONT_SIZE_MIN}</span>
+                  <span>{FONT_SIZE_MAX}</span>
+                </div>
               </div>
             </div>
           ) : section === "Account" || section === "Security" ? (

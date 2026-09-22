@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import {
-  IconShare2,
+  IconShare,
   IconCopy,
   IconCheck,
   IconWorld,
@@ -204,7 +204,7 @@ export default function ShareNoteButton({
         size="sm"
         onClick={() => setOpen(true)}
       >
-        <IconShare2 size={14} className={info.shortcode ? "text-[var(--color-accent)]" : ""} />
+        <IconShare size={14} className={info.shortcode ? "text-[var(--color-accent-text)]" : ""} />
       </IconButton>
 
       <Modal
