@@ -316,9 +316,9 @@ export type Database = {
           storage: string | null
           view_count: number | null
           expires_at: string | null
-          link_permission: string | null
           created_at: string | null
           updated_at: string | null
+          link_permission: string
         }
         Insert: {
           id?: string
@@ -332,9 +332,9 @@ export type Database = {
           storage?: string | null
           view_count?: number | null
           expires_at?: string | null
-          link_permission?: string | null
           created_at?: string | null
           updated_at?: string | null
+          link_permission?: string
         }
         Update: {
           id?: string
@@ -348,9 +348,9 @@ export type Database = {
           storage?: string | null
           view_count?: number | null
           expires_at?: string | null
-          link_permission?: string | null
           created_at?: string | null
           updated_at?: string | null
+          link_permission?: string
         }
         Relationships: []
       }

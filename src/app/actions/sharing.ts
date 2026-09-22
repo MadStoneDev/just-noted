@@ -35,7 +35,15 @@ type SharingOperationParams =
       username: string;
       currentUserId: string;
     }
-  | { operation: "stopSharing"; noteId: string; currentUserId: string };
+  | { operation: "stopSharing"; noteId: string; currentUserId: string }
+  | {
+      operation: "saveSharedNote";
+      shortcode: string;
+      title: string;
+      content: string;
+      contentFormat?: string;
+      currentUserId: string;
+    };
 
 interface NormalizedNote {
   id: string;
@@ -554,6 +562,12 @@ export async function sharingOperation(params: SharingOperationParams) {
         }
 
         const isAnonymous = (shareData as any).is_anonymous || false;
+        const linkPermission: string =
+          (shareData as any).link_permission || (shareData.is_public ? "view" : "off");
+        // A signed-in visitor may edit a Supabase-backed note when the link is
+        // set to "Can edit". Anonymous editing is not supported, and the Redis
+        // (anonymous-owner) tier is view-only here. Enforced again on save.
+        const canEdit = linkPermission === "edit" && !!authenticatedUserId && storage === "supabase";
 
         let authorInfo: { username: string; avatar_url: string | null } = {
           username: "Anonymous",
@@ -583,6 +597,7 @@ export async function sharingOperation(params: SharingOperationParams) {
             authorUsername: authorInfo.username,
             authorAvatar: isAnonymous ? null : authorInfo.avatar_url,
             content_format: (noteResult.note as any).content_format,
+            canEdit,
             shareInfo: {
               shortcode: shareData.shortcode,
               isPublic: shareData.is_public,
@@ -590,9 +605,68 @@ export async function sharingOperation(params: SharingOperationParams) {
               storage: shareData.storage,
               createdAt: shareData.created_at,
               viewCount: shareData.view_count || 0,
+              linkPermission,
+              canEdit,
             },
           },
         };
+      }
+
+      case "saveSharedNote": {
+        const { shortcode, title, content, contentFormat, currentUserId } = params;
+
+        // Anonymous editing is not supported — a real session is required.
+        if (!authenticatedUserId) {
+          return { success: false, error: "You need to sign in to edit this note" };
+        }
+
+        const svc = createServiceRoleClient();
+        const { data: shareData, error: shareErr } = await svc
+          .from("shared_notes")
+          .select("id, note_id, storage, link_permission, expires_at")
+          .eq("shortcode", shortcode)
+          .single();
+
+        if (shareErr || !shareData) {
+          return { success: false, error: "Shared note not found" };
+        }
+        // Enforce the edit permission server-side, not only in the UI.
+        if ((shareData as any).link_permission !== "edit") {
+          return { success: false, error: "This link doesn't allow editing" };
+        }
+        if ((shareData as any).storage && (shareData as any).storage !== "supabase") {
+          return { success: false, error: "This note can't be edited here" };
+        }
+        if ((shareData as any).expires_at && new Date((shareData as any).expires_at) < new Date()) {
+          return { success: false, error: "This shared link has expired" };
+        }
+
+        const { error: updateErr } = await svc
+          .from("notes")
+          .update({
+            title: title ?? "",
+            content: content ?? "",
+            content_format: contentFormat || "markdown",
+            updated_at: new Date().toISOString(),
+          } as any)
+          .eq("id", (shareData as any).note_id);
+
+        if (updateErr) {
+          return { success: false, error: "Couldn't save your changes" };
+        }
+
+        // Best-effort attribution: record a version for the owner's history.
+        try {
+          await svc.from("note_versions").insert({
+            note_id: (shareData as any).note_id,
+            author: authenticatedUserId,
+            title: title ?? "",
+            content: content ?? "",
+            content_format: contentFormat || "markdown",
+          } as any);
+        } catch {}
+
+        return { success: true };
       }
 
       case "removeUser": {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { sanitizeHtml } from "@/utils/sanitize";
 import { marked } from "marked";
@@ -10,10 +10,13 @@ import {
   IconLock,
   IconPrinter,
   IconUser,
+  IconShare,
 } from "@tabler/icons-react";
 
 import { sharingOperation } from "@/app/actions/sharing";
 import { createClient } from "@/utils/supabase/client";
+import MilkdownEditor from "@/components/editor/milkdown-editor";
+import type { ContentFormat } from "@/types/combined-notes";
 
 interface SharedNote {
   id: string;
@@ -26,8 +29,11 @@ interface SharedNote {
   created_at: string;
   updated_at: string;
   is_private?: boolean;
+  canEdit?: boolean;
   shareInfo?: {
     isAnonymous?: boolean;
+    linkPermission?: string;
+    canEdit?: boolean;
   };
 }
 
@@ -50,7 +56,36 @@ export default function SharedNotePage({
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [submittingPassword, setSubmittingPassword] = useState(false);
 
+  // Edit state (used only when the link grants "Can edit").
+  const [title, setTitle] = useState("");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const contentRef = useRef("");
+  const saveTimer = useRef<number | null>(null);
+
   const supabase = createClient();
+  const canEdit = !!note?.canEdit;
+
+  const scheduleSave = useCallback(
+    (nextTitle: string, nextContent: string) => {
+      setSaveStatus("saving");
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = window.setTimeout(async () => {
+        const { data: userData } = await supabase.auth.getUser();
+        const result = (await sharingOperation({
+          operation: "saveSharedNote",
+          shortcode,
+          title: nextTitle,
+          content: nextContent,
+          contentFormat: "markdown",
+          currentUserId: userData?.user?.id || "",
+        })) as any;
+        setSaveStatus(result.success ? "saved" : "error");
+      }, 900);
+    },
+    [shortcode, supabase],
+  );
+
+  useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current); }, []);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -96,6 +131,9 @@ export default function SharedNotePage({
 
       if (result.success && result.note) {
         setNote(result.note as SharedNote);
+        setTitle(result.note.title || "");
+        contentRef.current = result.note.content || "";
+        setSaveStatus("idle");
         setRequiresPassword(false);
         setError(null);
       } else if (result.requiresPassword) {
@@ -216,6 +254,44 @@ export default function SharedNotePage({
   }
 
   const isAnonymous = note.shareInfo?.isAnonymous;
+
+  // ===== Editable (Can edit) =====
+  if (canEdit) {
+    const saveLabel =
+      saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved" : saveStatus === "error" ? "Save failed" : "";
+    return (
+      <main className="flex-grow pt-14">
+        <div className="max-w-[var(--content-width)] mx-auto mt-3 px-4 md:px-8">
+          <div className="flex items-center justify-between gap-3 px-3 h-11 rounded-[var(--radius-9)] bg-[var(--color-accent-tint)] border border-[var(--color-accent-tint-border)]">
+            <span className="inline-flex items-center gap-1.5 min-w-0 text-[13px] text-[var(--color-accent-text)]">
+              <IconShare size={14} className="shrink-0" />
+              <span className="truncate">
+                {isAnonymous ? "Shared note" : <>Shared by <strong className="font-semibold">@{note.authorUsername}</strong></>} · you can edit
+              </span>
+            </span>
+            {saveLabel && (
+              <span className={`text-[11px] font-[family-name:var(--font-meta)] shrink-0 ${saveStatus === "error" ? "text-[var(--color-danger)]" : "text-[var(--color-accent-text)]"}`}>
+                {saveLabel}
+              </span>
+            )}
+          </div>
+        </div>
+        <article className="max-w-[var(--content-width)] mx-auto px-4 md:px-8 py-8">
+          <input
+            value={title}
+            onChange={(e) => { setTitle(e.target.value); scheduleSave(e.target.value, contentRef.current); }}
+            placeholder="Untitled"
+            className="w-full mb-4 bg-transparent text-2xl md:text-3xl font-bold text-[var(--color-ink-1)] placeholder:text-[var(--color-ink-5)] focus:outline-none"
+          />
+          <MilkdownEditor
+            content={note.content || ""}
+            contentFormat={(note.content_format as ContentFormat) || "markdown"}
+            onChange={(markdown) => { contentRef.current = markdown; scheduleSave(title, markdown); }}
+          />
+        </article>
+      </main>
+    );
+  }
 
   // Note view
   return (
