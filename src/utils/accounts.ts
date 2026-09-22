@@ -34,6 +34,11 @@ export function saveAccounts(list: DeviceAccount[]): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(list.slice(0, MAX_ACCOUNTS)));
   } catch {}
+  // Let mounted views (rail avatar, account menu, settings list) re-read without
+  // a page refresh after an account is captured/added/removed.
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("justnoted:accounts-changed"));
+  }
 }
 
 export function upsertAccount(acc: DeviceAccount): void {

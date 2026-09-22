@@ -39,8 +39,22 @@ export default function AccountMenu() {
   const [switching, setSwitching] = useState<DeviceAccount | null>(null);
 
   useEffect(() => {
-    setAccounts(getAccounts());
-    supabase.auth.getUser().then(({ data }) => setCurrentId(data.user?.id ?? null));
+    let alive = true;
+    const refresh = () => {
+      if (!alive) return;
+      setAccounts(getAccounts());
+      supabase.auth.getUser().then(({ data }) => { if (alive) setCurrentId(data.user?.id ?? null); });
+    };
+    refresh();
+    // Re-read when an account is captured/added/removed, and when auth changes
+    // (e.g. after signing in a second account) — no page refresh needed.
+    window.addEventListener("justnoted:accounts-changed", refresh);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => refresh());
+    return () => {
+      alive = false;
+      window.removeEventListener("justnoted:accounts-changed", refresh);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const current = accounts.find((a) => a.id === currentId) || null;

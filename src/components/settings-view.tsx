@@ -206,8 +206,20 @@ function DeviceAccountsSection() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
-    setAccounts(getAccounts());
-    supabase.auth.getUser().then(({ data }) => setCurrentId(data.user?.id ?? null));
+    let alive = true;
+    const refresh = () => {
+      if (!alive) return;
+      setAccounts(getAccounts());
+      supabase.auth.getUser().then(({ data }) => { if (alive) setCurrentId(data.user?.id ?? null); });
+    };
+    refresh();
+    window.addEventListener("justnoted:accounts-changed", refresh);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => refresh());
+    return () => {
+      alive = false;
+      window.removeEventListener("justnoted:accounts-changed", refresh);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOutHere = async (a: DeviceAccount) => {
