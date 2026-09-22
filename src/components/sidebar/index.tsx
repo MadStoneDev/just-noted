@@ -174,8 +174,13 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
   // Opening a notebook from the grid switches the sidebar back to the notes list.
   useEffect(() => {
     const showNotes = () => setRailView("notes");
+    const showShared = () => setRailView("shared");
     window.addEventListener("justnoted:show-notes", showNotes);
-    return () => window.removeEventListener("justnoted:show-notes", showNotes);
+    window.addEventListener("justnoted:show-shared", showShared);
+    return () => {
+      window.removeEventListener("justnoted:show-notes", showNotes);
+      window.removeEventListener("justnoted:show-shared", showShared);
+    };
   }, []);
 
   const filteredNotes = getFilteredNotes();
@@ -601,7 +606,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
           between 0 and 248px on desktop. */}
       <aside
         ref={sidebarRef}
-        className={`fixed md:relative top-14 md:top-0 left-0 h-[calc(100dvh-56px)] md:h-full z-40 md:z-auto bg-[var(--color-panel)] border-r border-[var(--color-hairline)] transition-all duration-[var(--duration-slow)] overflow-hidden ${
+        className={`relative left-0 h-full z-40 md:z-auto bg-[var(--color-panel)] border-r border-[var(--color-hairline)] transition-all duration-[var(--duration-slow)] overflow-hidden ${
           sidebarOpen ? "w-full md:w-[340px]" : "w-0 md:w-14"
         }`}
         style={{
@@ -612,8 +617,9 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
         {/* Fixed inner width so content doesn't reflow while the aside animates:
             full viewport width on mobile, 248px on desktop. */}
         <div className="flex h-full w-screen md:w-[340px]">
-          {/* Permanent icon rail — primary navigation (design handoff) */}
-          <nav className="w-14 flex-none flex flex-col items-center gap-1.5 py-3 border-r border-[var(--color-hairline)] bg-[var(--color-panel)]">
+          {/* Permanent icon rail — desktop primary navigation. On mobile this is
+              replaced by the bottom tab bar (design surface 08). */}
+          <nav className="hidden md:flex w-14 flex-none flex-col items-center gap-1.5 py-3 border-r border-[var(--color-hairline)] bg-[var(--color-panel)]">
             {/* Logo */}
             <div
               className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-7)] text-[12px] font-bold mb-1.5"

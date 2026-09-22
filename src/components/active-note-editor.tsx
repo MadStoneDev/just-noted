@@ -928,7 +928,7 @@ function NoteEditor({
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Editor top bar */}
-      <div className="print:hidden flex items-center justify-between px-4 md:px-8 py-2 border-b border-[var(--color-hairline)] bg-[var(--color-canvas)]">
+      <div className="print:hidden hidden md:flex items-center justify-between px-4 md:px-8 py-2 border-b border-[var(--color-hairline)] bg-[var(--color-canvas)]">
         <div className="flex items-center gap-2">
           <span className="px-1.5 py-0.5 rounded-[var(--radius-5)] bg-[var(--color-raised-soft)] text-[11px] text-[var(--color-ink-4)]">
             {noteSource === "supabase" ? "Cloud" : "Local"}

@@ -4,7 +4,7 @@ import React, { useState, useCallback, useMemo, useEffect } from "react";
 
 import Sidebar from "@/components/sidebar";
 import ActiveNoteEditor from "@/components/active-note-editor";
-import GlobalHeader from "@/components/global-header";
+import { MobileTabBar, MobileEditorNav, MobileFab, type MobileTab } from "@/components/mobile-chrome";
 import SearchModal from "@/components/search-modal";
 import TrashView from "@/components/trash-view";
 import DistractionFreeNoteBlock from "@/components/distraction-free-note-block";
@@ -26,7 +26,6 @@ import {
   IconArrowsMinimize,
   IconViewportNarrow,
   IconViewportWide,
-  IconChevronRight,
 } from "@tabler/icons-react";
 
 import { CombinedNote } from "@/types/combined-notes";
@@ -86,6 +85,8 @@ export default function NoteWrapper() {
   const [showNotebooksGrid, setShowNotebooksGrid] = useState(false);
   // In-shell settings view open in the main area
   const [showSettings, setShowSettings] = useState(false);
+  // Which bottom-tab is highlighted on mobile (design surface 08).
+  const [mobileTab, setMobileTab] = useState<MobileTab>("notes");
 
   // Apply the saved editor font + size once on load.
   useEffect(() => {
@@ -147,6 +148,58 @@ export default function NoteWrapper() {
       try { flushFn(); } catch {}
     });
   }, [noteFlushFunctions]);
+
+  // ===== Mobile bottom-tab navigation (design surface 08) =====
+  const goNotes = useCallback(() => {
+    setShowSettings(false);
+    setShowTrash(false);
+    setShowNotebooksGrid(false);
+    setSharedShortcode(null);
+    useNotesStore.getState().setActiveNotebookId(null);
+    window.dispatchEvent(new Event("justnoted:show-notes"));
+    setSidebarOpen(true);
+    setMobileTab("notes");
+  }, [setSidebarOpen]);
+
+  const goNotebooks = useCallback(() => {
+    setShowSettings(false);
+    setShowTrash(false);
+    setSharedShortcode(null);
+    setShowNotebooksGrid(true);
+    setSidebarOpen(false);
+    setMobileTab("notebooks");
+  }, [setSidebarOpen]);
+
+  const goShared = useCallback(() => {
+    setShowSettings(false);
+    setShowTrash(false);
+    setShowNotebooksGrid(false);
+    setSharedShortcode(null);
+    window.dispatchEvent(new Event("justnoted:show-shared"));
+    setSidebarOpen(true);
+    setMobileTab("shared");
+  }, [setSidebarOpen]);
+
+  const goYou = useCallback(() => {
+    setShowTrash(false);
+    setShowNotebooksGrid(false);
+    setSharedShortcode(null);
+    setShowSettings(true);
+    setSidebarOpen(false);
+    setMobileTab("you");
+  }, [setSidebarOpen]);
+
+  const mobileNewNote = useCallback(() => {
+    notesOperations.addNote();
+    setSidebarOpen(false);
+    setMobileTab("notes");
+  }, [notesOperations, setSidebarOpen]);
+
+  const openFocusForActive = useCallback(() => {
+    if (!activeNoteId) return;
+    const note = notes.find((n) => n.id === activeNoteId);
+    if (note) handleShowDistractionFree(note);
+  }, [activeNoteId, notes, handleShowDistractionFree]);
 
   // Phase 0 — flush pending edits when the tab is hidden or closed.
   // visibilitychange→hidden is the signal browsers reliably deliver before a
@@ -241,20 +294,10 @@ export default function NoteWrapper() {
     <NotesErrorBoundary>
       <SkipLinks />
 
-      {/* Marketing header is kept only on mobile for now; on desktop the
-          permanent rail owns navigation (design handoff). */}
-      <div className="md:hidden">
-        <GlobalHeader
-          user={isAuthenticated ? ({ id: userId } as any) : null}
-          appMode
-          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-          onSearch={() => setShowSearch(true)}
-          onNewNote={() => notesOperations.addNote()}
-        />
-      </div>
-
-      {/* Shell: permanent rail + collapsible sidebar column + editor. */}
-      <div className="flex mt-14 md:mt-0 h-[calc(100dvh-56px)] md:h-dvh">
+      {/* Shell: on desktop the rail owns navigation; on mobile a bottom tab bar
+          (design surface 08) sits below the rail+sidebar+editor row. */}
+      <div className="flex flex-col h-dvh">
+      <div className="flex flex-1 min-h-0">
         {/* Sidebar (its own icon rail owns primary navigation) */}
         <Sidebar
           onNoteClick={() => setSharedShortcode(null)}
@@ -279,19 +322,6 @@ export default function NoteWrapper() {
             }
           }}
         />
-
-        {/* Mobile: slim edge tab to reopen the sidebar when it's collapsed,
-            so the editor keeps full width while writing. */}
-        {!sidebarOpen && (
-          <button
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Show notes"
-            title="Show notes"
-            className="mobile-peek md:hidden fixed left-0 top-1/2 z-30 w-[18px] h-[46px] flex items-center justify-center rounded-r-[9px] text-white shadow-[var(--shadow-lg)]"
-          >
-            <IconChevronRight size={13} strokeWidth={2.4} className="-ml-[3px]" />
-          </button>
-        )}
 
         {/* Main area: the editor, or a read-only shared note when one is open. */}
         <main
@@ -336,16 +366,39 @@ export default function NoteWrapper() {
               onClose={() => setSharedShortcode(null)}
             />
           ) : (
-            <ActiveNoteEditor
-              userId={userId || ""}
-              isAuthenticated={isAuthenticated}
-              notesOperations={notesOperations}
-              registerNoteFlush={registerNoteFlush}
-              unregisterNoteFlush={unregisterNoteFlush}
-            />
+            <>
+              {/* Mobile editor nav (design surface 08) — desktop uses its own toolbar. */}
+              <MobileEditorNav
+                onBack={() => { setSidebarOpen(true); setMobileTab("notes"); }}
+                onFocus={openFocusForActive}
+                onShare={() => window.dispatchEvent(new Event("justnoted:open-share"))}
+              />
+              <ActiveNoteEditor
+                userId={userId || ""}
+                isAuthenticated={isAuthenticated}
+                notesOperations={notesOperations}
+                registerNoteFlush={registerNoteFlush}
+                unregisterNoteFlush={unregisterNoteFlush}
+              />
+            </>
           )}
         </main>
       </div>
+
+        {/* Mobile bottom tab bar (design surface 08). */}
+        <MobileTabBar
+          active={mobileTab}
+          onNotes={goNotes}
+          onNotebooks={goNotebooks}
+          onShared={goShared}
+          onYou={goYou}
+        />
+      </div>
+
+      {/* Mobile FAB — new note, shown on the notes list only. */}
+      {sidebarOpen && !showSettings && !showTrash && !showNotebooksGrid && !sharedShortcode && (
+        <MobileFab onClick={mobileNewNote} />
+      )}
 
       {/* Distraction-free mode */}
       {showDistractionFree && (

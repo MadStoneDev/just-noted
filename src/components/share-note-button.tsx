@@ -108,6 +108,13 @@ export default function ShareNoteButton({
     if (open) loadShareInfo();
   }, [open, loadShareInfo]);
 
+  // The mobile editor nav (and other surfaces) open the share dialog by event.
+  useEffect(() => {
+    const openShare = () => setOpen(true);
+    window.addEventListener("justnoted:open-share", openShare);
+    return () => window.removeEventListener("justnoted:open-share", openShare);
+  }, []);
+
   const handleShare = useCallback(async () => {
     setSaving(true);
     try {
