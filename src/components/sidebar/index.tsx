@@ -43,7 +43,7 @@ import {
   IconHelp,
   IconNote,
   IconTag,
-  IconShare2,
+  IconShare,
 } from "@tabler/icons-react";
 import { Dropdown, DropdownItem, DropdownSeparator, DropdownLabel } from "@/components/ds/dropdown";
 import { ConfirmModal } from "@/components/ds/modal";
@@ -156,6 +156,13 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
       // localStorage unavailable — ignore.
     }
   }, [railView]);
+
+  // Opening a notebook from the grid switches the sidebar back to the notes list.
+  useEffect(() => {
+    const showNotes = () => setRailView("notes");
+    window.addEventListener("justnoted:show-notes", showNotes);
+    return () => window.removeEventListener("justnoted:show-notes", showNotes);
+  }, []);
 
   const filteredNotes = getFilteredNotes();
   const hasActiveFilters = searchQuery || filterSource !== "all" || filterPinned !== "all" || activeNotebookId !== null || filterTagIds.length > 0;
@@ -596,7 +603,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 active={railView === "shared"}
                 onClick={() => { setRailView("shared"); setSidebarOpen(true); }}
               >
-                <IconShare2 size={20} />
+                <IconShare size={20} />
               </RailButton>
             )}
             <RailButton

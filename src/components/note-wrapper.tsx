@@ -291,7 +291,11 @@ export default function NoteWrapper() {
             <NotebooksGrid
               onClose={() => setShowNotebooksGrid(false)}
               onOpenNotebook={(id) => {
-                useNotesStore.getState().setActiveNotebookId(id);
+                const s = useNotesStore.getState();
+                s.setActiveNotebookId(id);
+                s.setSidebarOpen(true);
+                // Switch the sidebar back to the notes list, filtered to this notebook.
+                window.dispatchEvent(new Event("justnoted:show-notes"));
                 setShowNotebooksGrid(false);
               }}
               onNewNotebook={() =>

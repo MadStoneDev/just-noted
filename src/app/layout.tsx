@@ -79,7 +79,10 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      className={`${inter.variable} ${playfair.variable} ${newsreader.variable} ${publicSans.variable}`}
+    >
       <body
         className={`min-h-dvh print:min-h-0 flex flex-col ${inter.variable} ${playfair.variable} ${newsreader.variable} ${publicSans.variable} antialiased`}
         style={{ backgroundColor: "var(--color-bg-secondary)", color: "var(--color-text-primary)" }}

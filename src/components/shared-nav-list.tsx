@@ -16,7 +16,7 @@ import {
   IconEye,
   IconUser,
   IconUsers,
-  IconShare2,
+  IconShare,
   IconPlus,
   IconX,
   IconBookmark,
@@ -178,7 +178,7 @@ export default function SharedNavList({ onOpen }: SharedNavListProps) {
 
           {visibleCount === 0 && (
             <div className="flex flex-col items-center justify-center gap-2 p-6 text-center">
-              <IconShare2 size={22} className="text-[var(--color-ink-5)]" />
+              <IconShare size={22} className="text-[var(--color-ink-5)]" />
               <p className="text-sm text-[var(--color-ink-5)]">Nothing here yet</p>
               <p className="text-[11px] text-[var(--color-ink-5)]">
                 Share a note, or add one you received with &ldquo;Add.&rdquo;
