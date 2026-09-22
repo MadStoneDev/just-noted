@@ -72,6 +72,19 @@ interface SidebarProps {
   onOpenShared?: (shortcode: string) => void;
 }
 
+const SORT_LABELS: Record<"manual" | "edited" | "created" | "title" | "notebook", string> = {
+  manual: "Manual",
+  edited: "Last edited",
+  created: "Created",
+  title: "Title A–Z",
+  notebook: "Notebook",
+};
+const SOURCE_LABELS: Record<"all" | "cloud" | "local", string> = {
+  all: "All sources",
+  cloud: "Cloud",
+  local: "Local",
+};
+
 const RAIL_VIEW_KEY = "jn_sidebar_rail_view";
 const RAIL_VIEWS = ["notes", "notebooks", "tags", "shared"] as const;
 
@@ -765,21 +778,57 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 </button>
               )}
             </div>
-            {/* Filter & sort (moved off the rail, per the design) */}
-            <button
-              onClick={() => setFilterSheetOpen(true)}
-              className="mt-2 w-full flex items-center justify-between px-2.5 h-8 rounded-[var(--radius-7)] border border-[var(--color-border-control)] text-[12.5px] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)] transition-colors"
-            >
-              <span className="flex items-center gap-1.5">
-                <IconAdjustmentsHorizontal size={14} />
-                Filter &amp; sort
-              </span>
-              {activeFilterCount > 0 && (
-                <span className="min-w-[16px] h-4 px-1 flex items-center justify-center text-[9px] font-semibold rounded-full bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)]">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
+            {/* Three inline controls: sort · source · filter (design) */}
+            <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+              <Dropdown
+                placement="bottom-start"
+                trigger={
+                  <button className="flex items-center gap-1 px-2 h-7 rounded-[var(--radius-6)] text-[12px] border border-[var(--color-border-control)] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)] transition-colors">
+                    {SORT_LABELS[sortBy]}
+                    <IconChevronDown size={12} className="opacity-60" />
+                  </button>
+                }
+              >
+                {(Object.keys(SORT_LABELS) as (keyof typeof SORT_LABELS)[]).map((v) => (
+                  <DropdownItem key={v} onClick={() => setSortBy(v)}>{SORT_LABELS[v]}</DropdownItem>
+                ))}
+              </Dropdown>
+
+              <Dropdown
+                placement="bottom-start"
+                trigger={
+                  <button
+                    className={`flex items-center gap-1 px-2 h-7 rounded-[var(--radius-6)] text-[12px] border transition-colors ${
+                      filterSource !== "all"
+                        ? "border-[var(--color-accent-tint-border)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]"
+                        : "border-[var(--color-border-control)] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)]"
+                    }`}
+                  >
+                    {SOURCE_LABELS[filterSource]}
+                    <IconChevronDown size={12} className="opacity-60" />
+                  </button>
+                }
+              >
+                {(Object.keys(SOURCE_LABELS) as (keyof typeof SOURCE_LABELS)[]).map((v) => (
+                  <DropdownItem key={v} onClick={() => setFilterSource(v)}>{SOURCE_LABELS[v]}</DropdownItem>
+                ))}
+              </Dropdown>
+
+              <button
+                onClick={() => setFilterSheetOpen(true)}
+                className={`flex items-center gap-1 px-2 h-7 rounded-[var(--radius-6)] text-[12px] border transition-colors ${
+                  filterPinned !== "all" || activeNotebookId !== null || filterTagIds.length > 0
+                    ? "border-[var(--color-accent-tint-border)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]"
+                    : "border-[var(--color-border-control)] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)]"
+                }`}
+              >
+                <IconAdjustmentsHorizontal size={13} />
+                Filter
+                {(filterPinned !== "all" ? 1 : 0) + (filterTagIds.length > 0 ? 1 : 0) > 0 && (
+                  <span className="ml-0.5">· {(filterPinned !== "all" ? 1 : 0) + (filterTagIds.length > 0 ? 1 : 0)}</span>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Notes List */}
