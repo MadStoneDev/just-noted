@@ -390,7 +390,7 @@
    ============================================ */
 
 body {
-  font-family: var(--font-primary), sans-serif;
+  font-family: var(--font-ui), sans-serif;
   color: var(--color-text-primary);
   background-color: var(--color-bg-secondary);
 }
@@ -549,7 +549,8 @@ summary {
   box-shadow: none !important;
   border: none !important;
   font-family: var(--font-editor);
-  color: var(--color-text-primary);
+  font-size: 20px;
+  color: var(--color-ink-2);
   line-height: 1.72;
   padding: 0.5rem 0;
 }

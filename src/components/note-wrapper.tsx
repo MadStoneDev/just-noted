@@ -90,15 +90,21 @@ export default function NoteWrapper() {
     applyEditorFont(readEditorFont());
   }, []);
 
-  // Cross-component triggers from the sidebar.
+  // Cross-component triggers from the rail.
   useEffect(() => {
     const openGrid = () => setShowNotebooksGrid(true);
     const openSettings = () => setShowSettings(true);
+    const openSearch = () => setShowSearch(true);
+    const openHelp = () => { window.open("/the-how", "_blank"); };
     window.addEventListener("justnoted:open-notebooks-grid", openGrid);
     window.addEventListener("justnoted:open-settings", openSettings);
+    window.addEventListener("justnoted:open-search", openSearch);
+    window.addEventListener("justnoted:open-help", openHelp);
     return () => {
       window.removeEventListener("justnoted:open-notebooks-grid", openGrid);
       window.removeEventListener("justnoted:open-settings", openSettings);
+      window.removeEventListener("justnoted:open-search", openSearch);
+      window.removeEventListener("justnoted:open-help", openHelp);
     };
   }, []);
 
@@ -216,17 +222,20 @@ export default function NoteWrapper() {
     <NotesErrorBoundary>
       <SkipLinks />
 
-      {/* Unified header */}
-      <GlobalHeader
-        user={isAuthenticated ? ({ id: userId } as any) : null}
-        appMode
-        onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-        onSearch={() => setShowSearch(true)}
-        onNewNote={() => notesOperations.addNote()}
-      />
+      {/* Marketing header is kept only on mobile for now; on desktop the
+          permanent rail owns navigation (design handoff). */}
+      <div className="md:hidden">
+        <GlobalHeader
+          user={isAuthenticated ? ({ id: userId } as any) : null}
+          appMode
+          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+          onSearch={() => setShowSearch(true)}
+          onNewNote={() => notesOperations.addNote()}
+        />
+      </div>
 
-      {/* Two-panel layout: sidebar + editor. Desktop reopen is via the header toggle. */}
-      <div className="flex mt-14 h-[calc(100dvh-56px)]">
+      {/* Shell: permanent rail + collapsible sidebar column + editor. */}
+      <div className="flex mt-14 md:mt-0 h-[calc(100dvh-56px)] md:h-dvh">
         {/* Sidebar (its own icon rail owns primary navigation) */}
         <Sidebar
           onNoteClick={() => setSharedShortcode(null)}

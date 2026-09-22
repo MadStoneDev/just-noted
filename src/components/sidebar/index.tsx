@@ -40,6 +40,7 @@ import {
   IconPlus,
   IconChevronDown,
   IconAdjustmentsHorizontal,
+  IconHelp,
   IconNote,
   IconTag,
   IconShare2,
@@ -550,8 +551,8 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
           between 0 and 248px on desktop. */}
       <aside
         ref={sidebarRef}
-        className={`fixed md:relative top-14 md:top-0 left-0 h-[calc(100dvh-56px)] md:h-full z-40 md:z-auto bg-[var(--color-panel)] border-r border-[var(--color-hairline-soft)] transition-all duration-[var(--duration-slow)] overflow-hidden ${
-          sidebarOpen ? "w-full md:w-[340px]" : "w-0"
+        className={`fixed md:relative top-14 md:top-0 left-0 h-[calc(100dvh-56px)] md:h-full z-40 md:z-auto bg-[var(--color-panel)] border-r border-[var(--color-hairline)] transition-all duration-[var(--duration-slow)] overflow-hidden ${
+          sidebarOpen ? "w-full md:w-[340px]" : "w-0 md:w-14"
         }`}
         style={{
           transitionTimingFunction: "var(--ease-spring)",
@@ -561,51 +562,63 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
         {/* Fixed inner width so content doesn't reflow while the aside animates:
             full viewport width on mobile, 248px on desktop. */}
         <div className="flex h-full w-screen md:w-[340px]">
-          {/* Icon rail — primary navigation */}
-          <nav className="w-14 flex-none flex flex-col items-center gap-1 py-2 border-r border-[var(--color-hairline-soft)] bg-[var(--color-panel)]">
-            {/* Notebooks first, Notes second — mirrors the hierarchy (notes live
-                inside notebooks) even though Notes is the default view. */}
+          {/* Permanent icon rail — primary navigation (design handoff) */}
+          <nav className="w-14 flex-none flex flex-col items-center gap-1.5 py-3 border-r border-[var(--color-hairline)] bg-[var(--color-panel)]">
+            {/* Logo */}
+            <div
+              className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-7)] text-[12px] font-bold mb-1.5"
+              style={{ backgroundColor: "var(--color-accent-fill)", color: "var(--color-accent-on-fill)" }}
+              aria-hidden
+            >
+              JN
+            </div>
+            {isAuthenticated && (
+              <RailButton
+                label="Notes"
+                active={railView === "notes"}
+                onClick={() => { setActiveNotebookId(null); setRailView("notes"); setSidebarOpen(true); }}
+              >
+                <IconNote size={20} />
+              </RailButton>
+            )}
             {isAuthenticated && (
               <RailButton
                 label="Notebooks"
                 active={railView === "notebooks"}
-                onClick={() => setRailView("notebooks")}
+                onClick={() => { setRailView("notebooks"); setSidebarOpen(true); }}
               >
                 <IconNotebook size={20} />
               </RailButton>
             )}
             {isAuthenticated && (
               <RailButton
-                label="All notes"
-                active={railView === "notes"}
-                onClick={() => { setActiveNotebookId(null); setRailView("notes"); }}
-              >
-                <IconNote size={20} />
-              </RailButton>
-            )}
-            {isAuthenticated && tags.length > 0 && (
-              <RailButton
-                label="Tags"
-                active={railView === "tags"}
-                onClick={() => setRailView("tags")}
-              >
-                <IconTag size={20} />
-              </RailButton>
-            )}
-            {isAuthenticated && (
-              <RailButton
                 label="Shared"
                 active={railView === "shared"}
-                onClick={() => setRailView("shared")}
+                onClick={() => { setRailView("shared"); setSidebarOpen(true); }}
               >
                 <IconShare2 size={20} />
               </RailButton>
             )}
+            <RailButton
+              label="Search"
+              onClick={() => window.dispatchEvent(new Event("justnoted:open-search"))}
+            >
+              <IconSearch size={20} />
+            </RailButton>
             <div className="flex-1" />
-            <RailButton label="Filters & sort" badge={activeFilterCount} onClick={() => setFilterSheetOpen(true)}>
+            <RailButton
+              label="Help"
+              onClick={() => window.dispatchEvent(new Event("justnoted:open-help"))}
+            >
+              <IconHelp size={20} />
+            </RailButton>
+            <RailButton
+              label="Settings"
+              onClick={() => window.dispatchEvent(new Event("justnoted:open-settings"))}
+            >
               <IconAdjustmentsHorizontal size={20} />
             </RailButton>
-            <RailButton label="New note (Ctrl+J)" accent onClick={onNewNote}>
+            <RailButton label="New note" accent onClick={onNewNote}>
               <IconPlus size={20} />
             </RailButton>
           </nav>
@@ -672,6 +685,21 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 </button>
               )}
             </div>
+            {/* Filter & sort (moved off the rail, per the design) */}
+            <button
+              onClick={() => setFilterSheetOpen(true)}
+              className="mt-2 w-full flex items-center justify-between px-2.5 h-8 rounded-[var(--radius-7)] border border-[var(--color-border-control)] text-[12.5px] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)] transition-colors"
+            >
+              <span className="flex items-center gap-1.5">
+                <IconAdjustmentsHorizontal size={14} />
+                Filter &amp; sort
+              </span>
+              {activeFilterCount > 0 && (
+                <span className="min-w-[16px] h-4 px-1 flex items-center justify-center text-[9px] font-semibold rounded-full bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)]">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
           </div>
 
           {/* Notes List */}
@@ -1146,7 +1174,7 @@ function RailButton({
       onClick={onClick}
       title={label}
       aria-label={label}
-      className={`relative w-10 h-10 flex items-center justify-center rounded-[var(--radius-md)] transition-colors duration-[var(--duration-fast)] ${
+      className={`relative w-10 h-10 flex items-center justify-center rounded-[var(--radius-9)] transition-colors duration-[var(--duration-fast)] ${
         active
           ? "bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]"
           : accent
@@ -1154,6 +1182,10 @@ function RailButton({
             : "text-[var(--color-ink-5)] hover:bg-[var(--color-raised-soft)] hover:text-[var(--color-ink-1)]"
       }`}
     >
+      {/* 2×22 teal indicator on the rail's outer edge when active */}
+      {active && (
+        <span className="pointer-events-none absolute -left-2 top-1/2 -translate-y-1/2 h-[22px] w-[2px] rounded-[2px] bg-[var(--color-accent-text)]" />
+      )}
       {children}
       {badge && badge > 0 ? (
         <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[9px] font-semibold rounded-full bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)]">
