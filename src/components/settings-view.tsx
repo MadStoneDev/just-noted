@@ -2,6 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { createClient } from "@/utils/supabase/client";
+import { uploadAvatar } from "@/app/actions/avatarActions";
+import { compressImage } from "@/utils/image/compress";
+import { useToast } from "@/components/ui/toast";
 import { useTheme } from "@/components/ds/theme-toggle";
 import {
   readEditorFont,
@@ -45,6 +49,142 @@ const FONT_OPTIONS: { value: EditorFont; label: string; family: string }[] = [
   { value: "mono", label: "Mono", family: '"JetBrains Mono", ui-monospace, monospace' },
 ];
 
+// Account settings, in-shell (was the separate /profile page).
+function AccountSection() {
+  const supabase = createClient();
+  const { showSuccess, showError } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+  const [originalUsername, setOriginalUsername] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { if (alive) setLoading(false); return; }
+      const { data: author } = await supabase
+        .from("authors")
+        .select("username, avatar_url")
+        .eq("id", user.id)
+        .single();
+      if (!alive) return;
+      setUserId(user.id);
+      setEmail(user.email || "");
+      setUsername(author?.username || "");
+      setOriginalUsername(author?.username || "");
+      setAvatarUrl(author?.avatar_url || "");
+      setLoading(false);
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const onAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setAvatarFile(f);
+    setAvatarPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(f); });
+  };
+
+  const dirty = username.trim() !== originalUsername || avatarFile !== null;
+
+  const save = async () => {
+    if (!userId) return;
+    const trimmed = username.trim();
+    if (trimmed.length < 3) { showError("Username must be at least 3 characters."); return; }
+    if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) { showError("Letters, numbers and underscores only."); return; }
+    setSaving(true);
+    try {
+      if (trimmed.toLowerCase() !== originalUsername.toLowerCase()) {
+        const { data: existing } = await supabase.from("authors").select("id").ilike("username", trimmed);
+        if (existing && existing.some((r: any) => r.id !== userId)) {
+          showError("That username is already taken."); setSaving(false); return;
+        }
+      }
+      let newAvatarUrl = avatarUrl;
+      if (avatarFile) {
+        const compressed = await compressImage(avatarFile, { maxDim: 512 });
+        const fd = new FormData();
+        fd.append("file", compressed);
+        const res = await uploadAvatar(fd);
+        if (!res.success || !res.url) { showError(res.error || "Avatar upload failed."); setSaving(false); return; }
+        newAvatarUrl = res.url;
+      }
+      const { error } = await supabase.from("authors").update({ username: trimmed, avatar_url: newAvatarUrl }).eq("id", userId);
+      if (error) { showError("Failed to save."); setSaving(false); return; }
+      setOriginalUsername(trimmed);
+      setAvatarUrl(newAvatarUrl);
+      setAvatarFile(null);
+      setAvatarPreview(null);
+      showSuccess("Saved");
+    } catch {
+      showError("Something went wrong.");
+    }
+    setSaving(false);
+  };
+
+  if (loading) {
+    return <div className="space-y-3">{[0, 1, 2].map((i) => <div key={i} className="skeleton h-10 w-full rounded-[var(--radius-8)]" />)}</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Avatar */}
+      <div className="flex items-center gap-4">
+        <div className="w-16 h-16 rounded-full overflow-hidden bg-[var(--color-raised-soft)] flex items-center justify-center shrink-0 ring-1 ring-[var(--color-hairline)]">
+          {avatarPreview || avatarUrl ? (
+            <img src={avatarPreview || avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-[var(--color-ink-5)] text-xl">?</span>
+          )}
+        </div>
+        <div>
+          <label className="inline-flex items-center h-8 px-3 rounded-[var(--radius-7)] text-[12.5px] font-medium border border-[var(--color-border-control)] text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)] transition-colors cursor-pointer">
+            <input type="file" accept="image/*" className="hidden" onChange={onAvatarChange} />
+            Change avatar
+          </label>
+          <p className="mt-1.5 text-[11.5px] text-[var(--color-ink-5)]">PNG or JPG, up to a few MB.</p>
+        </div>
+      </div>
+
+      {/* Username */}
+      <div>
+        <label className="block mb-1.5 text-[13px] font-medium text-[var(--color-ink-2)]">Username</label>
+        <input
+          type="text"
+          value={username}
+          onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ""))}
+          maxLength={30}
+          className="w-full h-10 px-3 text-[14px] bg-[var(--color-raised)] border border-[var(--color-border-control)] rounded-[var(--radius-8)] text-[var(--color-ink)] focus:border-[var(--color-accent-tint-border)] focus:outline-none"
+        />
+        <p className="mt-1.5 text-[11.5px] text-[var(--color-ink-5)]">Letters, numbers and underscores. Collaborators see this name.</p>
+      </div>
+
+      {/* Email */}
+      <div>
+        <label className="block mb-1.5 text-[13px] font-medium text-[var(--color-ink-2)]">Email</label>
+        <div className="w-full h-10 px-3 flex items-center text-[14px] bg-[var(--color-panel)] border border-[var(--color-hairline)] rounded-[var(--radius-8)] text-[var(--color-ink-4)]">
+          {email}
+        </div>
+        <p className="mt-1.5 text-[11.5px] text-[var(--color-ink-5)]">Used for sign-in; can't be changed here.</p>
+      </div>
+
+      <button
+        onClick={save}
+        disabled={!dirty || saving}
+        className="h-9 px-4 rounded-[var(--radius-7)] text-[13px] font-semibold bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        {saving ? "Saving…" : "Save changes"}
+      </button>
+    </div>
+  );
+}
+
 // Design handoff surface 06 — Settings inside the shell.
 export default function SettingsView({ onClose }: SettingsViewProps) {
   const { theme, setTheme } = useTheme();
@@ -70,30 +210,33 @@ export default function SettingsView({ onClose }: SettingsViewProps) {
   return (
     <div className="flex-1 flex min-h-0 bg-[var(--color-canvas)]">
       {/* Section list — stands in for the notes sidebar while Settings is open */}
-      <nav className="w-[260px] flex-none border-r border-[var(--color-hairline)] bg-[var(--color-panel)] py-6 px-3 overflow-y-auto scrollbar-thin">
-        <div className="px-2 mb-3 text-[10px] font-[family-name:var(--font-meta)] uppercase tracking-[0.14em] text-[var(--color-ink-5)]">
-          Settings
+      <nav className="w-[260px] flex-none flex flex-col overflow-hidden border-r border-[var(--color-hairline)] bg-[var(--color-panel)]">
+        {/* Header matches the notes sidebar's "All Notes" header */}
+        <div className="flex items-center h-[52px] flex-none px-4 border-b border-[var(--color-hairline-soft)]">
+          <h2 className="text-sm font-semibold text-[var(--color-ink-1)] tracking-tight">Settings</h2>
         </div>
-        {SECTIONS.map((s) => (
-          <button
-            key={s}
-            onClick={() => setSection(s)}
-            className={`w-full text-left px-2.5 py-2 rounded-[var(--radius-8)] text-[13.5px] transition-colors ${
-              section === s
-                ? "bg-[var(--color-accent-tint)] text-[var(--color-accent-text)] border border-[var(--color-accent-tint-border)]"
-                : "text-[var(--color-ink-2)] border border-transparent hover:bg-[var(--color-raised-soft)]"
-            }`}
-          >
-            {s}
-          </button>
-        ))}
-        <div className="mt-2 pt-2 border-t border-[var(--color-hairline-soft)]">
-          <Link
-            href="/profile"
-            className="block w-full text-left px-2.5 py-2 rounded-[var(--radius-8)] text-[13.5px] text-[var(--color-danger-strong)] hover:bg-[var(--color-raised-soft)] transition-colors"
-          >
-            Danger zone
-          </Link>
+        <div className="flex-1 overflow-y-auto scrollbar-thin p-3">
+          {SECTIONS.map((s) => (
+            <button
+              key={s}
+              onClick={() => setSection(s)}
+              className={`w-full text-left px-2.5 py-2 rounded-[var(--radius-8)] text-[13.5px] transition-colors ${
+                section === s
+                  ? "bg-[var(--color-accent-tint)] text-[var(--color-accent-text)] border border-[var(--color-accent-tint-border)]"
+                  : "text-[var(--color-ink-2)] border border-transparent hover:bg-[var(--color-raised-soft)]"
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+          <div className="mt-2 pt-2 border-t border-[var(--color-hairline-soft)]">
+            <Link
+              href="/profile"
+              className="block w-full text-left px-2.5 py-2 rounded-[var(--radius-8)] text-[13.5px] text-[var(--color-danger-strong)] hover:bg-[var(--color-raised-soft)] transition-colors"
+            >
+              Danger zone
+            </Link>
+          </div>
         </div>
       </nav>
 
@@ -210,13 +353,12 @@ export default function SettingsView({ onClose }: SettingsViewProps) {
                 </div>
               </div>
             </div>
-          ) : section === "Account" || section === "Security" ? (
+          ) : section === "Account" ? (
+            <AccountSection />
+          ) : section === "Security" ? (
             <div className="text-[13.5px] text-[var(--color-ink-4)] leading-[1.6]">
-              Account and security settings live on your{" "}
-              <Link href="/profile" className="text-[var(--color-accent-text)] hover:text-[var(--color-accent-deep)] underline decoration-dotted underline-offset-2">
-                profile page
-              </Link>
-              . Notes are encrypted in transit and at rest — this is not end-to-end encryption.
+              Notes are encrypted in transit and at rest — this is not end-to-end
+              encryption. Active sessions and password management are coming here.
             </div>
           ) : (
             <div className="text-[13.5px] text-[var(--color-ink-4)] leading-[1.6]">
