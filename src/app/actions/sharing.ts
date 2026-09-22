@@ -19,6 +19,8 @@ type SharingOperationParams =
       isAnonymous?: boolean;
       password?: string | null;
       expiresAt?: string | null;
+      // Link permission level (design surface 04): 'off' | 'view' | 'edit' | 'published'.
+      linkPermission?: "off" | "view" | "edit" | "published";
     }
   | { operation: "getUsers"; noteId: string; currentUserId: string }
   | {
@@ -232,7 +234,17 @@ export async function sharingOperation(params: SharingOperationParams) {
           isAnonymous = false,
           password = null,
           expiresAt = null,
+          linkPermission,
         } = params;
+
+        // Link permission level (design surface 04). When provided it is
+        // authoritative; is_public stays in sync for backward compatibility.
+        // 'edit'/'published' plumb through here but the edit write path and the
+        // public listing are enforced elsewhere.
+        const resolvedPermission: string =
+          (linkPermission as string | undefined) ?? (isPublic ? "view" : "off");
+        const resolvedPublic =
+          linkPermission !== undefined ? resolvedPermission !== "off" : isPublic;
 
         // Use server-side auth for ownership — more reliable than client-passed ID.
         // For Supabase-backed notes a real session is required; the anonymous
@@ -280,11 +292,12 @@ export async function sharingOperation(params: SharingOperationParams) {
               note_id: noteId,
               note_owner_id: ownerId,
               shortcode,
-              is_public: isPublic,
+              is_public: resolvedPublic,
               storage,
               is_anonymous: isAnonymous,
               password_hash: passwordHash,
               expires_at: expiresAt,
+              link_permission: resolvedPermission,
             } as any)
             .select("id")
             .single();
@@ -305,26 +318,32 @@ export async function sharingOperation(params: SharingOperationParams) {
           shortcode = existingShare.shortcode;
           shareId = existingShare.id;
 
-          const updateData: Record<string, any> = {
-            is_public: isPublic,
-            is_anonymous: isAnonymous,
-            expires_at: expiresAt,
-            updated_at: new Date().toISOString(),
-          };
-          if (password !== undefined) {
-            updateData.password_hash = password
-              ? await hashPassword(password)
-              : null;
-          }
+          // Only rewrite link settings when this call is a link save (no
+          // username). Adding a named reader must not silently flip the link
+          // state — that path falls straight through to the reader insert.
+          if (!username) {
+            const updateData: Record<string, any> = {
+              is_public: resolvedPublic,
+              is_anonymous: isAnonymous,
+              expires_at: expiresAt,
+              link_permission: resolvedPermission,
+              updated_at: new Date().toISOString(),
+            };
+            if (password !== undefined) {
+              updateData.password_hash = password
+                ? await hashPassword(password)
+                : null;
+            }
 
-          const { error: updateError } = await supabase
-            .from("shared_notes")
-            .update(updateData)
-            .eq("id", shareId)
-            .eq("note_owner_id", ownerId);
+            const { error: updateError } = await supabase
+              .from("shared_notes")
+              .update(updateData)
+              .eq("id", shareId)
+              .eq("note_owner_id", ownerId);
 
-          if (updateError) {
-            return { success: false, error: "Failed to update share" };
+            if (updateError) {
+              return { success: false, error: "Failed to update share" };
+            }
           }
         }
 
@@ -333,7 +352,7 @@ export async function sharingOperation(params: SharingOperationParams) {
         // username lookup and reader insert must go through the service-role
         // client (the anon/authenticated client can only see the caller's own
         // author row, which is why this returned "Username not found").
-        if (!isPublic && username) {
+        if (username) {
           const svc = createServiceRoleClient();
 
           const { data: userData } = await svc
@@ -380,7 +399,9 @@ export async function sharingOperation(params: SharingOperationParams) {
           }
         }
 
-        revalidatePath("/");
+        // No revalidatePath here: the share sheet refetches its own state, and
+        // refreshing "/" mid-session can remount the shell into the error
+        // boundary (same failure the avatar save hit).
         return { success: true, shortcode };
       }
 
@@ -389,7 +410,7 @@ export async function sharingOperation(params: SharingOperationParams) {
 
         let getUsersQuery = supabase
           .from("shared_notes")
-          .select("id, shortcode, is_public, storage, is_anonymous, password_hash, expires_at, view_count")
+          .select("id, shortcode, is_public, storage, is_anonymous, password_hash, expires_at, view_count, link_permission")
           .eq("note_id", noteId)
           .eq("note_owner_id", authenticatedUserId || currentUserId);
         // Without a session, only the anonymous (Redis) tier may be managed via
@@ -408,6 +429,7 @@ export async function sharingOperation(params: SharingOperationParams) {
             hasPassword: false,
             expiresAt: null,
             viewCount: 0,
+            linkPermission: "off",
           };
         }
 
@@ -429,6 +451,7 @@ export async function sharingOperation(params: SharingOperationParams) {
           hasPassword: !!(shareData as any).password_hash,
           expiresAt: (shareData as any).expires_at,
           viewCount: (shareData as any).view_count || 0,
+          linkPermission: (shareData as any).link_permission || ((shareData as any).is_public ? "view" : "off"),
         };
       }
 
