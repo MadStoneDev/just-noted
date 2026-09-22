@@ -744,6 +744,10 @@ export interface SharedListItem {
   source: SharedSource;
   /** Owner username (for granted/saved) — "Anonymous" when the share hides it. */
   owner?: string;
+  /** Owner avatar URL (for granted/saved), when not anonymous. */
+  ownerAvatar?: string | null;
+  /** Link permission level: 'off' | 'view' | 'edit' | 'published'. */
+  linkPermission?: string;
   /** True when the user bookmarked this via a link (so it's removable). */
   saved?: boolean;
   /** For owned shares. */
@@ -816,7 +820,7 @@ export async function getSharedWithMe(): Promise<{
 
   const { data: shares } = await svc
     .from("shared_notes")
-    .select("id, shortcode, note_id, note_owner_id, is_anonymous, storage, expires_at, created_at")
+    .select("id, shortcode, note_id, note_owner_id, is_anonymous, storage, expires_at, created_at, link_permission")
     .in("shortcode", allShortcodes);
 
   const notes: SharedListItem[] = [];
@@ -830,9 +834,11 @@ export async function getSharedWithMe(): Promise<{
     }
 
     let owner = "Anonymous";
+    let ownerAvatar: string | null = null;
     if (!s.is_anonymous) {
-      const { data: a } = await svc.from("authors").select("username").eq("id", s.note_owner_id).single();
+      const { data: a } = await svc.from("authors").select("username, avatar_url").eq("id", s.note_owner_id).single();
       owner = (a as any)?.username || "Unknown";
+      ownerAvatar = (a as any)?.avatar_url || null;
     }
 
     const granted = grantedSet.has(s.shortcode);
@@ -840,6 +846,8 @@ export async function getSharedWithMe(): Promise<{
       shortcode: s.shortcode,
       title,
       owner,
+      ownerAvatar,
+      linkPermission: s.link_permission || (s.is_public ? "view" : "off"),
       createdAt: s.created_at,
       source: granted ? "granted" : "saved",
       saved: savedSet.has(s.shortcode) && !granted,
@@ -863,7 +871,7 @@ export async function getSharedByMe(): Promise<{
   const svc = createServiceRoleClient();
   const { data: shares } = await svc
     .from("shared_notes")
-    .select("id, shortcode, note_id, is_public, view_count, storage, expires_at")
+    .select("id, shortcode, note_id, is_public, view_count, storage, expires_at, link_permission")
     .eq("note_owner_id", user.id);
 
   const notes: SharedListItem[] = [];
@@ -884,6 +892,7 @@ export async function getSharedByMe(): Promise<{
       title,
       source: "owned",
       isPublic: s.is_public,
+      linkPermission: s.link_permission || (s.is_public ? "view" : "off"),
       viewCount: s.view_count || 0,
       readerCount: count || 0,
     });
