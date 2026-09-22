@@ -1137,75 +1137,67 @@ function NoteEditor({
             )}
           </div>
 
-          {/* Page size picker */}
-          {showPagePicker && (
-            <div className="mb-4 flex items-center gap-2 animate-fade-in">
-              <label className="text-[10px] text-[var(--color-text-tertiary)] opacity-80">Page size:</label>
+          {/* Page size — modal */}
+          <Modal open={showPagePicker} onClose={() => setShowPagePicker(false)} title="Page size" size="sm">
+            <div className="flex flex-col gap-2">
               {(["novel", "a4", "a5"] as const).map((fmt) => (
                 <button
                   key={fmt}
                   onClick={() => { setPageFormat(fmt); setShowPagePicker(false); }}
-                  className={`px-2 py-0.5 text-[10px] rounded-[var(--radius-sm)] transition-colors ${
+                  className={`w-full text-left px-3 py-2.5 rounded-[var(--radius-8)] text-[13.5px] transition-colors border ${
                     pageFormat === fmt
-                      ? "bg-[var(--color-accent)] text-[var(--color-text-on-accent)]"
-                      : "bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover)]"
+                      ? "bg-[var(--color-accent-tint)] border-[var(--color-accent-tint-border)] text-[var(--color-accent-text)]"
+                      : "border-[var(--color-hairline)] text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)]"
                   }`}
                 >
                   {fmt === "novel" ? "Novel" : fmt.toUpperCase()}
                 </button>
               ))}
             </div>
-          )}
+          </Modal>
 
-          {/* Goal picker */}
-          {showGoalPicker && (
-            <div className="mb-4 flex items-center gap-2 animate-fade-in">
-              <label className="text-[10px] text-[var(--color-text-tertiary)] opacity-80">Goal:</label>
+          {/* Writing goal — modal */}
+          <Modal open={showGoalPicker} onClose={() => setShowGoalPicker(false)} title="Writing goal" size="sm">
+            <div className="flex flex-col gap-3">
               <input
                 type="text"
                 inputMode="numeric"
                 placeholder="e.g. 50000"
                 value={goalInput}
-                onChange={(e) => {
-                  const v = e.target.value.replace(/[^0-9]/g, "");
-                  setGoalInput(v);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleGoalSave();
-                    setShowGoalPicker(false);
-                  }
-                }}
+                onChange={(e) => setGoalInput(e.target.value.replace(/[^0-9]/g, ""))}
+                onKeyDown={(e) => { if (e.key === "Enter") { handleGoalSave(); setShowGoalPicker(false); } }}
                 autoFocus
-                className="w-24 h-7 px-2.5 text-xs bg-[var(--color-bg-tertiary)] border border-[var(--color-border-primary)] rounded-[var(--radius-md)] text-[var(--color-text-primary)] focus:border-[var(--color-border-focus)] focus:outline-none"
+                className="w-full h-10 px-3 text-[14px] bg-[var(--color-raised)] border border-[var(--color-border-control)] rounded-[var(--radius-8)] text-[var(--color-ink)] placeholder:text-[var(--color-ink-5)] focus:border-[var(--color-accent-tint-border)] focus:outline-none"
               />
-              {(["words", "characters"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => {
-                    const target = parseInt(goalInput) || 0;
-                    setGoalTarget(target);
-                    setGoalType(t);
-                    notesOperations.saveNoteContent(note.id, content, target, t);
-                    setShowGoalPicker(false);
-                  }}
-                  className={`px-2 py-0.5 text-[10px] rounded-[var(--radius-sm)] transition-colors ${
-                    goalType === t
-                      ? "bg-[var(--color-accent)] text-[var(--color-text-on-accent)]"
-                      : "bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover)]"
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
+              <div className="grid grid-cols-2 gap-2">
+                {(["words", "characters"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => {
+                      const target = parseInt(goalInput) || 0;
+                      setGoalTarget(target);
+                      setGoalType(t);
+                      notesOperations.saveNoteContent(note.id, content, target, t);
+                      setShowGoalPicker(false);
+                    }}
+                    className={`px-3 py-2 rounded-[var(--radius-8)] text-[13px] font-medium capitalize transition-colors border ${
+                      goalType === t
+                        ? "bg-[var(--color-accent-tint)] border-[var(--color-accent-tint-border)] text-[var(--color-accent-text)]"
+                        : "border-[var(--color-hairline)] text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)]"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
               <button
-                onClick={() => setShowGoalSuggestions(true)}
-                className="px-2 py-0.5 text-[10px] text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] underline decoration-dotted underline-offset-2 transition-colors"
+                onClick={() => { setShowGoalPicker(false); setShowGoalSuggestions(true); }}
+                className="self-start text-[12.5px] text-[var(--color-accent-text)] hover:text-[var(--color-accent-deep)] underline decoration-dotted underline-offset-2 transition-colors"
               >
-                suggestions
+                Need suggestions?
               </button>
             </div>
-          )}
+          </Modal>
 
           {/* Content editor — grows to fill the remaining height */}
           <div
