@@ -73,7 +73,10 @@ export function getCoverStyle(
 
   switch (coverType) {
     case "color":
-      return { backgroundColor: coverValue };
+      // A chosen flat colour renders as a subtle same-hue gradient (design call).
+      return {
+        background: `linear-gradient(150deg, color-mix(in srgb, ${coverValue} 78%, #000), ${coverValue})`,
+      };
     case "gradient":
       return { background: coverValue };
     case "photo":
@@ -142,7 +145,10 @@ export function getCoverPreviewStyle(
 ): React.CSSProperties {
   switch (coverType) {
     case "color":
-      return { backgroundColor: coverValue };
+      // A chosen flat colour renders as a subtle same-hue gradient (design call).
+      return {
+        background: `linear-gradient(150deg, color-mix(in srgb, ${coverValue} 78%, #000), ${coverValue})`,
+      };
     case "gradient":
       return { background: coverValue };
     case "photo":

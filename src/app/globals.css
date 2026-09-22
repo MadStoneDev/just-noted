@@ -214,26 +214,26 @@
   --color-ink-1: #242B2A;
   --color-ink-2: #333B39;
   --color-ink-3: #5C6664;
-  --color-ink-4: #77817F;
-  --color-ink-5: #8B9593;
-  --color-ink-6: #9BA5A3;
-  --color-ink-7: #AAB3B1;
+  --color-ink-4: #5F6A68;
+  --color-ink-5: #6B7573;
+  --color-ink-6: #7C8785;
+  --color-ink-7: #8E9998;
 
   /* Accent — on light, the bright teal is a FILL colour only (never text/thin
      borders). accent-text/accent-tint-border use the darker, legible values. */
-  --color-accent-fill: #0A8E88;
+  --color-accent-fill: #07736E;
   --color-accent-on-fill: #FFFFFF;
-  --color-accent-text: #0A7F7A;
-  --color-accent-text-soft: #0A7F7A;
-  --color-accent-deep: #086B67;
+  --color-accent-text: #066661;
+  --color-accent-text-soft: #066661;
+  --color-accent-deep: #055B57;
   --color-accent-tint: #E2F3F1;
   --color-accent-tint-border: #B4DEDA;
 
   /* Status */
-  --color-warn: #9A7412;
+  --color-warn: #8A6608;
   --color-warn-tint: #FDF6E3;
   --color-warn-tint-border: #E8D9A8;
-  --color-danger-strong: #C0392B;
+  --color-danger-strong: #B3311F;
   --color-danger-tint: #FDEDEA;
   --color-danger-tint-border: #F2C7BF;
 
@@ -253,7 +253,7 @@
   --color-avatar-violet-bg: rgba(139, 123, 240, 0.12);
   --color-avatar-violet-text: #6D5CD8;
   --color-avatar-teal-bg: rgba(15, 184, 176, 0.12);
-  --color-avatar-teal-text: #0A7F7A;
+  --color-avatar-teal-text: #066661;
   --color-avatar-neutral-bg: rgba(154, 163, 161, 0.12);
   --color-avatar-neutral-text: #5C6664;
 
