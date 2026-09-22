@@ -70,6 +70,11 @@ export function Drawer({
   const requestClose = useCallback(() => {
     if (dismissable) onClose();
   }, [dismissable, onClose]);
+  // Keep the latest requestClose in a ref so the open effect (which sets up the
+  // key handler + auto-focus) doesn't have to depend on it — otherwise every
+  // parent re-render re-runs the effect and yanks focus back to the first field.
+  const requestCloseRef = useRef(requestClose);
+  requestCloseRef.current = requestClose;
 
   useEffect(() => {
     if (open) {
@@ -92,7 +97,7 @@ export function Drawer({
 
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        requestClose();
+        requestCloseRef.current();
         return;
       }
       if (e.key !== "Tab" || !contentRef.current) return;
@@ -128,7 +133,9 @@ export function Drawer({
       document.body.style.overflow = "";
       previousFocusRef.current?.focus();
     };
-  }, [open, requestClose]);
+    // Only re-run when the drawer opens/closes — not on every parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   if (!rendered) return null;
 
