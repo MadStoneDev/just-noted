@@ -4,6 +4,9 @@ import React, { useEffect, useState } from "react";
 import { Dropdown } from "@/components/ds/dropdown";
 import { createClient } from "@/utils/supabase/client";
 import { getAccounts, switchToAccount, type DeviceAccount } from "@/utils/accounts";
+import { getQueueSize } from "@/utils/offline-queue";
+import { useNotesStore } from "@/stores/notes-store";
+import { AccountSwitchModal, AccountSwitchTransition } from "@/components/account-switch-modal";
 import {
   IconUser,
   IconPlus,
@@ -31,6 +34,9 @@ export default function AccountMenu() {
   const [accounts, setAccounts] = useState<DeviceAccount[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Target of a pending switch: shown in the confirm modal, then the transition.
+  const [confirmTarget, setConfirmTarget] = useState<DeviceAccount | null>(null);
+  const [switching, setSwitching] = useState<DeviceAccount | null>(null);
 
   useEffect(() => {
     setAccounts(getAccounts());
@@ -40,14 +46,51 @@ export default function AccountMenu() {
   const current = accounts.find((a) => a.id === currentId) || null;
   const others = accounts.filter((a) => a.id !== currentId);
 
-  const doSwitch = async (a: DeviceAccount) => {
+  // ⌃1–⌃9 jump to the Nth other account.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+      const n = parseInt(e.key, 10);
+      if (!n || n < 1 || n > 9) return;
+      const target = others[n - 1];
+      if (!target || busy || switching || confirmTarget) return;
+      e.preventDefault();
+      doSwitch(target);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accounts, currentId, busy, switching, confirmTarget]);
+
+  // Run the actual session swap (reloads on success).
+  const commitSwitch = async (a: DeviceAccount) => {
+    setConfirmTarget(null);
+    setSwitching(a);
     setBusy(true);
     const res = await switchToAccount(supabase, a); // reloads on success
     if (!res.ok) {
+      setSwitching(null);
       setBusy(false);
       setAccounts(getAccounts());
     }
   };
+
+  // Decide whether a switch is clean (go straight) or needs the confirm gate.
+  const doSwitch = async (a: DeviceAccount) => {
+    const pending = await getQueueSize();
+    const localOnly = useNotesStore
+      .getState()
+      .notes.filter((n) => !n.deletedAt && n.source === "redis").length;
+    const hasOpenShared = typeof document !== "undefined" && !!document.querySelector('[aria-label="Shared note"]');
+    if (pending === 0 && localOnly === 0 && !hasOpenShared) {
+      await commitSwitch(a);
+      return;
+    }
+    setConfirmTarget(a);
+  };
+
+  const hasOpenShared =
+    typeof document !== "undefined" && !!document.querySelector('[aria-label="Shared note"]');
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -55,6 +98,16 @@ export default function AccountMenu() {
   };
 
   return (
+    <>
+    {switching && <AccountSwitchTransition target={switching} />}
+    {confirmTarget && (
+      <AccountSwitchModal
+        target={confirmTarget}
+        hasOpenSharedNote={hasOpenShared}
+        onCancel={() => setConfirmTarget(null)}
+        onConfirm={() => commitSwitch(confirmTarget)}
+      />
+    )}
     <Dropdown
       placement="right-end"
       trigger={
@@ -135,5 +188,6 @@ export default function AccountMenu() {
         </button>
       </div>
     </Dropdown>
+    </>
   );
 }

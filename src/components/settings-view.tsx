@@ -21,7 +21,18 @@ import {
   IconSun,
   IconMoon,
   IconDeviceDesktop,
+  IconUser,
+  IconPlus,
+  IconLogout,
+  IconCheck,
 } from "@tabler/icons-react";
+import {
+  getAccounts,
+  removeAccount,
+  switchToAccount,
+  MAX_ACCOUNTS,
+  type DeviceAccount,
+} from "@/utils/accounts";
 
 interface SettingsViewProps {
   onClose: () => void;
@@ -181,6 +192,115 @@ function AccountSection() {
       >
         {saving ? "Saving…" : "Save changes"}
       </button>
+    </div>
+  );
+}
+
+// "Accounts on this device" — manage the signed-in accounts stored locally
+// (design surface 12). Sign out removes an account's session from this device.
+function DeviceAccountsSection() {
+  const supabase = createClient();
+  const { showError } = useToast();
+  const [accounts, setAccounts] = useState<DeviceAccount[]>([]);
+  const [currentId, setCurrentId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAccounts(getAccounts());
+    supabase.auth.getUser().then(({ data }) => setCurrentId(data.user?.id ?? null));
+  }, []);
+
+  const signOutHere = async (a: DeviceAccount) => {
+    if (a.id === currentId) {
+      await supabase.auth.signOut();
+      removeAccount(a.id);
+      window.location.href = "/";
+      return;
+    }
+    removeAccount(a.id);
+    setAccounts(getAccounts());
+  };
+
+  const switchTo = async (a: DeviceAccount) => {
+    setBusyId(a.id);
+    const res = await switchToAccount(supabase, a); // reloads on success
+    if (!res.ok) {
+      setBusyId(null);
+      setAccounts(getAccounts());
+      showError("That session expired — sign in again to reconnect it.");
+    }
+  };
+
+  return (
+    <div>
+      <div className="mb-1 text-[13px] font-semibold text-[var(--color-ink-1)]">Accounts on this device</div>
+      <p className="mb-3 text-[11.5px] text-[var(--color-ink-5)]">
+        Switch between accounts without signing in each time. Up to {MAX_ACCOUNTS} on one device.
+      </p>
+
+      <div className="space-y-1.5">
+        {accounts.map((a) => {
+          const isCurrent = a.id === currentId;
+          return (
+            <div
+              key={a.id}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-9)] border ${
+                isCurrent
+                  ? "bg-[var(--color-accent-tint)] border-[var(--color-accent-tint-border)]"
+                  : "border-[var(--color-hairline)]"
+              }`}
+            >
+              <span className="w-8 h-8 rounded-full overflow-hidden bg-[var(--color-raised-soft)] ring-1 ring-[var(--color-hairline)] flex items-center justify-center text-[var(--color-ink-4)] shrink-0">
+                {a.avatarUrl ? (
+                  <img src={a.avatarUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <IconUser size={17} />
+                )}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-[13px] truncate ${isCurrent ? "text-[var(--color-accent-text)]" : "text-[var(--color-ink-1)]"}`}>
+                    @{a.handle || "account"}
+                  </span>
+                  {isCurrent && <IconCheck size={13} className="text-[var(--color-accent-text)] shrink-0" />}
+                </div>
+                <div className={`text-[10.5px] font-[family-name:var(--font-meta)] truncate ${a.sessionValid ? "text-[var(--color-ink-5)]" : "text-[var(--color-warn)]"}`}>
+                  {a.sessionValid ? a.email : "session expired — sign in"}
+                </div>
+              </div>
+              {!isCurrent && a.sessionValid && (
+                <button
+                  onClick={() => switchTo(a)}
+                  disabled={busyId === a.id}
+                  className="h-7 px-2.5 rounded-[var(--radius-6)] text-[12px] font-medium border border-[var(--color-border-control)] text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)] transition-colors disabled:opacity-50"
+                >
+                  {busyId === a.id ? "Switching…" : "Switch"}
+                </button>
+              )}
+              <button
+                onClick={() => signOutHere(a)}
+                title={isCurrent ? "Sign out" : "Remove from this device"}
+                className="h-7 px-2.5 rounded-[var(--radius-6)] text-[12px] font-medium text-[var(--color-ink-4)] hover:text-[var(--color-danger)] hover:bg-[var(--color-raised-soft)] transition-colors inline-flex items-center gap-1"
+              >
+                <IconLogout size={14} />
+                {isCurrent ? "Sign out" : "Remove"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {accounts.length < MAX_ACCOUNTS && (
+        <button
+          onClick={() => { window.location.href = "/get-access?add=1"; }}
+          className="mt-2.5 w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[var(--radius-9)] border border-dashed border-[var(--color-border-control-strong)] text-[13px] text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)] transition-colors"
+        >
+          <span className="w-8 h-8 rounded-full border border-dashed border-[var(--color-border-control-strong)] flex items-center justify-center shrink-0">
+            <IconPlus size={16} />
+          </span>
+          Add another account
+        </button>
+      )}
     </div>
   );
 }
@@ -354,7 +474,10 @@ export default function SettingsView({ onClose }: SettingsViewProps) {
               </div>
             </div>
           ) : section === "Account" ? (
-            <AccountSection />
+            <div className="space-y-8">
+              <AccountSection />
+              <DeviceAccountsSection />
+            </div>
           ) : section === "Security" ? (
             <div className="text-[13.5px] text-[var(--color-ink-4)] leading-[1.6]">
               Notes are encrypted in transit and at rest — this is not end-to-end
