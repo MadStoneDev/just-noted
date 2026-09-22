@@ -80,6 +80,7 @@ export default function LazyTextBlock({
   isCollapsed = false,
   toolbarContainer,
   readOnly = false,
+  collab,
 }: Props) {
   const [localValue, setLocalValue] = useState(value);
   const [localFormat, setLocalFormat] = useState<ContentFormat>(contentFormat);
@@ -175,6 +176,7 @@ export default function LazyTextBlock({
           placeholder={placeholder}
           toolbarContainer={toolbarContainer}
           readOnly={readOnly}
+          collab={collab}
         />
       </Suspense>
     </div>

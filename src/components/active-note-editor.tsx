@@ -4,6 +4,9 @@ import React, { useCallback, useState, useRef, useEffect, useMemo } from "react"
 
 const LAST_NOTE_KEY = "justnoted_last_note";
 import LazyTextBlock from "@/components/lazy-text-block";
+import { createClient } from "@/utils/supabase/client";
+import { sharingOperation } from "@/app/actions/sharing";
+import { colorForUser } from "@/hooks/use-presence";
 import { useNotesStore, useNotebooks } from "@/stores/notes-store";
 import { useAutoSave } from "@/hooks/use-auto-save";
 import { saveNoteToLocal } from "@/utils/notes-idb-cache";
@@ -390,6 +393,30 @@ function NoteEditor({
   const [isImporting, setIsImporting] = useState(false);
   const [editorRemountKey, setEditorRemountKey] = useState(0);
   const [viewMode, setViewMode] = useState<"rendered" | "source">("rendered");
+
+  // Live collaboration for the owner (design surface 05): when this note is
+  // shared with "Can edit", the owner joins the same Yjs room as its
+  // collaborators so their edits merge instead of clobbering.
+  const [collabConfig, setCollabConfig] = useState<{ roomKey: string; user: { name: string; color: string } } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setCollabConfig(null);
+    if (!isAuthenticated || note.source !== "supabase") return;
+    (async () => {
+      try {
+        const res = (await sharingOperation({ operation: "getUsers", noteId: note.id, currentUserId: userId })) as any;
+        if (cancelled || !res?.success || res.linkPermission !== "edit") return;
+        const supabase = createClient();
+        const { data: a } = await supabase.from("authors").select("username").eq("id", userId).single();
+        if (cancelled) return;
+        setCollabConfig({
+          roomKey: note.id,
+          user: { name: (a as any)?.username || "you", color: colorForUser(userId) },
+        });
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [note.id, note.source, userId, isAuthenticated]);
 
   const titleInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -1273,7 +1300,7 @@ function NoteEditor({
               />
             ) : (
               <LazyTextBlock
-                key={`${note.id}-${editorRemountKey}`}
+                key={`${note.id}-${editorRemountKey}-${collabConfig ? "c" : "n"}`}
                 noteId={note.id}
                 value={content}
                 contentFormat={contentFormat}
@@ -1283,6 +1310,7 @@ function NoteEditor({
                 placeholder="Start writing..."
                 className="flex-1 flex flex-col overflow-visible"
                 toolbarContainer={toolbarSlot}
+                collab={collabConfig ?? undefined}
               />
             )}
           </div>
