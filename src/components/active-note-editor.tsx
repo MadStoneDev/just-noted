@@ -1095,10 +1095,19 @@ function NoteEditor({
           {/* Notebook pill + stats */}
           <div className="print:hidden flex items-center gap-2 flex-wrap">
             {notebook && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-px text-[11px] rounded-[var(--radius-5)] bg-[var(--color-raised-soft)] text-[var(--color-ink-3)]">
+              <button
+                onClick={() => {
+                  const s = useNotesStore.getState();
+                  s.setActiveNotebookId(notebook.id);
+                  s.setSidebarOpen(true);
+                  window.dispatchEvent(new Event("justnoted:show-notes"));
+                }}
+                title={`Go to ${notebook.name}`}
+                className="inline-flex items-center gap-1 px-1.5 py-px text-[11px] rounded-[var(--radius-5)] bg-[var(--color-raised-soft)] text-[var(--color-ink-3)] hover:text-[var(--color-accent-text)] transition-colors"
+              >
                 <IconNotebook size={9} className="shrink-0" />
                 {notebook.name}
-              </span>
+              </button>
             )}
             <span className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
               <span title={`${wordCount} words`}>{wordCount}w</span> · <span title={`${charCount} characters`}>{charCount}c</span> · <span title="Estimated reading time">{readingTime}</span> ·{" "}

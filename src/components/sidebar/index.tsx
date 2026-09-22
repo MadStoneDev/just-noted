@@ -909,10 +909,18 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                             const notebook = notebooks.find((nb) => nb.id === note.notebookId);
                             if (notebook) {
                               return (
-                                <span className="inline-flex items-center gap-0.5 mt-1 px-1.5 py-px text-[11px] font-medium rounded-[var(--radius-sm)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)] truncate max-w-[150px]">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveNotebookId(notebook.id);
+                                    setRailView("notes");
+                                  }}
+                                  title={`Go to ${notebook.name}`}
+                                  className="inline-flex items-center gap-0.5 mt-1 px-1.5 py-px text-[11px] font-medium rounded-[var(--radius-sm)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)] truncate max-w-[150px] transition-colors"
+                                >
                                   <IconNotebook size={10} className="shrink-0" />
                                   {notebook.name}
-                                </span>
+                                </button>
                               );
                             }
                             return null;
