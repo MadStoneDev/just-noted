@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   getSharedWithMe,
   getSharedByMe,
@@ -25,6 +25,7 @@ import {
 } from "@tabler/icons-react";
 
 type Filter = "all" | "granted" | "saved" | "owned";
+type Sort = "recent" | "title";
 
 interface SharedNavListProps {
   onOpen: (shortcode: string) => void;
@@ -38,7 +39,23 @@ export default function SharedNavList({ onOpen }: SharedNavListProps) {
   const [items, setItems] = useState<SharedListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
+  const [sort, setSort] = useState<Sort>("recent");
   const [addOpen, setAddOpen] = useState(false);
+
+  // Stable, deterministic ordering (the fetches come back unsorted, which is
+  // why the list "kept coming back in a different order").
+  const sortedItems = useMemo(() => {
+    const arr = [...items];
+    arr.sort((a, b) => {
+      if (sort === "title") {
+        return a.title.localeCompare(b.title) || a.shortcode.localeCompare(b.shortcode);
+      }
+      const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
+      const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
+      return (tb - ta) || a.title.localeCompare(b.title) || a.shortcode.localeCompare(b.shortcode);
+    });
+    return arr;
+  }, [items, sort]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -73,7 +90,7 @@ export default function SharedNavList({ onOpen }: SharedNavListProps) {
     { key: "owned", label: "Shared by you" },
   ];
   const visibleGroups = filter === "all" ? groups : groups.filter((g) => g.key === filter);
-  const visibleCount = items.filter((i) => filter === "all" || i.source === filter).length;
+  const visibleCount = sortedItems.filter((i) => filter === "all" || i.source === filter).length;
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -95,6 +112,16 @@ export default function SharedNavList({ onOpen }: SharedNavListProps) {
           </button>
         ))}
         <div className="flex-1" />
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value as Sort)}
+          title="Sort shared notes"
+          aria-label="Sort shared notes"
+          className="h-8 px-1.5 text-[11px] bg-[var(--color-raised-soft)] text-[var(--color-ink-3)] rounded-[var(--radius-md)] border border-transparent focus:border-[var(--color-accent-fill)] outline-none cursor-pointer"
+        >
+          <option value="recent">Recent</option>
+          <option value="title">A–Z</option>
+        </select>
         <button
           onClick={() => setAddOpen(true)}
           title="Add by link"
@@ -114,7 +141,7 @@ export default function SharedNavList({ onOpen }: SharedNavListProps) {
       ) : (
         <div className="flex-1 overflow-y-auto scrollbar-thin p-1.5">
           {visibleGroups.map((g) => {
-            const rows = items.filter((i) => i.source === g.key);
+            const rows = sortedItems.filter((i) => i.source === g.key);
             if (rows.length === 0) return null;
             return (
               <div key={g.key} className="mb-1">
