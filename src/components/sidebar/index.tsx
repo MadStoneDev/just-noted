@@ -839,7 +839,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                             ) : (
                               <IconNote size={13} className="mt-[3px] text-[var(--color-ink-5)] flex-shrink-0" />
                             )}
-                            <h3 className="text-[13px] font-medium text-[var(--color-ink-1)] break-words">
+                            <h3 className="flex-1 min-w-0 text-[13px] font-medium text-[var(--color-ink-1)] leading-snug whitespace-normal break-words">
                               {note.title}
                             </h3>
                           </div>
