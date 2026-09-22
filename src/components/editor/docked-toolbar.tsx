@@ -50,7 +50,7 @@ export default function DockedToolbar({ getEditor, containerRef }: DockedToolbar
       // Keep the editor selection when tapping a button.
       onMouseDown={(e) => e.preventDefault()}
     >
-      <div className="flex flex-nowrap items-center gap-px px-1.5 py-1 overflow-x-auto scrollbar-thin">
+      <div className="flex flex-nowrap items-center md:justify-center gap-px px-1.5 py-1 overflow-x-auto scrollbar-thin">
         <button className={cls(active.strong)} onClick={actions.bold} title="Bold (Ctrl+B)" aria-label="Bold" aria-pressed={active.strong}>
           <IconBold />
         </button>
