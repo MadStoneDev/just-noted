@@ -62,7 +62,10 @@ export function Dropdown({
             style={floatingStyles}
             {...getFloatingProps()}
             className={cn(
-              "z-50 min-w-[180px] max-h-[min(400px,60vh)] overflow-y-auto py-1 bg-[var(--color-bg-elevated)] border border-[var(--color-border-primary)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] transition-opacity duration-[var(--duration-fast)]",
+              // Portaled to <body>, so it can't inherit a drawer/modal's stacking
+              // context — it needs an explicit tier above them (10000) and below
+              // toasts (10050). See the z-index scale note below.
+              "z-[10010] min-w-[180px] max-h-[min(400px,60vh)] overflow-y-auto py-1 bg-[var(--color-bg-elevated)] border border-[var(--color-border-primary)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] transition-opacity duration-[var(--duration-fast)]",
               isPositioned ? "opacity-100" : "opacity-0",
               className,
             )}

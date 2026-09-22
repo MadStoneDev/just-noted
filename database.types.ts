@@ -393,6 +393,7 @@ export type Database = {
           first_viewed_at: string | null
           last_viewed_at: string | null
           created_at: string | null
+          role: string
         }
         Insert: {
           id?: string
@@ -403,6 +404,7 @@ export type Database = {
           first_viewed_at?: string | null
           last_viewed_at?: string | null
           created_at?: string | null
+          role?: string
         }
         Update: {
           id?: string
@@ -413,6 +415,7 @@ export type Database = {
           first_viewed_at?: string | null
           last_viewed_at?: string | null
           created_at?: string | null
+          role?: string
         }
         Relationships: [
           {
@@ -537,6 +540,12 @@ export type Database = {
     Views: {
     }
     Functions: {
+      author_id_by_email: {
+        Args: {
+          p_email: string
+        }
+        Returns: string
+      }
       create_author_with_random_username: {
         Args: {
           user_id: string
