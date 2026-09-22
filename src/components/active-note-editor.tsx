@@ -1089,6 +1089,14 @@ function NoteEditor({
               >
                 {goalTarget > 0 ? `${Math.round(progressPercentage)}% of ${goalTarget} ${goalType}` : "set goal"}
               </button>
+              {" "}·{" "}
+              {isSaving ? (
+                <span className="text-[var(--color-ink-4)]">Saving…</span>
+              ) : noteSource === "supabase" ? (
+                <span className="text-[var(--color-accent-text)]">Synced</span>
+              ) : (
+                <span className="text-[var(--color-ink-4)]">Saved</span>
+              )}
             </span>
             {goalTarget > 0 && (
               <span
