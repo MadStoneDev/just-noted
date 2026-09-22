@@ -178,6 +178,24 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
       : activeNotebookId === "loose"
         ? "Loose Notes"
         : notebooks.find((nb) => nb.id === activeNotebookId)?.name || "Notes";
+
+  // Ancestor chain [topmost … current] for the breadcrumb, when a real notebook
+  // (not All / Loose) is selected.
+  const notebookChain: Notebook[] = (() => {
+    if (!activeNotebookId || activeNotebookId === "loose") return [];
+    const byId = new Map(notebooks.map((nb) => [nb.id, nb]));
+    const chain: Notebook[] = [];
+    let id: string | null | undefined = activeNotebookId;
+    const seen = new Set<string>();
+    while (id && !seen.has(id)) {
+      seen.add(id);
+      const nb = byId.get(id);
+      if (!nb) break;
+      chain.unshift(nb);
+      id = nb.parentId;
+    }
+    return chain;
+  })();
   const deleteNoteTitle = deleteNoteId ? filteredNotes.find(n => n.id === deleteNoteId)?.title || "this note" : "";
 
   const hasLoadedNotebooks = useRef(false);
@@ -634,15 +652,59 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
           <div className="flex-1 flex flex-col min-w-0 relative">
             {/* View header */}
             <div className="flex items-center justify-between px-3 h-[52px] flex-none border-b border-[var(--color-hairline-soft)]">
-              <h2 className="text-sm font-semibold text-[var(--color-ink-1)] tracking-tight truncate">
-                {railView === "notebooks"
-                  ? "Notebooks"
-                  : railView === "tags"
-                    ? "Tags"
-                    : railView === "shared"
-                      ? "Shared"
-                      : viewContextName}
-              </h2>
+              {railView === "notes" && notebookChain.length > 0 ? (
+                <nav className="flex items-center gap-1 min-w-0 text-sm font-semibold" aria-label="Breadcrumb">
+                  {notebookChain.length < 3 ? (
+                    <>
+                      <button
+                        onClick={() => setActiveNotebookId(null)}
+                        className="shrink-0 text-[var(--color-ink-4)] hover:text-[var(--color-ink-1)] transition-colors"
+                      >
+                        All
+                      </button>
+                      {notebookChain.map((nb, i) => (
+                        <React.Fragment key={nb.id}>
+                          <span className="shrink-0 text-[var(--color-ink-6)]">›</span>
+                          {i === notebookChain.length - 1 ? (
+                            <span className="min-w-0 truncate text-[var(--color-ink-1)]">{nb.name}</span>
+                          ) : (
+                            <button
+                              onClick={() => setActiveNotebookId(nb.id)}
+                              className="min-w-0 truncate text-[var(--color-ink-4)] hover:text-[var(--color-ink-1)] transition-colors"
+                            >
+                              {nb.name}
+                            </button>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setActiveNotebookId(notebookChain[notebookChain.length - 2].id)}
+                        title="Up one level"
+                        className="shrink-0 text-[var(--color-ink-4)] hover:text-[var(--color-ink-1)] transition-colors"
+                      >
+                        …
+                      </button>
+                      <span className="shrink-0 text-[var(--color-ink-6)]">›</span>
+                      <span className="min-w-0 truncate text-[var(--color-ink-1)]">
+                        {notebookChain[notebookChain.length - 1].name}
+                      </span>
+                    </>
+                  )}
+                </nav>
+              ) : (
+                <h2 className="text-sm font-semibold text-[var(--color-ink-1)] tracking-tight truncate">
+                  {railView === "notebooks"
+                    ? "Notebooks"
+                    : railView === "tags"
+                      ? "Tags"
+                      : railView === "shared"
+                        ? "Shared"
+                        : viewContextName}
+                </h2>
+              )}
               {railView === "notes" && hasActiveFilters && (
                 <button
                   onClick={clearFilters}
