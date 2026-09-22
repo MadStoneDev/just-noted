@@ -17,6 +17,8 @@ import { sharingOperation } from "@/app/actions/sharing";
 import { createClient } from "@/utils/supabase/client";
 import MilkdownEditor from "@/components/editor/milkdown-editor";
 import type { ContentFormat } from "@/types/combined-notes";
+import { usePresence } from "@/hooks/use-presence";
+import { PresenceStack } from "@/components/presence-stack";
 
 interface SharedNote {
   id: string;
@@ -64,6 +66,7 @@ export default function SharedNotePage({
 
   const supabase = createClient();
   const canEdit = !!note?.canEdit;
+  const presence = usePresence(note?.id ?? null);
 
   const scheduleSave = useCallback(
     (nextTitle: string, nextContent: string) => {
@@ -262,18 +265,26 @@ export default function SharedNotePage({
     return (
       <main className="flex-grow pt-14">
         <div className="max-w-[var(--content-width)] mx-auto mt-3 px-4 md:px-8">
-          <div className="flex items-center justify-between gap-3 px-3 h-11 rounded-[var(--radius-9)] bg-[var(--color-accent-tint)] border border-[var(--color-accent-tint-border)]">
-            <span className="inline-flex items-center gap-1.5 min-w-0 text-[13px] text-[var(--color-accent-text)]">
-              <IconShare size={14} className="shrink-0" />
-              <span className="truncate">
-                {isAnonymous ? "Shared note" : <>Shared by <strong className="font-semibold">@{note.authorUsername}</strong></>} · you can edit
+          <div className="flex items-center justify-between gap-3 px-3 py-1.5 min-h-[44px] rounded-[var(--radius-9)] bg-[var(--color-accent-tint)] border border-[var(--color-accent-tint-border)]">
+            <div className="min-w-0">
+              <span className="inline-flex items-center gap-1.5 min-w-0 text-[13px] text-[var(--color-accent-text)]">
+                <IconShare size={14} className="shrink-0" />
+                <span className="truncate">
+                  {isAnonymous ? "Shared note" : <>Shared by <strong className="font-semibold">@{note.authorUsername}</strong></>} · you can edit
+                </span>
               </span>
-            </span>
-            {saveLabel && (
-              <span className={`text-[11px] font-[family-name:var(--font-meta)] shrink-0 ${saveStatus === "error" ? "text-[var(--color-danger)]" : "text-[var(--color-accent-text)]"}`}>
-                {saveLabel}
-              </span>
-            )}
+              <div className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-accent-deep)] leading-tight">
+                owner keeps control of access
+              </div>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <PresenceStack users={presence} />
+              {saveLabel && (
+                <span className={`text-[11px] font-[family-name:var(--font-meta)] ${saveStatus === "error" ? "text-[var(--color-danger)]" : "text-[var(--color-accent-text)]"}`}>
+                  {saveLabel}
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <article className="max-w-[var(--content-width)] mx-auto px-4 md:px-8 py-8">
