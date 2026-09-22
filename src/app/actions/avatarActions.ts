@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
 import { uploadToR2, r2PublicUrl, isR2Configured } from "@/utils/storage/r2";
 
@@ -51,7 +50,10 @@ export async function uploadAvatar(
       return { success: false, error: "Uploaded, but couldn't save your profile." };
     }
 
-    revalidatePath("/");
+    // No revalidatePath here: this action is called from the in-shell settings
+    // overlay, and refreshing the "/" route mid-session remounts NoteWrapper and
+    // can throw to the error boundary. The client applies the returned URL
+    // directly; server-rendered surfaces pick it up on their next load.
     return { success: true, url };
   } catch (e) {
     console.error("Avatar upload failed:", e);
