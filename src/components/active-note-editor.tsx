@@ -385,7 +385,16 @@ function NoteEditor({
   const [editorRemountKey, setEditorRemountKey] = useState(0);
   const [viewMode, setViewMode] = useState<"rendered" | "source">("rendered");
 
-  const titleInputRef = useRef<HTMLInputElement>(null);
+  const titleInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-grow the title textarea so long titles wrap onto multiple lines.
+  const autoGrowTitle = useCallback((el: HTMLTextAreaElement) => {
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+  useEffect(() => {
+    if (titleInputRef.current) autoGrowTitle(titleInputRef.current);
+  }, [title, autoGrowTitle]);
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastSavedContentRef = useRef(note.content);
@@ -528,7 +537,7 @@ function NoteEditor({
     (e: React.KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
-        (e.target as HTMLInputElement).blur();
+        (e.target as HTMLTextAreaElement).blur();
       }
     },
     [],
@@ -1044,17 +1053,17 @@ function NoteEditor({
       {/* Editor area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin">
         <div className={`mx-auto px-4 md:px-8 py-6 min-h-full flex flex-col transition-[max-width] duration-[var(--duration-slow)] ${isWide ? "max-w-none" : "max-w-[var(--content-width)]"}`}>
-          {/* Title */}
-          <input
+          {/* Title — textarea so long titles wrap instead of truncating */}
+          <textarea
             ref={titleInputRef}
             data-note-title
-            type="text"
+            rows={1}
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => { setTitle(e.target.value); autoGrowTitle(e.target); }}
             onBlur={handleTitleBlur}
             onKeyDown={handleTitleKeyDown}
             placeholder="Untitled"
-            className="w-full font-[family-name:var(--font-editor)] text-[32px] md:text-[46px] leading-[1.1] font-medium tracking-[-0.015em] text-[var(--color-ink)] placeholder:text-[var(--color-ink-6)] bg-transparent border-none outline-none mb-1"
+            className="w-full resize-none overflow-hidden font-[family-name:var(--font-editor)] text-[32px] md:text-[46px] leading-[1.1] font-medium tracking-[-0.015em] text-[var(--color-ink)] placeholder:text-[var(--color-ink-6)] bg-transparent border-none outline-none mb-1"
           />
 
           {/* Notebook pill + stats */}
