@@ -21,6 +21,8 @@ type SharingOperationParams =
       expiresAt?: string | null;
       // Link permission level (design surface 04): 'off' | 'view' | 'edit' | 'published'.
       linkPermission?: "off" | "view" | "edit" | "published";
+      // Role for a person added by username/email: 'view' | 'edit'.
+      role?: "view" | "edit";
     }
   | { operation: "getUsers"; noteId: string; currentUserId: string }
   | {
@@ -362,21 +364,36 @@ export async function sharingOperation(params: SharingOperationParams) {
         // author row, which is why this returned "Username not found").
         if (username) {
           const svc = createServiceRoleClient();
+          const identifier = username.trim();
+          const readerRole = params.role === "edit" ? "edit" : "view";
 
-          const { data: userData } = await svc
-            .from("authors")
-            .select("id, username")
-            .ilike("username", username.trim()) // case-insensitive exact match
-            .maybeSingle();
-
-          if (!userData) {
-            return { success: false, error: "Username not found" };
+          // Resolve the person by email (auth.users, via a SECURITY DEFINER
+          // function) or by username (authors). auth.users isn't reachable over
+          // PostgREST, so email must go through the RPC.
+          let readerId: string | null = null;
+          let canonicalUsername = identifier;
+          if (identifier.includes("@")) {
+            const { data: uid } = await (svc.rpc as any)("author_id_by_email", { p_email: identifier });
+            readerId = (uid as string) || null;
+            if (!readerId) {
+              return { success: false, error: "No JustNoted account uses that email" };
+            }
+            const { data: a } = await svc.from("authors").select("username").eq("id", readerId).maybeSingle();
+            canonicalUsername = (a as any)?.username || identifier;
+          } else {
+            const { data: userData } = await svc
+              .from("authors")
+              .select("id, username")
+              .ilike("username", identifier)
+              .maybeSingle();
+            if (!userData) {
+              return { success: false, error: "No account with that username" };
+            }
+            readerId = (userData as any).id;
+            canonicalUsername = (userData as any).username;
           }
 
-          const readerId = (userData as any).id;
-          const canonicalUsername = (userData as any).username;
-
-          // Check if user already has access
+          // Already has access? Just update their role.
           const { data: existingReaders } = await svc
             .from("shared_notes_readers")
             .select("id")
@@ -385,11 +402,11 @@ export async function sharingOperation(params: SharingOperationParams) {
             .maybeSingle();
 
           if (existingReaders) {
-            return {
-              success: true,
-              shortcode,
-              message: "User already has access",
-            };
+            await svc
+              .from("shared_notes_readers")
+              .update({ role: readerRole } as any)
+              .eq("id", (existingReaders as any).id);
+            return { success: true, shortcode, message: "Access updated" };
           }
 
           // Add reader — store the canonical username so access checks in
@@ -400,7 +417,8 @@ export async function sharingOperation(params: SharingOperationParams) {
               shared_note: shareId,
               reader_username: canonicalUsername,
               reader_id: readerId,
-            });
+              role: readerRole,
+            } as any);
 
           if (insertReaderError) {
             return { success: false, error: "Failed to share with user" };
@@ -443,11 +461,14 @@ export async function sharingOperation(params: SharingOperationParams) {
 
         const { data: readersData } = await supabase
           .from("shared_notes_readers")
-          .select("reader_username")
+          .select("reader_username, role")
           .eq("shared_note", shareData.id);
 
         const users =
-          readersData?.map((reader) => reader.reader_username) || [];
+          readersData?.map((reader: any) => ({
+            username: reader.reader_username,
+            role: reader.role || "view",
+          })) || [];
 
         return {
           success: true,
@@ -564,10 +585,25 @@ export async function sharingOperation(params: SharingOperationParams) {
         const isAnonymous = (shareData as any).is_anonymous || false;
         const linkPermission: string =
           (shareData as any).link_permission || (shareData.is_public ? "view" : "off");
+        // The viewer's own per-person role, if they were added as a reader.
+        let viewerRole: string | null = null;
+        if (authenticatedUserId) {
+          const { data: r } = await serviceClient
+            .from("shared_notes_readers")
+            .select("role")
+            .eq("shared_note", shareData.id)
+            .eq("reader_id", authenticatedUserId)
+            .maybeSingle();
+          viewerRole = (r as any)?.role ?? null;
+        }
         // A signed-in visitor may edit a Supabase-backed note when the link is
-        // set to "Can edit". Anonymous editing is not supported, and the Redis
-        // (anonymous-owner) tier is view-only here. Enforced again on save.
-        const canEdit = linkPermission === "edit" && !!authenticatedUserId && storage === "supabase";
+        // set to "Can edit", or when they were added as an editor. Anonymous
+        // editing is not supported and the Redis tier is view-only. Re-checked
+        // on save.
+        const canEdit =
+          (linkPermission === "edit" || viewerRole === "edit") &&
+          !!authenticatedUserId &&
+          storage === "supabase";
 
         let authorInfo: { username: string; avatar_url: string | null } = {
           username: "Anonymous",
@@ -630,9 +666,20 @@ export async function sharingOperation(params: SharingOperationParams) {
         if (shareErr || !shareData) {
           return { success: false, error: "Shared note not found" };
         }
-        // Enforce the edit permission server-side, not only in the UI.
-        if ((shareData as any).link_permission !== "edit") {
-          return { success: false, error: "This link doesn't allow editing" };
+        // Enforce edit access server-side: either the link allows editing, or
+        // this person was added as an editor.
+        let mayEdit = (shareData as any).link_permission === "edit";
+        if (!mayEdit) {
+          const { data: r } = await svc
+            .from("shared_notes_readers")
+            .select("role")
+            .eq("shared_note", (shareData as any).id)
+            .eq("reader_id", authenticatedUserId)
+            .maybeSingle();
+          mayEdit = (r as any)?.role === "edit";
+        }
+        if (!mayEdit) {
+          return { success: false, error: "You don't have edit access to this note" };
         }
         if ((shareData as any).storage && (shareData as any).storage !== "supabase") {
           return { success: false, error: "This note can't be edited here" };
