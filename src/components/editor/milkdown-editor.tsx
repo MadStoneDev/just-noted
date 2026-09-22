@@ -1,8 +1,12 @@
 "use client";
 
-import React, { useRef, useMemo, useCallback } from "react";
+import React, { useRef, useMemo, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Editor, rootCtx, defaultValueCtx, remarkStringifyOptionsCtx, editorViewCtx } from "@milkdown/core";
+import { collab, collabServiceCtx } from "@milkdown/plugin-collab";
+import * as Y from "yjs";
+import { Awareness } from "y-protocols/awareness";
+import { SupabaseYjsProvider } from "@/lib/yjs-supabase-provider";
 import { commonmark } from "@milkdown/preset-commonmark";
 import { gfm } from "@milkdown/preset-gfm";
 import { listener, listenerCtx } from "@milkdown/plugin-listener";
@@ -168,6 +172,15 @@ interface MilkdownEditorProps {
    * inside the scrolling content. Falls back to inline when omitted.
    */
   toolbarContainer?: HTMLElement | null;
+  /**
+   * Enables live collaboration (design surface 05). All clients with the same
+   * roomKey share a Yjs document over Supabase Realtime; edits merge without
+   * conflicts and each person's caret shows in their colour.
+   */
+  collab?: {
+    roomKey: string;
+    user: { name: string; color: string };
+  };
 }
 
 function cleanCorruptedMarkdown(text: string): string {
@@ -205,7 +218,9 @@ function MilkdownEditorInner({
   readOnly = false,
   className,
   toolbarContainer,
+  collab: collabConfig,
 }: MilkdownEditorProps) {
+  const collabEnabled = !!collabConfig;
   const onChangeRef = useRef(onChange);
   const onFocusRef = useRef(onFocus);
   const onBlurRef = useRef(onBlur);
@@ -228,7 +243,9 @@ function MilkdownEditorInner({
     return Editor.make()
       .config((ctx) => {
         ctx.set(rootCtx, root);
-        ctx.set(defaultValueCtx, initialMarkdown);
+        // In collab mode the Yjs document is the source of truth; seed via the
+        // provider instead of the default value to avoid a double-insert.
+        ctx.set(defaultValueCtx, collabEnabled ? "" : initialMarkdown);
         ctx.set(remarkStringifyOptionsCtx, {
           bullet: "-",
           listItemIndent: "one",
@@ -259,8 +276,57 @@ function MilkdownEditorInner({
       .use(indent)
       .use(cursor)
       .use(codeBlockEscape)
-      .use(inputRuleUndo);
+      .use(inputRuleUndo)
+      .use(collabEnabled ? collab : []);
   }, []);
+
+  // Live collaboration: bind a Yjs doc + awareness synced over Supabase Realtime.
+  useEffect(() => {
+    if (!collabConfig) return;
+    let cancelled = false;
+    let provider: SupabaseYjsProvider | null = null;
+    let doc: Y.Doc | null = null;
+    let service: any = null;
+    let seedTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const bind = () => {
+      if (cancelled) return;
+      const editor = get();
+      if (!editor) {
+        requestAnimationFrame(bind);
+        return;
+      }
+      doc = new Y.Doc();
+      const awareness = new Awareness(doc);
+      awareness.setLocalStateField("user", {
+        name: collabConfig.user.name,
+        color: collabConfig.user.color,
+      });
+      provider = new SupabaseYjsProvider(collabConfig.roomKey, doc, awareness);
+      editor.action((ctx: any) => {
+        service = ctx.get(collabServiceCtx);
+        service.bindDoc(doc).setAwareness(awareness).connect();
+      });
+      // Seed from the note's saved content only if, after peers have had a
+      // chance to sync, the shared doc is still empty (i.e. we're first in).
+      seedTimer = setTimeout(() => {
+        if (cancelled || !service) return;
+        try {
+          service.applyTemplate(initialMarkdown);
+        } catch {}
+      }, 600);
+    };
+    bind();
+
+    return () => {
+      cancelled = true;
+      if (seedTimer) clearTimeout(seedTimer);
+      try { service?.disconnect(); } catch {}
+      provider?.destroy();
+      doc?.destroy();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collabConfig?.roomKey]);
 
   const handleTaskClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;

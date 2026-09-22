@@ -17,7 +17,7 @@ import { sharingOperation } from "@/app/actions/sharing";
 import { createClient } from "@/utils/supabase/client";
 import MilkdownEditor from "@/components/editor/milkdown-editor";
 import type { ContentFormat } from "@/types/combined-notes";
-import { usePresence } from "@/hooks/use-presence";
+import { usePresence, colorForUser } from "@/hooks/use-presence";
 import { PresenceStack } from "@/components/presence-stack";
 
 interface SharedNote {
@@ -61,6 +61,7 @@ export default function SharedNotePage({
   // Edit state (used only when the link grants "Can edit").
   const [title, setTitle] = useState("");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [me, setMe] = useState<{ name: string; color: string } | null>(null);
   const contentRef = useRef("");
   const saveTimer = useRef<number | null>(null);
 
@@ -123,6 +124,7 @@ export default function SharedNotePage({
           username = authorData.username;
           setCurrentUsername(username);
         }
+        setMe({ name: username || "you", color: colorForUser(userData.user.id) });
       }
 
       const result = await sharingOperation({
@@ -298,6 +300,7 @@ export default function SharedNotePage({
             content={note.content || ""}
             contentFormat={(note.content_format as ContentFormat) || "markdown"}
             onChange={(markdown) => { contentRef.current = markdown; scheduleSave(title, markdown); }}
+            collab={me ? { roomKey: note.id, user: me } : undefined}
           />
         </article>
       </main>

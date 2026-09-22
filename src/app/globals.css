@@ -1119,3 +1119,36 @@ summary {
     print-color-adjust: exact !important;
   }
 }
+
+/* ===== Collaboration carets (design surface 05) =====
+   y-prosemirror renders a remote caret as .ProseMirror-yjs-cursor with the
+   person's colour inline; the nested div is their name flag. The flag shows
+   for 2s after a move, then fades to just the 2px caret. */
+.milkdown .ProseMirror-yjs-cursor {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 2px solid;
+  border-right: 0;
+  border-color: inherit;
+  word-break: normal;
+  pointer-events: none;
+}
+.milkdown .ProseMirror-yjs-cursor > div {
+  position: absolute;
+  top: -1.5em;
+  left: -2px;
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: 3px;
+  color: #04100f;
+  white-space: nowrap;
+  user-select: none;
+  animation: jn-caret-flag 0.3s ease 2s forwards;
+}
+@keyframes jn-caret-flag {
+  to { opacity: 0; }
+}

@@ -8,7 +8,7 @@ import { sharingOperation } from "@/app/actions/sharing";
 import { createClient } from "@/utils/supabase/client";
 import MilkdownEditor from "@/components/editor/milkdown-editor";
 import type { ContentFormat } from "@/types/combined-notes";
-import { usePresence } from "@/hooks/use-presence";
+import { usePresence, colorForUser } from "@/hooks/use-presence";
 import { PresenceStack } from "@/components/presence-stack";
 
 interface SharedNoteInlineProps {
@@ -37,6 +37,7 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [me, setMe] = useState<{ name: string; color: string } | null>(null);
   const saveTimer = useRef<number | null>(null);
   const dirtyRef = useRef(false);
 
@@ -63,6 +64,7 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
           .eq("id", userData.user.id)
           .single();
         username = (a as any)?.username ?? null;
+        setMe({ name: username || "you", color: colorForUser(userData.user.id) });
       }
       const result = (await sharingOperation({
         operation: "getByShortcode",
@@ -276,6 +278,7 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
               content={note.content || ""}
               contentFormat={(note.content_format as ContentFormat) || "markdown"}
               onChange={(markdown) => { setContent(markdown); scheduleSave(title, markdown); }}
+              collab={me ? { roomKey: note.id, user: me } : undefined}
             />
           </article>
         </div>

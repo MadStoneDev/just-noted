@@ -15,11 +15,12 @@ export interface PresenceUser {
 // Collaborator colours (pass on white; see 01-foundations). Assigned
 // deterministically per user id so a person keeps their colour across sessions.
 const PALETTE = ["#0FB8B0", "#E0723C", "#7C6FF0", "#D6478A", "#3DA35D", "#C9A227", "#3B82C4", "#B3311F"];
-function colorFor(id: string): string {
+export function colorForUser(id: string): string {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
   return PALETTE[h % PALETTE.length];
 }
+const colorFor = colorForUser;
 
 /**
  * Live presence for a note (design surface 05). Everyone with the note open on
