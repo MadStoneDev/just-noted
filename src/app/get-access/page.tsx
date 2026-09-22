@@ -4,8 +4,10 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { handleAuth, verifyOtp } from "./actions";
-import { IconArrowLeft, IconMail } from "@tabler/icons-react";
+import { IconArrowLeft, IconMail, IconUserPlus } from "@tabler/icons-react";
 import Turnstile from "@/components/turnstile";
+import { createClient } from "@/utils/supabase/client";
+import { captureCurrentAccount } from "@/utils/accounts";
 
 export default function GetAccessPage() {
   const [email, setEmail] = useState("");
@@ -28,6 +30,16 @@ export default function GetAccessPage() {
 
   const router = useRouter();
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [isAddMode, setIsAddMode] = useState(false);
+
+  // "Add another account": store the current account (fresh tokens) before the
+  // new sign-in replaces the session, so it stays switchable.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const add = new URLSearchParams(window.location.search).get("add") === "1";
+    setIsAddMode(add);
+    if (add) captureCurrentAccount(createClient()).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (countdown > 0) {
@@ -194,15 +206,21 @@ export default function GetAccessPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[var(--color-accent-subtle)] mb-4">
-            <IconMail size={22} className="text-[var(--color-accent)]" />
+            {isAddMode && !otpSent ? (
+              <IconUserPlus size={22} className="text-[var(--color-accent)]" />
+            ) : (
+              <IconMail size={22} className="text-[var(--color-accent)]" />
+            )}
           </div>
           <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">
-            {otpSent ? "Check your email" : "Get started"}
+            {otpSent ? "Check your email" : isAddMode ? "Add another account" : "Get started"}
           </h1>
           <p className="mt-2 text-sm text-[var(--color-text-secondary)] leading-relaxed">
             {otpSent
               ? `We sent a 6-digit code to ${email}`
-              : "Sign in or create an account with your email"}
+              : isAddMode
+                ? "Sign in with a different email. Your current account stays signed in on this device."
+                : "Sign in or create an account with your email"}
           </p>
         </div>
 

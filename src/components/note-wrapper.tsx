@@ -94,9 +94,18 @@ export default function NoteWrapper() {
   }, []);
 
   // Record the current account (fresh tokens) into the device store so it's
-  // listed in the account switcher and switchable later.
+  // listed in the account switcher and switchable later. Re-capture on token
+  // refresh so the active account's stored session never goes stale (Supabase
+  // rotates refresh tokens).
   useEffect(() => {
-    captureCurrentAccount(createClient()).catch(() => {});
+    const supabase = createClient();
+    captureCurrentAccount(supabase).catch(() => {});
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        captureCurrentAccount(supabase).catch(() => {});
+      }
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
   // Cross-component triggers from the rail.
