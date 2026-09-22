@@ -406,6 +406,32 @@ function NoteEditor({
   const hasServerSynced = useNotesStore((s) => s.hasServerSynced);
   const isHydrating = !hasServerSynced;
 
+  // Sync progress bar — eases up while loading, then completes to 100% and
+  // lingers briefly so the user actually sees it finish before it fades.
+  const [syncBar, setSyncBar] = useState<"loading" | "done" | "hiding" | "hidden">(
+    isHydrating ? "loading" : "hidden",
+  );
+  const [syncFill, setSyncFill] = useState(isHydrating ? 4 : 100);
+  useEffect(() => {
+    if (isHydrating) setSyncBar("loading");
+    else setSyncBar((s) => (s === "loading" ? "done" : s));
+  }, [isHydrating]);
+  useEffect(() => {
+    if (syncBar === "loading") {
+      const t = setTimeout(() => setSyncFill(90), 40); // ease toward 90%
+      return () => clearTimeout(t);
+    }
+    if (syncBar === "done") {
+      setSyncFill(100);
+      const t = setTimeout(() => setSyncBar("hiding"), 450); // hold 100% visible
+      return () => clearTimeout(t);
+    }
+    if (syncBar === "hiding") {
+      const t = setTimeout(() => setSyncBar("hidden"), 260); // then fade out
+      return () => clearTimeout(t);
+    }
+  }, [syncBar]);
+
   const noteSource = note.source;
   const notebooks = useNotebooks();
   const notebook = note.notebookId
@@ -1209,13 +1235,23 @@ function NoteEditor({
                 </div>
               </div>
             )}
-            {isHydrating && (
-              <div className="absolute top-0 left-0 right-0 z-20 flex items-center gap-2 px-1 pointer-events-none">
+            {syncBar !== "hidden" && (
+              <div
+                className={`absolute top-0 left-0 right-0 z-20 flex items-center gap-2 px-1 pointer-events-none transition-opacity duration-200 ${
+                  syncBar === "hiding" ? "opacity-0" : "opacity-100"
+                }`}
+              >
                 <span className="h-[2px] flex-1 rounded-full bg-[var(--color-accent-subtle)] overflow-hidden">
-                  <span className="block h-full w-1/3 rounded-full bg-[var(--color-accent)] animate-pulse" />
+                  <span
+                    className="block h-full rounded-full bg-[var(--color-accent-fill)]"
+                    style={{
+                      width: `${syncFill}%`,
+                      transition: `width ${syncBar === "loading" ? 1200 : 300}ms ease-out`,
+                    }}
+                  />
                 </span>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--color-text-tertiary)]">
-                  Syncing
+                <span className="text-[10px] font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)]">
+                  {syncBar === "loading" ? "Syncing" : "Synced"}
                 </span>
               </div>
             )}
