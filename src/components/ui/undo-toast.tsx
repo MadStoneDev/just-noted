@@ -49,7 +49,7 @@ export default function UndoDeleteToast() {
       <div className="relative bg-[var(--color-bg-elevated)] border border-[var(--color-border-primary)] text-[var(--color-text-primary)] px-4 py-3 rounded-[var(--radius-xl)] shadow-lg flex items-center gap-3 min-w-[280px] max-w-sm">
         <IconTrash size={16} className="text-[var(--color-danger)] flex-shrink-0" />
         <p className="flex-1 text-sm truncate">
-          &ldquo;{recentlyDeleted.note.title}&rdquo; deleted
+          &ldquo;{recentlyDeleted.note.title}&rdquo; moved to Trash
         </p>
         <button
           onClick={handleUndo}

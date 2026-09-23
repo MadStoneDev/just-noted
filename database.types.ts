@@ -164,6 +164,32 @@ export type Database = {
         }
         Relationships: []
       }
+      note_ydoc: {
+        Row: {
+          note_id: string
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          note_id: string
+          state: string
+          updated_at?: string
+        }
+        Update: {
+          note_id?: string
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_ydoc_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: true
+            referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notebooks: {
         Row: {
           id: string
@@ -427,24 +453,6 @@ export type Database = {
           },
         ]
       }
-      note_ydoc: {
-        Row: {
-          note_id: string
-          state: string
-          updated_at: string
-        }
-        Insert: {
-          note_id: string
-          state: string
-          updated_at?: string
-        }
-        Update: {
-          note_id?: string
-          state?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       subscriptions: {
         Row: {
           id: string
@@ -453,8 +461,6 @@ export type Database = {
           status: string
           paddle_subscription_id: string | null
           paddle_customer_id: string | null
-          stripe_customer_id: string | null
-          stripe_subscription_id: string | null
           current_period_end: string | null
           cancel_at_period_end: boolean | null
           created_at: string | null
@@ -467,8 +473,6 @@ export type Database = {
           status?: string
           paddle_subscription_id?: string | null
           paddle_customer_id?: string | null
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
           current_period_end?: string | null
           cancel_at_period_end?: boolean | null
           created_at?: string | null
@@ -481,8 +485,6 @@ export type Database = {
           status?: string
           paddle_subscription_id?: string | null
           paddle_customer_id?: string | null
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
           current_period_end?: string | null
           cancel_at_period_end?: boolean | null
           created_at?: string | null

@@ -591,9 +591,12 @@ async function handleSupabaseOperation(params: NoteOperationParams) {
       case "delete": {
         const { noteId } = params;
 
+        // Soft delete → the note goes to Trash (restorable for a window) instead
+        // of being destroyed. Permanent removal is a separate action
+        // (permanentlyDeleteNote / Empty trash).
         const { error } = await supabase
           .from("notes")
-          .delete()
+          .update({ deleted_at: new Date().toISOString() })
           .eq("id", noteId)
           .eq("author", userId);
 

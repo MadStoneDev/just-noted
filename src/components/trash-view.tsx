@@ -11,7 +11,8 @@ import type { CombinedNote } from "@/types/combined-notes";
 import { useNotesStore } from "@/stores/notes-store";
 import { countWordsInContent } from "@/utils/word-count";
 import { getCoverPreviewStyle } from "@/lib/notebook-covers";
-import { IconX } from "@tabler/icons-react";
+import { createClient } from "@/utils/supabase/client";
+import { IconX, IconTrash } from "@tabler/icons-react";
 import { ConfirmModal } from "@/components/ds/modal";
 
 interface TrashViewProps {
@@ -19,7 +20,9 @@ interface TrashViewProps {
 }
 
 const DAY = 86400000;
-const PURGE_DAYS = 30;
+// Scribe keeps deleted notes longer.
+const DRAFT_PURGE_DAYS = 30;
+const SCRIBE_PURGE_DAYS = 90;
 
 function relativeTime(timestamp: number): string {
   const days = Math.floor((Date.now() - timestamp) / DAY);
@@ -36,7 +39,27 @@ export default function TrashView({ onClose }: TrashViewProps) {
   const [notes, setNotes] = useState<CombinedNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmEmpty, setConfirmEmpty] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [isScribe, setIsScribe] = useState(false);
+
+  const PURGE_DAYS = isScribe ? SCRIBE_PURGE_DAYS : DRAFT_PURGE_DAYS;
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) return;
+      supabase
+        .from("subscriptions")
+        .select("tier, status")
+        .eq("user_id", data.user.id)
+        .maybeSingle()
+        .then(({ data: sub }) => {
+          const s = sub as any;
+          setIsScribe((s?.status === "active" || s?.status === "trialing") && s?.tier === "scribe");
+        });
+    });
+  }, []);
 
   const loadTrash = useCallback(async () => {
     setLoading(true);
@@ -76,6 +99,12 @@ export default function TrashView({ onClose }: TrashViewProps) {
     setNotes([]);
     setBusy(false);
   }, [notes]);
+
+  const handlePermanentDelete = useCallback(async (noteId: string) => {
+    setConfirmDeleteId(null);
+    const result = await permanentlyDeleteNote(noteId);
+    if (result.success) setNotes((prev) => prev.filter((n) => n.id !== noteId));
+  }, []);
 
   const handleEmptyTrash = useCallback(async () => {
     setBusy(true);
@@ -207,6 +236,14 @@ export default function TrashView({ onClose }: TrashViewProps) {
                     >
                       Restore
                     </button>
+                    <button
+                      onClick={() => setConfirmDeleteId(note.id)}
+                      title="Delete permanently"
+                      aria-label="Delete permanently"
+                      className="p-1 rounded-[var(--radius-6)] text-[var(--color-ink-5)] hover:text-[var(--color-danger)] hover:bg-[var(--color-raised-soft)] transition-colors"
+                    >
+                      <IconTrash size={14} />
+                    </button>
                   </div>
                 </div>
               );
@@ -222,6 +259,16 @@ export default function TrashView({ onClose }: TrashViewProps) {
         title="Empty trash"
         message={`This will permanently delete ${notes.length} note${notes.length !== 1 ? "s" : ""} (${totalWords.toLocaleString()} words). This cannot be undone.`}
         confirmText="Empty trash"
+        destructive
+      />
+
+      <ConfirmModal
+        open={!!confirmDeleteId}
+        onClose={() => setConfirmDeleteId(null)}
+        onConfirm={() => confirmDeleteId && handlePermanentDelete(confirmDeleteId)}
+        title="Delete permanently"
+        message="This note will be permanently deleted. This can't be undone."
+        confirmText="Delete forever"
         destructive
       />
     </div>

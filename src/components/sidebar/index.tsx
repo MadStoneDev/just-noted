@@ -1114,34 +1114,25 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 {notes.length} note{notes.length !== 1 ? "s" : ""}
                 {hasActiveFilters && ` · ${filteredNotes.length} shown`}
               </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => window.dispatchEvent(new Event("justnoted:open-settings"))}
-                  className="hover:text-[var(--color-ink-1)] transition-colors"
-                  title="Settings"
-                >
-                  Settings
-                </button>
-                <span>·</span>
+              <div className="flex items-center gap-1">
                 <button
                   onClick={() => onOpenTrash?.()}
-                  className="hover:text-[var(--color-ink-3)] transition-colors flex items-center gap-0.5"
+                  className="inline-flex items-center gap-1 px-2 py-1.5 rounded-[var(--radius-6)] hover:text-[var(--color-ink-1)] hover:bg-[var(--color-raised-soft)] transition-colors"
                   title="Trash"
                 >
-                  <IconTrash size={10} />
+                  <IconTrash size={12} />
                   Trash
                 </button>
-                <span>·</span>
                 <button
                   onClick={() => {
                     import("@/utils/export-notes").then(({ exportAsMarkdownZip }) => {
                       exportAsMarkdownZip(notes);
                     });
                   }}
-                  className="hover:text-[var(--color-ink-3)] transition-colors"
+                  className="px-2 py-1.5 rounded-[var(--radius-6)] hover:text-[var(--color-ink-1)] hover:bg-[var(--color-raised-soft)] transition-colors"
                   title="Export all notes"
                 >
-                  Export
+                  Export All
                 </button>
               </div>
             </div>

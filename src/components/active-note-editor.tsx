@@ -8,6 +8,7 @@ import { createClient } from "@/utils/supabase/client";
 import { sharingOperation } from "@/app/actions/sharing";
 import { loadCollabDoc, saveCollabDoc } from "@/app/actions/collabActions";
 import { colorForUser } from "@/hooks/use-presence";
+import { exportNote, EXPORT_FORMATS } from "@/utils/export-note";
 import { useNotesStore, useNotebooks } from "@/stores/notes-store";
 import { useAutoSave } from "@/hooks/use-auto-save";
 import { saveNoteToLocal } from "@/utils/notes-idb-cache";
@@ -30,6 +31,8 @@ import {
   IconPrinter,
   IconSelector,
   IconFileImport,
+  IconFileText,
+  IconFileExport,
   IconMarkdown,
   IconFileOff,
   IconCheck,
@@ -444,6 +447,11 @@ function NoteEditor({
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastSavedContentRef = useRef(note.content);
+  // Milkdown normalises the stored content when it mounts and emits it via
+  // onChange — that first emission is NOT a user edit. We adopt it as the saved
+  // baseline so merely opening a note never rewrites it / bumps updated_at.
+  const normalizedBaselineRef = useRef(false);
+  useEffect(() => { normalizedBaselineRef.current = false; }, [editorRemountKey]);
   const toast = useToast();
 
   // Hydration lock: while the app is still reconciling with the server on load,
@@ -574,6 +582,16 @@ function NoteEditor({
       // Ignore edits while the hydration lock is engaged — no local edits should
       // exist yet, so nothing to lose; this just guards any programmatic path.
       if (!useNotesStore.getState().hasServerSynced) return;
+      // The editor's first emission after mount is its normalisation of the
+      // loaded content, not a user edit — adopt it as the saved baseline and
+      // don't persist, so opening a note doesn't touch updated_at.
+      if (!normalizedBaselineRef.current) {
+        normalizedBaselineRef.current = true;
+        lastSavedContentRef.current = value;
+        setContent(value);
+        setContentFormat("markdown");
+        return;
+      }
       setContent(value);
       setContentFormat("markdown");
       useNotesStore.getState().setEditing(note.id, true);
@@ -876,6 +894,29 @@ function NoteEditor({
       ],
     };
 
+    const exportData = {
+      title,
+      content,
+      contentFormat,
+      createdAt: (note as any).created_at ?? null,
+      updatedAt: note.updatedAt ?? null,
+    };
+    const exportPage: CommandPage = {
+      title: "Export note",
+      placeholder: "Choose a format…",
+      groups: [
+        {
+          id: "formats",
+          items: EXPORT_FORMATS.map((f) => ({
+            id: `exp-${f.format}`,
+            label: f.label,
+            icon: <IconFileText size={16} />,
+            perform: () => exportNote(exportData, f.format),
+          })),
+        },
+      ],
+    };
+
     const currentNotebookName = note.notebookId
       ? notebooks.find((nb) => nb.id === note.notebookId)?.name
       : undefined;
@@ -904,9 +945,16 @@ function NoteEditor({
             {
               id: "print",
               label: "Print / Save as PDF",
-              keywords: "print pdf export",
+              keywords: "print pdf",
               icon: <IconPrinter size={16} />,
               perform: () => window.print(),
+            },
+            {
+              id: "export",
+              label: "Export to",
+              keywords: "export download md mdx txt html json xml",
+              icon: <IconFileExport size={16} />,
+              submenu: exportPage,
             },
           ],
         },
@@ -951,9 +999,13 @@ function NoteEditor({
     note.notebookId,
     note.isPinned,
     note.isPrivate,
+    note.updatedAt,
     notesOperations,
     moveNoteToNotebook,
     createNotebookAndMove,
+    title,
+    content,
+    contentFormat,
   ]);
 
   // Ctrl/Cmd+Shift+M toggles the note command menu.
