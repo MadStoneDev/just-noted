@@ -405,7 +405,11 @@ function NoteEditor({
     (async () => {
       try {
         const res = (await sharingOperation({ operation: "getUsers", noteId: note.id, currentUserId: userId })) as any;
-        if (cancelled || !res?.success || res.linkPermission !== "edit") return;
+        // Collaboration is active when the link is "Can edit" OR at least one
+        // person was granted edit — the owner must join the room in both cases,
+        // otherwise their editor isn't on the CRDT channel and edits don't sync.
+        const hasEditors = Array.isArray(res?.users) && res.users.some((u: any) => u?.role === "edit");
+        if (cancelled || !res?.success || (res.linkPermission !== "edit" && !hasEditors)) return;
         const supabase = createClient();
         const { data: a } = await supabase.from("authors").select("username").eq("id", userId).single();
         if (cancelled) return;

@@ -839,12 +839,16 @@ export async function getSharedWithMe(): Promise<{
   // Service role — the reader can't read the owner's shared_notes/notes under RLS.
   const svc = createServiceRoleClient();
 
-  // (a) owner-granted shares (via reader rows)
+  // (a) owner-granted shares (via reader rows) — keep each grant's role so the
+  // list can show the viewer's OWN access, not the link's.
   const { data: readerRows } = await svc
     .from("shared_notes_readers")
-    .select("shared_note")
+    .select("shared_note, role")
     .eq("reader_id", user.id);
   const readerShareIds = (readerRows || []).map((r: any) => r.shared_note);
+  const roleByShareId = new Map<string, string>(
+    (readerRows || []).map((r: any) => [r.shared_note, r.role || "view"]),
+  );
 
   const grantedSet = new Set<string>();
   if (readerShareIds.length > 0) {
@@ -889,12 +893,18 @@ export async function getSharedWithMe(): Promise<{
     }
 
     const granted = grantedSet.has(s.shortcode);
+    const linkPerm = s.link_permission || (s.is_public ? "view" : "off");
+    // For a granted note the reader cares about THEIR access: edit if the link
+    // grants edit or they were personally made an editor, else view.
+    const viewerPerm = granted
+      ? (linkPerm === "edit" || roleByShareId.get(s.id) === "edit" ? "edit" : "view")
+      : linkPerm;
     notes.push({
       shortcode: s.shortcode,
       title,
       owner,
       ownerAvatar,
-      linkPermission: s.link_permission || (s.is_public ? "view" : "off"),
+      linkPermission: viewerPerm,
       createdAt: s.created_at,
       source: granted ? "granted" : "saved",
       saved: savedSet.has(s.shortcode) && !granted,
