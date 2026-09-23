@@ -37,6 +37,7 @@ export class SupabaseYjsProvider {
   private docHandler: (update: Uint8Array, origin: unknown) => void;
   private awarenessHandler: (changes: { added: number[]; updated: number[]; removed: number[] }, origin: unknown) => void;
   private beforeUnload: () => void;
+  private onRevive: () => void;
 
   constructor(roomKey: string, doc: Y.Doc, awareness: Awareness) {
     this.doc = doc;
@@ -69,26 +70,25 @@ export class SupabaseYjsProvider {
         applyAwarenessUpdate(awareness, fromB64(payload.u), this);
       })
       .on("broadcast", { event: "sync-request" }, () => {
-        // A peer just joined — send them our full doc + awareness state.
-        this.channel.send({
-          type: "broadcast",
-          event: "yjs-update",
-          payload: { u: toB64(Y.encodeStateAsUpdate(doc)) },
-        });
-        const ids = Array.from(awareness.getStates().keys());
-        if (ids.length) {
-          this.channel.send({
-            type: "broadcast",
-            event: "awareness",
-            payload: { u: toB64(encodeAwarenessUpdate(awareness, ids)) },
-          });
-        }
+        // A peer (re)joined — send them our full doc + awareness state.
+        this.pushState();
       })
       .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          this.channel.send({ type: "broadcast", event: "sync-request", payload: {} });
-        }
+        if (status === "SUBSCRIBED") this.syncState();
       });
+
+    // Broadcast (broadcast!) has no replay: a backgrounded/throttled tab misses
+    // updates while it's asleep. On revival, re-exchange full state so the CRDT
+    // merges both sides — otherwise a stale tab can save over newer content.
+    this.onRevive = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      this.syncState();
+    };
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", this.onRevive);
+    if (typeof window !== "undefined") {
+      window.addEventListener("focus", this.onRevive);
+      window.addEventListener("online", this.onRevive);
+    }
 
     // Best-effort: tell peers we're gone so our caret disappears promptly.
     this.beforeUnload = () => {
@@ -97,8 +97,39 @@ export class SupabaseYjsProvider {
     if (typeof window !== "undefined") window.addEventListener("beforeunload", this.beforeUnload);
   }
 
+  /** Broadcast our full doc + awareness state so peers can merge it. */
+  private pushState() {
+    this.channel.send({
+      type: "broadcast",
+      event: "yjs-update",
+      payload: { u: toB64(Y.encodeStateAsUpdate(this.doc)) },
+    });
+    const ids = Array.from(this.awareness.getStates().keys());
+    if (ids.length) {
+      this.channel.send({
+        type: "broadcast",
+        event: "awareness",
+        payload: { u: toB64(encodeAwarenessUpdate(this.awareness, ids)) },
+      });
+    }
+  }
+
+  /**
+   * Bidirectional resync: push our state (so peers merge our offline edits) and
+   * request theirs (so we merge what we missed). CRDT-safe and idempotent.
+   */
+  private syncState() {
+    this.pushState();
+    this.channel.send({ type: "broadcast", event: "sync-request", payload: {} });
+  }
+
   destroy() {
-    if (typeof window !== "undefined") window.removeEventListener("beforeunload", this.beforeUnload);
+    if (typeof document !== "undefined") document.removeEventListener("visibilitychange", this.onRevive);
+    if (typeof window !== "undefined") {
+      window.removeEventListener("focus", this.onRevive);
+      window.removeEventListener("online", this.onRevive);
+      window.removeEventListener("beforeunload", this.beforeUnload);
+    }
     this.doc.off("update", this.docHandler);
     this.awareness.off("update", this.awarenessHandler);
     removeAwarenessStates(this.awareness, [this.doc.clientID], "destroy");
