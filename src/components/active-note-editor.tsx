@@ -6,6 +6,7 @@ const LAST_NOTE_KEY = "justnoted_last_note";
 import LazyTextBlock from "@/components/lazy-text-block";
 import { createClient } from "@/utils/supabase/client";
 import { sharingOperation } from "@/app/actions/sharing";
+import { loadCollabDoc, saveCollabDoc } from "@/app/actions/collabActions";
 import { colorForUser } from "@/hooks/use-presence";
 import { useNotesStore, useNotebooks } from "@/stores/notes-store";
 import { useAutoSave } from "@/hooks/use-auto-save";
@@ -397,7 +398,12 @@ function NoteEditor({
   // Live collaboration for the owner (design surface 05): when this note is
   // shared with "Can edit", the owner joins the same Yjs room as its
   // collaborators so their edits merge instead of clobbering.
-  const [collabConfig, setCollabConfig] = useState<{ roomKey: string; user: { name: string; color: string } } | null>(null);
+  const [collabConfig, setCollabConfig] = useState<{
+    roomKey: string;
+    user: { name: string; color: string };
+    load?: () => Promise<string | null>;
+    save?: (state: string) => Promise<void>;
+  } | null>(null);
   useEffect(() => {
     let cancelled = false;
     setCollabConfig(null);
@@ -413,9 +419,12 @@ function NoteEditor({
         const supabase = createClient();
         const { data: a } = await supabase.from("authors").select("username").eq("id", userId).single();
         if (cancelled) return;
+        const nid = note.id;
         setCollabConfig({
-          roomKey: note.id,
+          roomKey: nid,
           user: { name: (a as any)?.username || "Someone", color: colorForUser(userId) },
+          load: () => loadCollabDoc({ noteId: nid }).then((r) => r.state),
+          save: (state) => saveCollabDoc({ noteId: nid, state }).then(() => {}),
         });
       } catch {}
     })();

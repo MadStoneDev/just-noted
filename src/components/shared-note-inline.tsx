@@ -11,6 +11,7 @@ import type { ContentFormat } from "@/types/combined-notes";
 import { usePresence, colorForUser } from "@/hooks/use-presence";
 import { PresenceStack } from "@/components/presence-stack";
 import { SharedHistoryPanel } from "@/components/shared-history-panel";
+import { loadCollabDoc, saveCollabDoc } from "@/app/actions/collabActions";
 import { Dropdown, DropdownItem } from "@/components/ds/dropdown";
 import { useToast } from "@/components/ui/toast";
 
@@ -302,7 +303,12 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
               content={note.content || ""}
               contentFormat={(note.content_format as ContentFormat) || "markdown"}
               onChange={(markdown) => { setContent(markdown); scheduleSave(title, markdown); }}
-              collab={me ? { roomKey: note.id, user: me } : undefined}
+              collab={me ? {
+                roomKey: note.id,
+                user: me,
+                load: () => loadCollabDoc({ shortcode }).then((r) => r.state),
+                save: (state) => saveCollabDoc({ shortcode, state }).then(() => {}),
+              } : undefined}
             />
           </article>
         </div>

@@ -180,7 +180,24 @@ interface MilkdownEditorProps {
   collab?: {
     roomKey: string;
     user: { name: string; color: string };
+    /** Load the persisted Yjs state (base64) — the note's canonical doc. */
+    load?: () => Promise<string | null>;
+    /** Persist the Yjs state (base64), debounced by the editor. */
+    save?: (state: string) => Promise<void>;
   };
+}
+
+// Uint8Array <-> base64 for shuttling Yjs state to/from the server.
+function bytesToB64(bytes: Uint8Array): string {
+  let s = "";
+  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s);
+}
+function b64ToBytes(b64: string): Uint8Array {
+  const s = atob(b64);
+  const out = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+  return out;
 }
 
 function cleanCorruptedMarkdown(text: string): string {
@@ -289,11 +306,21 @@ function MilkdownEditorInner({
     let service: any = null;
     let seedTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const bind = () => {
+    let saveTimer: ReturnType<typeof setTimeout> | null = null;
+    let persistHandler: (() => void) | null = null;
+
+    const persistNow = () => {
+      if (!doc || !collabConfig.save) return;
+      try {
+        collabConfig.save(bytesToB64(Y.encodeStateAsUpdate(doc)));
+      } catch {}
+    };
+
+    const bind = async () => {
       if (cancelled) return;
       const editor = get();
       if (!editor) {
-        requestAnimationFrame(bind);
+        requestAnimationFrame(() => { bind(); });
         return;
       }
       doc = new Y.Doc();
@@ -307,20 +334,50 @@ function MilkdownEditorInner({
         service = ctx.get(collabServiceCtx);
         service.bindDoc(doc).setAwareness(awareness).connect();
       });
-      // Seed from the note's saved content only if, after peers have had a
-      // chance to sync, the shared doc is still empty (i.e. we're first in).
-      seedTimer = setTimeout(() => {
+
+      // Load the note's CANONICAL persisted Yjs state — every client loads the
+      // same doc, so there's no re-seeding (which is what duplicated content).
+      let persisted: string | null = null;
+      try { persisted = (await collabConfig.load?.()) ?? null; } catch {}
+      if (cancelled) return;
+      if (persisted) {
+        try { Y.applyUpdate(doc, b64ToBytes(persisted), "load"); } catch {}
+      }
+
+      const fragmentEmpty = () => {
+        try { return doc!.getXmlFragment("prosemirror").length === 0; } catch { return false; }
+      };
+
+      // First-time seed only: if nothing is persisted and no peer has content
+      // after a grace period, seed from markdown once, then persist. Re-checking
+      // load() right before seeding guards against a simultaneous first opener.
+      seedTimer = setTimeout(async () => {
         if (cancelled || !service) return;
-        try {
-          service.applyTemplate(initialMarkdown);
-        } catch {}
-      }, 600);
+        if (!fragmentEmpty()) { persistNow(); return; }
+        let again: string | null = null;
+        try { again = (await collabConfig.load?.()) ?? null; } catch {}
+        if (cancelled) return;
+        if (again) { try { Y.applyUpdate(doc!, b64ToBytes(again), "load"); } catch {} return; }
+        try { service.applyTemplate(initialMarkdown); } catch {}
+        persistNow();
+      }, 800);
+
+      // Persist on change (debounced). Skip our own applied-load updates.
+      persistHandler = () => {
+        if (!collabConfig.save) return;
+        if (saveTimer) clearTimeout(saveTimer);
+        saveTimer = setTimeout(persistNow, 1200);
+      };
+      doc.on("update", persistHandler);
     };
     bind();
 
     return () => {
       cancelled = true;
       if (seedTimer) clearTimeout(seedTimer);
+      if (saveTimer) clearTimeout(saveTimer);
+      if (doc && persistHandler) doc.off("update", persistHandler);
+      persistNow(); // flush final state on unmount
       try { service?.disconnect(); } catch {}
       provider?.destroy();
       doc?.destroy();

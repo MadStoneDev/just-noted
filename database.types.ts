@@ -427,6 +427,24 @@ export type Database = {
           },
         ]
       }
+      note_ydoc: {
+        Row: {
+          note_id: string
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          note_id: string
+          state: string
+          updated_at?: string
+        }
+        Update: {
+          note_id?: string
+          state?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           id: string
