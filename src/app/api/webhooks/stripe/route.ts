@@ -7,9 +7,8 @@ import type { SubscriptionTier } from "@/types/subscription";
 export const dynamic = "force-dynamic";
 
 function tierFromPriceId(priceId: string | undefined): SubscriptionTier {
-  if (priceId && priceId === process.env.STRIPE_PRO_PRICE_ID) return "pro";
-  if (priceId && priceId === process.env.STRIPE_TEAM_PRICE_ID) return "team";
-  return "free";
+  if (priceId && priceId === process.env.STRIPE_SCRIBE_PRICE_ID) return "scribe";
+  return "draft";
 }
 
 function periodEnd(sub: Stripe.Subscription): string | null {
@@ -71,7 +70,7 @@ export async function POST(request: NextRequest) {
         const sub = event.data.object as Stripe.Subscription;
         const tier =
           event.type === "customer.subscription.deleted"
-            ? "free"
+            ? "draft"
             : tierFromPriceId(sub.items.data[0]?.price?.id);
         await supabase
           .from("subscriptions")

@@ -85,7 +85,7 @@ export default function ShareNoteButton({
   // Friendly copy for the server's collaboration gate.
   const handleGateError = (err?: string, limit?: number): boolean => {
     if (err === "UPGRADE_REQUIRED") {
-      toast.showError("Collaboration is a Pro feature — upgrade in Settings › Plan & usage.");
+      toast.showError("Collaboration is a Scribe feature — upgrade in Settings › Plan & usage.");
       return true;
     }
     if (err === "COLLAB_LIMIT") {
@@ -277,10 +277,10 @@ export default function ShareNoteButton({
                     const gated = p === "edit" && !canCollaborate;
                     if (gated) {
                       return (
-                        <div key={p} className="px-3 py-1.5 flex items-center gap-2 text-[12px] text-[var(--color-ink-5)] cursor-not-allowed" title="Upgrade to Pro to let people edit">
+                        <div key={p} className="px-3 py-1.5 flex items-center gap-2 text-[12px] text-[var(--color-ink-5)] cursor-not-allowed" title="Upgrade to Scribe to let people edit">
                           <span className="w-[13px]" />
                           Can edit
-                          <span className="ml-auto text-[10px] font-[family-name:var(--font-meta)] px-1 rounded-[var(--radius-4)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]">Pro</span>
+                          <span className="ml-auto text-[10px] font-[family-name:var(--font-meta)] px-1 rounded-[var(--radius-4)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]">Scribe</span>
                         </div>
                       );
                     }
@@ -349,7 +349,7 @@ export default function ShareNoteButton({
               )}
             </div>
 
-            {/* Upsell — editing is Pro */}
+            {/* Upsell — editing is a Scribe feature */}
             {!canCollaborate && (
               <button
                 onClick={() => {
@@ -360,7 +360,7 @@ export default function ShareNoteButton({
               >
                 <IconSparkles size={16} className="text-[var(--color-accent-text)] shrink-0" />
                 <span className="flex-1 min-w-0 text-[12.5px] leading-snug text-[var(--color-ink-2)]">
-                  <span className="font-semibold text-[var(--color-accent-text)]">Upgrade to Pro</span> to let people edit — real-time collaboration, editors &amp; more.
+                  <span className="font-semibold text-[var(--color-accent-text)]">Become a Scribe</span> to let people edit — real-time collaboration &amp; more.
                 </span>
                 <span className="shrink-0 text-[12px] font-semibold text-[var(--color-accent-text)]">Upgrade</span>
               </button>
@@ -393,9 +393,9 @@ export default function ShareNoteButton({
                         {canCollaborate ? (
                           <DropdownItem onClick={() => changeReaderRole(u.username, "edit")}>Can edit</DropdownItem>
                         ) : (
-                          <div className="px-3 py-2.5 flex items-center gap-2 text-[13px] text-[var(--color-ink-5)] cursor-not-allowed" title="Upgrade to Pro to let people edit">
+                          <div className="px-3 py-2.5 flex items-center gap-2 text-[13px] text-[var(--color-ink-5)] cursor-not-allowed" title="Upgrade to Scribe to let people edit">
                             Can edit
-                            <span className="ml-auto text-[10px] font-[family-name:var(--font-meta)] px-1 rounded-[var(--radius-4)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]">Pro</span>
+                            <span className="ml-auto text-[10px] font-[family-name:var(--font-meta)] px-1 rounded-[var(--radius-4)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]">Scribe</span>
                           </div>
                         )}
                       </Dropdown>
@@ -425,9 +425,9 @@ export default function ShareNoteButton({
                   {canCollaborate ? (
                     <DropdownItem onClick={() => setAddRole("edit")}>Can edit</DropdownItem>
                   ) : (
-                    <div className="px-3 py-2.5 flex items-center gap-2 text-[13px] text-[var(--color-ink-5)] cursor-not-allowed" title="Upgrade to Pro to let people edit">
+                    <div className="px-3 py-2.5 flex items-center gap-2 text-[13px] text-[var(--color-ink-5)] cursor-not-allowed" title="Upgrade to Scribe to let people edit">
                       Can edit
-                      <span className="ml-auto text-[10px] font-[family-name:var(--font-meta)] px-1 rounded-[var(--radius-4)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]">Pro</span>
+                      <span className="ml-auto text-[10px] font-[family-name:var(--font-meta)] px-1 rounded-[var(--radius-4)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]">Scribe</span>
                     </div>
                   )}
                 </Dropdown>

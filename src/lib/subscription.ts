@@ -13,18 +13,18 @@ export async function getUserTier(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<SubscriptionTier> {
-  if (!userId) return "free";
+  if (!userId) return "draft";
   const { data } = await supabase
     .from("subscriptions")
     .select("tier, status")
     .eq("user_id", userId)
     .maybeSingle();
   const status = (data as any)?.status;
-  const tier = (data as any)?.tier as SubscriptionTier | undefined;
-  if ((status === "active" || status === "trialing") && (tier === "pro" || tier === "team")) {
-    return tier;
+  const tier = (data as any)?.tier as string | undefined;
+  if ((status === "active" || status === "trialing") && tier === "scribe") {
+    return "scribe";
   }
-  return "free";
+  return "draft";
 }
 
 export function getLimits(tier: SubscriptionTier): SubscriptionLimits {

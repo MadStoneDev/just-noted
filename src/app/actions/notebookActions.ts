@@ -103,7 +103,7 @@ export async function createNotebook(
       .select("tier, status")
       .eq("user_id", userId)
       .single();
-    if (subData?.status === "active" && subData?.tier === "pro") {
+    if (subData?.status === "active" && subData?.tier === "scribe") {
       limit = NOTEBOOK_LIMITS.premium;
     }
 

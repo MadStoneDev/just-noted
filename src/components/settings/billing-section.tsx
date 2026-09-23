@@ -9,7 +9,7 @@ import { getPortalUrl } from "@/app/actions/billingActions";
 import { useToast } from "@/components/ui/toast";
 import { IconCheck, IconSparkles } from "@tabler/icons-react";
 
-const TIER_LABEL: Record<SubscriptionTier, string> = { free: "Free", pro: "Pro", team: "Team" };
+const TIER_LABEL: Record<SubscriptionTier, string> = { draft: "Draft", scribe: "Scribe" };
 
 function Meter({ label, used, limit }: { label: string; used: number; limit: number }) {
   const unlimited = limit < 0;
@@ -40,7 +40,7 @@ export default function BillingSection() {
   const supabase = createClient();
   const { showError } = useToast();
   const [loading, setLoading] = useState(true);
-  const [tier, setTier] = useState<SubscriptionTier>("free");
+  const [tier, setTier] = useState<SubscriptionTier>("draft");
   const [email, setEmail] = useState("");
   const [userId, setUserId] = useState("");
   const [renews, setRenews] = useState<string | null>(null);
@@ -65,9 +65,9 @@ export default function BillingSection() {
       if (!alive) return;
 
       const status = (sub as any)?.status;
-      const t = (sub as any)?.tier as SubscriptionTier | undefined;
+      const t = (sub as any)?.tier as string | undefined;
       const activeTier: SubscriptionTier =
-        (status === "active" || status === "trialing") && (t === "pro" || t === "team") ? t : "free";
+        (status === "active" || status === "trialing") && t === "scribe" ? "scribe" : "draft";
       setTier(activeTier);
       setRenews((sub as any)?.current_period_end ?? null);
       setCancelAtEnd(!!(sub as any)?.cancel_at_period_end);
@@ -93,10 +93,10 @@ export default function BillingSection() {
   }, []);
 
   const limits = SUBSCRIPTION_LIMITS[tier];
-  const notebookLimit = tier === "free" ? NOTEBOOK_LIMITS.free : NOTEBOOK_LIMITS.premium;
+  const notebookLimit = tier === "draft" ? NOTEBOOK_LIMITS.free : NOTEBOOK_LIMITS.premium;
 
-  const upgrade = async (target: "pro" | "team") => {
-    const ok = await openUpgradeCheckout({ tier: target, email, userId });
+  const upgrade = async () => {
+    const ok = await openUpgradeCheckout({ email, userId });
     if (!ok) showError("Checkout isn’t available yet — billing is still being set up.");
   };
 
@@ -112,7 +112,7 @@ export default function BillingSection() {
     return <div className="space-y-3">{[0, 1, 2].map((i) => <div key={i} className="skeleton h-12 w-full rounded-[var(--radius-8)]" />)}</div>;
   }
 
-  const isPaid = tier !== "free";
+  const isPaid = tier !== "draft";
 
   return (
     <div className="space-y-6">
@@ -163,28 +163,22 @@ export default function BillingSection() {
         <div className="rounded-[var(--radius-9)] border border-[var(--color-accent-tint-border)] bg-[var(--color-accent-tint)] p-4">
           <div className="flex items-center gap-2 text-[13.5px] font-semibold text-[var(--color-accent-text)]">
             <IconSparkles size={16} />
-            Upgrade to Pro
+            Become a Scribe
           </div>
           <ul className="mt-2 space-y-1 text-[12.5px] text-[var(--color-ink-2)]">
-            {["Real-time collaboration & editors", "Unlimited notebooks", "Full AI", "100 versions of history"].map((f) => (
+            {["Share notes others can edit — with live collaboration", "Unlimited notebooks", "Full AI", "100 versions of history"].map((f) => (
               <li key={f} className="flex items-center gap-1.5">
                 <IconCheck size={13} className="text-[var(--color-accent-text)] shrink-0" />
                 {f}
               </li>
             ))}
           </ul>
-          <div className="mt-3 flex items-center gap-2">
+          <div className="mt-3">
             <button
-              onClick={() => upgrade("pro")}
+              onClick={upgrade}
               className="h-9 px-4 rounded-[var(--radius-7)] text-[13px] font-semibold bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:opacity-90 transition-opacity"
             >
-              Upgrade to Pro
-            </button>
-            <button
-              onClick={() => upgrade("team")}
-              className="h-9 px-3.5 rounded-[var(--radius-7)] text-[13px] font-medium border border-[var(--color-border-control)] text-[var(--color-ink-2)] hover:bg-[var(--color-raised)] transition-colors"
-            >
-              Team
+              Upgrade to Scribe
             </button>
           </div>
           {!billingConfigured() && (

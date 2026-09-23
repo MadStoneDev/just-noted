@@ -1,6 +1,8 @@
 // Subscription and collaboration types
 
-export type SubscriptionTier = "free" | "pro" | "team";
+// JustNoted is for individuals writing & sharing — not business teams.
+// Two tiers: "draft" (free) → "scribe" (paid).
+export type SubscriptionTier = "draft" | "scribe";
 
 export interface Subscription {
   userId: string;
@@ -25,31 +27,22 @@ export interface SubscriptionLimits {
 }
 
 export const SUBSCRIPTION_LIMITS: Record<SubscriptionTier, SubscriptionLimits> = {
-  free: {
-    maxNotes: 50,
+  draft: {
+    maxNotes: -1, // Note-taking stays free & generous
     maxCollaborators: 0,
-    canUseAI: false, // Will be limited
+    canUseAI: false, // limited/taste only
     canExportAll: true,
     canUseTemplates: true,
     maxVersionHistory: 10,
     canCollaborate: false,
   },
-  pro: {
-    maxNotes: -1, // Unlimited
-    maxCollaborators: 5,
+  scribe: {
+    maxNotes: -1,
+    maxCollaborators: -1, // unlimited — individuals sharing, no team cap
     canUseAI: true,
     canExportAll: true,
     canUseTemplates: true,
     maxVersionHistory: 100,
-    canCollaborate: true,
-  },
-  team: {
-    maxNotes: -1, // Unlimited
-    maxCollaborators: -1, // Unlimited
-    canUseAI: true,
-    canExportAll: true,
-    canUseTemplates: true,
-    maxVersionHistory: -1, // Unlimited
     canCollaborate: true,
   },
 };
