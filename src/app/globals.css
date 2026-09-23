@@ -1125,19 +1125,24 @@ summary {
    person's colour inline; the nested div is their name flag. The flag shows
    for 2s after a move, then fades to just the 2px caret. */
 .milkdown .ProseMirror-yjs-cursor {
-  position: relative;
+  /* Absolute with no offsets: the caret overlays at its natural position but
+     is removed from flow, so it never pushes surrounding content (the "gap at
+     every newline" bug). Colour comes from y-prosemirror's inline border-color. */
+  position: absolute;
+  height: 1em;
   margin-left: -1px;
   margin-right: -1px;
   border-left: 2px solid;
-  border-right: 0;
-  border-color: inherit;
+  border-right: none;
+  box-sizing: border-box;
   word-break: normal;
+  white-space: nowrap;
   pointer-events: none;
 }
 .milkdown .ProseMirror-yjs-cursor > div {
-  position: absolute;
-  top: -1.5em;
-  left: -2px;
+  position: relative;
+  top: -1.45em;
+  left: -1px;
   font-family: var(--font-ui);
   font-size: 9px;
   font-weight: 600;

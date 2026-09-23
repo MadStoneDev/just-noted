@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient, createServiceRoleClient } from "@/utils/supabase/server";
+import { getCollabAllowance } from "@/lib/subscription";
 import { NOTES_KEY_PREFIX } from "@/constants/app";
 
 // ===========================
@@ -280,6 +281,38 @@ export async function sharingOperation(params: SharingOperationParams) {
           };
         }
 
+        // Collaboration is a paid capability. A "Can edit" link, or adding a
+        // person as an editor, both require it — enforced server-side.
+        const wantsEditLink = resolvedPermission === "edit";
+        const wantsEditor = username && params.role === "edit";
+        if (wantsEditLink || wantsEditor) {
+          const { canCollaborate, maxCollaborators } = await getCollabAllowance(supabase, ownerId);
+          if (!canCollaborate) {
+            return { success: false, error: "UPGRADE_REQUIRED", reason: "collaborate" } as any;
+          }
+          // Cap the number of named editors on this note (maxCollaborators, -1 = ∞).
+          if (wantsEditor && maxCollaborators >= 0) {
+            const svc2 = createServiceRoleClient();
+            const { data: shareRow } = await svc2
+              .from("shared_notes")
+              .select("id")
+              .eq("note_id", noteId)
+              .eq("note_owner_id", ownerId)
+              .maybeSingle();
+            if (shareRow) {
+              const { data: editorRows } = await svc2
+                .from("shared_notes_readers")
+                .select("reader_username, role")
+                .eq("shared_note", (shareRow as any).id);
+              const editors = (editorRows || []).filter((r: any) => r.role === "edit");
+              const already = editors.some((r: any) => r.reader_username?.toLowerCase() === username!.trim().toLowerCase());
+              if (!already && editors.length >= maxCollaborators) {
+                return { success: false, error: "COLLAB_LIMIT", reason: "maxCollaborators", limit: maxCollaborators } as any;
+              }
+            }
+          }
+        }
+
         // Check existing shares
         const { data: existingShares } = await supabase
           .from("shared_notes")
@@ -434,6 +467,12 @@ export async function sharingOperation(params: SharingOperationParams) {
       case "getUsers": {
         const { noteId, currentUserId } = params;
 
+        // The owner's collaboration allowance — the sheet uses it to gate the
+        // "Can edit" options in the UI (also enforced server-side on save).
+        const allowance = authenticatedUserId
+          ? await getCollabAllowance(supabase, authenticatedUserId)
+          : { canCollaborate: false, maxCollaborators: 0 };
+
         let getUsersQuery = supabase
           .from("shared_notes")
           .select("id, shortcode, is_public, storage, is_anonymous, password_hash, expires_at, view_count, link_permission")
@@ -456,6 +495,8 @@ export async function sharingOperation(params: SharingOperationParams) {
             expiresAt: null,
             viewCount: 0,
             linkPermission: "off",
+            canCollaborate: allowance.canCollaborate,
+            maxCollaborators: allowance.maxCollaborators,
           };
         }
 
@@ -481,6 +522,8 @@ export async function sharingOperation(params: SharingOperationParams) {
           expiresAt: (shareData as any).expires_at,
           viewCount: (shareData as any).view_count || 0,
           linkPermission: (shareData as any).link_permission || ((shareData as any).is_public ? "view" : "off"),
+          canCollaborate: allowance.canCollaborate,
+          maxCollaborators: allowance.maxCollaborators,
         };
       }
 

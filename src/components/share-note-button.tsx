@@ -77,8 +77,22 @@ export default function ShareNoteButton({
   const [useExpiry, setUseExpiry] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [addRole, setAddRole] = useState<Role>("view");
+  const [canCollaborate, setCanCollaborate] = useState(true);
 
   const toast = useToast();
+
+  // Friendly copy for the server's collaboration gate.
+  const handleGateError = (err?: string, limit?: number): boolean => {
+    if (err === "UPGRADE_REQUIRED") {
+      toast.showError("Collaboration is a Pro feature — upgrade in Settings › Plan & usage.");
+      return true;
+    }
+    if (err === "COLLAB_LIMIT") {
+      toast.showError(`You've reached your collaborator limit${typeof limit === "number" ? ` (${limit})` : ""}. Upgrade for more.`);
+      return true;
+    }
+    return false;
+  };
 
   const loadShareInfo = useCallback(async () => {
     setLoading(true);
@@ -97,6 +111,7 @@ export default function ShareNoteButton({
           linkPermission: perm,
         });
         setLinkPermission(perm);
+        setCanCollaborate(data.canCollaborate ?? false);
         setIsAnonymous(data.isAnonymous ?? false);
         setUsePassword(data.hasPassword ?? false);
         setUseExpiry(!!data.expiresAt);
@@ -136,7 +151,7 @@ export default function ShareNoteButton({
           expiresAt: exp,
         });
         if (result.success) await loadShareInfo();
-        else toast.showError((result as any).error || "Couldn't update sharing");
+        else if (!handleGateError((result as any).error, (result as any).limit)) toast.showError((result as any).error || "Couldn't update sharing");
       } finally {
         setSaving(false);
       }
@@ -165,7 +180,7 @@ export default function ShareNoteButton({
         storage: noteSource,
       });
       if (result.success) { setNewUsername(""); await loadShareInfo(); }
-      else toast.showError((result as any).error || "Couldn't add that person");
+      else if (!handleGateError((result as any).error, (result as any).limit)) toast.showError((result as any).error || "Couldn't add that person");
     } finally { setSaving(false); }
   }, [noteId, newUsername, addRole, userId, noteSource, linkPermission, toast, loadShareInfo]);
 
@@ -177,7 +192,7 @@ export default function ShareNoteButton({
         username, role, currentUserId: userId, storage: noteSource,
       });
       if (result.success) await loadShareInfo();
-      else toast.showError((result as any).error || "Couldn't change access");
+      else if (!handleGateError((result as any).error, (result as any).limit)) toast.showError((result as any).error || "Couldn't change access");
     } finally { setSaving(false); }
   }, [noteId, linkPermission, userId, noteSource, toast, loadShareInfo]);
 
@@ -257,14 +272,26 @@ export default function ShareNoteButton({
                     </button>
                   }
                 >
-                  {(["off", "view", "edit"] as LinkPermission[]).map((p) => (
-                    <DropdownItem key={p} onClick={() => changePermission(p)}>
-                      <span className="flex items-center gap-2">
-                        {linkPermission === p ? <IconCheck size={13} className="text-[var(--color-accent-text)]" /> : <span className="w-[13px]" />}
-                        {PERMISSION_LABEL[p]}
-                      </span>
-                    </DropdownItem>
-                  ))}
+                  {(["off", "view", "edit"] as LinkPermission[]).map((p) => {
+                    const gated = p === "edit" && !canCollaborate;
+                    if (gated) {
+                      return (
+                        <div key={p} className="px-3 py-1.5 flex items-center gap-2 text-[12px] text-[var(--color-ink-5)] cursor-not-allowed" title="Upgrade to Pro to let people edit">
+                          <span className="w-[13px]" />
+                          Can edit
+                          <span className="ml-auto text-[10px] font-[family-name:var(--font-meta)] px-1 rounded-[var(--radius-4)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]">Pro</span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <DropdownItem key={p} onClick={() => changePermission(p)}>
+                        <span className="flex items-center gap-2">
+                          {linkPermission === p ? <IconCheck size={13} className="text-[var(--color-accent-text)]" /> : <span className="w-[13px]" />}
+                          {PERMISSION_LABEL[p]}
+                        </span>
+                      </DropdownItem>
+                    );
+                  })}
                   <div className="my-1 border-t border-[var(--color-hairline-soft)]" />
                   <div className="px-3 py-1.5 flex items-center gap-2 text-[12px] text-[var(--color-ink-5)] cursor-not-allowed">
                     <span className="w-[13px]" />
@@ -345,7 +372,14 @@ export default function ShareNoteButton({
                         }
                       >
                         <DropdownItem onClick={() => changeReaderRole(u.username, "view")}>Can view</DropdownItem>
-                        <DropdownItem onClick={() => changeReaderRole(u.username, "edit")}>Can edit</DropdownItem>
+                        {canCollaborate ? (
+                          <DropdownItem onClick={() => changeReaderRole(u.username, "edit")}>Can edit</DropdownItem>
+                        ) : (
+                          <div className="px-3 py-2.5 flex items-center gap-2 text-[13px] text-[var(--color-ink-5)] cursor-not-allowed" title="Upgrade to Pro to let people edit">
+                            Can edit
+                            <span className="ml-auto text-[10px] font-[family-name:var(--font-meta)] px-1 rounded-[var(--radius-4)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]">Pro</span>
+                          </div>
+                        )}
                       </Dropdown>
                       <button onClick={() => removePerson(u.username)} aria-label={`Remove @${u.username}`}
                         className="shrink-0 w-7 h-7 flex items-center justify-center rounded-[var(--radius-6)] text-[var(--color-ink-5)] hover:text-[var(--color-danger)] hover:bg-[var(--color-raised-soft)] transition-colors">
@@ -370,7 +404,14 @@ export default function ShareNoteButton({
                   }
                 >
                   <DropdownItem onClick={() => setAddRole("view")}>Can view</DropdownItem>
-                  <DropdownItem onClick={() => setAddRole("edit")}>Can edit</DropdownItem>
+                  {canCollaborate ? (
+                    <DropdownItem onClick={() => setAddRole("edit")}>Can edit</DropdownItem>
+                  ) : (
+                    <div className="px-3 py-2.5 flex items-center gap-2 text-[13px] text-[var(--color-ink-5)] cursor-not-allowed" title="Upgrade to Pro to let people edit">
+                      Can edit
+                      <span className="ml-auto text-[10px] font-[family-name:var(--font-meta)] px-1 rounded-[var(--radius-4)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]">Pro</span>
+                    </div>
+                  )}
                 </Dropdown>
                 <button onClick={addPerson} disabled={saving || !newUsername.trim()}
                   className="h-9 px-3 flex items-center gap-1.5 text-[13px] font-semibold rounded-[var(--radius-8)] bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:opacity-90 transition-opacity disabled:opacity-40">

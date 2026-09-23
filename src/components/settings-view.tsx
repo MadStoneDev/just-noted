@@ -33,6 +33,7 @@ import {
   MAX_ACCOUNTS,
   type DeviceAccount,
 } from "@/utils/accounts";
+import BillingSection from "@/components/settings/billing-section";
 
 interface SettingsViewProps {
   onClose: () => void;
@@ -41,6 +42,7 @@ interface SettingsViewProps {
 const SECTIONS = [
   "Appearance",
   "Account",
+  "Plan & usage",
   "Editor",
   "Sync & data",
   "Notifications",
@@ -490,6 +492,8 @@ export default function SettingsView({ onClose }: SettingsViewProps) {
               <AccountSection />
               <DeviceAccountsSection />
             </div>
+          ) : section === "Plan & usage" ? (
+            <BillingSection />
           ) : section === "Security" ? (
             <div className="text-[13.5px] text-[var(--color-ink-4)] leading-[1.6]">
               Notes are encrypted in transit and at rest — this is not end-to-end
