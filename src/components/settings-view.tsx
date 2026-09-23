@@ -37,6 +37,7 @@ import BillingSection from "@/components/settings/billing-section";
 
 interface SettingsViewProps {
   onClose: () => void;
+  initialSection?: string;
 }
 
 const SECTIONS = [
@@ -320,11 +321,19 @@ function DeviceAccountsSection() {
 }
 
 // Design handoff surface 06 — Settings inside the shell.
-export default function SettingsView({ onClose }: SettingsViewProps) {
+export default function SettingsView({ onClose, initialSection }: SettingsViewProps) {
   const { theme, setTheme } = useTheme();
   const [font, setFont] = useState<EditorFont>("serif");
   const [fontSize, setFontSize] = useState(18);
-  const [section, setSection] = useState<Section>("Appearance");
+  const [section, setSection] = useState<Section>(
+    (SECTIONS.includes(initialSection as Section) ? (initialSection as Section) : "Appearance"),
+  );
+  // Honour a deep-link that changes while Settings is already open.
+  useEffect(() => {
+    if (initialSection && SECTIONS.includes(initialSection as Section)) {
+      setSection(initialSection as Section);
+    }
+  }, [initialSection]);
 
   useEffect(() => {
     setFont(readEditorFont());

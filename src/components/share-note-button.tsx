@@ -11,6 +11,7 @@ import {
   IconEyeOff,
   IconUserPlus,
   IconX,
+  IconSparkles,
 } from "@tabler/icons-react";
 import { IconButton } from "@/components/ds/icon-button";
 import { Drawer } from "@/components/ds/drawer";
@@ -347,6 +348,23 @@ export default function ShareNoteButton({
                 </div>
               )}
             </div>
+
+            {/* Upsell — editing is Pro */}
+            {!canCollaborate && (
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  window.dispatchEvent(new CustomEvent("justnoted:open-settings", { detail: "Plan & usage" }));
+                }}
+                className="w-full flex items-center gap-2.5 text-left px-3 py-2.5 rounded-[var(--radius-9)] bg-[var(--color-accent-tint)] border border-[var(--color-accent-tint-border)] hover:opacity-90 transition-opacity"
+              >
+                <IconSparkles size={16} className="text-[var(--color-accent-text)] shrink-0" />
+                <span className="flex-1 min-w-0 text-[12.5px] leading-snug text-[var(--color-ink-2)]">
+                  <span className="font-semibold text-[var(--color-accent-text)]">Upgrade to Pro</span> to let people edit — real-time collaboration, editors &amp; more.
+                </span>
+                <span className="shrink-0 text-[12px] font-semibold text-[var(--color-accent-text)]">Upgrade</span>
+              </button>
+            )}
 
             {/* ===== People ===== */}
             <div className="flex flex-col gap-2">

@@ -85,6 +85,8 @@ export default function NoteWrapper() {
   const [showNotebooksGrid, setShowNotebooksGrid] = useState(false);
   // In-shell settings view open in the main area
   const [showSettings, setShowSettings] = useState(false);
+  // Deep-link target section for Settings (e.g. from an upgrade upsell).
+  const [settingsSection, setSettingsSection] = useState<string | undefined>(undefined);
   // Which bottom-tab is highlighted on mobile (design surface 08).
   const [mobileTab, setMobileTab] = useState<MobileTab>("notes");
 
@@ -113,7 +115,13 @@ export default function NoteWrapper() {
   useEffect(() => {
     const openGrid = () => setShowNotebooksGrid(true);
     // Settings replaces the notes sidebar (its own section list stands in for it).
-    const openSettings = () => { setShowSettings(true); setSidebarOpen(false); };
+    // An optional string detail deep-links to a section (e.g. "Plan & usage").
+    const openSettings = (e: Event) => {
+      setShowSettings(true);
+      setSidebarOpen(false);
+      const detail = (e as CustomEvent).detail;
+      if (typeof detail === "string") setSettingsSection(detail);
+    };
     const openSearch = () => setShowSearch(true);
     const openHelp = () => { window.open("/the-how", "_blank"); };
     window.addEventListener("justnoted:open-notebooks-grid", openGrid);
@@ -332,7 +340,10 @@ export default function NoteWrapper() {
           aria-label={sharedShortcode ? "Shared note" : "Note editor"}
         >
           {showSettings ? (
-            <SettingsView onClose={() => { setShowSettings(false); setSidebarOpen(true); }} />
+            <SettingsView
+              initialSection={settingsSection}
+              onClose={() => { setShowSettings(false); setSidebarOpen(true); setSettingsSection(undefined); }}
+            />
           ) : showTrash ? (
             <TrashView onClose={() => setShowTrash(false)} />
           ) : showNotebooksGrid ? (
