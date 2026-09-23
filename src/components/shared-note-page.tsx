@@ -19,6 +19,10 @@ import MilkdownEditor from "@/components/editor/milkdown-editor";
 import type { ContentFormat } from "@/types/combined-notes";
 import { usePresence, colorForUser } from "@/hooks/use-presence";
 import { PresenceStack } from "@/components/presence-stack";
+import { SharedHistoryPanel } from "@/components/shared-history-panel";
+import { Dropdown, DropdownItem } from "@/components/ds/dropdown";
+import { useToast } from "@/components/ui/toast";
+import { IconHistory, IconLink, IconDots } from "@tabler/icons-react";
 
 interface SharedNote {
   id: string;
@@ -68,6 +72,10 @@ export default function SharedNotePage({
   const supabase = createClient();
   const canEdit = !!note?.canEdit;
   const presence = usePresence(note?.id ?? null);
+  const [showHistory, setShowHistory] = useState(false);
+  const toast = useToast();
+  const shareLink = typeof window !== "undefined" ? `${window.location.origin}/n/${shortcode}` : "";
+  const copyLink = () => { navigator.clipboard.writeText(shareLink); toast.showSuccess("Link copied"); };
 
   const scheduleSave = useCallback(
     (nextTitle: string, nextContent: string) => {
@@ -279,15 +287,35 @@ export default function SharedNotePage({
                 owner keeps control of access
               </div>
             </div>
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
               <PresenceStack users={presence} />
               {saveLabel && (
-                <span className={`text-[11px] font-[family-name:var(--font-meta)] ${saveStatus === "error" ? "text-[var(--color-danger)]" : "text-[var(--color-accent-text)]"}`}>
+                <span className={`text-[11px] font-[family-name:var(--font-meta)] mr-1 ${saveStatus === "error" ? "text-[var(--color-danger)]" : "text-[var(--color-accent-text)]"}`}>
                   {saveLabel}
                 </span>
               )}
+              <button onClick={() => setShowHistory(true)} title="Version history"
+                className="w-8 h-8 flex items-center justify-center rounded-[var(--radius-6)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)] transition-colors">
+                <IconHistory size={16} />
+              </button>
+              <button onClick={copyLink} title="Copy link"
+                className="w-8 h-8 flex items-center justify-center rounded-[var(--radius-6)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)] transition-colors">
+                <IconLink size={16} />
+              </button>
+              <Dropdown
+                placement="bottom-end"
+                trigger={
+                  <button title="More" className="w-8 h-8 flex items-center justify-center rounded-[var(--radius-6)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)] transition-colors">
+                    <IconDots size={16} />
+                  </button>
+                }
+              >
+                <DropdownItem onClick={copyLink}>Copy link</DropdownItem>
+                <DropdownItem onClick={() => window.open(shareLink, "_blank")}>Open in new tab</DropdownItem>
+              </Dropdown>
             </div>
           </div>
+          {showHistory && <SharedHistoryPanel shortcode={shortcode} onClose={() => setShowHistory(false)} />}
         </div>
         <article className="max-w-[var(--content-width)] mx-auto px-4 md:px-8 py-8">
           <input

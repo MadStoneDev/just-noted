@@ -39,6 +39,7 @@ type SharingOperationParams =
       currentUserId: string;
     }
   | { operation: "stopSharing"; noteId: string; currentUserId: string }
+  | { operation: "getSharedVersions"; shortcode: string }
   | {
       operation: "saveSharedNote";
       shortcode: string;
@@ -525,6 +526,55 @@ export async function sharingOperation(params: SharingOperationParams) {
           canCollaborate: allowance.canCollaborate,
           maxCollaborators: allowance.maxCollaborators,
         };
+      }
+
+      case "getSharedVersions": {
+        const { shortcode } = params;
+        const svc = createServiceRoleClient();
+        const { data: share } = await svc
+          .from("shared_notes")
+          .select("id, note_id, note_owner_id, is_public, is_anonymous, expires_at, storage")
+          .eq("shortcode", shortcode)
+          .single();
+        if (!share) return { success: false, error: "Shared note not found", versions: [] };
+        if ((share as any).expires_at && new Date((share as any).expires_at) < new Date()) {
+          return { success: false, error: "This shared link has expired", versions: [] };
+        }
+        // Access: public links are open; private shares require the viewer to be
+        // a reader. (Version content is only exposed to people who can see it.)
+        if (!(share as any).is_public) {
+          if (!authenticatedUserId) return { success: false, error: "No access", versions: [] };
+          const { data: reader } = await svc
+            .from("shared_notes_readers")
+            .select("id")
+            .eq("shared_note", (share as any).id)
+            .eq("reader_id", authenticatedUserId)
+            .maybeSingle();
+          if (!reader) return { success: false, error: "No access", versions: [] };
+        }
+        if ((share as any).storage !== "supabase") return { success: true, versions: [] };
+
+        const { data: rows } = await svc
+          .from("note_versions")
+          .select("id, author, title, created_at, content")
+          .eq("note_id", (share as any).note_id)
+          .order("created_at", { ascending: false })
+          .limit(30);
+
+        const isAnon = (share as any).is_anonymous;
+        const authorIds = Array.from(new Set((rows || []).map((r: any) => r.author).filter(Boolean)));
+        const nameById = new Map<string, string>();
+        if (!isAnon && authorIds.length) {
+          const { data: authors } = await svc.from("authors").select("id, username").in("id", authorIds);
+          (authors || []).forEach((a: any) => nameById.set(a.id, a.username || "Someone"));
+        }
+        const versions = (rows || []).map((r: any) => ({
+          id: r.id,
+          createdAt: r.created_at,
+          author: isAnon ? "Anonymous" : nameById.get(r.author) || "Someone",
+          content: r.content || "",
+        }));
+        return { success: true, versions };
       }
 
       case "getByShortcode": {

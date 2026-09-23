@@ -3,13 +3,16 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { sanitizeHtml } from "@/utils/sanitize";
 import { marked } from "marked";
-import { IconX, IconLock, IconEye, IconShare } from "@tabler/icons-react";
+import { IconX, IconLock, IconEye, IconShare, IconHistory, IconLink, IconDots } from "@tabler/icons-react";
 import { sharingOperation } from "@/app/actions/sharing";
 import { createClient } from "@/utils/supabase/client";
 import MilkdownEditor from "@/components/editor/milkdown-editor";
 import type { ContentFormat } from "@/types/combined-notes";
 import { usePresence, colorForUser } from "@/hooks/use-presence";
 import { PresenceStack } from "@/components/presence-stack";
+import { SharedHistoryPanel } from "@/components/shared-history-panel";
+import { Dropdown, DropdownItem } from "@/components/ds/dropdown";
+import { useToast } from "@/components/ui/toast";
 
 interface SharedNoteInlineProps {
   shortcode: string;
@@ -44,6 +47,10 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
   const supabase = createClient();
   const canEdit = !!note?.canEdit;
   const presence = usePresence(note?.id ?? null);
+  const [showHistory, setShowHistory] = useState(false);
+  const toast = useToast();
+  const shareLink = typeof window !== "undefined" ? `${window.location.origin}/n/${shortcode}` : "";
+  const copyLink = () => { navigator.clipboard.writeText(shareLink); toast.showSuccess("Link copied"); };
 
   const renderContent = (c: string, format?: string): string => {
     const looksLikeHtml = /<[a-z][\s\S]*>/i.test(c.trim());
@@ -249,23 +256,40 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
               owner keeps control of access
             </div>
           </div>
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             <PresenceStack users={presence} />
             {saveLabel && (
-              <span className={`text-[11px] font-[family-name:var(--font-meta)] ${saveStatus === "error" ? "text-[var(--color-danger)]" : "text-[var(--color-accent-text)]"}`}>
+              <span className={`text-[11px] font-[family-name:var(--font-meta)] mr-1 ${saveStatus === "error" ? "text-[var(--color-danger)]" : "text-[var(--color-accent-text)]"}`}>
                 {saveLabel}
               </span>
             )}
-            <button
-              onClick={onClose}
-              className="inline-flex items-center gap-1 text-xs text-[var(--color-accent-text)] hover:text-[var(--color-accent-deep)] transition-colors"
-              title="Close"
+            <button onClick={() => setShowHistory(true)} title="Version history"
+              className="w-8 h-8 flex items-center justify-center rounded-[var(--radius-6)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)] transition-colors">
+              <IconHistory size={16} />
+            </button>
+            <button onClick={copyLink} title="Copy link"
+              className="w-8 h-8 flex items-center justify-center rounded-[var(--radius-6)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)] transition-colors">
+              <IconLink size={16} />
+            </button>
+            <Dropdown
+              placement="bottom-end"
+              trigger={
+                <button title="More" className="w-8 h-8 flex items-center justify-center rounded-[var(--radius-6)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)] transition-colors">
+                  <IconDots size={16} />
+                </button>
+              }
             >
+              <DropdownItem onClick={copyLink}>Copy link</DropdownItem>
+              <DropdownItem onClick={() => window.open(shareLink, "_blank")}>Open in new tab</DropdownItem>
+              <DropdownItem onClick={onClose}>Close</DropdownItem>
+            </Dropdown>
+            <button onClick={onClose} title="Close"
+              className="w-8 h-8 flex items-center justify-center rounded-[var(--radius-6)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)] transition-colors">
               <IconX size={16} />
-              Close
             </button>
           </div>
         </div>
+        {showHistory && <SharedHistoryPanel shortcode={shortcode} onClose={() => setShowHistory(false)} />}
         <div className="flex-1 overflow-y-auto scrollbar-thin">
           <article className="max-w-[var(--content-width)] mx-auto px-4 md:px-8 py-8">
             <input
