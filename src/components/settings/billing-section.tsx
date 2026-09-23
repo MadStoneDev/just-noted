@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { SUBSCRIPTION_LIMITS, type SubscriptionTier } from "@/types/subscription";
 import { NOTEBOOK_LIMITS } from "@/types/notebook";
-import { openUpgradeCheckout, paddleConfigured } from "@/lib/paddle-client";
+import { openUpgradeCheckout, billingConfigured } from "@/lib/billing-client";
 import { getPortalUrl } from "@/app/actions/billingActions";
 import { useToast } from "@/components/ui/toast";
 import { IconCheck, IconSparkles } from "@tabler/icons-react";
@@ -187,7 +187,7 @@ export default function BillingSection() {
               Team
             </button>
           </div>
-          {!paddleConfigured() && (
+          {!billingConfigured() && (
             <p className="mt-2 text-[11px] text-[var(--color-ink-5)]">Checkout is being set up — the button will be live once billing is configured.</p>
           )}
         </div>

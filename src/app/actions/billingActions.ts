@@ -1,15 +1,17 @@
 "use server";
 
+import Stripe from "stripe";
+import { headers } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 
 /**
- * Create a Paddle customer-portal session so the user can manage/cancel their
- * subscription. Returns null when billing isn't configured (no API key) or the
- * user has no Paddle customer yet — the Manage button is hidden in that case.
+ * Create a Stripe Billing Portal session so the user can manage/cancel their
+ * subscription. Returns null when billing isn't configured (no secret key) or
+ * the user has no Stripe customer yet — the Manage button is hidden then.
  */
 export async function getPortalUrl(): Promise<string | null> {
-  const apiKey = process.env.PADDLE_API_KEY;
-  if (!apiKey) return null;
+  const secret = process.env.STRIPE_SECRET_KEY;
+  if (!secret) return null;
 
   const supabase = await createClient();
   const {
@@ -19,26 +21,21 @@ export async function getPortalUrl(): Promise<string | null> {
 
   const { data: sub } = await supabase
     .from("subscriptions")
-    .select("paddle_customer_id")
+    .select("stripe_customer_id")
     .eq("user_id", user.id)
     .maybeSingle();
-  const customerId = (sub as any)?.paddle_customer_id;
+  const customerId = (sub as any)?.stripe_customer_id;
   if (!customerId) return null;
 
-  const base =
-    process.env.NEXT_PUBLIC_PADDLE_ENV === "production"
-      ? "https://api.paddle.com"
-      : "https://sandbox-api.paddle.com";
-
   try {
-    const res = await fetch(`${base}/customers/${customerId}/portal-sessions`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({}),
+    const stripe = new Stripe(secret);
+    const hdrs = await headers();
+    const origin = hdrs.get("origin") || (hdrs.get("host") ? `https://${hdrs.get("host")}` : "");
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: origin || undefined,
     });
-    if (!res.ok) return null;
-    const json = await res.json();
-    return json?.data?.urls?.general?.overview ?? null;
+    return session.url;
   } catch {
     return null;
   }

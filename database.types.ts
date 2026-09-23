@@ -435,6 +435,8 @@ export type Database = {
           status: string
           paddle_subscription_id: string | null
           paddle_customer_id: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
           current_period_end: string | null
           cancel_at_period_end: boolean | null
           created_at: string | null
@@ -447,6 +449,8 @@ export type Database = {
           status?: string
           paddle_subscription_id?: string | null
           paddle_customer_id?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           current_period_end?: string | null
           cancel_at_period_end?: boolean | null
           created_at?: string | null
@@ -459,6 +463,8 @@ export type Database = {
           status?: string
           paddle_subscription_id?: string | null
           paddle_customer_id?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           current_period_end?: string | null
           cancel_at_period_end?: boolean | null
           created_at?: string | null
