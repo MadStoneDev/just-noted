@@ -34,6 +34,8 @@ import {
   type DeviceAccount,
 } from "@/utils/accounts";
 import BillingSection from "@/components/settings/billing-section";
+import { getTrashState, setScribeRetentionDays } from "@/app/actions/supabaseActions";
+import { SCRIBE_RETENTION_OPTIONS, DRAFT_RETENTION_DAYS } from "@/lib/retention";
 
 interface SettingsViewProps {
   onClose: () => void;
@@ -320,6 +322,94 @@ function DeviceAccountsSection() {
   );
 }
 
+// Sync & data — Trash retention. Draft is fixed at 30 days; Scribe chooses
+// between 60 (default) and 90.
+function DataRetentionSection() {
+  const { showSuccess, showError } = useToast();
+  const [tier, setTier] = useState<"draft" | "scribe" | null>(null);
+  const [days, setDays] = useState<number>(DRAFT_RETENTION_DAYS);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    getTrashState().then((s) => {
+      if (!s.authenticated) return;
+      setTier(s.tier);
+      setDays(
+        s.tier === "scribe" ? s.scribeRetentionPref : DRAFT_RETENTION_DAYS,
+      );
+    });
+  }, []);
+
+  const choose = async (d: number) => {
+    if (tier !== "scribe" || d === days || saving) return;
+    const prev = days;
+    setDays(d);
+    setSaving(true);
+    const res = await setScribeRetentionDays(d);
+    setSaving(false);
+    if (res.success) {
+      showSuccess(`Deleted notes now kept for ${d} days`);
+    } else {
+      setDays(prev);
+      showError("Couldn't update retention. Please try again.");
+    }
+  };
+
+  const isScribe = tier === "scribe";
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-[13.5px] font-semibold text-[var(--color-ink-1)] mb-1.5">
+          Trash retention
+        </h2>
+        <p className="text-[13px] leading-[1.55] text-[var(--color-ink-4)] mb-3">
+          {isScribe
+            ? "How long a deleted note waits in Trash before it's removed for good."
+            : "On the free Draft plan, deleted notes are kept for 30 days. Upgrade to Scribe to keep them longer."}
+        </p>
+        <div className="grid grid-cols-2 gap-3 max-w-[360px]">
+          {SCRIBE_RETENTION_OPTIONS.map((opt) => {
+            const active = isScribe && days === opt;
+            return (
+              <button
+                key={opt}
+                onClick={() => choose(opt)}
+                disabled={!isScribe || saving}
+                className="rounded-[var(--radius-10)] px-3 py-4 text-center transition-colors disabled:cursor-not-allowed"
+                style={{
+                  border: active
+                    ? "2px solid var(--color-accent-fill)"
+                    : "2px solid var(--color-hairline)",
+                  background: active ? "var(--color-accent-tint)" : "transparent",
+                  opacity: isScribe ? 1 : 0.55,
+                }}
+              >
+                <div className="text-[20px] font-medium text-[var(--color-ink-1)] leading-none">
+                  {opt}
+                </div>
+                <div className="mt-1.5 text-[12px] text-[var(--color-ink-3)]">days</div>
+              </button>
+            );
+          })}
+        </div>
+        {!isScribe && (
+          <button
+            onClick={() =>
+              window.dispatchEvent(
+                new CustomEvent("justnoted:open-settings", { detail: "Plan & usage" }),
+              )
+            }
+            className="mt-3 text-[12.5px] font-medium text-[var(--color-accent-text)] hover:text-[var(--color-accent-deep)] transition-colors"
+          >
+            Upgrade to Scribe →
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Design handoff surface 06 — Settings inside the shell.
 export default function SettingsView({ onClose, initialSection }: SettingsViewProps) {
   const { theme, setTheme } = useTheme();
@@ -503,6 +593,8 @@ export default function SettingsView({ onClose, initialSection }: SettingsViewPr
             </div>
           ) : section === "Plan & usage" ? (
             <BillingSection />
+          ) : section === "Sync & data" ? (
+            <DataRetentionSection />
           ) : section === "Security" ? (
             <div className="text-[13.5px] text-[var(--color-ink-4)] leading-[1.6]">
               Notes are encrypted in transit and at rest — this is not end-to-end

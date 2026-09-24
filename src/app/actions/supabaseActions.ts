@@ -1,12 +1,18 @@
 ﻿"use server";
 
-import { createClient } from "@/utils/supabase/server";
+import { createClient, createServiceRoleClient } from "@/utils/supabase/server";
 import {
   CombinedNote,
   combiToSupabase,
   supabaseToCombi,
 } from "@/types/combined-notes";
 import { validateGoalType, validateNoteTitle } from "@/utils/validation";
+import type { SubscriptionTier } from "@/types/subscription";
+import {
+  DEFAULT_SCRIBE_RETENTION_DAYS,
+  isScribeRetentionDays,
+  resolveRetentionDays,
+} from "@/lib/retention";
 
 // ===========================
 // AUTHENTICATION HELPER
@@ -382,6 +388,83 @@ export const getTrashedNotes = async () => {
   } catch (error) {
     console.error("Failed to get trashed notes:", error);
     return { success: false, notes: [] };
+  }
+};
+
+/**
+ * Trash retention context for the current viewer. Guests aren't authenticated
+ * (their notes live in Redis and are hard-deleted), so they get
+ * `authenticated: false` and the Trash view nudges them to sign up.
+ */
+export const getTrashState = async () => {
+  const supabase = await createClient();
+  const { data: authData } = await supabase.auth.getUser();
+  if (!authData.user?.id) {
+    return { authenticated: false as const };
+  }
+
+  const { data } = await supabase
+    .from("subscriptions")
+    .select("tier, status, trash_retention_days")
+    .eq("user_id", authData.user.id)
+    .maybeSingle();
+
+  const sub = data as
+    | { tier?: string; status?: string; trash_retention_days?: number }
+    | null;
+  const isScribe =
+    (sub?.status === "active" || sub?.status === "trialing") &&
+    sub?.tier === "scribe";
+  const tier: SubscriptionTier = isScribe ? "scribe" : "draft";
+  const scribePref = isScribeRetentionDays(sub?.trash_retention_days)
+    ? sub!.trash_retention_days!
+    : DEFAULT_SCRIBE_RETENTION_DAYS;
+
+  return {
+    authenticated: true as const,
+    tier,
+    retentionDays: resolveRetentionDays(tier, scribePref),
+    scribeRetentionPref: scribePref,
+  };
+};
+
+/**
+ * Set the Scribe-only Trash retention preference (60 or 90 days). Written with
+ * the service-role client (subscriptions rows are otherwise webhook-managed),
+ * but only after authenticating the user and confirming they're on Scribe.
+ */
+export const setScribeRetentionDays = async (days: number) => {
+  try {
+    const { supabase, userId } = await getAuthenticatedUser();
+
+    if (!isScribeRetentionDays(days)) {
+      return { success: false, error: "Retention must be 60 or 90 days" };
+    }
+
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("tier, status")
+      .eq("user_id", userId)
+      .maybeSingle();
+    const s = sub as { tier?: string; status?: string } | null;
+    const isScribe =
+      (s?.status === "active" || s?.status === "trialing") &&
+      s?.tier === "scribe";
+    if (!isScribe) {
+      return { success: false, error: "Retention length is a Scribe feature" };
+    }
+
+    const admin = createServiceRoleClient();
+    const { error } = await admin
+      .from("subscriptions")
+      .update({ trash_retention_days: days })
+      .eq("user_id", userId);
+    if (error) throw error;
+
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to set retention:", error);
+    return { success: false, error: String(error) };
   }
 };
 

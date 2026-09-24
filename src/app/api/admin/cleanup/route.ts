@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cleanupOldNotes } from "@/utils/redis/redisCleanup";
+import { purgeExpiredTrash } from "@/utils/supabase/trashCleanup";
 import crypto from "crypto";
 
 /**
@@ -36,14 +37,17 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Run the cleanup operation
-    const result = await cleanupOldNotes();
+    // Run both cleanup operations: inactive Redis (guest) notes, and Supabase
+    // soft-deleted notes past the physical retention cutoff.
+    const [redis, trash] = await Promise.all([
+      cleanupOldNotes(),
+      purgeExpiredTrash(),
+    ]);
 
-    if (result.success) {
-      return NextResponse.json(result);
-    } else {
-      return NextResponse.json(result, { status: 500 });
-    }
+    const success = redis.success && trash.success;
+    return NextResponse.json({ success, redis, trash }, {
+      status: success ? 200 : 500,
+    });
   } catch (error) {
     console.error("Error in cleanup endpoint:", error);
     return NextResponse.json(

@@ -465,6 +465,7 @@ export type Database = {
           cancel_at_period_end: boolean | null
           created_at: string | null
           updated_at: string | null
+          trash_retention_days: number
         }
         Insert: {
           id?: string
@@ -477,6 +478,7 @@ export type Database = {
           cancel_at_period_end?: boolean | null
           created_at?: string | null
           updated_at?: string | null
+          trash_retention_days?: number
         }
         Update: {
           id?: string
@@ -489,6 +491,7 @@ export type Database = {
           cancel_at_period_end?: boolean | null
           created_at?: string | null
           updated_at?: string | null
+          trash_retention_days?: number
         }
         Relationships: []
       }
