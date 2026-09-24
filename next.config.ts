@@ -1,7 +1,15 @@
 import type { NextConfig } from "next";
 
+// A unique id per build, used by the "update available" banner: the client
+// bundle bakes this in, and /api/version reports the running deploy's value, so
+// a mismatch means a newer deploy is live. Prefer the git SHA when the platform
+// provides it (Coolify sets SOURCE_COMMIT); otherwise the build timestamp.
+const buildId = process.env.SOURCE_COMMIT || `${Date.now()}`;
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  env: { NEXT_PUBLIC_BUILD_ID: buildId },
+  generateBuildId: async () => buildId,
   // This is important for MDXEditor to work properly
   transpilePackages: ["@mdxeditor/editor"],
   // If you have webpack configuration, merge with this:

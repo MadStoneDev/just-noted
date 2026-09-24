@@ -8,6 +8,7 @@ import LogRocket from "@/components/providers/logrocket-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import { ConsentBanner } from "@/components/ui/consent-banner";
 import PreventFileDropNavigation from "@/components/providers/prevent-file-drop";
+import UpdateAvailableBanner from "@/components/update-available-banner";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -93,6 +94,7 @@ export default function RootLayout({
 
             {children}
 
+            <UpdateAvailableBanner />
             <ConsentBanner />
           </ToastProvider>
         </LogRocket>
