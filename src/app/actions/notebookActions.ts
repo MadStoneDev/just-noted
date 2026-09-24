@@ -107,10 +107,11 @@ export async function createNotebook(
       limit = NOTEBOOK_LIMITS.premium;
     }
 
-    if (currentCount >= limit) {
+    // limit < 0 means unlimited (Scribe); only enforce a finite cap.
+    if (limit >= 0 && currentCount >= limit) {
       return {
         success: false,
-        error: `You've reached the maximum of ${limit} notebooks. Upgrade to premium for more.`,
+        error: `You've reached the maximum of ${limit} notebooks. Upgrade to Scribe for unlimited notebooks.`,
       };
     }
 
