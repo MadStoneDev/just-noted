@@ -109,11 +109,12 @@ export default function SharedNotePage({
     });
   };
 
-  const renderContent = (content: string, format?: string): string => {
-    const looksLikeHtml = /<[a-z][\s\S]*>/i.test(content.trim());
-    if (format === "html" && looksLikeHtml) {
-      return sanitizeHtml(content);
-    }
+  const renderContent = (content: string): string => {
+    // Always parse as Markdown. Marked passes real HTML (block and inline)
+    // through untouched, so genuinely-HTML legacy notes still render, while
+    // Markdown notes render correctly even when a note's content_format flag is
+    // a stale "html" (which happened because saves didn't rewrite the flag).
+    // We no longer trust that flag for rendering.
     const html = marked.parse(content, { async: false, gfm: true, breaks: false }) as string;
     return sanitizeHtml(html);
   };
@@ -395,7 +396,7 @@ export default function SharedNotePage({
         <div
           className="milkdown"
           dangerouslySetInnerHTML={{
-            __html: renderContent(note.content, note.content_format),
+            __html: renderContent(note.content),
           }}
         />
       </article>

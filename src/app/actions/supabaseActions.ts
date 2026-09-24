@@ -81,6 +81,10 @@ export const updateNote = async (
       .from("notes")
       .update({
         content,
+        // The editor always emits Markdown, so stamp the format on every save.
+        // Legacy notes were created as "html"; without this the flag goes stale
+        // and shared views render raw Markdown as HTML (wall of text).
+        content_format: "markdown",
         goal: wordCountGoal || 0,
         goal_type: validateGoalType(wordCountGoalType),
         updated_at: new Date().toISOString(),

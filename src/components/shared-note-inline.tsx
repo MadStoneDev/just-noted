@@ -53,9 +53,10 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
   const shareLink = typeof window !== "undefined" ? `${window.location.origin}/n/${shortcode}` : "";
   const copyLink = () => { navigator.clipboard.writeText(shareLink); toast.showSuccess("Link copied"); };
 
-  const renderContent = (c: string, format?: string): string => {
-    const looksLikeHtml = /<[a-z][\s\S]*>/i.test(c.trim());
-    if (format === "html" && looksLikeHtml) return sanitizeHtml(c);
+  const renderContent = (c: string): string => {
+    // Always parse as Markdown; marked passes real HTML through untouched. See
+    // shared-note-page.tsx — we no longer trust the (often stale) content_format
+    // flag, which caused Markdown notes to render as a raw-HTML wall of text.
     const html = marked.parse(c, { async: false, gfm: true, breaks: false }) as string;
     return sanitizeHtml(html);
   };
@@ -339,7 +340,7 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
             {!isAnonymous && <span>·</span>}
             <span>{formatDate(note.updated_at)}</span>
           </div>
-          <div className="milkdown" dangerouslySetInnerHTML={{ __html: renderContent(note.content, note.content_format) }} />
+          <div className="milkdown" dangerouslySetInnerHTML={{ __html: renderContent(note.content) }} />
         </article>
       </div>
     </div>
