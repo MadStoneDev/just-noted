@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNotesStore, useNotebooks } from "@/stores/notes-store";
+import { createClient } from "@/utils/supabase/client";
 import { Notebook, NOTEBOOK_LIMITS } from "@/types/notebook";
 import { reorderNotebooks } from "@/app/actions/notebookActions";
 import {
@@ -44,6 +45,28 @@ export default function NotebookNavList({
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+  // Scribe has no notebook cap; Draft is capped at NOTEBOOK_LIMITS.free. The
+  // server enforces the real limit — this only drives the "Create" button state.
+  const [isScribe, setIsScribe] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) return;
+      supabase
+        .from("subscriptions")
+        .select("tier, status")
+        .eq("user_id", data.user.id)
+        .maybeSingle()
+        .then(({ data: sub }) => {
+          const s = sub as { tier?: string; status?: string } | null;
+          setIsScribe(
+            (s?.status === "active" || s?.status === "trialing") &&
+              s?.tier === "scribe",
+          );
+        });
+    });
+  }, []);
 
   const notebooks = useNotebooks();
   const {
@@ -63,7 +86,8 @@ export default function NotebookNavList({
 
   const totalNotesCount = notes.filter((n) => n.source === "supabase").length;
   const hiddenNotebookCount = notebooks.filter((nb) => nb.isHidden && !nb.parentId).length;
-  const notebookLimitReached = notebooks.length >= NOTEBOOK_LIMITS.free;
+  const notebookLimit = isScribe ? NOTEBOOK_LIMITS.premium : NOTEBOOK_LIMITS.free;
+  const notebookLimitReached = notebookLimit >= 0 && notebooks.length >= notebookLimit;
 
   const handleSelect = (id: string | null) => {
     setActiveNotebookId(id);

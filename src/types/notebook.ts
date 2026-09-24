@@ -35,8 +35,8 @@ export interface UpdateNotebookInput {
 
 // Notebook limit for paywall
 export const NOTEBOOK_LIMITS = {
-  free: 10, // Free tier: 10 notebooks max
-  premium: 50, // Premium tier: 50 notebooks
+  free: 10, // Draft (free): 10 notebooks max
+  premium: -1, // Scribe (paid): unlimited (-1), matching unlimited notes
 } as const;
 
 export type NotebookTier = keyof typeof NOTEBOOK_LIMITS;
