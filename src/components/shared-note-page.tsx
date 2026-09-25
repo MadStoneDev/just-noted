@@ -21,6 +21,7 @@ import { usePresence, colorForUser } from "@/hooks/use-presence";
 import { PresenceStack } from "@/components/presence-stack";
 import { SharedHistoryPanel } from "@/components/shared-history-panel";
 import { loadCollabDoc, saveCollabDoc } from "@/app/actions/collabActions";
+import NoteStatsRow from "@/components/note-stats-row";
 import { Dropdown, DropdownItem } from "@/components/ds/dropdown";
 import { useToast } from "@/components/ui/toast";
 import { IconHistory, IconLink, IconDots } from "@tabler/icons-react";
@@ -30,6 +31,8 @@ interface SharedNote {
   title: string;
   content: string;
   content_format?: "html" | "markdown";
+  goal?: number | null;
+  goal_type?: string | null;
   author: string;
   authorUsername: string;
   authorAvatar: string | null;
@@ -324,8 +327,11 @@ export default function SharedNotePage({
             value={title}
             onChange={(e) => { setTitle(e.target.value); scheduleSave(e.target.value, contentRef.current); }}
             placeholder="Untitled"
-            className="w-full mb-4 bg-transparent text-2xl md:text-3xl font-bold text-[var(--color-ink-1)] placeholder:text-[var(--color-ink-5)] focus:outline-none"
+            className="w-full mb-1 bg-transparent font-[family-name:var(--font-editor)] text-[32px] md:text-[46px] leading-[1.1] font-medium tracking-[-0.015em] text-[var(--color-ink)] placeholder:text-[var(--color-ink-6)] focus:outline-none"
           />
+          <div className="mb-6">
+            <NoteStatsRow content={note.content} goal={note.goal} goalType={note.goal_type} />
+          </div>
           <MilkdownEditor
             content={note.content || ""}
             contentFormat={(note.content_format as ContentFormat) || "markdown"}
@@ -366,12 +372,12 @@ export default function SharedNotePage({
       {/* Note content */}
       <article className="max-w-[var(--content-width)] mx-auto px-4 md:px-8 pb-16">
         {/* Title */}
-        <h1 className="text-2xl md:text-3xl font-bold text-[var(--color-text-primary)] mb-2">
-          {note.title}
+        <h1 className="font-[family-name:var(--font-editor)] text-[32px] md:text-[46px] leading-[1.1] font-medium tracking-[-0.015em] text-[var(--color-ink)] mb-2">
+          {note.title || "Untitled"}
         </h1>
 
-        {/* Meta */}
-        <div className="flex items-center gap-3 text-[11px] text-[var(--color-text-tertiary)] mb-8">
+        {/* Meta + stats */}
+        <div className="flex items-center gap-3 text-[11px] text-[var(--color-text-tertiary)] mb-2">
           {!isAnonymous && (
             <span className="flex items-center gap-1.5">
               {note.authorAvatar ? (
@@ -390,6 +396,11 @@ export default function SharedNotePage({
           )}
           {!isAnonymous && <span>·</span>}
           <span>{formatDate(note.updated_at)}</span>
+        </div>
+
+        {/* Stats (read-only) */}
+        <div className="mb-8">
+          <NoteStatsRow content={note.content} goal={note.goal} goalType={note.goal_type} />
         </div>
 
         {/* Content */}

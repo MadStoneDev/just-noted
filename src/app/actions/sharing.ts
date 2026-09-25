@@ -138,7 +138,7 @@ async function fetchSupabaseNote(
   const { data, error } = await supabase
     .from("notes")
     .select(
-      "id, title, content, content_format, author, is_private, is_pinned, created_at, updated_at",
+      "id, title, content, content_format, goal, goal_type, author, is_private, is_pinned, created_at, updated_at",
     )
     .eq("id", noteId)
     .single();
