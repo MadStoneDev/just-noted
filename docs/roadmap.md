@@ -1,19 +1,48 @@
 # JustNoted — Roadmap
 
-Living planning doc. Near-term work is roughly ordered; the big features are
-broken into shippable phases so each one stands on its own.
+Living planning doc. The build order below is the priority; each big feature is
+broken into shippable phases so it can go out independently.
 
 ---
 
-## In progress / awaiting commit
+## Build order (what's next)
 
-### Help & Keyboard Shortcuts (design surface 08)
-Built, currently uncommitted (`src/components/help-modal.tsx` + wiring in
-`note-wrapper.tsx`). Rail "Help" button → `justnoted:open-help` → `HelpModal`,
-with **Keyboard Shortcuts** rendered inline from `KEYBOARD_SHORTCUTS`. Remaining
-menu items (Articles, How it works, About, Roadmap) are stubbed "soon".
-- **To finish:** commit it; then wire the stubbed destinations as they're built
-  (the "Roadmap" item can eventually render this document in-app).
+1. **In-app Roadmap page** — surface this roadmap in the app (Help → Roadmap) so
+   users can see what's shipped and coming. Small; do first.
+2. **Collab identity fixes** — caret shows the real username (not "Someone"),
+   broadcast live on resolve/change; email-local-part fallback. Small, high-annoyance.
+3. **Shared note consistency — finish** — Export / Print / History parity across
+   shared surfaces; optional owner-set per-note page size (needs a `page_format`
+   column). (Title + stats already shipped.)
+4. **Note Conversations** — per-note chat + anchored comments (5 phases, below).
+5. **Notifications** — in-app → prefs → email digest → push (4 phases, below).
+
+Parked: performance investigation (improved; revisit if it regresses).
+Deferred: anonymous / public-only sharing for Redis users.
+
+---
+
+## Shipped (awaiting deploy)
+
+- Tiered **Trash retention** (Draft 30d / Scribe 60–90d) + Settings toggle + 91-day purge cron.
+- **Scribe = unlimited notebooks.**
+- Shared notes render **Markdown** correctly (no more raw-HTML wall of text).
+- **Update-available banner** (flushes the open note, then reloads).
+- **Help & Keyboard Shortcuts** modal (replaces the old `/the-how` page).
+- **Restore last-viewed shared note** on refresh.
+- Shared notes match the editor **title + show stats** (read-only).
+
+---
+
+## In-app Roadmap page
+
+Surface this roadmap inside the app so users can see what's shipped and planned
+(the Help menu already has a stubbed "Roadmap" item).
+- Help → **Roadmap** opens a user-facing view: "Shipped / In progress / Planned"
+  with short, public-friendly blurbs — not the engineering notes.
+- **Decision:** render `docs/roadmap.md` directly, or maintain a separate curated
+  public list? Recommended: a **separate public list**, so internal detail (file
+  paths, DB tables, open decisions) never leaks to users.
 
 ---
 
@@ -104,21 +133,18 @@ text and the thread.
 
 ## Shared note consistency
 
-Shared notes currently render as a bespoke surface (`shared-note-page`,
-`shared-note-inline`) that looks nothing like the normal editor: different title
-font/size, no stats (word/char count, reading time), no page-size or goal
-display. They should look like a normal note.
+Making shared notes look like normal notes (they were a bespoke surface).
 
-- Match the editor's **title** styling (`var(--font-editor)`, same sizes).
-- Show the same **stats row** (word count · char count · reading time · page
-  estimate) via `use-note-statistics`.
-- Show the owner's **page size** and **goal/progress** if set — **read-only** for
-  non-owners (only the owner can change them).
-- Keep the existing **Export / Print / History** actions.
-- **Approach (to confirm):** reuse the real editor chrome in a read-only/limited
-  mode vs. add the missing chrome to the shared views. Reuse is the cleaner
-  end-state but a bigger refactor (the editor is wired to the notes store + save
-  paths); the additive route ships the visible consistency faster.
+- ✅ Editor **title** styling (`var(--font-editor)`, same sizes).
+- ✅ **Stats row** (words · chars · reading time · page estimate · goal), read-only.
+- ✅ Owner's **goal/progress** shown read-only.
+- ⬜ **Export / Print / History** parity across shared surfaces (editable has
+  History/Copy-link/⋯; read-only has Print/Back — not a uniform Export).
+- ⬜ Owner-set **per-note page size** — needs a `page_format` column (page size is
+  currently editor-local, so there's no stored owner value to display).
+- Later: **full editor reuse** — render shared notes through the real editor in a
+  read-only/limited mode (cleaner end-state, bigger refactor) rather than the
+  additive approach shipped above.
 
 ## Notifications
 
