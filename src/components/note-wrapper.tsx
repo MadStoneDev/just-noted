@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
 import Sidebar from "@/components/sidebar";
 import ActiveNoteEditor from "@/components/active-note-editor";
@@ -97,6 +98,35 @@ export default function NoteWrapper() {
   // Which bottom-tab is highlighted on mobile (design surface 08).
   const [mobileTab, setMobileTab] = useState<MobileTab>("notes");
 
+  // Route-driven views: /roadmap, /settings, /admin each have their own URL, and
+  // NoteWrapper lives in the (app) layout so it persists across them. The URL is
+  // the source of truth — sync the view state from the path so a refresh or a
+  // shared link lands on the right place (no more lost state).
+  const pathname = usePathname();
+  const router = useRouter();
+  useEffect(() => {
+    const isRoadmap = pathname === "/roadmap";
+    const isSettings = pathname === "/settings";
+    const isAdmin = pathname === "/admin";
+    setShowRoadmap(isRoadmap);
+    setShowSettings(isSettings);
+    setShowAdmin(isAdmin);
+    setSettingsSection(
+      isSettings
+        ? new URLSearchParams(window.location.search).get("section") ?? undefined
+        : undefined,
+    );
+    if (isRoadmap || isSettings || isAdmin) {
+      setShowTrash(false);
+      setShowNotebooksGrid(false);
+      setSharedShortcode(null);
+      setSidebarOpen(false);
+    } else {
+      setSidebarOpen(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
   // Apply the saved editor font + size once on load.
   useEffect(() => {
     applyEditorFont(readEditorFont());
@@ -142,17 +172,21 @@ export default function NoteWrapper() {
     const openGrid = () => setShowNotebooksGrid(true);
     // Settings replaces the notes sidebar (its own section list stands in for it).
     // An optional string detail deep-links to a section (e.g. "Plan & usage").
+    // These now navigate — NoteWrapper's URL effect drives the view. Dispatchers
+    // (rail buttons, upgrade upsells) are unchanged; they just route now.
     const openSettings = (e: Event) => {
-      setShowSettings(true);
-      setSidebarOpen(false);
       const detail = (e as CustomEvent).detail;
-      if (typeof detail === "string") setSettingsSection(detail);
+      router.push(
+        typeof detail === "string" && detail
+          ? `/settings?section=${encodeURIComponent(detail)}`
+          : "/settings",
+      );
     };
     const openSearch = () => setShowSearch(true);
     // Help opens the in-app Help modal (listens for the same event).
     const openHelp = () => {};
-    const openRoadmap = () => { setShowRoadmap(true); setSidebarOpen(false); };
-    const openAdmin = () => { setShowAdmin(true); setSidebarOpen(false); };
+    const openRoadmap = () => router.push("/roadmap");
+    const openAdmin = () => router.push("/admin");
     window.addEventListener("justnoted:open-notebooks-grid", openGrid);
     window.addEventListener("justnoted:open-settings", openSettings);
     window.addEventListener("justnoted:open-search", openSearch);
@@ -192,9 +226,7 @@ export default function NoteWrapper() {
 
   // ===== Mobile bottom-tab navigation (design surface 08) =====
   const goNotes = useCallback(() => {
-    setShowSettings(false);
-    setShowRoadmap(false);
-    setShowAdmin(false);
+    router.push("/");
     setShowTrash(false);
     setShowNotebooksGrid(false);
     setSharedShortcode(null);
@@ -202,41 +234,34 @@ export default function NoteWrapper() {
     window.dispatchEvent(new Event("justnoted:show-notes"));
     setSidebarOpen(true);
     setMobileTab("notes");
-  }, [setSidebarOpen]);
+  }, [setSidebarOpen, router]);
 
   const goNotebooks = useCallback(() => {
-    setShowSettings(false);
-    setShowRoadmap(false);
-    setShowAdmin(false);
+    router.push("/");
     setShowTrash(false);
     setSharedShortcode(null);
     setShowNotebooksGrid(true);
     setSidebarOpen(false);
     setMobileTab("notebooks");
-  }, [setSidebarOpen]);
+  }, [setSidebarOpen, router]);
 
   const goShared = useCallback(() => {
-    setShowSettings(false);
-    setShowRoadmap(false);
-    setShowAdmin(false);
+    router.push("/");
     setShowTrash(false);
     setShowNotebooksGrid(false);
     setSharedShortcode(null);
     window.dispatchEvent(new Event("justnoted:show-shared"));
     setSidebarOpen(true);
     setMobileTab("shared");
-  }, [setSidebarOpen]);
+  }, [setSidebarOpen, router]);
 
   const goYou = useCallback(() => {
+    router.push("/settings");
     setShowTrash(false);
     setShowNotebooksGrid(false);
-    setShowRoadmap(false);
-    setShowAdmin(false);
     setSharedShortcode(null);
-    setShowSettings(true);
-    setSidebarOpen(false);
     setMobileTab("you");
-  }, [setSidebarOpen]);
+  }, [router]);
 
   const mobileNewNote = useCallback(() => {
     notesOperations.addNote();
@@ -333,9 +358,7 @@ export default function NoteWrapper() {
     // Escape closes the top open main-area layer first; the hook then handles
     // the sidebar on the next press. Order = visual stacking, most-recent first.
     onEscape: () => {
-      if (showAdmin) { setShowAdmin(false); setSidebarOpen(true); return true; }
-      if (showRoadmap) { setShowRoadmap(false); setSidebarOpen(true); return true; }
-      if (showSettings) { setShowSettings(false); setSidebarOpen(true); setSettingsSection(undefined); return true; }
+      if (showAdmin || showRoadmap || showSettings) { router.push("/"); return true; }
       if (showTrash) { setShowTrash(false); setSidebarOpen(true); return true; }
       if (showNotebooksGrid) { setShowNotebooksGrid(false); setSidebarOpen(true); return true; }
       if (sharedShortcode) { setSharedShortcode(null); setSidebarOpen(true); return true; }
@@ -392,13 +415,13 @@ export default function NoteWrapper() {
           aria-label={sharedShortcode ? "Shared note" : "Note editor"}
         >
           {showAdmin ? (
-            <AdminView onClose={() => { setShowAdmin(false); setSidebarOpen(true); }} />
+            <AdminView onClose={() => router.push("/")} />
           ) : showRoadmap ? (
-            <RoadmapView onClose={() => { setShowRoadmap(false); setSidebarOpen(true); }} />
+            <RoadmapView onClose={() => router.push("/")} />
           ) : showSettings ? (
             <SettingsView
               initialSection={settingsSection}
-              onClose={() => { setShowSettings(false); setSidebarOpen(true); setSettingsSection(undefined); }}
+              onClose={() => router.push("/")}
             />
           ) : showTrash ? (
             <TrashView onClose={() => setShowTrash(false)} />
