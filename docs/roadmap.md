@@ -41,15 +41,15 @@ text and the thread.
   panel and scrolls to the anchor; tapping an anchored word/line opens the panel
   at that message.
 
-**Open product decisions** (resolve before/within Phase 1)
-- **Gating:** solo use (a private note-scoped thread / notes-to-self) free, vs.
-  multi-user conversations Scribe-gated (consistent with collaboration). Leaning:
-  solo free, collaborators = Scribe.
-- **Access model:** reuse `shared_notes` + `shared_notes_readers` roles. Possibly
-  add a `'comment'` link-permission level alongside `view`/`edit`.
-- **Realtime transport:** Supabase Realtime Postgres-changes (durable, gives
-  history for free) vs. a broadcast channel like the Yjs provider. Leaning:
-  Postgres-changes for messages.
+**Decisions**
+- **Gating:** ✅ Conversations are gated (Scribe / shared notes), consistent with
+  collaboration.
+- **Realtime transport:** ✅ **Supabase Realtime Postgres-changes.** Messages are
+  written to `note_messages` (the source of truth, durable history for free) and
+  streamed to open clients; realtime is delivery on top, not a separate ephemeral
+  channel.
+- **Access model** (still open): reuse `shared_notes` + `shared_notes_readers`
+  roles. Possibly add a `'comment'` link-permission level alongside `view`/`edit`.
 
 ### Phase 1 — Conversation panel + basic chat (foundation)
 - **Data:** `note_messages` table (`id`, `note_id` FK, `author_id`, `body`,
@@ -102,7 +102,44 @@ text and the thread.
 
 ---
 
+## Shared note consistency
+
+Shared notes currently render as a bespoke surface (`shared-note-page`,
+`shared-note-inline`) that looks nothing like the normal editor: different title
+font/size, no stats (word/char count, reading time), no page-size or goal
+display. They should look like a normal note.
+
+- Match the editor's **title** styling (`var(--font-editor)`, same sizes).
+- Show the same **stats row** (word count · char count · reading time · page
+  estimate) via `use-note-statistics`.
+- Show the owner's **page size** and **goal/progress** if set — **read-only** for
+  non-owners (only the owner can change them).
+- Keep the existing **Export / Print / History** actions.
+- **Approach (to confirm):** reuse the real editor chrome in a read-only/limited
+  mode vs. add the missing chrome to the shared views. Reuse is the cleaner
+  end-state but a bigger refactor (the editor is wired to the notes store + save
+  paths); the additive route ships the visible consistency faster.
+
+## Notifications
+
+A cross-cutting notifications system (its own Settings section already stubbed).
+
+- **Phase 1 — In-app:** a notification centre (bell + unread count). Events:
+  someone commented / mentioned you in a Note Conversation, a collaborator edited
+  a shared note, a share was granted to you. Backed by a `notifications` table +
+  Realtime, mirroring the conversations transport decision.
+- **Phase 2 — Preferences:** per-type toggles in the Notifications settings
+  section; mute-per-note.
+- **Phase 3 — Email digest:** batched email for unread items (reuse the existing
+  `docs/email-templates`), respecting preferences.
+- **Phase 4 — Push (optional):** web push for mentions/replies.
+- Ties into Conversations Phase 5 (`@mentions`, unread badges) and collaboration.
+
+---
+
 ## Backlog / related
 - In-app **Roadmap** page (Help menu item) that renders this document.
 - Live collab identity: propagate a mid-session username change to peers without
-  a refresh (currently the collab name is captured once at editor mount).
+  a refresh (currently the collab name is captured once at editor mount). ← fix
+  drafted (live awareness update); see caret discussion.
+- ✅ Restore last-viewed **shared** note on refresh (done — `note-wrapper`).
