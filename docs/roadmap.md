@@ -151,11 +151,12 @@ admins). Mirrors Settings: its own left nav of focus areas + a main panel.
    who voted** (member usernames + guest count) and fix vote issues.
 
 **Phases**
-- **P1 — Shell + gate:** `is_admin` flag, `assertAdmin`, rail button (admins only),
-  `AdminView` with section nav (opened via `justnoted:open-admin`).
-- **P2 — Roadmap admin:** items CRUD + suggestions moderation (unblocks voting P3/P4).
-- **P3 — Users:** list + quick actions (comp Scribe from the UI).
-- **P4 — Notes:** metadata list + actions; gated/audited content view.
+- ✅ **P1 — Shell + gate:** `assertAdmin`/`amIAdmin` on `authors.role >= 10`, rail
+  button (admins only, `justnoted:open-admin`), `AdminView` with section nav.
+- **P2 — Roadmap admin:** ✅ suggestions moderation (approve/decline in the
+  dashboard — replaces the SQL step). ⬜ items CRUD + reorder/status still to do.
+- **P3 — Users:** list + quick actions (comp Scribe from the UI). (stub)
+- **P4 — Notes:** metadata list + actions; gated/audited content view. (stub)
 
 **Decisions**
 - Admin identity: ✅ `authors.role` (10 = admin, 3 = default; room for

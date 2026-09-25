@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNotesStore } from "@/stores/notes-store";
+import { amIAdmin } from "@/app/actions/adminActions";
 import { Notebook, CoverType } from "@/types/notebook";
 import {
   getNotebooks,
@@ -45,6 +46,7 @@ import {
   IconLogin2,
   IconHelp,
   IconLayoutKanban,
+  IconShieldCog,
   IconNote,
   IconTag,
   IconShare,
@@ -154,6 +156,10 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
   const [railView, setRailView] = useState<"notes" | "notebooks" | "tags" | "shared">("notes");
   // Filters live in a slide-up sheet, out of the list's way
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  // Show the Admin rail entry only to admins (role >= 10). Server enforces the
+  // real gate; this just hides the button.
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => { amIAdmin().then(setIsAdmin).catch(() => {}); }, []);
 
   // Restore the last-open rail view on mount (in an effect, not the useState
   // initialiser, to avoid a hydration mismatch — server always renders "notes").
@@ -668,6 +674,14 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
               <IconSearch size={20} />
             </RailButton>
             <div className="flex-1" />
+            {isAdmin && (
+              <RailButton
+                label="Admin"
+                onClick={() => window.dispatchEvent(new Event("justnoted:open-admin"))}
+              >
+                <IconShieldCog size={20} />
+              </RailButton>
+            )}
             <RailButton
               label="Roadmap"
               onClick={() => window.dispatchEvent(new Event("justnoted:open-roadmap"))}

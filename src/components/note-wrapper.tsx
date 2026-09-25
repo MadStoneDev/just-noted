@@ -14,6 +14,7 @@ import SharedNoteInline from "@/components/shared-note-inline";
 import NotebooksGrid from "@/components/notebooks-grid";
 import SettingsView from "@/components/settings-view";
 import RoadmapView from "@/components/roadmap-view";
+import AdminView from "@/components/admin-view";
 import { readEditorFont, applyEditorFont, readEditorFontSize, applyEditorFontSize } from "@/utils/editor-font";
 import { captureCurrentAccount } from "@/utils/accounts";
 import { createClient } from "@/utils/supabase/client";
@@ -87,6 +88,8 @@ export default function NoteWrapper() {
   const [showNotebooksGrid, setShowNotebooksGrid] = useState(false);
   // Standalone Roadmap page (kanban), opened from the rail.
   const [showRoadmap, setShowRoadmap] = useState(false);
+  // Admin dashboard (role >= 10), opened from the rail.
+  const [showAdmin, setShowAdmin] = useState(false);
   // In-shell settings view open in the main area
   const [showSettings, setShowSettings] = useState(false);
   // Deep-link target section for Settings (e.g. from an upgrade upsell).
@@ -149,17 +152,20 @@ export default function NoteWrapper() {
     // Help opens the in-app Help modal (listens for the same event).
     const openHelp = () => {};
     const openRoadmap = () => { setShowRoadmap(true); setSidebarOpen(false); };
+    const openAdmin = () => { setShowAdmin(true); setSidebarOpen(false); };
     window.addEventListener("justnoted:open-notebooks-grid", openGrid);
     window.addEventListener("justnoted:open-settings", openSettings);
     window.addEventListener("justnoted:open-search", openSearch);
     window.addEventListener("justnoted:open-help", openHelp);
     window.addEventListener("justnoted:open-roadmap", openRoadmap);
+    window.addEventListener("justnoted:open-admin", openAdmin);
     return () => {
       window.removeEventListener("justnoted:open-notebooks-grid", openGrid);
       window.removeEventListener("justnoted:open-settings", openSettings);
       window.removeEventListener("justnoted:open-search", openSearch);
       window.removeEventListener("justnoted:open-help", openHelp);
       window.removeEventListener("justnoted:open-roadmap", openRoadmap);
+      window.removeEventListener("justnoted:open-admin", openAdmin);
     };
   }, []);
 
@@ -188,6 +194,7 @@ export default function NoteWrapper() {
   const goNotes = useCallback(() => {
     setShowSettings(false);
     setShowRoadmap(false);
+    setShowAdmin(false);
     setShowTrash(false);
     setShowNotebooksGrid(false);
     setSharedShortcode(null);
@@ -200,6 +207,7 @@ export default function NoteWrapper() {
   const goNotebooks = useCallback(() => {
     setShowSettings(false);
     setShowRoadmap(false);
+    setShowAdmin(false);
     setShowTrash(false);
     setSharedShortcode(null);
     setShowNotebooksGrid(true);
@@ -210,6 +218,7 @@ export default function NoteWrapper() {
   const goShared = useCallback(() => {
     setShowSettings(false);
     setShowRoadmap(false);
+    setShowAdmin(false);
     setShowTrash(false);
     setShowNotebooksGrid(false);
     setSharedShortcode(null);
@@ -222,6 +231,7 @@ export default function NoteWrapper() {
     setShowTrash(false);
     setShowNotebooksGrid(false);
     setShowRoadmap(false);
+    setShowAdmin(false);
     setSharedShortcode(null);
     setShowSettings(true);
     setSidebarOpen(false);
@@ -323,6 +333,7 @@ export default function NoteWrapper() {
     // Escape closes the top open main-area layer first; the hook then handles
     // the sidebar on the next press. Order = visual stacking, most-recent first.
     onEscape: () => {
+      if (showAdmin) { setShowAdmin(false); setSidebarOpen(true); return true; }
       if (showRoadmap) { setShowRoadmap(false); setSidebarOpen(true); return true; }
       if (showSettings) { setShowSettings(false); setSidebarOpen(true); setSettingsSection(undefined); return true; }
       if (showTrash) { setShowTrash(false); setSidebarOpen(true); return true; }
@@ -380,7 +391,9 @@ export default function NoteWrapper() {
           role="main"
           aria-label={sharedShortcode ? "Shared note" : "Note editor"}
         >
-          {showRoadmap ? (
+          {showAdmin ? (
+            <AdminView onClose={() => { setShowAdmin(false); setSidebarOpen(true); }} />
+          ) : showRoadmap ? (
             <RoadmapView onClose={() => { setShowRoadmap(false); setSidebarOpen(true); }} />
           ) : showSettings ? (
             <SettingsView
@@ -452,7 +465,7 @@ export default function NoteWrapper() {
       </div>
 
       {/* Mobile FAB — new note, shown on the notes list only. */}
-      {sidebarOpen && !showRoadmap && !showSettings && !showTrash && !showNotebooksGrid && !sharedShortcode && (
+      {sidebarOpen && !showAdmin && !showRoadmap && !showSettings && !showTrash && !showNotebooksGrid && !sharedShortcode && (
         <MobileFab onClick={mobileNewNote} />
       )}
 
