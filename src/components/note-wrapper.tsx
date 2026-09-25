@@ -5,6 +5,7 @@ import React, { useState, useCallback, useMemo, useEffect } from "react";
 import Sidebar from "@/components/sidebar";
 import ActiveNoteEditor from "@/components/active-note-editor";
 import { MobileTabBar, MobileEditorNav, MobileFab, type MobileTab } from "@/components/mobile-chrome";
+import HelpModal from "@/components/help-modal";
 import SearchModal from "@/components/search-modal";
 import TrashView from "@/components/trash-view";
 import DistractionFreeNoteBlock from "@/components/distraction-free-note-block";
@@ -123,7 +124,8 @@ export default function NoteWrapper() {
       if (typeof detail === "string") setSettingsSection(detail);
     };
     const openSearch = () => setShowSearch(true);
-    const openHelp = () => { window.open("/the-how", "_blank"); };
+    // Help opens the in-app Help modal (listens for the same event).
+    const openHelp = () => {};
     window.addEventListener("justnoted:open-notebooks-grid", openGrid);
     window.addEventListener("justnoted:open-settings", openSettings);
     window.addEventListener("justnoted:open-search", openSearch);
@@ -455,6 +457,7 @@ export default function NoteWrapper() {
 
       <UndoDeleteToast />
       <OfflineIndicator />
+      <HelpModal />
       <SearchModal open={showSearch} onClose={() => setShowSearch(false)} />
 
       <NotebookModal
