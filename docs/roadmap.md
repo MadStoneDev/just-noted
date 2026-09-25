@@ -153,11 +153,15 @@ admins). Mirrors Settings: its own left nav of focus areas + a main panel.
 **Phases**
 - ✅ **P1 — Shell + gate:** `assertAdmin`/`amIAdmin` on `authors.role >= 10`, rail
   button (admins only, `justnoted:open-admin`), `AdminView` with section nav.
-- **P2 — Roadmap admin:** ✅ suggestions moderation (approve/decline in the
-  dashboard — replaces the SQL step). ⬜ items CRUD + reorder/status still to do.
+- ✅ **P2 — Roadmap admin:** suggestions moderation (approve/decline) + items
+  CRUD (add/edit/status/public/reorder/delete) in the dashboard.
 - ✅ **P3 — Users:** list (email/username/role/plan), search, set role
   (banned/reported/warned/active/admin), grant/revoke Scribe from the UI.
-- **P4 — Notes:** metadata list + actions; gated/audited content view. (stub)
+- ✅ **P4 — Notes:** metadata list (title/owner/updated + trashed/private flags),
+  search, trash/restore. Content view intentionally omitted (privacy) — add later
+  behind an explicit, audited action.
+
+Admin dashboard is feature-complete for v1.
 
 **Decisions**
 - Admin identity: ✅ `authors.role` (10 = admin, 3 = default; room for

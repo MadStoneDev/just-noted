@@ -164,3 +164,143 @@ export async function setUserScribe(
     .eq("user_id", userId);
   return { success: !error };
 }
+
+// ---------------------------------------------------------------------------
+// Roadmap items — manage the board directly (add/edit/restatus/reorder/delete).
+// ---------------------------------------------------------------------------
+
+export const ROADMAP_STATUSES = [
+  "under_review",
+  "planned",
+  "in_progress",
+  "shipped",
+  "declined",
+] as const;
+export type RoadmapStatusValue = (typeof ROADMAP_STATUSES)[number];
+
+export interface AdminRoadmapItem {
+  id: string;
+  title: string;
+  body: string;
+  status: string;
+  source: string;
+  is_public: boolean;
+  vote_count: number;
+  sort_order: number;
+}
+
+export async function getAllRoadmapItems(): Promise<AdminRoadmapItem[]> {
+  await assertAdmin();
+  const svc = createServiceRoleClient();
+  const { data } = await svc
+    .from("roadmap_items")
+    .select("id, title, body, status, source, is_public, vote_count, sort_order")
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: false });
+  return (data ?? []) as AdminRoadmapItem[];
+}
+
+export interface RoadmapItemInput {
+  title: string;
+  body?: string;
+  status?: RoadmapStatusValue;
+  is_public?: boolean;
+  sort_order?: number;
+}
+
+export async function createRoadmapItem(
+  fields: RoadmapItemInput,
+): Promise<{ success: boolean; error?: string }> {
+  await assertAdmin();
+  const title = (fields.title || "").trim().slice(0, 120);
+  if (!title) return { success: false, error: "Title is required." };
+  const svc = createServiceRoleClient();
+  const { error } = await svc.from("roadmap_items").insert({
+    title,
+    body: (fields.body || "").trim().slice(0, 2000),
+    status: fields.status ?? "planned",
+    source: "official",
+    is_public: fields.is_public ?? true,
+    sort_order: fields.sort_order ?? 0,
+  } as any);
+  return { success: !error };
+}
+
+export async function updateRoadmapItem(
+  id: string,
+  fields: Partial<RoadmapItemInput>,
+): Promise<{ success: boolean }> {
+  await assertAdmin();
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (fields.title !== undefined) patch.title = fields.title.trim().slice(0, 120);
+  if (fields.body !== undefined) patch.body = fields.body.trim().slice(0, 2000);
+  if (fields.status !== undefined) patch.status = fields.status;
+  if (fields.is_public !== undefined) patch.is_public = fields.is_public;
+  if (fields.sort_order !== undefined) patch.sort_order = fields.sort_order;
+  const svc = createServiceRoleClient();
+  const { error } = await svc.from("roadmap_items").update(patch as any).eq("id", id);
+  return { success: !error };
+}
+
+export async function deleteRoadmapItem(id: string): Promise<{ success: boolean }> {
+  await assertAdmin();
+  const svc = createServiceRoleClient();
+  const { error } = await svc.from("roadmap_items").delete().eq("id", id);
+  return { success: !error };
+}
+
+// ---------------------------------------------------------------------------
+// Notes — metadata list + trash/restore. Content view is intentionally omitted
+// (users' private writing); add it later behind an explicit, audited action.
+// ---------------------------------------------------------------------------
+
+export interface AdminNote {
+  id: string;
+  title: string | null;
+  owner: string | null;
+  updated_at: string | null;
+  deleted_at: string | null;
+  is_private: boolean | null;
+}
+
+export async function getNotes(query?: string): Promise<AdminNote[]> {
+  await assertAdmin();
+  const svc = createServiceRoleClient();
+  let q = svc
+    .from("notes")
+    .select("id, title, author, updated_at, deleted_at, is_private")
+    .order("updated_at", { ascending: false })
+    .limit(100);
+  if (query && query.trim()) q = q.ilike("title", `%${query.trim()}%`);
+  const { data: notes } = await q;
+  const rows = (notes ?? []) as any[];
+
+  const authorIds = [...new Set(rows.map((n) => n.author).filter(Boolean))];
+  const nameById = new Map<string, string>();
+  if (authorIds.length) {
+    const { data: authors } = await svc.from("authors").select("id, username").in("id", authorIds);
+    for (const a of (authors ?? []) as any[]) nameById.set(a.id, a.username);
+  }
+
+  return rows.map((n) => ({
+    id: n.id,
+    title: n.title,
+    owner: nameById.get(n.author) ?? null,
+    updated_at: n.updated_at,
+    deleted_at: n.deleted_at,
+    is_private: n.is_private,
+  }));
+}
+
+export async function adminSetNoteDeleted(
+  id: string,
+  deleted: boolean,
+): Promise<{ success: boolean }> {
+  await assertAdmin();
+  const svc = createServiceRoleClient();
+  const { error } = await svc
+    .from("notes")
+    .update({ deleted_at: deleted ? new Date().toISOString() : null } as any)
+    .eq("id", id);
+  return { success: !error };
+}

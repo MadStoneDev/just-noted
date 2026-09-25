@@ -10,9 +10,27 @@ import {
   getUsers,
   setUserRole,
   setUserScribe,
+  getAllRoadmapItems,
+  createRoadmapItem,
+  updateRoadmapItem,
+  deleteRoadmapItem,
+  getNotes,
+  adminSetNoteDeleted,
+  ROADMAP_STATUSES,
   type PendingSuggestion,
   type AdminUser,
+  type AdminRoadmapItem,
+  type RoadmapStatusValue,
+  type AdminNote,
 } from "@/app/actions/adminActions";
+
+const STATUS_LABEL: Record<string, string> = {
+  under_review: "Under review",
+  planned: "Planned",
+  in_progress: "In progress",
+  shipped: "Shipped",
+  declined: "Declined",
+};
 
 // authors.role scale (see 20260925_author_role.sql).
 const ROLE_OPTIONS: { value: number; label: string }[] = [
@@ -90,15 +108,12 @@ export default function AdminView({ onClose }: { onClose: () => void }) {
 
           {section === "Roadmap suggestions" ? (
             <SuggestionsPanel />
+          ) : section === "Roadmap items" ? (
+            <RoadmapItemsPanel />
           ) : section === "Users" ? (
             <UsersPanel />
           ) : (
-            <p className="text-[13.5px] text-[var(--color-ink-4)] leading-[1.6]">
-              {section} management is coming here. For now, {section === "Roadmap items"
-                ? "edit items via SQL, or use the parked items CRUD"
-                : "review notes via SQL"}
-              .
-            </p>
+            <NotesPanel />
           )}
         </div>
       </div>
@@ -287,6 +302,209 @@ function UsersPanel() {
           <div className="px-4 py-6 text-[13px] text-[var(--color-ink-4)]">No users match.</div>
         )}
       </div>
+    </div>
+  );
+}
+
+const RM_INPUT =
+  "w-full bg-transparent text-[13px] text-[var(--color-ink-1)] placeholder:text-[var(--color-ink-5)] focus:outline-none";
+const RM_SELECT =
+  "h-7 rounded-[var(--radius-6)] border border-[var(--color-border-control)] bg-[var(--color-raised)] text-[12px] text-[var(--color-ink-2)] px-1.5 focus:outline-none";
+
+function RoadmapItemsPanel() {
+  const { showSuccess, showError } = useToast();
+  const [items, setItems] = useState<AdminRoadmapItem[] | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState({ title: "", body: "" });
+  const [creating, setCreating] = useState(false);
+  const [nt, setNt] = useState("");
+  const [nb, setNb] = useState("");
+  const [ns, setNs] = useState<RoadmapStatusValue>("planned");
+
+  const load = useCallback(() => {
+    getAllRoadmapItems().then(setItems).catch(() => setItems([]));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const patch = useCallback(
+    async (id: string, fields: Partial<AdminRoadmapItem>) => {
+      setItems((prev) => (prev ?? []).map((it) => (it.id === id ? { ...it, ...fields } : it)));
+      const res = await updateRoadmapItem(id, fields as any);
+      if (!res.success) { showError("Update failed."); load(); }
+    },
+    [showError, load],
+  );
+
+  const add = useCallback(async () => {
+    if (!nt.trim() || creating) return;
+    setCreating(true);
+    const res = await createRoadmapItem({ title: nt, body: nb, status: ns, is_public: true });
+    setCreating(false);
+    if (res.success) { setNt(""); setNb(""); setNs("planned"); showSuccess("Item added."); load(); }
+    else showError(res.error || "Couldn't add.");
+  }, [nt, nb, ns, creating, showSuccess, showError, load]);
+
+  const remove = useCallback(
+    async (id: string) => {
+      if (!window.confirm("Delete this roadmap item permanently?")) return;
+      const res = await deleteRoadmapItem(id);
+      if (res.success) { setItems((prev) => (prev ?? []).filter((it) => it.id !== id)); showSuccess("Deleted."); }
+      else showError("Delete failed.");
+    },
+    [showSuccess, showError],
+  );
+
+  if (items === null) {
+    return <div className="space-y-2">{[0, 1].map((i) => <div key={i} className="skeleton h-16 w-full rounded-[var(--radius-10)]" />)}</div>;
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-[var(--radius-12)] border border-[var(--color-hairline)] bg-[var(--color-panel-alt)] p-4">
+        <input value={nt} onChange={(e) => setNt(e.target.value)} placeholder="New item title" maxLength={120} className={`${RM_INPUT} text-[14px] mb-2`} />
+        <textarea value={nb} onChange={(e) => setNb(e.target.value)} placeholder="Description (shown on the card)" rows={2} maxLength={2000} className={`${RM_INPUT} resize-none mb-2`} />
+        <div className="flex items-center justify-between gap-2">
+          <select value={ns} onChange={(e) => setNs(e.target.value as RoadmapStatusValue)} className={RM_SELECT}>
+            {ROADMAP_STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
+          </select>
+          <button onClick={add} disabled={creating || !nt.trim()} className="h-8 px-3 rounded-[var(--radius-7)] text-[12.5px] font-medium bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:bg-[var(--color-accent-deep)] transition-colors disabled:opacity-60">
+            {creating ? "Adding…" : "Add item"}
+          </button>
+        </div>
+      </div>
+
+      {items.length === 0 ? (
+        <p className="text-[13.5px] text-[var(--color-ink-4)]">No items yet.</p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {items.map((it) => (
+            <div key={it.id} className="rounded-[var(--radius-10)] border border-[var(--color-hairline)] bg-[var(--color-panel-alt)] p-3">
+              {editingId === it.id ? (
+                <div className="space-y-2">
+                  <input value={draft.title} onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))} className={`${RM_INPUT} text-[14px]`} />
+                  <textarea value={draft.body} onChange={(e) => setDraft((d) => ({ ...d, body: e.target.value }))} rows={2} className={`${RM_INPUT} resize-none`} />
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => setEditingId(null)} className="h-7 px-2.5 rounded-[var(--radius-6)] text-[12px] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)]">Cancel</button>
+                    <button onClick={async () => { await patch(it.id, { title: draft.title, body: draft.body }); setEditingId(null); }} className="h-7 px-2.5 rounded-[var(--radius-6)] text-[12px] font-medium bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)]">Save</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-[13.5px] font-medium text-[var(--color-ink-1)]">{it.title}</div>
+                      {it.body && <div className="mt-0.5 text-[12px] leading-[1.5] text-[var(--color-ink-4)]">{it.body}</div>}
+                    </div>
+                    <span className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)] shrink-0">{it.vote_count} ▲</span>
+                  </div>
+                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                    <select value={it.status} onChange={(e) => patch(it.id, { status: e.target.value })} className={RM_SELECT}>
+                      {ROADMAP_STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
+                    </select>
+                    <label className="flex items-center gap-1 text-[12px] text-[var(--color-ink-3)]">
+                      <input type="checkbox" checked={it.is_public} onChange={(e) => patch(it.id, { is_public: e.target.checked })} />
+                      Public
+                    </label>
+                    <label className="flex items-center gap-1 text-[12px] text-[var(--color-ink-3)]">
+                      #
+                      <input type="number" value={it.sort_order} onChange={(e) => patch(it.id, { sort_order: parseInt(e.target.value, 10) || 0 })} className="w-14 h-7 rounded-[var(--radius-6)] border border-[var(--color-border-control)] bg-[var(--color-raised)] text-[12px] text-[var(--color-ink-2)] px-1.5 focus:outline-none" />
+                    </label>
+                    <div className="flex-1" />
+                    <button onClick={() => { setDraft({ title: it.title, body: it.body }); setEditingId(it.id); }} className="h-7 px-2.5 rounded-[var(--radius-6)] text-[12px] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)]">Edit</button>
+                    <button onClick={() => remove(it.id)} className="h-7 px-2.5 rounded-[var(--radius-6)] text-[12px] text-[var(--color-danger)] hover:bg-[var(--color-raised-soft)]">Delete</button>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NotesPanel() {
+  const { showError } = useToast();
+  const [notes, setNotes] = useState<AdminNote[] | null>(null);
+  const [query, setQuery] = useState("");
+  const [busy, setBusy] = useState<Set<string>>(new Set());
+
+  const load = useCallback((q?: string) => {
+    setNotes(null);
+    getNotes(q).then(setNotes).catch(() => setNotes([]));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const toggleDeleted = useCallback(
+    async (id: string, deleted: boolean) => {
+      setBusy((s) => new Set(s).add(id));
+      const res = await adminSetNoteDeleted(id, deleted);
+      setBusy((s) => { const n = new Set(s); n.delete(id); return n; });
+      if (res.success) {
+        setNotes((prev) => (prev ?? []).map((n) => (n.id === id ? { ...n, deleted_at: deleted ? new Date().toISOString() : null } : n)));
+      } else {
+        showError("Action failed — try again.");
+      }
+    },
+    [showError],
+  );
+
+  return (
+    <div className="space-y-4">
+      <form
+        onSubmit={(e) => { e.preventDefault(); load(query); }}
+        className="flex items-center gap-2"
+      >
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search notes by title…"
+          className="w-full max-w-[340px] h-9 px-3 rounded-[var(--radius-8)] border border-[var(--color-border-control)] bg-[var(--color-raised)] text-[13px] text-[var(--color-ink-1)] placeholder:text-[var(--color-ink-5)] focus:outline-none"
+        />
+        <button type="submit" className="h-9 px-3 rounded-[var(--radius-8)] text-[12.5px] font-medium border border-[var(--color-border-control)] text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)]">Search</button>
+      </form>
+      <p className="text-[11.5px] text-[var(--color-ink-5)]">Metadata only — note content isn't shown here. Newest 100.</p>
+
+      {notes === null ? (
+        <div className="space-y-2">{[0, 1, 2].map((i) => <div key={i} className="skeleton h-11 w-full rounded-[var(--radius-9)]" />)}</div>
+      ) : notes.length === 0 ? (
+        <p className="text-[13.5px] text-[var(--color-ink-4)]">No notes found.</p>
+      ) : (
+        <div className="rounded-[var(--radius-12)] border border-[var(--color-hairline)] overflow-x-auto">
+          <div className="grid min-w-[620px] grid-cols-[1fr_150px_110px_110px] gap-3 px-4 py-2 bg-[var(--color-panel)] border-b border-[var(--color-hairline)] text-[10px] font-[family-name:var(--font-meta)] uppercase tracking-[0.12em] text-[var(--color-ink-5)]">
+            <span>Title</span>
+            <span>Owner</span>
+            <span>Updated</span>
+            <span className="text-right">Action</span>
+          </div>
+          {notes.map((n) => (
+            <div key={n.id} className="grid min-w-[620px] grid-cols-[1fr_150px_110px_110px] gap-3 px-4 py-2.5 items-center border-b border-[var(--color-hairline-soft)] last:border-0">
+              <div className="min-w-0 flex items-center gap-2">
+                <span className="text-[13px] text-[var(--color-ink-1)] truncate">{n.title || "Untitled"}</span>
+                {n.deleted_at && <span className="shrink-0 text-[10px] font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)] bg-[var(--color-danger-tint)] text-[var(--color-danger-strong)]">trashed</span>}
+                {n.is_private && <span className="shrink-0 text-[10px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">private</span>}
+              </div>
+              <span className="text-[12px] text-[var(--color-ink-3)] truncate">{n.owner || "—"}</span>
+              <span className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
+                {n.updated_at ? new Date(n.updated_at).toLocaleDateString("en-AU", { day: "numeric", month: "short" }) : "—"}
+              </span>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => toggleDeleted(n.id, !n.deleted_at)}
+                  disabled={busy.has(n.id)}
+                  className={`h-7 px-2.5 rounded-[var(--radius-6)] text-[11.5px] font-medium transition-colors disabled:opacity-50 ${
+                    n.deleted_at
+                      ? "text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint)]"
+                      : "text-[var(--color-danger)] hover:bg-[var(--color-raised-soft)]"
+                  }`}
+                >
+                  {n.deleted_at ? "Restore" : "Trash"}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
