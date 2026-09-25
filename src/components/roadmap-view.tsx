@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { IconX, IconChevronUp, IconPlus } from "@tabler/icons-react";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -21,6 +22,23 @@ const COLUMNS: { status: string; label: string; dot: string }[] = [
   { status: "shipped", label: "Shipped", dot: "#3DA35D" },
 ];
 
+function CategoryTag({ category }: { category: string | null }) {
+  if (category !== "fix" && category !== "feature") return null;
+  const isFix = category === "fix";
+  return (
+    <span
+      className="shrink-0 text-[10px] font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)] border"
+      style={{
+        color: isFix ? "var(--color-warn)" : "var(--color-accent-text)",
+        borderColor: isFix ? "var(--color-warn-tint-border)" : "var(--color-accent-tint-border)",
+        background: isFix ? "var(--color-warn-tint)" : "var(--color-accent-tint)",
+      }}
+    >
+      {isFix ? "Fix" : "Feature"}
+    </span>
+  );
+}
+
 export default function RoadmapView({ onClose }: { onClose: () => void }) {
   const { showSuccess, showError } = useToast();
   const [items, setItems] = useState<RoadmapBoardItem[] | null>(null);
@@ -28,6 +46,7 @@ export default function RoadmapView({ onClose }: { onClose: () => void }) {
   const [showSuggest, setShowSuggest] = useState(false);
   const [sTitle, setSTitle] = useState("");
   const [sBody, setSBody] = useState("");
+  const [sCat, setSCat] = useState<"fix" | "feature" | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -84,20 +103,25 @@ export default function RoadmapView({ onClose }: { onClose: () => void }) {
     [voting, showError],
   );
 
+  const openSuggest = useCallback(() => {
+    setSTitle("");
+    setSBody("");
+    setSCat(null);
+    setShowSuggest(true);
+  }, []);
+
   const submit = useCallback(async () => {
-    if (submitting || !sTitle.trim()) return;
+    if (submitting || !sTitle.trim() || !sCat) return;
     setSubmitting(true);
-    const res = await submitSuggestion(sTitle, sBody);
+    const res = await submitSuggestion(sTitle, sBody, sCat);
     setSubmitting(false);
     if (res.success) {
       showSuccess("Thanks! Your suggestion was sent for review.");
-      setSTitle("");
-      setSBody("");
       setShowSuggest(false);
     } else {
       showError(res.error || "Couldn't submit.");
     }
-  }, [submitting, sTitle, sBody, showSuccess, showError]);
+  }, [submitting, sTitle, sBody, sCat, showSuccess, showError]);
 
   return (
     <div className="flex-1 overflow-y-auto scrollbar-thin bg-[var(--color-canvas)]">
@@ -114,7 +138,7 @@ export default function RoadmapView({ onClose }: { onClose: () => void }) {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setShowSuggest((s) => !s)}
+              onClick={openSuggest}
               className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[var(--radius-8)] text-[12.5px] font-medium bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:bg-[var(--color-accent-deep)] transition-colors"
             >
               <IconPlus size={14} /> Suggest
@@ -128,45 +152,6 @@ export default function RoadmapView({ onClose }: { onClose: () => void }) {
             </button>
           </div>
         </div>
-
-        {/* Suggest form */}
-        {showSuggest && (
-          <div className="mb-6 rounded-[var(--radius-12)] border border-[var(--color-hairline)] bg-[var(--color-panel-alt)] p-4 max-w-[520px]">
-            <input
-              value={sTitle}
-              onChange={(e) => setSTitle(e.target.value)}
-              placeholder="What would you like to see?"
-              maxLength={120}
-              className="w-full bg-transparent text-[14px] text-[var(--color-ink-1)] placeholder:text-[var(--color-ink-5)] focus:outline-none mb-2"
-            />
-            <textarea
-              value={sBody}
-              onChange={(e) => setSBody(e.target.value)}
-              placeholder="Add any detail (optional)"
-              rows={3}
-              maxLength={2000}
-              className="w-full resize-none bg-transparent text-[13px] leading-[1.55] text-[var(--color-ink-2)] placeholder:text-[var(--color-ink-5)] focus:outline-none"
-            />
-            <div className="mt-2 flex items-center justify-end gap-2">
-              <button
-                onClick={() => setShowSuggest(false)}
-                className="h-8 px-3 rounded-[var(--radius-7)] text-[12.5px] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)] transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={submit}
-                disabled={submitting || !sTitle.trim()}
-                className="h-8 px-3 rounded-[var(--radius-7)] text-[12.5px] font-medium bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:bg-[var(--color-accent-deep)] transition-colors disabled:opacity-60"
-              >
-                {submitting ? "Sending…" : "Send suggestion"}
-              </button>
-            </div>
-            <p className="mt-2 text-[11px] text-[var(--color-ink-5)]">
-              Suggestions are reviewed before they appear on the board.
-            </p>
-          </div>
-        )}
 
         {/* Board */}
         {items === null ? (
@@ -206,7 +191,10 @@ export default function RoadmapView({ onClose }: { onClose: () => void }) {
                           className="rounded-[var(--radius-10)] border border-[var(--color-hairline)] bg-[var(--color-panel-alt)] p-3 flex gap-3"
                         >
                           <div className="min-w-0 flex-1">
-                            <div className="text-[13.5px] font-medium text-[var(--color-ink-1)]">{it.title}</div>
+                            <div className="flex items-start gap-1.5">
+                              <span className="text-[13.5px] font-medium text-[var(--color-ink-1)] min-w-0">{it.title}</span>
+                              <CategoryTag category={it.category} />
+                            </div>
                             {it.body && (
                               <div className="mt-1 text-[12px] leading-[1.5] text-[var(--color-ink-4)]">{it.body}</div>
                             )}
@@ -236,6 +224,71 @@ export default function RoadmapView({ onClose }: { onClose: () => void }) {
           </div>
         )}
       </div>
+
+      {showSuggest &&
+        createPortal(
+          <div className="fixed inset-0 z-[9500] flex items-start justify-center px-4 pt-[12vh]">
+            <div className="absolute inset-0 bg-[var(--color-bg-overlay)]" onClick={() => setShowSuggest(false)} />
+            <div className="relative w-full max-w-[460px] bg-[var(--color-panel-alt)] border border-[var(--color-hairline)] rounded-[16px] shadow-[0_24px_60px_rgba(0,0,0,.45)] overflow-hidden">
+              <div className="flex items-center gap-2 px-4 h-12 border-b border-[var(--color-hairline-soft)]">
+                <span className="flex-1 text-[14px] font-semibold text-[var(--color-ink-1)]">Suggest a fix or feature</span>
+                <button onClick={() => setShowSuggest(false)} aria-label="Close" className="w-7 h-7 flex items-center justify-center rounded-[var(--radius-6)] text-[var(--color-ink-5)] hover:text-[var(--color-ink-1)] hover:bg-[var(--color-raised-soft)]">
+                  <IconX size={16} />
+                </button>
+              </div>
+              <div className="p-4">
+                {/* Fix vs feature — required so the owner can triage */}
+                <div className="flex gap-2 mb-3">
+                  {(["fix", "feature"] as const).map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setSCat(c)}
+                      className={`flex-1 h-9 rounded-[var(--radius-8)] text-[12.5px] font-medium border transition-colors ${
+                        sCat === c
+                          ? "border-[var(--color-accent-fill)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]"
+                          : "border-[var(--color-border-control)] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)]"
+                      }`}
+                    >
+                      {c === "fix" ? "A fix" : "New feature"}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  value={sTitle}
+                  onChange={(e) => setSTitle(e.target.value)}
+                  placeholder="What would you like to see?"
+                  maxLength={120}
+                  autoFocus
+                  className="w-full bg-transparent text-[14px] text-[var(--color-ink-1)] placeholder:text-[var(--color-ink-5)] focus:outline-none mb-2"
+                />
+                <textarea
+                  value={sBody}
+                  onChange={(e) => setSBody(e.target.value)}
+                  placeholder="Add any detail (optional)"
+                  rows={3}
+                  maxLength={2000}
+                  className="w-full resize-none bg-transparent text-[13px] leading-[1.55] text-[var(--color-ink-2)] placeholder:text-[var(--color-ink-5)] focus:outline-none"
+                />
+                <div className="mt-3 flex items-center justify-end gap-2">
+                  <button onClick={() => setShowSuggest(false)} className="h-8 px-3 rounded-[var(--radius-7)] text-[12.5px] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)] transition-colors">
+                    Cancel
+                  </button>
+                  <button
+                    onClick={submit}
+                    disabled={submitting || !sTitle.trim() || !sCat}
+                    className="h-8 px-3 rounded-[var(--radius-7)] text-[12.5px] font-medium bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:bg-[var(--color-accent-deep)] transition-colors disabled:opacity-60"
+                  >
+                    {submitting ? "Sending…" : "Send suggestion"}
+                  </button>
+                </div>
+                <p className="mt-2 text-[11px] text-[var(--color-ink-5)]">
+                  Suggestions are reviewed before they appear on the board.
+                </p>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

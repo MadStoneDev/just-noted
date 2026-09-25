@@ -50,6 +50,7 @@ export interface PendingSuggestion {
   id: string;
   title: string;
   body: string;
+  category: string | null;
   vote_count: number;
   created_at: string;
 }
@@ -59,7 +60,7 @@ export async function getPendingSuggestions(): Promise<PendingSuggestion[]> {
   const svc = createServiceRoleClient();
   const { data } = await svc
     .from("roadmap_items")
-    .select("id, title, body, vote_count, created_at")
+    .select("id, title, body, category, vote_count, created_at")
     .eq("source", "community")
     .eq("is_public", false)
     .neq("status", "declined")
@@ -184,6 +185,7 @@ export interface AdminRoadmapItem {
   body: string;
   status: string;
   source: string;
+  category: string | null;
   is_public: boolean;
   vote_count: number;
   sort_order: number;
@@ -194,7 +196,7 @@ export async function getAllRoadmapItems(): Promise<AdminRoadmapItem[]> {
   const svc = createServiceRoleClient();
   const { data } = await svc
     .from("roadmap_items")
-    .select("id, title, body, status, source, is_public, vote_count, sort_order")
+    .select("id, title, body, status, source, category, is_public, vote_count, sort_order")
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
   return (data ?? []) as AdminRoadmapItem[];
@@ -204,6 +206,7 @@ export interface RoadmapItemInput {
   title: string;
   body?: string;
   status?: RoadmapStatusValue;
+  category?: "fix" | "feature" | null;
   is_public?: boolean;
   sort_order?: number;
 }
@@ -220,6 +223,7 @@ export async function createRoadmapItem(
     body: (fields.body || "").trim().slice(0, 2000),
     status: fields.status ?? "planned",
     source: "official",
+    category: fields.category ?? null,
     is_public: fields.is_public ?? true,
     sort_order: fields.sort_order ?? 0,
   } as any);
@@ -235,6 +239,7 @@ export async function updateRoadmapItem(
   if (fields.title !== undefined) patch.title = fields.title.trim().slice(0, 120);
   if (fields.body !== undefined) patch.body = fields.body.trim().slice(0, 2000);
   if (fields.status !== undefined) patch.status = fields.status;
+  if (fields.category !== undefined) patch.category = fields.category;
   if (fields.is_public !== undefined) patch.is_public = fields.is_public;
   if (fields.sort_order !== undefined) patch.sort_order = fields.sort_order;
   const svc = createServiceRoleClient();

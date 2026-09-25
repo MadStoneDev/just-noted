@@ -13,6 +13,7 @@ export interface RoadmapBoardItem {
   title: string;
   body: string;
   status: string;
+  category: string | null;
   vote_count: number;
   sort_order: number;
   voted: boolean;
@@ -33,7 +34,7 @@ export async function getRoadmap(): Promise<RoadmapBoardItem[]> {
   const svc = createServiceRoleClient();
   const { data: items } = await svc
     .from("roadmap_items")
-    .select("id, title, body, status, vote_count, sort_order")
+    .select("id, title, body, status, category, vote_count, sort_order")
     .eq("is_public", true)
     .order("sort_order", { ascending: true });
 
@@ -100,6 +101,7 @@ export async function toggleVote(itemId: string): Promise<{ voted: boolean; coun
 export async function submitSuggestion(
   title: string,
   body: string,
+  category: "fix" | "feature",
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
   const {
@@ -110,6 +112,9 @@ export async function submitSuggestion(
   const t = (title || "").trim().slice(0, 120);
   const b = (body || "").trim().slice(0, 2000);
   if (!t) return { success: false, error: "Give your suggestion a title." };
+  if (category !== "fix" && category !== "feature") {
+    return { success: false, error: "Tell us if it's a fix or a new feature." };
+  }
 
   const svc = createServiceRoleClient();
   const { error } = await svc.from("roadmap_items").insert({
@@ -117,6 +122,7 @@ export async function submitSuggestion(
     body: b,
     status: "under_review",
     source: "community",
+    category,
     is_public: false,
     created_by: user.id,
   } as any);

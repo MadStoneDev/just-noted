@@ -32,6 +32,28 @@ const STATUS_LABEL: Record<string, string> = {
   declined: "Declined",
 };
 
+const CATEGORY_OPTIONS = [
+  { value: "", label: "No category" },
+  { value: "fix", label: "Fix" },
+  { value: "feature", label: "Feature" },
+];
+
+function CategoryTag({ category }: { category: string | null }) {
+  if (category !== "fix" && category !== "feature") return null;
+  const isFix = category === "fix";
+  return (
+    <span
+      className="shrink-0 text-[10px] font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)]"
+      style={{
+        color: isFix ? "var(--color-warn)" : "var(--color-accent-text)",
+        background: isFix ? "var(--color-warn-tint)" : "var(--color-accent-tint)",
+      }}
+    >
+      {isFix ? "Fix" : "Feature"}
+    </span>
+  );
+}
+
 // authors.role scale (see 20260925_author_role.sql).
 const ROLE_OPTIONS: { value: number; label: string }[] = [
   { value: 0, label: "Banned" },
@@ -168,7 +190,10 @@ function SuggestionsPanel() {
         <div key={it.id} className="rounded-[var(--radius-12)] border border-[var(--color-hairline)] bg-[var(--color-panel-alt)] p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-[14px] font-medium text-[var(--color-ink-1)]">{it.title}</div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[14px] font-medium text-[var(--color-ink-1)]">{it.title}</span>
+                <CategoryTag category={it.category} />
+              </div>
               {it.body && <div className="mt-1 text-[12.5px] leading-[1.55] text-[var(--color-ink-4)]">{it.body}</div>}
               <div className="mt-1.5 text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
                 {it.vote_count} vote{it.vote_count === 1 ? "" : "s"} · {new Date(it.created_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
@@ -320,6 +345,7 @@ function RoadmapItemsPanel() {
   const [nt, setNt] = useState("");
   const [nb, setNb] = useState("");
   const [ns, setNs] = useState<RoadmapStatusValue>("planned");
+  const [nc, setNc] = useState<"" | "fix" | "feature">("");
 
   const load = useCallback(() => {
     getAllRoadmapItems().then(setItems).catch(() => setItems([]));
@@ -338,11 +364,11 @@ function RoadmapItemsPanel() {
   const add = useCallback(async () => {
     if (!nt.trim() || creating) return;
     setCreating(true);
-    const res = await createRoadmapItem({ title: nt, body: nb, status: ns, is_public: true });
+    const res = await createRoadmapItem({ title: nt, body: nb, status: ns, category: nc || null, is_public: true });
     setCreating(false);
-    if (res.success) { setNt(""); setNb(""); setNs("planned"); showSuccess("Item added."); load(); }
+    if (res.success) { setNt(""); setNb(""); setNs("planned"); setNc(""); showSuccess("Item added."); load(); }
     else showError(res.error || "Couldn't add.");
-  }, [nt, nb, ns, creating, showSuccess, showError, load]);
+  }, [nt, nb, ns, nc, creating, showSuccess, showError, load]);
 
   const remove = useCallback(
     async (id: string) => {
@@ -364,9 +390,14 @@ function RoadmapItemsPanel() {
         <input value={nt} onChange={(e) => setNt(e.target.value)} placeholder="New item title" maxLength={120} className={`${RM_INPUT} text-[14px] mb-2`} />
         <textarea value={nb} onChange={(e) => setNb(e.target.value)} placeholder="Description (shown on the card)" rows={2} maxLength={2000} className={`${RM_INPUT} resize-none mb-2`} />
         <div className="flex items-center justify-between gap-2">
-          <select value={ns} onChange={(e) => setNs(e.target.value as RoadmapStatusValue)} className={RM_SELECT}>
-            {ROADMAP_STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
-          </select>
+          <div className="flex items-center gap-2">
+            <select value={ns} onChange={(e) => setNs(e.target.value as RoadmapStatusValue)} className={RM_SELECT}>
+              {ROADMAP_STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
+            </select>
+            <select value={nc} onChange={(e) => setNc(e.target.value as "" | "fix" | "feature")} className={RM_SELECT}>
+              {CATEGORY_OPTIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </select>
+          </div>
           <button onClick={add} disabled={creating || !nt.trim()} className="h-8 px-3 rounded-[var(--radius-7)] text-[12.5px] font-medium bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:bg-[var(--color-accent-deep)] transition-colors disabled:opacity-60">
             {creating ? "Adding…" : "Add item"}
           </button>
@@ -400,6 +431,9 @@ function RoadmapItemsPanel() {
                   <div className="mt-2.5 flex flex-wrap items-center gap-2">
                     <select value={it.status} onChange={(e) => patch(it.id, { status: e.target.value })} className={RM_SELECT}>
                       {ROADMAP_STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
+                    </select>
+                    <select value={it.category ?? ""} onChange={(e) => patch(it.id, { category: (e.target.value || null) as any })} className={RM_SELECT}>
+                      {CATEGORY_OPTIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
                     </select>
                     <label className="flex items-center gap-1 text-[12px] text-[var(--color-ink-3)]">
                       <input type="checkbox" checked={it.is_public} onChange={(e) => patch(it.id, { is_public: e.target.checked })} />
