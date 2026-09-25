@@ -44,6 +44,7 @@ import {
   IconAdjustmentsHorizontal,
   IconLogin2,
   IconHelp,
+  IconLayoutKanban,
   IconNote,
   IconTag,
   IconShare,
@@ -667,6 +668,12 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
               <IconSearch size={20} />
             </RailButton>
             <div className="flex-1" />
+            <RailButton
+              label="Roadmap"
+              onClick={() => window.dispatchEvent(new Event("justnoted:open-roadmap"))}
+            >
+              <IconLayoutKanban size={20} />
+            </RailButton>
             <RailButton
               label="Help"
               onClick={() => window.dispatchEvent(new Event("justnoted:open-help"))}

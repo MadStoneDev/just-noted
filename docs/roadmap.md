@@ -7,9 +7,9 @@ broken into shippable phases so it can go out independently.
 
 ## Build order (what's next)
 
-1. **Roadmap page (kanban board)** — standalone page with its own permanent rail
-   entry; kanban columns by status, votable cards, suggest action. (An interim
-   Help→Roadmap modal list shipped as a stopgap and gets replaced.)
+1. ✅ **Roadmap page (kanban board)** — standalone page, own rail entry, kanban
+   columns by status. Read-only for now (from `src/data/roadmap.ts`); voting +
+   suggestions + admin drag are the next phases. Help→Roadmap modal removed.
 2. **Collab identity fixes** — caret shows the real username (not "Someone"),
    broadcast live on resolve/change; email-local-part fallback. Small, high-annoyance.
 3. **Shared note consistency — finish** — Export / Print / History parity across
@@ -34,16 +34,18 @@ Deferred: anonymous / public-only sharing for Redis users.
 - **Help & Keyboard Shortcuts** modal (replaces the old `/the-how` page).
 - **Restore last-viewed shared note** on refresh.
 - Shared notes match the editor **title + show stats** (read-only).
-- Interim **Help→Roadmap** modal list (stopgap; being replaced by the kanban page).
+- **Roadmap page** (kanban board) on its own rail entry, read-only for now
+  (Help→Roadmap modal removed).
 
 ---
 
-## Roadmap page (kanban board)
+## Roadmap page (kanban board) — ✅ v1 shipped (read-only)
 
-A **standalone page** with its **own permanent left-rail entry** (not the Help
-modal — the Help-modal "Roadmap" subview was a wrong first cut and gets replaced /
-its menu item removed). Opens in the main area like Settings/Trash, via a rail
-button + `justnoted:open-roadmap`.
+A **standalone page** with its **own permanent left-rail entry** (`roadmap-view.tsx`),
+opened via a rail button + `justnoted:open-roadmap`, behaving like Settings/Trash
+(Esc/close returns to notes). Kanban columns (Under review / Planned / In progress
+/ Shipped) from `src/data/roadmap.ts`. The Help→Roadmap modal was removed. Still
+to come: voting, suggestions, and admin drag-to-reprioritise (below).
 
 - **Layout: a kanban board** — columns by status, cards per item:
   **Suggestions / Under review → Planned → In progress → Shipped**
