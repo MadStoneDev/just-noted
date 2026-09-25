@@ -43,7 +43,7 @@ import {
   IconPlus,
   IconChevronDown,
   IconAdjustmentsHorizontal,
-  IconLogin2,
+  IconDoorEnter,
   IconHelp,
   IconLayoutKanban,
   IconShieldCog,
@@ -716,7 +716,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 title="Log in"
                 className="mt-1.5 w-[26px] h-[26px] rounded-full flex items-center justify-center bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:opacity-90 transition-opacity"
               >
-                <IconLogin2 size={15} />
+                <IconDoorEnter size={15} />
               </a>
             )}
           </nav>

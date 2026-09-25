@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/toast";
 import { uploadAvatar } from "@/app/actions/avatarActions";
 import { compressImage } from "@/utils/image/compress";
 import { processQueue } from "@/utils/offline-queue";
+import { Avatar } from "@/components/ui/avatar";
 
 interface ProfileBlockProps {
   user: any;
@@ -387,17 +388,7 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
       <div>
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
-          <div className="w-14 h-14 bg-[var(--color-raised-soft)] rounded-full flex items-center justify-center shrink-0 overflow-hidden">
-            {state.avatarPreview || state.avatarUrl ? (
-              <img
-                src={state.avatarPreview || state.avatarUrl || ""}
-                alt="Avatar"
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <span className="text-[var(--color-ink-5)] text-xl font-light">?</span>
-            )}
-          </div>
+          <Avatar url={state.avatarPreview || state.avatarUrl} name={state.username} size={56} />
           <div>
             <h1 className="text-lg font-semibold text-[var(--color-ink-1)]">
               {state.username || "Your Profile"}
@@ -501,7 +492,7 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
                   Profile Picture
                 </label>
                 <div className="flex items-center space-x-4 p-5 bg-[var(--color-panel)] rounded-[var(--radius-md)] border-2 border-dashed border-[var(--color-hairline)] hover:border-[var(--color-accent-tint-border)]/50 transition-colors">
-                  <div className="shrink-0 w-24 h-24 bg-[var(--color-raised)] rounded-[var(--radius-lg)] overflow-hidden flex items-center justify-center shadow-sm ring-1 ring-gray-200">
+                  <div className="shrink-0 w-24 h-24 rounded-[var(--radius-lg)] overflow-hidden flex items-center justify-center shadow-sm ring-1 ring-[var(--color-hairline)]">
                     {state.avatarPreview || state.avatarUrl ? (
                       <img
                         src={state.avatarPreview || state.avatarUrl || ""}
@@ -509,9 +500,11 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span className="text-[var(--color-ink-5)] text-xl font-light">
-                        ?
-                      </span>
+                      <div className="w-full h-full flex items-center justify-center" style={{ background: "#0FB8B0" }}>
+                        <span style={{ color: "#0A0C0C" }} className="text-3xl font-semibold">
+                          {(state.username?.charAt(0) || "?").toUpperCase()}
+                        </span>
+                      </div>
                     )}
                   </div>
 

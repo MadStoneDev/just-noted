@@ -21,6 +21,7 @@ import { SharedHistoryPanel } from "@/components/shared-history-panel";
 import { loadCollabDoc, saveCollabDoc } from "@/app/actions/collabActions";
 import NoteStatsRow from "@/components/note-stats-row";
 import AutoGrowTitle from "@/components/auto-grow-title";
+import { Avatar } from "@/components/ui/avatar";
 import { Dropdown, DropdownItem } from "@/components/ds/dropdown";
 import { useToast } from "@/components/ui/toast";
 import { IconHistory, IconLink, IconDots } from "@tabler/icons-react";
@@ -369,17 +370,7 @@ export default function SharedNotePage({
         <div className="flex items-center gap-3 text-[11px] text-[var(--color-text-tertiary)] mb-2">
           {!isAnonymous && (
             <span className="flex items-center gap-1.5">
-              {note.authorAvatar ? (
-                <img
-                  src={note.authorAvatar}
-                  alt={note.authorUsername}
-                  className="w-4 h-4 rounded-full"
-                />
-              ) : (
-                <div className="w-4 h-4 bg-[var(--color-bg-tertiary)] rounded-full flex items-center justify-center text-[8px] font-medium text-[var(--color-text-tertiary)]">
-                  {note.authorUsername.charAt(0).toUpperCase()}
-                </div>
-              )}
+              <Avatar url={note.authorAvatar} name={note.authorUsername} size={16} />
               {note.authorUsername}
             </span>
           )}

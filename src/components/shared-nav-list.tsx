@@ -9,6 +9,7 @@ import {
   type SharedListItem,
 } from "@/app/actions/sharing";
 import { useToast } from "@/components/ui/toast";
+import { Avatar } from "@/components/ui/avatar";
 import {
   IconLoader2,
   IconWorld,
@@ -42,13 +43,7 @@ function PermTag({ perm }: { perm?: string }) {
 }
 
 function OwnerAvatar({ name, url }: { name?: string; url?: string | null }) {
-  return url ? (
-    <img src={url} alt="" className="w-[18px] h-[18px] rounded-full object-cover shrink-0" />
-  ) : (
-    <span className="w-[18px] h-[18px] rounded-full bg-[var(--color-raised-soft)] flex items-center justify-center text-[9px] font-semibold text-[var(--color-ink-4)] shrink-0">
-      {(name || "?").charAt(0).toUpperCase()}
-    </span>
-  );
+  return <Avatar url={url} name={name} size={18} />;
 }
 
 /**

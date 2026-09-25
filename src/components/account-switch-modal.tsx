@@ -6,21 +6,7 @@ import { useNotesStore } from "@/stores/notes-store";
 import { useOfflineQueue } from "@/hooks/use-online-status";
 import type { DeviceAccount } from "@/utils/accounts";
 import { IconUser, IconCloudUpload, IconDeviceLaptop } from "@tabler/icons-react";
-
-function Avatar({ url, size }: { url?: string; size: number }) {
-  return (
-    <span
-      className="rounded-full overflow-hidden bg-[var(--color-raised-soft)] ring-1 ring-[var(--color-hairline)] flex items-center justify-center text-[var(--color-ink-4)] shrink-0"
-      style={{ width: size, height: size }}
-    >
-      {url ? (
-        <img src={url} alt="" className="w-full h-full object-cover" />
-      ) : (
-        <IconUser size={Math.round(size * 0.58)} />
-      )}
-    </span>
-  );
-}
+import { Avatar } from "@/components/ui/avatar";
 
 // Blocking "unsynced work" gate before an account switch (design surface 12).
 // Unsynced notes hold the switch until the queue drains (or the user is offline
@@ -48,7 +34,7 @@ export function AccountSwitchModal({
     <Modal open onClose={onCancel} title={`Switch to @${target.handle || "account"}?`} size="md">
       <div className="space-y-3.5">
         <div className="flex items-center gap-2.5">
-          <Avatar url={target.avatarUrl} size={34} />
+          <Avatar url={target.avatarUrl} name={target.displayName || target.email} size={34} className="ring-1 ring-[var(--color-hairline)]" />
           <div className="min-w-0">
             <div className="text-[13.5px] text-[var(--color-ink-1)] truncate">@{target.handle || "account"}</div>
             <div className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)] truncate">
@@ -131,7 +117,7 @@ export function AccountSwitchTransition({ target }: { target: DeviceAccount }) {
   return (
     <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-[var(--color-canvas)]">
       <div className="relative">
-        <Avatar url={target.avatarUrl} size={56} />
+        <Avatar url={target.avatarUrl} name={target.displayName || target.email} size={56} className="ring-1 ring-[var(--color-hairline)]" />
         <span className="absolute inset-0 rounded-full ring-[3px] ring-[var(--color-accent-tint-border)] animate-ping" />
       </div>
       <div className="mt-5 text-[14px] text-[var(--color-ink-1)]">

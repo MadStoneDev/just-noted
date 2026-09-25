@@ -8,23 +8,12 @@ import { getQueueSize } from "@/utils/offline-queue";
 import { useNotesStore } from "@/stores/notes-store";
 import { AccountSwitchModal, AccountSwitchTransition } from "@/components/account-switch-modal";
 import {
-  IconUser,
   IconPlus,
   IconLogout,
   IconCheck,
   IconSettings,
 } from "@tabler/icons-react";
-
-function Avatar({ url, size }: { url?: string; size: number }) {
-  return (
-    <span
-      className="rounded-full overflow-hidden bg-[var(--color-raised-soft)] ring-1 ring-[var(--color-hairline)] flex items-center justify-center text-[var(--color-ink-4)] shrink-0"
-      style={{ width: size, height: size }}
-    >
-      {url ? <img src={url} alt="" className="w-full h-full object-cover" /> : <IconUser size={Math.round(size * 0.58)} />}
-    </span>
-  );
-}
+import { Avatar } from "@/components/ui/avatar";
 
 // Account switcher popover (design surface 12). Switching swaps the Supabase
 // session and reloads. The blocking "unsynced work" modal and the transition
@@ -127,13 +116,9 @@ export default function AccountMenu() {
       trigger={
         <button
           aria-label="Account"
-          className="w-[26px] h-[26px] rounded-full overflow-hidden bg-[var(--color-raised-soft)] ring-1 ring-[var(--color-hairline)] flex items-center justify-center text-[var(--color-ink-4)] hover:ring-[var(--color-accent-tint-border)] transition-colors"
+          className="rounded-full ring-1 ring-[var(--color-hairline)] hover:ring-[var(--color-accent-tint-border)] transition-colors"
         >
-          {current?.avatarUrl ? (
-            <img src={current.avatarUrl} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <IconUser size={15} />
-          )}
+          <Avatar url={current?.avatarUrl} name={current?.handle || current?.email} size={26} />
         </button>
       }
     >
@@ -144,7 +129,7 @@ export default function AccountMenu() {
 
         {current && (
           <div className="flex items-center gap-2.5 px-2 py-2 rounded-[var(--radius-8)] bg-[var(--color-accent-tint)] border border-[var(--color-accent-tint-border)]">
-            <Avatar url={current.avatarUrl} size={30} />
+            <Avatar url={current.avatarUrl} name={current.handle || current.email} size={30} />
             <div className="flex-1 min-w-0">
               <div className="text-[13px] text-[var(--color-accent-text)] truncate">@{current.handle || "you"}</div>
               <div className="text-[10.5px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)] truncate">{current.email}</div>
@@ -160,7 +145,7 @@ export default function AccountMenu() {
             onClick={() => doSwitch(a)}
             className="w-full flex items-center gap-2.5 px-2 py-2 rounded-[var(--radius-8)] hover:bg-[var(--color-raised-soft)] transition-colors disabled:opacity-50"
           >
-            <Avatar url={a.avatarUrl} size={30} />
+            <Avatar url={a.avatarUrl} name={a.handle || a.email} size={30} />
             <div className="flex-1 min-w-0 text-left">
               <div className="text-[13px] text-[var(--color-ink-1)] truncate">@{a.handle || "account"}</div>
               <div className={`text-[10.5px] font-[family-name:var(--font-meta)] truncate ${a.sessionValid ? "text-[var(--color-ink-5)]" : "text-[var(--color-warn)]"}`}>
