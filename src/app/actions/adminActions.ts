@@ -1,10 +1,12 @@
 "use server";
 
 import { createClient, createServiceRoleClient } from "@/utils/supabase/server";
+import type { RoadmapStatusValue } from "@/types/roadmap";
 
 // Admin access is authors.role >= 10 (see 20260925_author_role.sql). 3 = default
 // user; lower values are reserved for moderation standing (warned/reported/banned).
-export const ADMIN_ROLE = 10;
+// Not exported — a "use server" file may only export async functions.
+const ADMIN_ROLE = 10;
 
 async function getSessionRole(): Promise<{ userId: string | null; role: number }> {
   const supabase = await createClient();
@@ -169,15 +171,6 @@ export async function setUserScribe(
 // ---------------------------------------------------------------------------
 // Roadmap items — manage the board directly (add/edit/restatus/reorder/delete).
 // ---------------------------------------------------------------------------
-
-export const ROADMAP_STATUSES = [
-  "under_review",
-  "planned",
-  "in_progress",
-  "shipped",
-  "declined",
-] as const;
-export type RoadmapStatusValue = (typeof ROADMAP_STATUSES)[number];
 
 export interface AdminRoadmapItem {
   id: string;

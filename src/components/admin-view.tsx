@@ -16,13 +16,12 @@ import {
   deleteRoadmapItem,
   getNotes,
   adminSetNoteDeleted,
-  ROADMAP_STATUSES,
   type PendingSuggestion,
   type AdminUser,
   type AdminRoadmapItem,
-  type RoadmapStatusValue,
   type AdminNote,
 } from "@/app/actions/adminActions";
+import { ROADMAP_STATUSES, type RoadmapStatusValue } from "@/types/roadmap";
 
 const STATUS_LABEL: Record<string, string> = {
   under_review: "Under review",
