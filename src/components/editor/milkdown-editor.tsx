@@ -2,7 +2,7 @@
 
 import React, { useRef, useMemo, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Editor, rootCtx, defaultValueCtx, remarkStringifyOptionsCtx, editorViewCtx } from "@milkdown/core";
+import { Editor, rootCtx, defaultValueCtx, remarkStringifyOptionsCtx, editorViewCtx, editorViewOptionsCtx } from "@milkdown/core";
 import { collab, collabServiceCtx } from "@milkdown/plugin-collab";
 import * as Y from "yjs";
 import { Awareness } from "y-protocols/awareness";
@@ -241,11 +241,13 @@ function MilkdownEditorInner({
   const onChangeRef = useRef(onChange);
   const onFocusRef = useRef(onFocus);
   const onBlurRef = useRef(onBlur);
+  const readOnlyRef = useRef(readOnly);
   const containerRef = useRef<HTMLDivElement>(null);
 
   onChangeRef.current = onChange;
   onFocusRef.current = onFocus;
   onBlurRef.current = onBlur;
+  readOnlyRef.current = readOnly;
 
   const initialMarkdown = useMemo(() => {
     if (!content) return "";
@@ -260,6 +262,10 @@ function MilkdownEditorInner({
     return Editor.make()
       .config((ctx) => {
         ctx.set(rootCtx, root);
+        // Lock ProseMirror editing in read-only mode (the data-readonly styling
+        // alone didn't stop edits). Reads a ref so it stays correct if readOnly
+        // changes without rebuilding the editor.
+        ctx.set(editorViewOptionsCtx, { editable: () => !readOnlyRef.current });
         // In collab mode the Yjs document is the source of truth; seed via the
         // provider instead of the default value to avoid a double-insert.
         ctx.set(defaultValueCtx, collabEnabled ? "" : initialMarkdown);
@@ -296,6 +302,17 @@ function MilkdownEditorInner({
       .use(inputRuleUndo)
       .use(collabEnabled ? collab : []);
   }, []);
+
+  // ProseMirror caches `editable` — re-apply it when readOnly changes so the
+  // main editor un-locks after hydration and a read-only view stays locked.
+  useEffect(() => {
+    try {
+      get()?.action((ctx) => {
+        const view = ctx.get(editorViewCtx) as any;
+        view.setProps({ editable: () => !readOnlyRef.current });
+      });
+    } catch {}
+  }, [readOnly, get]);
 
   // Live collaboration: bind a Yjs doc + awareness synced over Supabase Realtime.
   useEffect(() => {

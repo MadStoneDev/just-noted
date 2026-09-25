@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { sanitizeHtml } from "@/utils/sanitize";
-import { marked } from "marked";
 import { IconX, IconLock, IconEye, IconShare, IconHistory, IconLink, IconDots } from "@tabler/icons-react";
 import { sharingOperation } from "@/app/actions/sharing";
 import { createClient } from "@/utils/supabase/client";
@@ -55,13 +53,6 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
   const shareLink = typeof window !== "undefined" ? `${window.location.origin}/n/${shortcode}` : "";
   const copyLink = () => { navigator.clipboard.writeText(shareLink); toast.showSuccess("Link copied"); };
 
-  const renderContent = (c: string): string => {
-    // Always parse as Markdown; marked passes real HTML through untouched. See
-    // shared-note-page.tsx — we no longer trust the (often stale) content_format
-    // flag, which caused Markdown notes to render as a raw-HTML wall of text.
-    const html = marked.parse(c, { async: false, gfm: true, breaks: false }) as string;
-    return sanitizeHtml(html);
-  };
 
   const fetchNote = async (pw?: string | null) => {
     setLoading(true);
@@ -347,7 +338,11 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
           <div className="mb-8">
             <NoteStatsRow content={note.content} goal={note.goal} goalType={note.goal_type} />
           </div>
-          <div className="milkdown" dangerouslySetInnerHTML={{ __html: renderContent(note.content) }} />
+          <MilkdownEditor
+            content={note.content || ""}
+            contentFormat={(note.content_format as ContentFormat) || "markdown"}
+            readOnly
+          />
         </article>
       </div>
     </div>
