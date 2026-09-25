@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo, useEffect } from "react";
+import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 
 import Sidebar from "@/components/sidebar";
 import ActiveNoteEditor from "@/components/active-note-editor";
@@ -96,6 +96,25 @@ export default function NoteWrapper() {
     applyEditorFont(readEditorFont());
     applyEditorFontSize(readEditorFontSize());
   }, []);
+
+  // Remember whether the main area last showed a shared note, and restore it on
+  // reload. activeNoteId / justnoted_last_note only cover the user's own notes,
+  // so without this a refresh drops a shared note back to the last own-note.
+  const sharedRestoredRef = useRef(false);
+  useEffect(() => {
+    try {
+      const sc = localStorage.getItem("justnoted_last_shared");
+      if (sc) setSharedShortcode(sc);
+    } catch {}
+    sharedRestoredRef.current = true;
+  }, []);
+  useEffect(() => {
+    if (!sharedRestoredRef.current) return; // don't clobber before the restore runs
+    try {
+      if (sharedShortcode) localStorage.setItem("justnoted_last_shared", sharedShortcode);
+      else localStorage.removeItem("justnoted_last_shared");
+    } catch {}
+  }, [sharedShortcode]);
 
   // Record the current account (fresh tokens) into the device store so it's
   // listed in the account switcher and switchable later. Re-capture on token
