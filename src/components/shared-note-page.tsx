@@ -3,8 +3,6 @@
 import Link from "next/link";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { sanitizeHtml } from "@/utils/sanitize";
-import { marked } from "marked";
 import {
   IconArrowLeft,
   IconLock,
@@ -113,15 +111,6 @@ export default function SharedNotePage({
     });
   };
 
-  const renderContent = (content: string): string => {
-    // Always parse as Markdown. Marked passes real HTML (block and inline)
-    // through untouched, so genuinely-HTML legacy notes still render, while
-    // Markdown notes render correctly even when a note's content_format flag is
-    // a stale "html" (which happened because saves didn't rewrite the flag).
-    // We no longer trust that flag for rendering.
-    const html = marked.parse(content, { async: false, gfm: true, breaks: false }) as string;
-    return sanitizeHtml(html);
-  };
 
   const fetchNote = async (pw?: string | null) => {
     let username = null;
@@ -403,12 +392,12 @@ export default function SharedNotePage({
           <NoteStatsRow content={note.content} goal={note.goal} goalType={note.goal_type} />
         </div>
 
-        {/* Content */}
-        <div
-          className="milkdown"
-          dangerouslySetInnerHTML={{
-            __html: renderContent(note.content),
-          }}
+        {/* Content — rendered through the same editor (read-only) as the live
+            editor, so formatting is identical instead of drifting via marked. */}
+        <MilkdownEditor
+          content={note.content || ""}
+          contentFormat={(note.content_format as ContentFormat) || "markdown"}
+          readOnly
         />
       </article>
 
