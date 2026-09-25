@@ -101,16 +101,17 @@ can't insert via client RLS.
   insert.
 
 **Phases**
-- **P1 — DB + seed (read only):** create `roadmap_items`, seed from `roadmap.ts`,
-  switch the Roadmap view to fetch from Supabase. Minimal behaviour change.
-- **P2 — Voting:** `roadmap_votes` + trigger + a vote/unvote server route (cookie
-  `voter_key` for guests, `user_id` for members); upvote UI with count + voted
-  state; sort Planned/Under-review by votes.
-- **P3 — Suggestions:** "Suggest a feature" form → creates a `community` item,
-  hidden pending **admin approval**; basic validation + rate-limit.
-- **P4 — Moderation:** lives in the **Admin dashboard** (below) — approve / reject
-  / re-status / merge / reorder; notify a suggester when their item ships (ties
-  into Notifications).
+- ✅ **P1 — DB + seed:** `roadmap_items` (seeded from the curated list); the page
+  reads from Supabase via `getRoadmap()`.
+- ✅ **P2 — Voting:** `roadmap_votes` + count trigger + `toggleVote()` server
+  action (guest `voter_key` cookie + IP; member `user_id`); upvote UI with count
+  + voted state.
+- ✅ **P3 — Suggestions:** "Suggest" form → `submitSuggestion()` creates a
+  `community` item, hidden pending admin approval.
+- ⬜ **P4 — Moderation:** lives in the **Admin dashboard** (below) — approve /
+  reject / re-status / merge / reorder; notify a suggester when their item ships.
+  Until the admin UI exists, approve suggestions via SQL
+  (`UPDATE roadmap_items SET is_public=true, status='planned' WHERE id=…`).
 
 **Decisions**
 - **Guests can vote** ✅ — deduped by cookie/localStorage `voter_key` (+ IP as a

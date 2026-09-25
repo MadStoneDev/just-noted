@@ -1,26 +1,103 @@
 "use client";
 
-import React from "react";
-import { IconX } from "@tabler/icons-react";
-import { ROADMAP, type RoadmapStatus } from "@/data/roadmap";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { IconX, IconChevronUp, IconPlus } from "@tabler/icons-react";
+import { useToast } from "@/components/ui/toast";
+import {
+  getRoadmap,
+  toggleVote,
+  submitSuggestion,
+  type RoadmapBoardItem,
+} from "@/app/actions/roadmapActions";
 
-// Standalone Roadmap page (opened from the rail). Kanban board, read-only for
-// now; content comes from the curated public list in src/data/roadmap.ts.
-// Voting, suggestions and admin drag-to-reprioritise come in later phases (see
-// docs/roadmap.md), at which point items move to Supabase.
+// Standalone Roadmap page (opened from the rail). Kanban board backed by
+// Supabase (roadmap_items / roadmap_votes): browse, upvote (guests included),
+// and suggest features (queued for admin approval). See docs/roadmap.md.
 
-type ColumnStatus = RoadmapStatus | "under-review";
-
-const COLUMNS: { status: ColumnStatus; label: string; dot: string }[] = [
-  { status: "under-review", label: "Under review", dot: "var(--color-ink-6)" },
+const COLUMNS: { status: string; label: string; dot: string }[] = [
+  { status: "under_review", label: "Under review", dot: "var(--color-ink-6)" },
   { status: "planned", label: "Planned", dot: "var(--color-ink-5)" },
-  { status: "in-progress", label: "In progress", dot: "var(--color-accent-fill)" },
+  { status: "in_progress", label: "In progress", dot: "var(--color-accent-fill)" },
   { status: "shipped", label: "Shipped", dot: "#3DA35D" },
 ];
 
 export default function RoadmapView({ onClose }: { onClose: () => void }) {
-  const byStatus = new Map<string, { title: string; blurb: string }[]>();
-  for (const g of ROADMAP) byStatus.set(g.status, g.items);
+  const { showSuccess, showError } = useToast();
+  const [items, setItems] = useState<RoadmapBoardItem[] | null>(null);
+  const [voting, setVoting] = useState<Set<string>>(new Set());
+  const [showSuggest, setShowSuggest] = useState(false);
+  const [sTitle, setSTitle] = useState("");
+  const [sBody, setSBody] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    getRoadmap().then(setItems).catch(() => setItems([]));
+  }, []);
+
+  const byStatus = useMemo(() => {
+    const m = new Map<string, RoadmapBoardItem[]>();
+    for (const it of items ?? []) {
+      const arr = m.get(it.status) ?? [];
+      arr.push(it);
+      m.set(it.status, arr);
+    }
+    return m;
+  }, [items]);
+
+  const vote = useCallback(
+    async (id: string) => {
+      if (voting.has(id)) return;
+      setVoting((s) => new Set(s).add(id));
+      // Optimistic toggle.
+      setItems((prev) =>
+        (prev ?? []).map((it) =>
+          it.id === id
+            ? { ...it, voted: !it.voted, vote_count: it.vote_count + (it.voted ? -1 : 1) }
+            : it,
+        ),
+      );
+      try {
+        const res = await toggleVote(id);
+        setItems((prev) =>
+          (prev ?? []).map((it) =>
+            it.id === id ? { ...it, voted: res.voted, vote_count: res.count } : it,
+          ),
+        );
+      } catch {
+        // Revert on failure.
+        setItems((prev) =>
+          (prev ?? []).map((it) =>
+            it.id === id
+              ? { ...it, voted: !it.voted, vote_count: it.vote_count + (it.voted ? -1 : 1) }
+              : it,
+          ),
+        );
+        showError("Couldn't record your vote.");
+      } finally {
+        setVoting((s) => {
+          const n = new Set(s);
+          n.delete(id);
+          return n;
+        });
+      }
+    },
+    [voting, showError],
+  );
+
+  const submit = useCallback(async () => {
+    if (submitting || !sTitle.trim()) return;
+    setSubmitting(true);
+    const res = await submitSuggestion(sTitle, sBody);
+    setSubmitting(false);
+    if (res.success) {
+      showSuccess("Thanks! Your suggestion was sent for review.");
+      setSTitle("");
+      setSBody("");
+      setShowSuggest(false);
+    } else {
+      showError(res.error || "Couldn't submit.");
+    }
+  }, [submitting, sTitle, sBody, showSuccess, showError]);
 
   return (
     <div className="flex-1 overflow-y-auto scrollbar-thin bg-[var(--color-canvas)]">
@@ -32,54 +109,132 @@ export default function RoadmapView({ onClose }: { onClose: () => void }) {
               Roadmap
             </h1>
             <p className="mt-1.5 text-[11.5px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
-              What we're building and what's shipped · voting &amp; suggestions coming soon
+              Vote on what matters to you, or suggest something new.
             </p>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Close roadmap"
-            className="flex items-center justify-center w-8 h-8 rounded-[var(--radius-7)] text-[var(--color-ink-4)] hover:bg-[var(--color-raised-soft)] hover:text-[var(--color-ink-1)] transition-colors"
-          >
-            <IconX size={16} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowSuggest((s) => !s)}
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[var(--radius-8)] text-[12.5px] font-medium bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:bg-[var(--color-accent-deep)] transition-colors"
+            >
+              <IconPlus size={14} /> Suggest
+            </button>
+            <button
+              onClick={onClose}
+              aria-label="Close roadmap"
+              className="flex items-center justify-center w-8 h-8 rounded-[var(--radius-7)] text-[var(--color-ink-4)] hover:bg-[var(--color-raised-soft)] hover:text-[var(--color-ink-1)] transition-colors"
+            >
+              <IconX size={16} />
+            </button>
+          </div>
         </div>
 
+        {/* Suggest form */}
+        {showSuggest && (
+          <div className="mb-6 rounded-[var(--radius-12)] border border-[var(--color-hairline)] bg-[var(--color-panel-alt)] p-4 max-w-[520px]">
+            <input
+              value={sTitle}
+              onChange={(e) => setSTitle(e.target.value)}
+              placeholder="What would you like to see?"
+              maxLength={120}
+              className="w-full bg-transparent text-[14px] text-[var(--color-ink-1)] placeholder:text-[var(--color-ink-5)] focus:outline-none mb-2"
+            />
+            <textarea
+              value={sBody}
+              onChange={(e) => setSBody(e.target.value)}
+              placeholder="Add any detail (optional)"
+              rows={3}
+              maxLength={2000}
+              className="w-full resize-none bg-transparent text-[13px] leading-[1.55] text-[var(--color-ink-2)] placeholder:text-[var(--color-ink-5)] focus:outline-none"
+            />
+            <div className="mt-2 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setShowSuggest(false)}
+                className="h-8 px-3 rounded-[var(--radius-7)] text-[12.5px] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submit}
+                disabled={submitting || !sTitle.trim()}
+                className="h-8 px-3 rounded-[var(--radius-7)] text-[12.5px] font-medium bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:bg-[var(--color-accent-deep)] transition-colors disabled:opacity-60"
+              >
+                {submitting ? "Sending…" : "Send suggestion"}
+              </button>
+            </div>
+            <p className="mt-2 text-[11px] text-[var(--color-ink-5)]">
+              Suggestions are reviewed before they appear on the board.
+            </p>
+          </div>
+        )}
+
         {/* Board */}
-        <div className="flex gap-4 overflow-x-auto pb-4 -mx-1 px-1">
-          {COLUMNS.map((col) => {
-            const items = byStatus.get(col.status) || [];
-            return (
-              <div key={col.status} className="flex-1 min-w-[240px] max-w-[320px]">
-                <div className="flex items-center gap-1.5 mb-2.5 px-1">
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: col.dot }} />
-                  <span className="text-[11px] font-[family-name:var(--font-meta)] uppercase tracking-[0.12em] text-[var(--color-ink-5)]">
-                    {col.label}
-                  </span>
-                  <span className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-6)]">
-                    {items.length}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-2">
-                  {items.length === 0 ? (
-                    <div className="rounded-[var(--radius-10)] border border-dashed border-[var(--color-hairline)] p-4 text-[12px] text-[var(--color-ink-6)]">
-                      Nothing here yet.
-                    </div>
-                  ) : (
-                    items.map((it, i) => (
-                      <div
-                        key={i}
-                        className="rounded-[var(--radius-10)] border border-[var(--color-hairline)] bg-[var(--color-panel-alt)] p-3"
-                      >
-                        <div className="text-[13.5px] font-medium text-[var(--color-ink-1)]">{it.title}</div>
-                        <div className="mt-1 text-[12px] leading-[1.5] text-[var(--color-ink-4)]">{it.blurb}</div>
-                      </div>
-                    ))
-                  )}
-                </div>
+        {items === null ? (
+          <div className="flex gap-4">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="flex-1 min-w-[240px] max-w-[320px] space-y-2">
+                <div className="skeleton h-4 w-24 rounded" />
+                <div className="skeleton h-16 w-full rounded-[var(--radius-10)]" />
+                <div className="skeleton h-16 w-full rounded-[var(--radius-10)]" />
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex gap-4 overflow-x-auto pb-4 -mx-1 px-1">
+            {COLUMNS.map((col) => {
+              const colItems = byStatus.get(col.status) ?? [];
+              return (
+                <div key={col.status} className="flex-1 min-w-[240px] max-w-[320px]">
+                  <div className="flex items-center gap-1.5 mb-2.5 px-1">
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: col.dot }} />
+                    <span className="text-[11px] font-[family-name:var(--font-meta)] uppercase tracking-[0.12em] text-[var(--color-ink-5)]">
+                      {col.label}
+                    </span>
+                    <span className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-6)]">
+                      {colItems.length}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {colItems.length === 0 ? (
+                      <div className="rounded-[var(--radius-10)] border border-dashed border-[var(--color-hairline)] p-4 text-[12px] text-[var(--color-ink-6)]">
+                        Nothing here yet.
+                      </div>
+                    ) : (
+                      colItems.map((it) => (
+                        <div
+                          key={it.id}
+                          className="rounded-[var(--radius-10)] border border-[var(--color-hairline)] bg-[var(--color-panel-alt)] p-3 flex gap-3"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[13.5px] font-medium text-[var(--color-ink-1)]">{it.title}</div>
+                            {it.body && (
+                              <div className="mt-1 text-[12px] leading-[1.5] text-[var(--color-ink-4)]">{it.body}</div>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => vote(it.id)}
+                            aria-pressed={it.voted}
+                            title={it.voted ? "Remove vote" : "Upvote"}
+                            className={`shrink-0 self-start flex flex-col items-center justify-center w-9 py-1 rounded-[var(--radius-8)] border transition-colors ${
+                              it.voted
+                                ? "border-[var(--color-accent-fill)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]"
+                                : "border-[var(--color-border-control)] text-[var(--color-ink-4)] hover:bg-[var(--color-raised-soft)]"
+                            }`}
+                          >
+                            <IconChevronUp size={14} />
+                            <span className="text-[11px] font-[family-name:var(--font-meta)] leading-none mt-0.5">
+                              {it.vote_count}
+                            </span>
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
