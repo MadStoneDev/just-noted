@@ -155,7 +155,8 @@ admins). Mirrors Settings: its own left nav of focus areas + a main panel.
   button (admins only, `justnoted:open-admin`), `AdminView` with section nav.
 - **P2 — Roadmap admin:** ✅ suggestions moderation (approve/decline in the
   dashboard — replaces the SQL step). ⬜ items CRUD + reorder/status still to do.
-- **P3 — Users:** list + quick actions (comp Scribe from the UI). (stub)
+- ✅ **P3 — Users:** list (email/username/role/plan), search, set role
+  (banned/reported/warned/active/admin), grant/revoke Scribe from the UI.
 - **P4 — Notes:** metadata list + actions; gated/audited content view. (stub)
 
 **Decisions**

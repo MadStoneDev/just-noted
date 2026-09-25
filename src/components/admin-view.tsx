@@ -7,8 +7,21 @@ import {
   getPendingSuggestions,
   approveSuggestion,
   declineSuggestion,
+  getUsers,
+  setUserRole,
+  setUserScribe,
   type PendingSuggestion,
+  type AdminUser,
 } from "@/app/actions/adminActions";
+
+// authors.role scale (see 20260925_author_role.sql).
+const ROLE_OPTIONS: { value: number; label: string }[] = [
+  { value: 0, label: "Banned" },
+  { value: 1, label: "Reported" },
+  { value: 2, label: "Warned" },
+  { value: 3, label: "Active" },
+  { value: 10, label: "Admin" },
+];
 
 const SECTIONS = ["Roadmap suggestions", "Roadmap items", "Users", "Notes"] as const;
 type Section = (typeof SECTIONS)[number];
@@ -77,14 +90,14 @@ export default function AdminView({ onClose }: { onClose: () => void }) {
 
           {section === "Roadmap suggestions" ? (
             <SuggestionsPanel />
+          ) : section === "Users" ? (
+            <UsersPanel />
           ) : (
             <p className="text-[13.5px] text-[var(--color-ink-4)] leading-[1.6]">
               {section} management is coming here. For now, {section === "Roadmap items"
-                ? "edit items and reorder columns"
-                : section === "Users"
-                  ? "manage users (roles, Scribe comps)"
-                  : "review notes"}{" "}
-              via SQL.
+                ? "edit items via SQL, or use the parked items CRUD"
+                : "review notes via SQL"}
+              .
             </p>
           )}
         </div>
@@ -165,6 +178,115 @@ function SuggestionsPanel() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function UsersPanel() {
+  const { showError } = useToast();
+  const [users, setUsers] = useState<AdminUser[] | null>(null);
+  const [busy, setBusy] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    getUsers().then(setUsers).catch(() => setUsers([]));
+  }, []);
+
+  const withBusy = useCallback(async (id: string, fn: () => Promise<{ success: boolean }>) => {
+    setBusy((s) => new Set(s).add(id));
+    try {
+      const res = await fn();
+      if (!res.success) showError("Action failed — try again.");
+      return res.success;
+    } catch {
+      showError("Action failed — try again.");
+      return false;
+    } finally {
+      setBusy((s) => {
+        const n = new Set(s);
+        n.delete(id);
+        return n;
+      });
+    }
+  }, [showError]);
+
+  const changeRole = useCallback(
+    async (id: string, role: number) => {
+      setUsers((prev) => (prev ?? []).map((u) => (u.id === id ? { ...u, role } : u)));
+      await withBusy(id, () => setUserRole(id, role));
+    },
+    [withBusy],
+  );
+
+  const toggleScribe = useCallback(
+    async (id: string, active: boolean) => {
+      setUsers((prev) => (prev ?? []).map((u) => (u.id === id ? { ...u, tier: active ? "scribe" : "draft" } : u)));
+      const ok = await withBusy(id, () => setUserScribe(id, active));
+      if (!ok) setUsers((prev) => (prev ?? []).map((u) => (u.id === id ? { ...u, tier: active ? "draft" : "scribe" } : u)));
+    },
+    [withBusy],
+  );
+
+  if (users === null) {
+    return <div className="space-y-2">{[0, 1, 2].map((i) => <div key={i} className="skeleton h-12 w-full rounded-[var(--radius-9)]" />)}</div>;
+  }
+
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? users.filter((u) => (u.username || "").toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
+    : users;
+
+  return (
+    <div className="space-y-4">
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search by username or email…"
+        className="w-full max-w-[340px] h-9 px-3 rounded-[var(--radius-8)] border border-[var(--color-border-control)] bg-[var(--color-raised)] text-[13px] text-[var(--color-ink-1)] placeholder:text-[var(--color-ink-5)] focus:outline-none"
+      />
+      <div className="rounded-[var(--radius-12)] border border-[var(--color-hairline)] overflow-x-auto">
+        <div className="grid min-w-[620px] grid-cols-[1fr_130px_120px_90px] gap-3 px-4 py-2 bg-[var(--color-panel)] border-b border-[var(--color-hairline)] text-[10px] font-[family-name:var(--font-meta)] uppercase tracking-[0.12em] text-[var(--color-ink-5)]">
+          <span>User</span>
+          <span>Role</span>
+          <span>Plan</span>
+          <span className="text-right">Scribe</span>
+        </div>
+        {filtered.map((u) => (
+          <div key={u.id} className="grid min-w-[620px] grid-cols-[1fr_130px_120px_90px] gap-3 px-4 py-2.5 items-center border-b border-[var(--color-hairline-soft)] last:border-0">
+            <div className="min-w-0">
+              <div className="text-[13px] text-[var(--color-ink-1)] truncate">{u.username || "—"}</div>
+              <div className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)] truncate">{u.email}</div>
+            </div>
+            <select
+              value={u.role}
+              disabled={busy.has(u.id)}
+              onChange={(e) => changeRole(u.id, parseInt(e.target.value, 10))}
+              className="h-7 rounded-[var(--radius-6)] border border-[var(--color-border-control)] bg-[var(--color-raised)] text-[12px] text-[var(--color-ink-2)] px-1.5 focus:outline-none disabled:opacity-50"
+            >
+              {ROLE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+            </select>
+            <span className={`text-[12px] ${u.tier === "scribe" ? "text-[var(--color-accent-text)]" : "text-[var(--color-ink-4)]"}`}>
+              {u.tier === "scribe" ? "Scribe" : "Draft"}
+            </span>
+            <div className="flex justify-end">
+              <button
+                onClick={() => toggleScribe(u.id, u.tier !== "scribe")}
+                disabled={busy.has(u.id)}
+                className={`h-7 px-2.5 rounded-[var(--radius-6)] text-[11.5px] font-medium border transition-colors disabled:opacity-50 ${
+                  u.tier === "scribe"
+                    ? "border-[var(--color-border-control)] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)]"
+                    : "border-[var(--color-accent-fill)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint)]"
+                }`}
+              >
+                {u.tier === "scribe" ? "Revoke" : "Grant"}
+              </button>
+            </div>
+          </div>
+        ))}
+        {filtered.length === 0 && (
+          <div className="px-4 py-6 text-[13px] text-[var(--color-ink-4)]">No users match.</div>
+        )}
+      </div>
     </div>
   );
 }

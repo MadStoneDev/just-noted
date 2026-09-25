@@ -89,3 +89,78 @@ export async function declineSuggestion(id: string): Promise<{ success: boolean 
     .eq("id", id);
   return { success: !error };
 }
+
+// ---------------------------------------------------------------------------
+// Users — list + quick actions (roles, Scribe comps). Retires the manual SQL.
+// ---------------------------------------------------------------------------
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  username: string | null;
+  role: number;
+  tier: "draft" | "scribe";
+}
+
+export async function getUsers(): Promise<AdminUser[]> {
+  await assertAdmin();
+  const svc = createServiceRoleClient();
+  const { data: list } = await svc.auth.admin.listUsers({ page: 1, perPage: 200 });
+  const users = list?.users ?? [];
+  const ids = users.map((u) => u.id);
+  if (ids.length === 0) return [];
+
+  const { data: authors } = await svc.from("authors").select("id, username, role").in("id", ids);
+  const { data: subs } = await svc
+    .from("subscriptions")
+    .select("user_id, tier, status")
+    .in("user_id", ids);
+
+  const aById = new Map((authors ?? []).map((a: any) => [a.id, a]));
+  const sByUser = new Map((subs ?? []).map((s: any) => [s.user_id, s]));
+
+  return users
+    .map((u) => {
+      const a = aById.get(u.id) as any;
+      const s = sByUser.get(u.id) as any;
+      const isScribe =
+        (s?.status === "active" || s?.status === "trialing") && s?.tier === "scribe";
+      return {
+        id: u.id,
+        email: u.email ?? "",
+        username: a?.username ?? null,
+        role: typeof a?.role === "number" ? a.role : 3,
+        tier: (isScribe ? "scribe" : "draft") as "draft" | "scribe",
+      };
+    })
+    .sort((x, y) => (x.username || x.email).localeCompare(y.username || y.email));
+}
+
+export async function setUserRole(userId: string, role: number): Promise<{ success: boolean }> {
+  await assertAdmin();
+  const svc = createServiceRoleClient();
+  const { error } = await svc.from("authors").update({ role } as any).eq("id", userId);
+  return { success: !error };
+}
+
+/** Comp or revoke Scribe for a user (no Stripe involved — a manual grant). */
+export async function setUserScribe(
+  userId: string,
+  active: boolean,
+): Promise<{ success: boolean }> {
+  await assertAdmin();
+  const svc = createServiceRoleClient();
+  if (active) {
+    const { error } = await svc.from("subscriptions").upsert(
+      { user_id: userId, tier: "scribe", status: "active", updated_at: new Date().toISOString() } as any,
+      { onConflict: "user_id" },
+    );
+    return { success: !error };
+  }
+  // Revoke: only touches an existing row (no row = already free/draft).
+  const { error } = await svc
+    .from("subscriptions")
+    .update({ tier: "draft", status: "cancelled", updated_at: new Date().toISOString() } as any)
+    .eq("user_id", userId);
+  return { success: !error };
+}
