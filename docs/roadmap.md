@@ -62,34 +62,87 @@ the **seed** for the official items.
   `is_public` (bool), `vote_count` (denormalised), `created_by` (nullable), 
   `sort_order`, `created_at`, `updated_at`. Official items and approved community
   suggestions live in the one table (a `source` flag distinguishes them).
-- `roadmap_votes` — `id`, `item_id` FK, `user_id`, `created_at`, **unique
-  (`item_id`, `user_id`)** (one vote per user per item; toggle to unvote). A
+- `roadmap_votes` — `id`, `item_id` FK, `user_id` (nullable, auth voters),
+  `voter_key` (nullable, guest cookie/localStorage token), `ip` (soft signal),
+  `created_at`. Dedup via two partial unique indexes: `(item_id, user_id) where
+  user_id is not null` and `(item_id, voter_key) where voter_key is not null`. A
   trigger keeps `roadmap_items.vote_count` in sync for cheap sorting.
+
+**Voting is open to guests** (decided). Signed-in users vote by `user_id`; guests
+vote with a `voter_key` we set in a cookie/localStorage, with IP as a soft
+secondary/rate-limit signal. This is **best-effort dedup, not airtight** — a guest
+can clear storage or use incognito, and IPs are shared/rotating — but votes are
+low-stakes so that's an acceptable trade. Voting goes through a **server route**
+(service-role) so it can set the cookie, read the IP, and enforce dedup — guests
+can't insert via client RLS.
 
 **RLS**
 - items: public read where `is_public`; INSERT by authenticated users (creates a
   `community` / `under_review` / `is_public=false` suggestion); UPDATE/DELETE
-  service-role only (moderation).
-- votes: users insert/delete their own; count is the denormalised column.
+  service-role only (moderation via the admin dashboard).
+- votes: all writes go through the server route (service-role); no direct client
+  insert.
 
 **Phases**
 - **P1 — DB + seed (read only):** create `roadmap_items`, seed from `roadmap.ts`,
   switch the Roadmap view to fetch from Supabase. Minimal behaviour change.
-- **P2 — Voting:** `roadmap_votes` + trigger + vote/unvote server actions; upvote
-  UI with count + voted state; sort Planned/Under-review by votes.
-- **P3 — Suggestions:** "Suggest a feature" form (authenticated) → creates a
-  community item; basic validation + rate-limit.
-- **P4 — Admin & moderation:** approve / reject / re-status / merge duplicates /
-  reorder (SQL/dashboard first, small admin UI later); notify a suggester when
-  their item ships (ties into Notifications).
+- **P2 — Voting:** `roadmap_votes` + trigger + a vote/unvote server route (cookie
+  `voter_key` for guests, `user_id` for members); upvote UI with count + voted
+  state; sort Planned/Under-review by votes.
+- **P3 — Suggestions:** "Suggest a feature" form → creates a `community` item,
+  hidden pending **admin approval**; basic validation + rate-limit.
+- **P4 — Moderation:** lives in the **Admin dashboard** (below) — approve / reject
+  / re-status / merge / reorder; notify a suggester when their item ships (ties
+  into Notifications).
 
 **Decisions**
-- **Voting requires an account** (rec: yes — prevents ballot-stuffing; guests get
-  a "sign in to vote" nudge). Anonymous/Redis users have no auth id → account
-  required to vote or suggest, consistent with other gating.
-- **Suggestions moderated-first** (`is_public=false` until approved) vs. an open
-  board (visible under "Under review" immediately). Rec: **moderated-first** to
-  start (spam/abuse control), revisit if engagement warrants an open board.
+- **Guests can vote** ✅ — deduped by cookie/localStorage `voter_key` (+ IP as a
+  soft signal); members by `user_id`. Best-effort, server-enforced.
+- **Suggestions require admin approval** ✅ — `is_public=false` until an admin
+  publishes them from the dashboard.
+
+---
+
+## Admin dashboard
+
+An in-app admin area, opened from a rail button **above Help** (only rendered for
+admins). Mirrors Settings: its own left nav of focus areas + a main panel.
+
+**Access control**
+- `authors.role` (integer): **10 = admin**, **3 = default** active user. Lower
+  values reserved for moderation standing — e.g. `2` warned, `1` reported,
+  `0` banned. Admin = `role >= 10`. Bootstrap the owner via SQL.
+- **Every** admin action runs server-side through `adminActions` with an
+  `assertAdmin(session)` gate (`role >= 10`) + service-role client — never trust
+  the client. The rail button/view render off an `amIAdmin()` check but that's
+  cosmetic; the server is the gate.
+- The same `role` scale later powers moderation (warn/report/ban) — gates that
+  restrict a user's actions check `role`, so this one column serves both.
+
+**Sections (left nav)**
+1. **Users** — list (username, email, tier, note count, joined, last active);
+   quick actions (comp/revoke Scribe — replaces the manual SQL, adjust plan);
+   click → detail.
+2. **Notes** — list across users (title, owner, updated, word count); quick
+   actions (soft-delete / restore). **Privacy:** metadata-first; opening full note
+   content is sensitive (users' private writing) — gate it behind an explicit
+   action and consider logging it.
+3. **Roadmap suggestions** — moderation queue: approve → publish (`is_public`,
+   set status/source), decline, edit, merge duplicates into an existing item.
+4. **Roadmap items** — CRUD: add / edit / remove, reorder, set status, and **see
+   who voted** (member usernames + guest count) and fix vote issues.
+
+**Phases**
+- **P1 — Shell + gate:** `is_admin` flag, `assertAdmin`, rail button (admins only),
+  `AdminView` with section nav (opened via `justnoted:open-admin`).
+- **P2 — Roadmap admin:** items CRUD + suggestions moderation (unblocks voting P3/P4).
+- **P3 — Users:** list + quick actions (comp Scribe from the UI).
+- **P4 — Notes:** metadata list + actions; gated/audited content view.
+
+**Decisions**
+- Admin identity: ✅ `authors.role` (10 = admin, 3 = default; room for
+  banned/reported/warned below 3). Migration added; bootstrap the owner to 10.
+- Notes section: metadata-only by default; full-content view is opt-in + logged.
 
 ---
 
