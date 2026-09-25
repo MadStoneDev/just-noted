@@ -13,6 +13,7 @@ import { PresenceStack } from "@/components/presence-stack";
 import { SharedHistoryPanel } from "@/components/shared-history-panel";
 import { loadCollabDoc, saveCollabDoc } from "@/app/actions/collabActions";
 import NoteStatsRow from "@/components/note-stats-row";
+import AutoGrowTitle from "@/components/auto-grow-title";
 import { Dropdown, DropdownItem } from "@/components/ds/dropdown";
 import { useToast } from "@/components/ui/toast";
 
@@ -295,11 +296,10 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
         {showHistory && <SharedHistoryPanel shortcode={shortcode} onClose={() => setShowHistory(false)} />}
         <div className="flex-1 overflow-y-auto scrollbar-thin">
           <article className="max-w-[var(--content-width)] mx-auto px-4 md:px-8 py-8">
-            <input
+            <AutoGrowTitle
               value={title}
-              onChange={(e) => { setTitle(e.target.value); scheduleSave(e.target.value, content); }}
-              placeholder="Untitled"
-              className="w-full mb-1 bg-transparent font-[family-name:var(--font-editor)] text-[32px] md:text-[46px] leading-[1.1] font-medium tracking-[-0.015em] text-[var(--color-ink)] placeholder:text-[var(--color-ink-6)] focus:outline-none"
+              onChange={(v) => { setTitle(v); scheduleSave(v, content); }}
+              className="mb-1"
             />
             <div className="mb-6">
               <NoteStatsRow content={content} goal={note.goal} goalType={note.goal_type} />
