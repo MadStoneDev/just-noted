@@ -7,8 +7,8 @@ broken into shippable phases so it can go out independently.
 
 ## Build order (what's next)
 
-1. **In-app Roadmap page** — surface this roadmap in the app (Help → Roadmap) so
-   users can see what's shipped and coming. Small; do first.
+1. ✅ **In-app Roadmap page** — shipped. Help → Roadmap opens a curated public
+   list (source: `src/data/roadmap.ts`, separate from this internal doc).
 2. **Collab identity fixes** — caret shows the real username (not "Someone"),
    broadcast live on resolve/change; email-local-part fallback. Small, high-annoyance.
 3. **Shared note consistency — finish** — Export / Print / History parity across
@@ -31,18 +31,19 @@ Deferred: anonymous / public-only sharing for Redis users.
 - **Help & Keyboard Shortcuts** modal (replaces the old `/the-how` page).
 - **Restore last-viewed shared note** on refresh.
 - Shared notes match the editor **title + show stats** (read-only).
+- **In-app Roadmap page** (Help → Roadmap), curated from `src/data/roadmap.ts`.
 
 ---
 
-## In-app Roadmap page
+## In-app Roadmap page ✅ shipped
 
-Surface this roadmap inside the app so users can see what's shipped and planned
-(the Help menu already has a stubbed "Roadmap" item).
-- Help → **Roadmap** opens a user-facing view: "Shipped / In progress / Planned"
-  with short, public-friendly blurbs — not the engineering notes.
-- **Decision:** render `docs/roadmap.md` directly, or maintain a separate curated
-  public list? Recommended: a **separate public list**, so internal detail (file
-  paths, DB tables, open decisions) never leaks to users.
+Help → **Roadmap** opens a user-facing view (In progress / Planned / Recently
+shipped) with short, benefit-focused blurbs.
+- **Decision (resolved):** a **separate curated public list** — `src/data/roadmap.ts`
+  — not this internal doc, so file paths / DB tables / open decisions never leak.
+  Edit that file to change what users see.
+- Follow-ups (optional): a dedicated full-page view if the list outgrows the
+  modal; per-item links to changelog/blog posts once those exist.
 
 ---
 
