@@ -4,8 +4,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { IconRefresh, IconX } from "@tabler/icons-react";
 import { processQueue } from "@/utils/offline-queue";
 
-// The build this client is running (baked in at build time, see next.config.ts).
-const CURRENT_BUILD = process.env.NEXT_PUBLIC_BUILD_ID || "dev";
 const POLL_MS = 90_000;
 
 /**
@@ -17,6 +15,8 @@ const POLL_MS = 90_000;
 export default function UpdateAvailableBanner() {
   const [available, setAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
+  // The build id seen when this tab loaded — the baseline we compare against.
+  const loadedRef = useRef<string | null>(null);
   // Build id the user chose to snooze; re-show only if an even newer one ships.
   const dismissedRef = useRef<string | null>(null);
 
@@ -25,7 +25,13 @@ export default function UpdateAvailableBanner() {
       const res = await fetch("/api/version", { cache: "no-store" });
       if (!res.ok) return;
       const { buildId } = (await res.json()) as { buildId?: string };
-      if (buildId && buildId !== CURRENT_BUILD && buildId !== dismissedRef.current) {
+      if (!buildId) return;
+      // First successful read establishes the baseline for this tab.
+      if (loadedRef.current === null) {
+        loadedRef.current = buildId;
+        return;
+      }
+      if (buildId !== loadedRef.current && buildId !== dismissedRef.current) {
         setAvailable(true);
       }
     } catch {
@@ -34,8 +40,6 @@ export default function UpdateAvailableBanner() {
   }, []);
 
   useEffect(() => {
-    // No meaningful build id in dev (same process serves client + endpoint).
-    if (CURRENT_BUILD === "dev") return;
     check();
     const id = window.setInterval(check, POLL_MS);
     const onActive = () => {

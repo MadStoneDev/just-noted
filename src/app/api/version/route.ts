@@ -1,13 +1,29 @@
 import { NextResponse } from "next/server";
+import { readFile } from "fs/promises";
+import path from "path";
 
-// Reports the running deploy's build id. NEXT_PUBLIC_BUILD_ID is inlined at
-// build time (see next.config.ts), so this returns THIS deploy's value while an
-// already-loaded client holds its own — the update banner compares the two.
+// Reports this deploy's build id, read from Next's own .next/BUILD_ID — a single
+// value generated once per build (unlike anything computed in next.config, which
+// Next evaluates multiple times per build). The update banner captures whatever
+// this returns on page load, then watches for it to change (= a new deploy).
 export const dynamic = "force-dynamic";
 
+let cached: string | null = null;
+
+async function readBuildId(): Promise<string> {
+  if (cached) return cached;
+  try {
+    cached = (await readFile(path.join(process.cwd(), ".next/BUILD_ID"), "utf8")).trim();
+  } catch {
+    cached = "dev"; // dev server / file absent — banner stays inert
+  }
+  return cached;
+}
+
 export async function GET() {
+  const buildId = await readBuildId();
   return NextResponse.json(
-    { buildId: process.env.NEXT_PUBLIC_BUILD_ID ?? "dev" },
+    { buildId },
     { headers: { "Cache-Control": "no-store, max-age=0" } },
   );
 }
