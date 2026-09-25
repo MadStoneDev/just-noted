@@ -14,8 +14,10 @@ broken into shippable phases so it can go out independently.
 3. **Shared note consistency — finish** — Export / Print / History parity across
    shared surfaces; optional owner-set per-note page size (needs a `page_format`
    column). (Title + stats already shipped.)
-4. **Note Conversations** — per-note chat + anchored comments (5 phases, below).
-5. **Notifications** — in-app → prefs → email digest → push (4 phases, below).
+4. **Roadmap voting & suggestions** — move the roadmap into Supabase so users can
+   upvote items and submit suggestions (4 phases, below). Slots wherever you like.
+5. **Note Conversations** — per-note chat + anchored comments (5 phases, below).
+6. **Notifications** — in-app → prefs → email digest → push (4 phases, below).
 
 Parked: performance investigation (improved; revisit if it regresses).
 Deferred: anonymous / public-only sharing for Redis users.
@@ -44,6 +46,50 @@ shipped) with short, benefit-focused blurbs.
   Edit that file to change what users see.
 - Follow-ups (optional): a dedicated full-page view if the list outgrows the
   modal; per-item links to changelog/blog posts once those exist.
+
+---
+
+## Roadmap voting & suggestions
+
+Evolves the read-only Roadmap into a lightweight public feedback board (vote on
+items, submit suggestions). This is persistent, per-user, cross-device state, so
+it moves off the static `src/data/roadmap.ts` into Supabase. `roadmap.ts` becomes
+the **seed** for the official items.
+
+**Data model**
+- `roadmap_items` — `id`, `title`, `body`, `status` (`under_review` | `planned` |
+  `in_progress` | `shipped` | `declined`), `source` (`official` | `community`),
+  `is_public` (bool), `vote_count` (denormalised), `created_by` (nullable), 
+  `sort_order`, `created_at`, `updated_at`. Official items and approved community
+  suggestions live in the one table (a `source` flag distinguishes them).
+- `roadmap_votes` — `id`, `item_id` FK, `user_id`, `created_at`, **unique
+  (`item_id`, `user_id`)** (one vote per user per item; toggle to unvote). A
+  trigger keeps `roadmap_items.vote_count` in sync for cheap sorting.
+
+**RLS**
+- items: public read where `is_public`; INSERT by authenticated users (creates a
+  `community` / `under_review` / `is_public=false` suggestion); UPDATE/DELETE
+  service-role only (moderation).
+- votes: users insert/delete their own; count is the denormalised column.
+
+**Phases**
+- **P1 — DB + seed (read only):** create `roadmap_items`, seed from `roadmap.ts`,
+  switch the Roadmap view to fetch from Supabase. Minimal behaviour change.
+- **P2 — Voting:** `roadmap_votes` + trigger + vote/unvote server actions; upvote
+  UI with count + voted state; sort Planned/Under-review by votes.
+- **P3 — Suggestions:** "Suggest a feature" form (authenticated) → creates a
+  community item; basic validation + rate-limit.
+- **P4 — Admin & moderation:** approve / reject / re-status / merge duplicates /
+  reorder (SQL/dashboard first, small admin UI later); notify a suggester when
+  their item ships (ties into Notifications).
+
+**Decisions**
+- **Voting requires an account** (rec: yes — prevents ballot-stuffing; guests get
+  a "sign in to vote" nudge). Anonymous/Redis users have no auth id → account
+  required to vote or suggest, consistent with other gating.
+- **Suggestions moderated-first** (`is_public=false` until approved) vs. an open
+  board (visible under "Under review" immediately). Rec: **moderated-first** to
+  start (spam/abuse control), revisit if engagement warrants an open board.
 
 ---
 
