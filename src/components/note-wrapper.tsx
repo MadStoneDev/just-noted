@@ -310,6 +310,15 @@ export default function NoteWrapper() {
     },
     onToggleSplitView: undefined,
     onSearch: () => setShowSearch(true),
+    // Escape closes the top open main-area layer first; the hook then handles
+    // the sidebar on the next press. Order = visual stacking, most-recent first.
+    onEscape: () => {
+      if (showSettings) { setShowSettings(false); setSidebarOpen(true); setSettingsSection(undefined); return true; }
+      if (showTrash) { setShowTrash(false); setSidebarOpen(true); return true; }
+      if (showNotebooksGrid) { setShowNotebooksGrid(false); setSidebarOpen(true); return true; }
+      if (sharedShortcode) { setSharedShortcode(null); setSidebarOpen(true); return true; }
+      return false;
+    },
   });
 
   const widthButtonIcon = useMemo(

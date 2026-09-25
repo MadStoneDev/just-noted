@@ -1,7 +1,7 @@
 // src/hooks/use-keyboard-shortcuts.ts
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useNotesStore } from "@/stores/notes-store";
 
 interface KeyboardShortcutsOptions {
@@ -10,6 +10,10 @@ interface KeyboardShortcutsOptions {
   onToggleDistractionFree?: () => void;
   onToggleSplitView?: () => void;
   onSearch?: () => void;
+  // Highest-priority Escape handler. Return true if it closed a layer (e.g. an
+  // open Settings/Trash view) so Escape stops there; return false to fall
+  // through to the default (close the sidebar).
+  onEscape?: () => boolean;
 }
 
 export function useKeyboardShortcuts({
@@ -18,15 +22,22 @@ export function useKeyboardShortcuts({
   onToggleDistractionFree,
   onToggleSplitView,
   onSearch,
+  onEscape,
 }: KeyboardShortcutsOptions) {
   const { toggleSidebar, setSidebarOpen, toggleToc } = useNotesStore();
+  // Ref so the global listener needn't re-register when onEscape's closure
+  // changes each render (it captures the shell's current view state).
+  const onEscapeRef = useRef(onEscape);
+  onEscapeRef.current = onEscape;
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
 
-      // Escape - close sidebar or distraction-free mode
+      // Escape hierarchy: a higher-priority layer first (Settings/Trash/etc.
+      // via onEscape), then fall through to closing the sidebar.
       if (e.key === "Escape") {
+        if (onEscapeRef.current?.()) return;
         const { sidebarOpen } = useNotesStore.getState();
         if (sidebarOpen) {
           setSidebarOpen(false);
