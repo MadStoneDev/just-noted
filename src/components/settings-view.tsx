@@ -18,6 +18,7 @@ import {
 } from "@/utils/editor-font";
 import {
   IconX,
+  IconChevronLeft,
   IconSun,
   IconMoon,
   IconDeviceDesktop,
@@ -418,10 +419,16 @@ export default function SettingsView({ onClose, initialSection }: SettingsViewPr
   const [section, setSection] = useState<Section>(
     (SECTIONS.includes(initialSection as Section) ? (initialSection as Section) : "Appearance"),
   );
+  // Mobile master-detail: show the section list, or a section (+ back button).
+  // A deep-link (?section=…) opens straight into that section's detail.
+  const [mobileDetail, setMobileDetail] = useState(
+    !!initialSection && SECTIONS.includes(initialSection as Section),
+  );
   // Honour a deep-link that changes while Settings is already open.
   useEffect(() => {
     if (initialSection && SECTIONS.includes(initialSection as Section)) {
       setSection(initialSection as Section);
+      setMobileDetail(true);
     }
   }, [initialSection]);
 
@@ -442,17 +449,29 @@ export default function SettingsView({ onClose, initialSection }: SettingsViewPr
 
   return (
     <div className="flex-1 flex min-h-0 bg-[var(--color-canvas)]">
-      {/* Section list — stands in for the notes sidebar while Settings is open */}
-      <nav className="w-[260px] flex-none flex flex-col overflow-hidden border-r border-[var(--color-hairline)] bg-[var(--color-panel)]">
+      {/* Section list — stands in for the notes sidebar while Settings is open.
+          On mobile it's full-width and hidden once a section is opened. */}
+      <nav
+        className={`flex-none flex flex-col overflow-hidden border-r border-[var(--color-hairline)] bg-[var(--color-panel)] w-full lg:w-[260px] lg:flex ${
+          mobileDetail ? "hidden" : "flex"
+        }`}
+      >
         {/* Header matches the notes sidebar's "All Notes" header */}
-        <div className="flex items-center h-[52px] flex-none px-4 border-b border-[var(--color-hairline-soft)]">
+        <div className="flex items-center justify-between h-[52px] flex-none px-4 border-b border-[var(--color-hairline-soft)]">
           <h2 className="text-sm font-semibold text-[var(--color-ink-1)] tracking-tight">Settings</h2>
+          <button
+            onClick={onClose}
+            aria-label="Close settings"
+            className="lg:hidden w-8 h-8 flex items-center justify-center rounded-[var(--radius-7)] text-[var(--color-ink-4)] hover:bg-[var(--color-raised-soft)] hover:text-[var(--color-ink-1)] transition-colors"
+          >
+            <IconX size={16} />
+          </button>
         </div>
         <div className="flex-1 overflow-y-auto scrollbar-thin p-3">
           {SECTIONS.map((s) => (
             <button
               key={s}
-              onClick={() => setSection(s)}
+              onClick={() => { setSection(s); setMobileDetail(true); }}
               className={`w-full text-left px-2.5 py-2 rounded-[var(--radius-8)] text-[13.5px] transition-colors ${
                 section === s
                   ? "bg-[var(--color-accent-tint)] text-[var(--color-accent-text)] border border-[var(--color-accent-tint-border)]"
@@ -473,9 +492,16 @@ export default function SettingsView({ onClose, initialSection }: SettingsViewPr
         </div>
       </nav>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin">
-        <div className="max-w-[680px] px-10 py-8">
+      {/* Content — full-width on mobile once a section is opened. */}
+      <div className={`flex-1 overflow-y-auto scrollbar-thin ${mobileDetail ? "block" : "hidden lg:block"}`}>
+        <div className="max-w-[680px] px-5 lg:px-10 py-6 lg:py-8">
+          {/* Mobile back to the section list */}
+          <button
+            onClick={() => setMobileDetail(false)}
+            className="lg:hidden inline-flex items-center gap-1 mb-3 -ml-1 text-[13px] text-[var(--color-ink-4)] hover:text-[var(--color-ink-1)] transition-colors"
+          >
+            <IconChevronLeft size={16} /> Settings
+          </button>
           <div className="flex items-start justify-between mb-6">
             <h1 className="font-[family-name:var(--font-editor)] text-[32px] leading-[1.05] font-medium tracking-[-0.01em] text-[var(--color-ink)]">
               {section}
