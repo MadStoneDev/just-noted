@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Sidebar from "@/components/sidebar";
 import ActiveNoteEditor from "@/components/active-note-editor";
 import { MobileTabBar, MobileEditorNav, MobileFab, type MobileTab } from "@/components/mobile-chrome";
+import { MobileAccountDrawer } from "@/components/mobile-account-drawer";
 import HelpModal from "@/components/help-modal";
 import SearchModal from "@/components/search-modal";
 import TrashView from "@/components/trash-view";
@@ -91,6 +92,8 @@ export default function NoteWrapper() {
   const [showRoadmap, setShowRoadmap] = useState(false);
   // Admin dashboard (role >= 10), opened from the rail.
   const [showAdmin, setShowAdmin] = useState(false);
+  // Mobile "You" account drawer (bottom sheet).
+  const [showAccountDrawer, setShowAccountDrawer] = useState(false);
   // In-shell settings view open in the main area
   const [showSettings, setShowSettings] = useState(false);
   // Deep-link target section for Settings (e.g. from an upgrade upsell).
@@ -121,9 +124,11 @@ export default function NoteWrapper() {
       setShowNotebooksGrid(false);
       setSharedShortcode(null);
       setSidebarOpen(false);
+      setShowAccountDrawer(false);
     } else {
       setSidebarOpen(true);
     }
+    if (isSettings) setMobileTab("settings");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
@@ -227,6 +232,7 @@ export default function NoteWrapper() {
   // ===== Mobile bottom-tab navigation (design surface 08) =====
   const goNotes = useCallback(() => {
     router.push("/");
+    setShowAccountDrawer(false);
     setShowTrash(false);
     setShowNotebooksGrid(false);
     setSharedShortcode(null);
@@ -238,6 +244,7 @@ export default function NoteWrapper() {
 
   const goNotebooks = useCallback(() => {
     router.push("/");
+    setShowAccountDrawer(false);
     setShowTrash(false);
     setSharedShortcode(null);
     setShowNotebooksGrid(true);
@@ -247,6 +254,7 @@ export default function NoteWrapper() {
 
   const goShared = useCallback(() => {
     router.push("/");
+    setShowAccountDrawer(false);
     setShowTrash(false);
     setShowNotebooksGrid(false);
     setSharedShortcode(null);
@@ -255,12 +263,23 @@ export default function NoteWrapper() {
     setMobileTab("shared");
   }, [setSidebarOpen, router]);
 
+  // "You": logged in → account drawer (switch / add / log out / help);
+  // logged out → sign in. It no longer jumps to Settings.
   const goYou = useCallback(() => {
+    if (isAuthenticated) {
+      setShowAccountDrawer(true);
+    } else {
+      router.push("/get-access");
+    }
+    setMobileTab("you");
+  }, [isAuthenticated, router]);
+
+  const goSettings = useCallback(() => {
     router.push("/settings");
     setShowTrash(false);
     setShowNotebooksGrid(false);
     setSharedShortcode(null);
-    setMobileTab("you");
+    setMobileTab("settings");
   }, [router]);
 
   const mobileNewNote = useCallback(() => {
@@ -483,9 +502,12 @@ export default function NoteWrapper() {
           onNotes={goNotes}
           onNotebooks={goNotebooks}
           onShared={goShared}
+          onSettings={goSettings}
           onYou={goYou}
         />
       </div>
+
+      <MobileAccountDrawer open={showAccountDrawer} onClose={() => setShowAccountDrawer(false)} />
 
       {/* Mobile FAB — new note, shown on the notes list only. */}
       {sidebarOpen && !showAdmin && !showRoadmap && !showSettings && !showTrash && !showNotebooksGrid && !sharedShortcode && (

@@ -6,6 +6,7 @@ import {
   IconNotebook,
   IconShare,
   IconUser,
+  IconAdjustmentsHorizontal,
   IconChevronLeft,
   IconArrowsMinimize,
   IconDots,
@@ -15,7 +16,7 @@ import {
   IconPinnedOff,
 } from "@tabler/icons-react";
 
-export type MobileTab = "notes" | "notebooks" | "shared" | "you";
+export type MobileTab = "notes" | "notebooks" | "shared" | "settings" | "you";
 
 // Bottom tab bar — mobile primary navigation (design surface 08). Replaces the
 // desktop rail on small screens. 78px incl. safe area, labels always visible.
@@ -24,6 +25,7 @@ export function MobileTabBar({
   onNotes,
   onNotebooks,
   onShared,
+  onSettings,
   onYou,
   sharedBadge = false,
 }: {
@@ -31,14 +33,16 @@ export function MobileTabBar({
   onNotes: () => void;
   onNotebooks: () => void;
   onShared: () => void;
+  onSettings: () => void;
   onYou: () => void;
   sharedBadge?: boolean;
 }) {
   const tabs: { key: MobileTab; label: string; icon: React.ReactNode; onClick: () => void; badge?: boolean }[] = [
-    { key: "notes", label: "Notes", icon: <IconNote size={22} />, onClick: onNotes },
-    { key: "notebooks", label: "Notebooks", icon: <IconNotebook size={22} />, onClick: onNotebooks },
-    { key: "shared", label: "Shared", icon: <IconShare size={22} />, onClick: onShared, badge: sharedBadge },
-    { key: "you", label: "You", icon: <IconUser size={22} />, onClick: onYou },
+    { key: "notes", label: "Notes", icon: <IconNote size={21} />, onClick: onNotes },
+    { key: "notebooks", label: "Notebooks", icon: <IconNotebook size={21} />, onClick: onNotebooks },
+    { key: "shared", label: "Shared", icon: <IconShare size={21} />, onClick: onShared, badge: sharedBadge },
+    { key: "settings", label: "Settings", icon: <IconAdjustmentsHorizontal size={21} />, onClick: onSettings },
+    { key: "you", label: "You", icon: <IconUser size={21} />, onClick: onYou },
   ];
 
   return (
