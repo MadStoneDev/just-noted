@@ -44,7 +44,7 @@ export function MobileTabBar({
   return (
     <nav
       aria-label="Primary"
-      className="md:hidden flex-none flex items-stretch bg-[var(--color-panel)] border-t border-[var(--color-hairline)]"
+      className="lg:hidden flex-none flex items-stretch bg-[var(--color-panel)] border-t border-[var(--color-hairline)]"
       style={{
         height: "calc(58px + env(safe-area-inset-bottom))",
         paddingBottom: "env(safe-area-inset-bottom)",
@@ -93,7 +93,7 @@ export function MobileEditorNav({
   onMore?: () => void;
 }) {
   return (
-    <div className="md:hidden flex-none h-12 flex items-center justify-between pl-1 pr-1.5 border-b border-[var(--color-hairline-soft)] bg-[var(--color-canvas)]">
+    <div className="lg:hidden flex-none h-12 flex items-center justify-between pl-1 pr-1.5 border-b border-[var(--color-hairline-soft)] bg-[var(--color-canvas)]">
       <button
         onClick={onBack}
         className="h-11 pl-1 pr-2 flex items-center gap-0.5 text-[var(--color-ink-2)] active:opacity-60"
@@ -266,7 +266,7 @@ export function MobileFab({ onClick }: { onClick: () => void }) {
     <button
       onClick={onClick}
       aria-label="New note"
-      className="md:hidden fixed right-[18px] z-40 w-14 h-14 rounded-full flex items-center justify-center shadow-[var(--shadow-lg)] active:scale-95 transition-transform"
+      className="lg:hidden fixed right-[18px] z-40 w-14 h-14 rounded-full flex items-center justify-center shadow-[var(--shadow-lg)] active:scale-95 transition-transform"
       style={{
         bottom: "calc(94px + env(safe-area-inset-bottom))",
         backgroundColor: "var(--color-accent-fill)",

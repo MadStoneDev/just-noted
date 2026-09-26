@@ -606,7 +606,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
     <>
       {/* Overlay for mobile — tap to close */}
       <div
-        className={`fixed inset-0 z-40 md:hidden transition-opacity duration-[var(--duration-slow)] ${
+        className={`fixed inset-0 z-40 lg:hidden transition-opacity duration-[var(--duration-slow)] ${
           sidebarOpen
             ? "bg-[var(--color-bg-overlay)] opacity-100"
             : "opacity-0 pointer-events-none"
@@ -618,8 +618,8 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
           between 0 and 248px on desktop. */}
       <aside
         ref={sidebarRef}
-        className={`relative left-0 h-full z-40 md:z-auto bg-[var(--color-panel)] border-r border-[var(--color-hairline)] transition-all duration-[var(--duration-slow)] overflow-hidden ${
-          sidebarOpen ? "w-full md:w-[340px]" : "w-0 md:w-14"
+        className={`relative left-0 h-full z-40 lg:z-auto bg-[var(--color-panel)] border-r border-[var(--color-hairline)] transition-all duration-[var(--duration-slow)] overflow-hidden ${
+          sidebarOpen ? "w-full lg:w-[340px]" : "w-0 lg:w-14"
         }`}
         style={{
           transitionTimingFunction: "var(--ease-spring)",
@@ -628,10 +628,10 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
       >
         {/* Fixed inner width so content doesn't reflow while the aside animates:
             full viewport width on mobile, 248px on desktop. */}
-        <div className="flex h-full w-screen md:w-[340px]">
-          {/* Permanent icon rail — desktop primary navigation. On mobile this is
-              replaced by the bottom tab bar (design surface 08). */}
-          <nav className="hidden md:flex w-14 flex-none flex-col items-center gap-1.5 py-3 border-r border-[var(--color-hairline)] bg-[var(--color-panel)]">
+        <div className="flex h-full w-screen lg:w-[340px]">
+          {/* Permanent icon rail — desktop primary navigation. On mobile/tablet
+              this is replaced by the bottom tab bar (design surface 08). */}
+          <nav className="hidden lg:flex w-14 flex-none flex-col items-center gap-1.5 py-3 border-r border-[var(--color-hairline)] bg-[var(--color-panel)]">
             {/* Logo */}
             <div
               className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-7)] text-[12px] font-bold mb-1.5"
