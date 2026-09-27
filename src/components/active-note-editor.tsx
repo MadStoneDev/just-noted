@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState, useRef, useEffect, useMemo } from "react";
+import React, { useCallback, useState, useRef, useEffect, useLayoutEffect, useMemo } from "react";
 
 const LAST_NOTE_KEY = "justnoted_last_note";
 import LazyTextBlock from "@/components/lazy-text-block";
@@ -441,9 +441,29 @@ function NoteEditor({
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
   }, []);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (titleInputRef.current) autoGrowTitle(titleInputRef.current);
   }, [title, autoGrowTitle]);
+  // Re-measure whenever the title's WIDTH changes. A single mount-time measure
+  // can fire while the editor is still animating in (sidebar/note transition on
+  // mobile) at a near-zero width, wrapping the title into many lines and locking
+  // in a huge height that never corrects. Observing width also handles rotation
+  // and focus-mode width changes. Gated on width so our own height writes don't
+  // loop the observer.
+  useEffect(() => {
+    const el = titleInputRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    let lastWidth = el.clientWidth;
+    const ro = new ResizeObserver(() => {
+      const w = el.clientWidth;
+      if (w !== lastWidth) {
+        lastWidth = w;
+        autoGrowTitle(el);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [autoGrowTitle]);
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastSavedContentRef = useRef(note.content);

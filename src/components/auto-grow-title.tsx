@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useLayoutEffect, useRef } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 
 // Note title as an auto-growing textarea (wraps long titles instead of
 // truncating), matching the standard editor. Shared so shared-note views and the
@@ -29,6 +29,25 @@ export default function AutoGrowTitle({
   useLayoutEffect(() => {
     if (ref.current) grow(ref.current);
   }, [value, grow]);
+
+  // Re-measure on width changes. A single mount-time measure can land while the
+  // view is still animating in at a near-zero width, wrapping the title into
+  // many lines and locking in a huge height that never corrects. Gated on width
+  // so our own height writes don't loop the observer.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    let lastWidth = el.clientWidth;
+    const ro = new ResizeObserver(() => {
+      const w = el.clientWidth;
+      if (w !== lastWidth) {
+        lastWidth = w;
+        grow(el);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [grow]);
 
   return (
     <textarea
