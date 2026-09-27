@@ -644,7 +644,10 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
               <RailButton
                 label="Notes"
                 active={railView === "notes"}
-                onClick={() => { setActiveNotebookId(null); setRailView("notes"); setSidebarOpen(true); }}
+                onClick={() => {
+                  if (sidebarOpen && railView === "notes") { setSidebarOpen(false); return; }
+                  setActiveNotebookId(null); setRailView("notes"); setSidebarOpen(true);
+                }}
               >
                 <IconNote size={20} />
               </RailButton>
@@ -653,7 +656,10 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
               <RailButton
                 label="Notebooks"
                 active={railView === "notebooks"}
-                onClick={() => { setRailView("notebooks"); setSidebarOpen(true); }}
+                onClick={() => {
+                  if (sidebarOpen && railView === "notebooks") { setSidebarOpen(false); return; }
+                  setRailView("notebooks"); setSidebarOpen(true);
+                }}
               >
                 <IconNotebook size={20} />
               </RailButton>
@@ -662,7 +668,10 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
               <RailButton
                 label="Shared"
                 active={railView === "shared"}
-                onClick={() => { setRailView("shared"); setSidebarOpen(true); }}
+                onClick={() => {
+                  if (sidebarOpen && railView === "shared") { setSidebarOpen(false); return; }
+                  setRailView("shared"); setSidebarOpen(true);
+                }}
               >
                 <IconShare size={20} />
               </RailButton>
