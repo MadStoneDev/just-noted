@@ -398,7 +398,7 @@ export default function NoteWrapper() {
 
       {/* Shell: on desktop the rail owns navigation; on mobile a bottom tab bar
           (design surface 08) sits below the rail+sidebar+editor row. */}
-      <div className="flex flex-col h-dvh">
+      <div className="flex flex-col h-dvh overflow-hidden">
       <div className="flex flex-1 min-h-0">
         {/* Sidebar (its own icon rail owns primary navigation) */}
         <Sidebar

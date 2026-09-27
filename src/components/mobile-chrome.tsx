@@ -48,7 +48,7 @@ export function MobileTabBar({
   return (
     <nav
       aria-label="Primary"
-      className="lg:hidden flex-none flex items-stretch bg-[var(--color-panel)] border-t border-[var(--color-hairline)]"
+      className="lg:hidden relative z-50 flex-none flex items-stretch bg-[var(--color-panel)] border-t border-[var(--color-hairline)]"
       style={{
         height: "calc(58px + env(safe-area-inset-bottom))",
         paddingBottom: "env(safe-area-inset-bottom)",
