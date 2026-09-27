@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useNotesStore } from "@/stores/notes-store";
 import { amIAdmin } from "@/app/actions/adminActions";
 import { Notebook, CoverType } from "@/types/notebook";
@@ -154,6 +155,9 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
   // Rail navigation: which panel the content column shows. Defaults to "notes";
   // the last-open view is restored from localStorage on mount (see effects below).
   const [railView, setRailView] = useState<"notes" | "notebooks" | "tags" | "shared">("notes");
+  // Current route — drives active state on the routed rail entries (Admin /
+  // Roadmap / Settings each own a URL).
+  const pathname = usePathname();
   // Filters live in a slide-up sheet, out of the list's way
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   // Show the Admin rail entry only to admins (role >= 10). Server enforces the
@@ -686,6 +690,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
             {isAdmin && (
               <RailButton
                 label="Admin"
+                active={pathname === "/admin"}
                 onClick={() => window.dispatchEvent(new Event("justnoted:open-admin"))}
               >
                 <IconShieldCog size={20} />
@@ -693,6 +698,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
             )}
             <RailButton
               label="Roadmap"
+              active={pathname === "/roadmap"}
               onClick={() => window.dispatchEvent(new Event("justnoted:open-roadmap"))}
             >
               <IconLayoutKanban size={20} />
@@ -705,6 +711,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
             </RailButton>
             <RailButton
               label="Settings"
+              active={pathname === "/settings"}
               onClick={() => window.dispatchEvent(new Event("justnoted:open-settings"))}
             >
               <IconAdjustmentsHorizontal size={20} />

@@ -24,7 +24,14 @@ export default function HelpModal() {
   const [view, setView] = useState<View>("menu");
 
   useEffect(() => {
-    const onOpen = () => { setView("menu"); setOpen(true); };
+    // Toggle: the Help button fires this event; tapping it again closes the modal.
+    const onOpen = () => {
+      setOpen((o) => {
+        if (o) return false;
+        setView("menu");
+        return true;
+      });
+    };
     window.addEventListener("justnoted:open-help", onOpen);
     return () => window.removeEventListener("justnoted:open-help", onOpen);
   }, []);

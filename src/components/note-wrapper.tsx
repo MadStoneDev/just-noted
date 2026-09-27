@@ -179,19 +179,26 @@ export default function NoteWrapper() {
     // An optional string detail deep-links to a section (e.g. "Plan & usage").
     // These now navigate — NoteWrapper's URL effect drives the view. Dispatchers
     // (rail buttons, upgrade upsells) are unchanged; they just route now.
+    // Routed views toggle: tapping the rail/nav button for the view you're
+    // already on navigates back to the notes app ("/"). A deep-linked Settings
+    // section (detail string, e.g. from an upgrade upsell) always opens, never
+    // toggles off. window.location.pathname is read at call time so these
+    // once-registered handlers don't capture a stale path.
     const openSettings = (e: Event) => {
       const detail = (e as CustomEvent).detail;
-      router.push(
-        typeof detail === "string" && detail
-          ? `/settings?section=${encodeURIComponent(detail)}`
-          : "/settings",
-      );
+      if (typeof detail === "string" && detail) {
+        router.push(`/settings?section=${encodeURIComponent(detail)}`);
+        return;
+      }
+      router.push(window.location.pathname === "/settings" ? "/" : "/settings");
     };
     const openSearch = () => setShowSearch(true);
-    // Help opens the in-app Help modal (listens for the same event).
+    // Help opens the in-app Help modal (listens for the same event, which toggles).
     const openHelp = () => {};
-    const openRoadmap = () => router.push("/roadmap");
-    const openAdmin = () => router.push("/admin");
+    const openRoadmap = () =>
+      router.push(window.location.pathname === "/roadmap" ? "/" : "/roadmap");
+    const openAdmin = () =>
+      router.push(window.location.pathname === "/admin" ? "/" : "/admin");
     window.addEventListener("justnoted:open-notebooks-grid", openGrid);
     window.addEventListener("justnoted:open-settings", openSettings);
     window.addEventListener("justnoted:open-search", openSearch);
@@ -275,12 +282,18 @@ export default function NoteWrapper() {
   }, [isAuthenticated, router]);
 
   const goSettings = useCallback(() => {
+    // Toggle: tapping Settings while already on it returns to notes.
+    if (pathname === "/settings") {
+      router.push("/");
+      setMobileTab("notes");
+      return;
+    }
     router.push("/settings");
     setShowTrash(false);
     setShowNotebooksGrid(false);
     setSharedShortcode(null);
     setMobileTab("settings");
-  }, [router]);
+  }, [router, pathname]);
 
   const mobileNewNote = useCallback(() => {
     notesOperations.addNote();
