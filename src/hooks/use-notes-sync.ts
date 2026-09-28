@@ -308,18 +308,19 @@ export function useNotesSync() {
           throw new Error("Failed to get user ID");
         }
 
+        // Determine auth from the local session (cookie), which is race-free on
+        // a fresh load right after login. getUser() makes a network round-trip
+        // that can time out or momentarily read as logged out, which would then
+        // load only guest notes and leave the shell stale until a manual refresh
+        // (the INITIAL_SESSION event fires before init completes, so the auth
+        // listener's reconcile is skipped). Server actions still enforce real
+        // auth via RLS, so trusting the local session for UI gating is safe.
         let authenticated = false;
         try {
-          const authResult = await Promise.race([
-            supabase.auth.getUser(),
-            new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error("Auth timeout")), 3000)
-            ),
-          ]);
-          authenticated = !!authResult.data?.user;
+          const { data } = await supabase.auth.getSession();
+          authenticated = !!data.session?.user;
         } catch {
-          // Auth failed or timed out — proceed as unauthenticated
-          // Will retry via auth state change listener if session recovers
+          // No readable session — proceed as unauthenticated.
         }
         setAuthenticated(authenticated);
 
