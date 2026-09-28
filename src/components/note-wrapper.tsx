@@ -10,7 +10,6 @@ import { MobileAccountDrawer } from "@/components/mobile-account-drawer";
 import HelpModal from "@/components/help-modal";
 import SearchModal from "@/components/search-modal";
 import TrashView from "@/components/trash-view";
-import DistractionFreeNoteBlock from "@/components/distraction-free-note-block";
 import NotebookBreadcrumb from "@/components/notebook-breadcrumb";
 import SharedNoteInline from "@/components/shared-note-inline";
 import NotebooksGrid from "@/components/notebooks-grid";
@@ -26,12 +25,6 @@ import OfflineIndicator from "@/components/ui/offline-indicator";
 import { updateNotebook, deleteNotebook } from "@/app/actions/notebookActions";
 import { uploadNotebookCover } from "@/utils/storage/cover-upload";
 import { CoverType } from "@/types/notebook";
-
-import {
-  IconArrowsMinimize,
-  IconViewportNarrow,
-  IconViewportWide,
-} from "@tabler/icons-react";
 
 import { CombinedNote } from "@/types/combined-notes";
 import { NotesErrorBoundary } from "@/components/error-boundary";
@@ -72,13 +65,6 @@ export default function NoteWrapper() {
     if (!activeNotebookId || activeNotebookId === "loose") return null;
     return notebooks.find((n) => n.id === activeNotebookId) || null;
   });
-
-  // Distraction-free mode
-  const [activeNote, setActiveNote] = useState<CombinedNote | null>(null);
-  const [fullWidth, setFullWidth] = useState(true);
-  const [showDistractionFree, setShowDistractionFree] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
-
 
   // Notebook modal
   const [showNotebookModal, setShowNotebookModal] = useState(false);
@@ -215,21 +201,6 @@ export default function NoteWrapper() {
     };
   }, []);
 
-  const handleShowDistractionFree = useCallback((note: CombinedNote) => {
-    setActiveNote(note);
-    setShowDistractionFree(true);
-    requestAnimationFrame(() => setIsAnimating(true));
-  }, []);
-
-  const handleHideDistractionFree = useCallback(() => {
-    setIsAnimating(false);
-    setTimeout(() => {
-      setShowDistractionFree(false);
-      setActiveNote(null);
-    }, 300);
-  }, []);
-
-
   const handleForceSave = useCallback(() => {
     noteFlushFunctions.current.forEach((flushFn) => {
       try { flushFn(); } catch {}
@@ -301,12 +272,6 @@ export default function NoteWrapper() {
     setMobileTab("notes");
   }, [notesOperations, setSidebarOpen]);
 
-  const openFocusForActive = useCallback(() => {
-    if (!activeNoteId) return;
-    const note = notes.find((n) => n.id === activeNoteId);
-    if (note) handleShowDistractionFree(note);
-  }, [activeNoteId, notes, handleShowDistractionFree]);
-
   // Phase 0 — flush pending edits when the tab is hidden or closed.
   // visibilitychange→hidden is the signal browsers reliably deliver before a
   // tab is discarded (and while the page is still alive, so async saves can
@@ -377,14 +342,6 @@ export default function NoteWrapper() {
   useKeyboardShortcuts({
     onNewNote: notesOperations.addNote,
     onSave: handleForceSave,
-    onToggleDistractionFree: () => {
-      if (showDistractionFree) {
-        handleHideDistractionFree();
-      } else if (activeNoteId) {
-        const note = notes.find((n) => n.id === activeNoteId);
-        if (note) handleShowDistractionFree(note);
-      }
-    },
     onToggleSplitView: undefined,
     onSearch: () => setShowSearch(true),
     // Escape closes the top open main-area layer first; the hook then handles
@@ -397,13 +354,6 @@ export default function NoteWrapper() {
       return false;
     },
   });
-
-  const widthButtonIcon = useMemo(
-    () => fullWidth
-      ? <IconViewportNarrow size={16} strokeWidth={2} />
-      : <IconViewportWide size={16} strokeWidth={2} />,
-    [fullWidth],
-  );
 
   return (
     <NotesErrorBoundary>
@@ -493,7 +443,6 @@ export default function NoteWrapper() {
               {/* Mobile editor nav (design surface 08) — desktop uses its own toolbar. */}
               <MobileEditorNav
                 onBack={() => { setSidebarOpen(true); setMobileTab("notes"); }}
-                onFocus={openFocusForActive}
                 onShare={() => window.dispatchEvent(new Event("justnoted:open-share"))}
                 onMore={() => window.dispatchEvent(new Event("justnoted:open-note-actions"))}
               />
@@ -525,44 +474,6 @@ export default function NoteWrapper() {
       {/* Mobile FAB — new note, shown on the notes list only. */}
       {sidebarOpen && !showAdmin && !showRoadmap && !showSettings && !showTrash && !showNotebooksGrid && !sharedShortcode && (
         <MobileFab onClick={mobileNewNote} />
-      )}
-
-      {/* Distraction-free mode */}
-      {showDistractionFree && (
-        <section
-          className={`fixed inset-0 z-50 transition-opacity duration-300 ease-in-out ${
-            isAnimating ? "opacity-100" : "opacity-0"
-          }`}
-        >
-          <div className="absolute inset-0 bg-[var(--color-bg-overlay)]" onClick={handleHideDistractionFree} />
-          <article className="absolute inset-4 sm:inset-8 p-2 pb-16 rounded-[var(--radius-xl)] bg-[var(--color-bg-secondary)] overflow-hidden">
-            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex justify-center items-center gap-2 w-full z-10">
-              <button
-                className="cursor-pointer px-3 py-2 flex items-center gap-2 rounded-full bg-[var(--color-bg-elevated)]/90 hover:bg-[var(--color-bg-elevated)] shadow-[var(--shadow-lg)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] text-sm transition-all duration-[var(--duration-fast)]"
-                onClick={() => setFullWidth((p) => !p)}
-              >
-                {widthButtonIcon}
-                <span className="hidden sm:block">{fullWidth ? "Compact" : "Expanded"}</span>
-              </button>
-              <button
-                className="cursor-pointer px-3 py-2 flex items-center gap-2 rounded-full bg-[var(--color-bg-elevated)]/90 hover:bg-[var(--color-bg-elevated)] shadow-[var(--shadow-lg)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] text-sm transition-all duration-[var(--duration-fast)]"
-                onClick={handleHideDistractionFree}
-              >
-                <IconArrowsMinimize size={16} strokeWidth={2} />
-                <span className="hidden sm:block">Exit Focus Mode</span>
-              </button>
-            </div>
-            <DistractionFreeNoteBlock
-              note={activeNote}
-              fullWidth={fullWidth}
-              userId={userId}
-              isAuthenticated={isAuthenticated}
-              notesOperations={notesOperations}
-              registerNoteFlush={registerNoteFlush}
-              unregisterNoteFlush={unregisterNoteFlush}
-            />
-          </article>
-        </section>
       )}
 
       {/* Split view */}

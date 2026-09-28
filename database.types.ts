@@ -20,6 +20,7 @@ export type Database = {
           created_at: string
           last_active_at: string | null
           redis_user_id: string | null
+          role: number
         }
         Insert: {
           id?: string
@@ -28,6 +29,7 @@ export type Database = {
           created_at?: string
           last_active_at?: string | null
           redis_user_id?: string | null
+          role?: number
         }
         Update: {
           id?: string
@@ -36,6 +38,7 @@ export type Database = {
           created_at?: string
           last_active_at?: string | null
           redis_user_id?: string | null
+          role?: number
         }
         Relationships: []
       }
@@ -304,6 +307,86 @@ export type Database = {
             columns: ["notebook_id"]
             isOneToOne: false
             referencedRelation: "notebooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadmap_items: {
+        Row: {
+          id: string
+          title: string
+          body: string
+          status: string
+          source: string
+          is_public: boolean
+          vote_count: number
+          created_by: string | null
+          sort_order: number
+          created_at: string
+          updated_at: string
+          category: string | null
+        }
+        Insert: {
+          id?: string
+          title: string
+          body?: string
+          status?: string
+          source?: string
+          is_public?: boolean
+          vote_count?: number
+          created_by?: string | null
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+          category?: string | null
+        }
+        Update: {
+          id?: string
+          title?: string
+          body?: string
+          status?: string
+          source?: string
+          is_public?: boolean
+          vote_count?: number
+          created_by?: string | null
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+          category?: string | null
+        }
+        Relationships: []
+      }
+      roadmap_votes: {
+        Row: {
+          id: string
+          item_id: string
+          user_id: string | null
+          voter_key: string | null
+          ip: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          item_id: string
+          user_id?: string | null
+          voter_key?: string | null
+          ip?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          item_id?: string
+          user_id?: string | null
+          voter_key?: string | null
+          ip?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmap_votes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_items"
             referencedColumns: ["id"]
           },
         ]

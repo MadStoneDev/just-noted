@@ -946,6 +946,43 @@ function NoteEditor({
       placeholder: "Search actions…",
       groups: [
         {
+          id: "view",
+          items: [
+            {
+              id: "source",
+              label: viewMode === "rendered" ? "View markdown source" : "View formatted",
+              keywords: "markdown source raw code formatted view",
+              icon: <IconMarkdown size={16} />,
+              perform: () => toggleViewMode(),
+            },
+            {
+              id: "formatting-help",
+              label: "Formatting help",
+              keywords: "help formatting markdown shortcuts guide",
+              icon: <IconHelp size={16} />,
+              perform: () => setShowHelp(true),
+            },
+            ...(isAuthenticated
+              ? [
+                  {
+                    id: "history",
+                    label: "Version history",
+                    keywords: "version history revisions restore",
+                    icon: <IconHistory size={16} />,
+                    perform: () => setShowVersions(true),
+                  },
+                ]
+              : []),
+            {
+              id: "import",
+              label: "Open a .txt or .md file",
+              keywords: "import open file txt md upload",
+              icon: <IconFileImport size={16} />,
+              perform: () => fileInputRef.current?.click(),
+            },
+          ],
+        },
+        {
           id: "actions",
           items: [
             {
@@ -1026,6 +1063,8 @@ function NoteEditor({
     title,
     content,
     contentFormat,
+    viewMode,
+    toggleViewMode,
   ]);
 
   // Ctrl/Cmd+Shift+M toggles the note command menu.

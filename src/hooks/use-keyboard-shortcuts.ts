@@ -7,7 +7,6 @@ import { useNotesStore } from "@/stores/notes-store";
 interface KeyboardShortcutsOptions {
   onNewNote?: () => void;
   onSave?: () => void;
-  onToggleDistractionFree?: () => void;
   onToggleSplitView?: () => void;
   onSearch?: () => void;
   // Highest-priority Escape handler. Return true if it closed a layer (e.g. an
@@ -19,7 +18,6 @@ interface KeyboardShortcutsOptions {
 export function useKeyboardShortcuts({
   onNewNote,
   onSave,
-  onToggleDistractionFree,
   onToggleSplitView,
   onSearch,
   onEscape,
@@ -84,13 +82,6 @@ export function useKeyboardShortcuts({
           return;
         }
 
-        // Ctrl/Cmd + Shift + F - Toggle distraction-free
-        if (e.shiftKey && (e.key === "f" || e.key === "F")) {
-          e.preventDefault();
-          onToggleDistractionFree?.();
-          return;
-        }
-
         // Ctrl/Cmd + Shift + T - Toggle Table of Contents
         if (e.shiftKey && (e.key === "t" || e.key === "T")) {
           e.preventDefault();
@@ -127,7 +118,7 @@ export function useKeyboardShortcuts({
         }
       }
     },
-    [onNewNote, onSave, onToggleDistractionFree, onToggleSplitView, onSearch, toggleSidebar, setSidebarOpen, toggleToc]
+    [onNewNote, onSave, onToggleSplitView, onSearch, toggleSidebar, setSidebarOpen, toggleToc]
   );
 
   useEffect(() => {

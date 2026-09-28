@@ -8,7 +8,6 @@ import {
   IconUser,
   IconAdjustmentsHorizontal,
   IconChevronLeft,
-  IconArrowsMinimize,
   IconDots,
   IconPlus,
   IconTrash,
@@ -84,15 +83,13 @@ export function MobileTabBar({
 }
 
 // 48px editor nav bar — mobile (design surface 08). Back returns to the notes
-// list; Focus / Share / ··· at 44×44.
+// list; Share / ··· at 44×44.
 export function MobileEditorNav({
   onBack,
-  onFocus,
   onShare,
   onMore,
 }: {
   onBack: () => void;
-  onFocus: () => void;
   onShare: () => void;
   onMore?: () => void;
 }) {
@@ -107,9 +104,6 @@ export function MobileEditorNav({
         <span className="text-[15px]">Notes</span>
       </button>
       <div className="flex items-center">
-        <button onClick={onFocus} aria-label="Focus mode" className="w-11 h-11 flex items-center justify-center text-[var(--color-ink-3)] active:opacity-60">
-          <IconArrowsMinimize size={20} />
-        </button>
         <button onClick={onShare} aria-label="Share" className="w-11 h-11 flex items-center justify-center text-[var(--color-ink-3)] active:opacity-60">
           <IconShare size={20} />
         </button>
