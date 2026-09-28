@@ -163,7 +163,13 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
   // Show the Admin rail entry only to admins (role >= 10). Server enforces the
   // real gate; this just hides the button.
   const [isAdmin, setIsAdmin] = useState(false);
-  useEffect(() => { amIAdmin().then(setIsAdmin).catch(() => {}); }, []);
+  // Re-check on auth changes (not just mount) so signing in on a persistent
+  // shell / another tab reveals the Admin entry without a manual refresh. Guests
+  // are never admin, so clear it immediately when logged out.
+  useEffect(() => {
+    if (!isAuthenticated) { setIsAdmin(false); return; }
+    amIAdmin().then(setIsAdmin).catch(() => {});
+  }, [isAuthenticated]);
 
   // Restore the last-open rail view on mount (in an effect, not the useState
   // initialiser, to avoid a hydration mismatch — server always renders "notes").
