@@ -20,6 +20,7 @@ import {
 } from "@/types/combined-notes";
 import { getAllLocalNotes, saveAllNotesToLocal, clearLocalNotes } from "@/utils/notes-idb-cache";
 import { clearQueue, processQueue, enqueue } from "@/utils/offline-queue";
+import { reconcileNotes } from "@/utils/notes-merge";
 import { stripHtmlToText } from "@/utils/html-utils";
 import {
   HAS_INITIALISED_KEY,
@@ -31,7 +32,6 @@ import {
   LAST_ACCESS_DEBOUNCE,
 } from "@/constants/app";
 
-const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
 
 const DEFAULT_TITLE_PATTERN = /^New Note #\d+$/;
 
@@ -57,64 +57,15 @@ function mergeLocalWithServer(
   userId: string,
   isAuthenticated: boolean,
 ): CombinedNote[] {
-  const serverMap = new Map(serverNotes.map((n) => [n.id, n]));
-  const localMap = new Map(localNotes.map((n) => [n.id, n]));
-  const merged: CombinedNote[] = [];
-  const now = Date.now();
-
-  // Process all server notes
-  for (const serverNote of serverNotes) {
-    const localNote = localMap.get(serverNote.id);
-    if (!localNote) {
-      // No local version — use server
-      merged.push(serverNote);
-    } else if (localNote.deletedAt && !serverNote.deletedAt) {
-      // Deleted locally but still present on the server — honour the deletion
-      // (e.g. a deferred delete whose server call didn't land before reload)
-      // instead of resurrecting it. Keep the tombstone hidden and finish the
-      // server-side delete rather than re-pushing it as a live note.
-      merged.push(localNote);
-      enqueue({ type: "delete", noteId: localNote.id, source: localNote.source, userId }).catch(() => {});
-    } else if (localNote.updatedAt > serverNote.updatedAt) {
-      // Local is strictly newer — use local, push to server in background
-      merged.push(localNote);
-      pushNoteToServer(localNote, userId, isAuthenticated).catch(() => {});
-    } else {
-      // Server wins on a tie / when newer — EXCEPT never let empty server
-      // content clobber a local copy that still has text. This guards a note
-      // whose edit hasn't durably reached the server yet (a new note created
-      // and typed this session) and any silent server write failure: on reload
-      // we keep the local text and re-push it instead of showing an empty note.
-      // The rare cost is a deliberate cross-device "clear" not propagating.
-      const serverEmpty = !(serverNote.content && serverNote.content.trim().length > 0);
-      const localHasText = !!(localNote.content && localNote.content.trim().length > 0);
-      if (serverEmpty && localHasText) {
-        merged.push(localNote);
-        pushNoteToServer(localNote, userId, isAuthenticated).catch(() => {});
-      } else {
-        merged.push(serverNote);
-      }
-    }
+  // The decision logic is pure and unit-tested in utils/notes-merge; here we
+  // just carry out the side effects it prescribes.
+  const { merged, toPush, toDelete } = reconcileNotes(serverNotes, localNotes);
+  for (const note of toPush) {
+    pushNoteToServer(note, userId, isAuthenticated).catch(() => {});
   }
-
-  // Process local-only notes (in IDB but not on server)
-  for (const localNote of localNotes) {
-    if (!serverMap.has(localNote.id)) {
-      if (localNote.deletedAt) {
-        // Already gone from the server and deleted locally — stay deleted. Never
-        // re-push a tombstone (that's how deleted notes came back to life).
-        continue;
-      }
-      const hasContent = localNote.content && localNote.content.trim().length > 0;
-      if (hasContent && now - localNote.createdAt < TWENTY_FOUR_HOURS) {
-        // Recently created with actual content — assume created offline, keep + push
-        merged.push(localNote);
-        pushNoteToServer(localNote, userId, isAuthenticated).catch(() => {});
-      }
-      // Else: empty or old note not on server — drop it
-    }
+  for (const note of toDelete) {
+    enqueue({ type: "delete", noteId: note.id, source: note.source, userId }).catch(() => {});
   }
-
   return merged;
 }
 
