@@ -2,7 +2,7 @@
 
 import React, { useRef, useMemo, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Editor, rootCtx, defaultValueCtx, remarkStringifyOptionsCtx, editorViewCtx, editorViewOptionsCtx } from "@milkdown/core";
+import { Editor, rootCtx, defaultValueCtx, remarkStringifyOptionsCtx, editorViewCtx, editorViewOptionsCtx, parserCtx } from "@milkdown/core";
 import { collab, collabServiceCtx } from "@milkdown/plugin-collab";
 import * as Y from "yjs";
 import { Awareness } from "y-protocols/awareness";
@@ -19,12 +19,55 @@ import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import { $prose } from "@milkdown/utils";
 import { keymap } from "@milkdown/prose/keymap";
 import { Plugin, PluginKey } from "@milkdown/prose/state";
+import { Slice } from "@milkdown/prose/model";
 import DockedToolbar from "./docked-toolbar";
 import SlashMenu from "./slash-menu";
 import LinkPopover from "./link-popover";
 
 import type { ContentFormat } from "@/types/combined-notes";
 import { htmlToMarkdown } from "@/utils/html-to-markdown";
+
+// Markdown-on-paste. When someone pastes plain text that contains Markdown
+// (### headings, **bold**, - lists, > quotes, ``` fences, [links](…)), convert
+// it to real formatting instead of dropping the literal characters in. Rich
+// HTML pastes (from web pages) already carry structure, so those fall through
+// to ProseMirror's default handler untouched — this only rescues plain-text
+// sources like AI chats, code editors and terminals.
+const MD_BLOCK = /(^|\n)[ \t]{0,3}(#{1,6}[ \t]|[-*+][ \t]|\d+[.)][ \t]|>[ \t]?|```|~~~)/;
+const MD_INLINE = /\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|`[^`\n]+`|~~[^~\n]+~~|\[[^\]\n]+\]\([^)\n]+\)/;
+const RICH_HTML = /<(h[1-6]|ul|ol|li|pre|blockquote|table|thead|tbody|tr|td|th|img|a|strong|b|em|i|code|hr)\b/i;
+
+const markdownPaste = $prose((ctx) =>
+  new Plugin({
+    key: new PluginKey("jn-markdown-paste"),
+    props: {
+      handlePaste: (view, event) => {
+        if (!view.editable) return false;
+        const cd = event.clipboardData;
+        if (!cd) return false;
+        const text = cd.getData("text/plain");
+        if (!text || !text.trim()) return false;
+        // Respect genuinely structured HTML — let the default paste keep it.
+        const html = cd.getData("text/html");
+        if (html && RICH_HTML.test(html)) return false;
+        // Only intervene when the text actually looks like Markdown, so plain
+        // prose keeps its exact characters.
+        if (!MD_BLOCK.test(text) && !MD_INLINE.test(text)) return false;
+        let doc;
+        try {
+          doc = ctx.get(parserCtx)(text);
+        } catch {
+          return false;
+        }
+        if (!doc || doc.content.size === 0) return false;
+        const slice = Slice.maxOpen(doc.content);
+        view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
+        event.preventDefault();
+        return true;
+      },
+    },
+  })
+);
 
 const codeBlockEscape = $prose(() =>
   keymap({
@@ -294,6 +337,7 @@ function MilkdownEditorInner({
       .use(gfm)
       .use(listener)
       .use(history)
+      .use(markdownPaste)
       .use(clipboard)
       .use(trailing)
       .use(indent)

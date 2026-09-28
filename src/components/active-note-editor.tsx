@@ -371,6 +371,10 @@ function NoteEditor({
   const [content, setContent] = useState(note.content);
   const [contentFormat, setContentFormat] = useState(note.contentFormat || "html");
   const [isSaving, setIsSaving] = useState(false);
+  // Honest save status: "Synced" is shown ONLY after a confirmed write. While
+  // there are unsaved edits it reads "Saving…", and a failed/queued write reads
+  // "Not saved" rather than falsely claiming success.
+  const [saveState, setSaveState] = useState<"clean" | "dirty" | "saving" | "error">("clean");
   // Wide view: global default + per-note override (read once on mount; the
   // component is keyed by note.id so this re-reads per note).
   const [wideDefault, setWideDefault] = useState(() => readWideDefault());
@@ -524,6 +528,7 @@ function NoteEditor({
       if (newContent === lastSavedContentRef.current) return true;
 
       setIsSaving(true);
+      setSaveState("saving");
       try {
         if (notesOperations.saveNoteContent) {
           const result = await notesOperations.saveNoteContent(
@@ -536,10 +541,12 @@ function NoteEditor({
           // propagate so useAutoSave keeps the content dirty and retries.
           // Do NOT advance lastSavedContentRef or report success here.
           if (result && result.success === false) {
+            setSaveState("error");
             return false;
           }
         }
         lastSavedContentRef.current = newContent;
+        setSaveState("clean");
 
         // Save version snapshot every 5 minutes
         const now = Date.now();
@@ -549,6 +556,7 @@ function NoteEditor({
         }
         return true;
       } catch {
+        setSaveState("error");
         return false;
       } finally {
         setIsSaving(false);
@@ -602,18 +610,22 @@ function NoteEditor({
       // Ignore edits while the hydration lock is engaged — no local edits should
       // exist yet, so nothing to lose; this just guards any programmatic path.
       if (!useNotesStore.getState().hasServerSynced) return;
-      // The editor's first emission after mount is its normalisation of the
-      // loaded content, not a user edit — adopt it as the saved baseline and
-      // don't persist, so opening a note doesn't touch updated_at.
-      if (!normalizedBaselineRef.current) {
-        normalizedBaselineRef.current = true;
-        lastSavedContentRef.current = value;
-        setContent(value);
-        setContentFormat("markdown");
-        return;
-      }
+
       setContent(value);
       setContentFormat("markdown");
+
+      // Decide whether to persist by COMPARING CONTENT, not by "is this the
+      // first emission after mount". Milkdown emits the loaded content once on
+      // mount (its normalisation); that equals the last-saved content, so we
+      // skip it and don't bump updated_at. Anything that differs is a real edit
+      // and must be persisted — even the first emission, and even right after
+      // the editor remounts. The old first-emission-is-baseline flag reset on
+      // every remount and then swallowed the next keystrokes, so a new note's
+      // typing never reached IndexedDB or the server (it stayed "" on reload).
+      normalizedBaselineRef.current = true;
+      if (value === lastSavedContentRef.current) return;
+
+      setSaveState("dirty");
       useNotesStore.getState().setEditing(note.id, true);
       persistLocal(value);
       debouncedSave();
@@ -1318,7 +1330,9 @@ function NoteEditor({
                 {goalTarget > 0 ? `${Math.round(progressPercentage)}% of ${goalTarget} ${goalType}` : "set goal"}
               </button>
               {" "}·{" "}
-              {isSaving ? (
+              {saveState === "error" ? (
+                <span className="text-[var(--color-warn)]" title="Your last edit hasn't been saved yet — it's queued and will retry">Not saved</span>
+              ) : saveState === "saving" || saveState === "dirty" ? (
                 <span className="text-[var(--color-ink-4)]">Saving…</span>
               ) : noteSource === "supabase" ? (
                 <span className="text-[var(--color-accent-text)]">Synced</span>
