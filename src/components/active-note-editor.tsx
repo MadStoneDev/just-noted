@@ -637,6 +637,42 @@ function NoteEditor({
     }
   }, [hasServerSynced, note.id, content]);
 
+  // Focus the editor body as soon as a freshly-created note opens. Without this
+  // the cursor never enters the note: keystrokes are lost (a guest's first words
+  // vanish) and, worse, focus stays on the "New note" button so Space/Enter
+  // re-fire it and spawn a run of empty notes. We wait for the lazy Milkdown
+  // editor to mount, then focus its contenteditable and drop the caret at the end.
+  const newNoteId = useNotesStore((s) => s.newNoteId);
+  const focusedNewNoteRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (isHydrating || viewMode !== "rendered") return;
+    if (note.id !== newNoteId) return;
+    if (focusedNewNoteRef.current === note.id) return;
+    let cancelled = false;
+    let tries = 0;
+    const tryFocus = () => {
+      if (cancelled) return;
+      const host = scrollRef?.current;
+      const el = host?.querySelector<HTMLElement>('.ProseMirror, [contenteditable="true"]');
+      if (el) {
+        focusedNewNoteRef.current = note.id;
+        el.focus();
+        const sel = window.getSelection();
+        if (sel) {
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          range.collapse(false);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+        return;
+      }
+      if (tries++ < 30) requestAnimationFrame(tryFocus);
+    };
+    requestAnimationFrame(tryFocus);
+    return () => { cancelled = true; };
+  }, [note.id, newNoteId, isHydrating, viewMode, scrollRef, editorRemountKey]);
+
   const handleTitleBlur = useCallback(() => {
     if (title !== note.title) {
       notesOperations.saveNoteTitle?.(note.id, title);

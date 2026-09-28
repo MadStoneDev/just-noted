@@ -73,8 +73,20 @@ function mergeLocalWithServer(
       merged.push(localNote);
       pushNoteToServer(localNote, userId, isAuthenticated).catch(() => {});
     } else {
-      // Server wins (>=)
-      merged.push(serverNote);
+      // Server wins on a tie / when newer — EXCEPT never let empty server
+      // content clobber a local copy that still has text. This guards a note
+      // whose edit hasn't durably reached the server yet (a new note created
+      // and typed this session) and any silent server write failure: on reload
+      // we keep the local text and re-push it instead of showing an empty note.
+      // The rare cost is a deliberate cross-device "clear" not propagating.
+      const serverEmpty = !(serverNote.content && serverNote.content.trim().length > 0);
+      const localHasText = !!(localNote.content && localNote.content.trim().length > 0);
+      if (serverEmpty && localHasText) {
+        merged.push(localNote);
+        pushNoteToServer(localNote, userId, isAuthenticated).catch(() => {});
+      } else {
+        merged.push(serverNote);
+      }
     }
   }
 
@@ -359,16 +371,13 @@ export function useNotesSync() {
 
         localStorage.setItem(HAS_INITIALISED_KEY, "true");
 
-        // Clean up empty default notes from server
-        const emptyDefaults = allNotes.filter(isEmptyDefaultNote);
-        if (emptyDefaults.length > 0) {
-          allNotes = allNotes.filter((n) => !isEmptyDefaultNote(n));
-          for (const note of emptyDefaults) {
-            if (note.source === "redis") {
-              noteOperation("redis", { operation: "delete", userId: newUserId, noteId: note.id }).catch(() => {});
-            }
-          }
-        }
+        // NOTE: we deliberately do NOT delete "empty default" notes on startup
+        // any more. That cleanup deleted a note server-side and then overwrote
+        // the IDB cache with the reduced list — so a just-created note whose
+        // typed content hadn't durably reached the server at load time (default
+        // title + momentarily-empty body) was destroyed on reload, losing a
+        // guest's writing. An empty starter note persisting is a harmless
+        // cosmetic issue; deleting real content is not. Keep every note.
 
         const normalizedNotes = normaliseOrdering(allNotes);
         const sortedNotes = sortNotes(normalizedNotes, null);

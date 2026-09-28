@@ -37,6 +37,9 @@ const publicSans = Public_Sans({
 });
 
 export const metadata = {
+  // Resolves relative OG/Twitter image URLs against the real site instead of
+  // localhost:3000 (the Next default when unset), so shared links show the card.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://justnoted.app"),
   title: "Just Noted - Distraction-Free Note Taking",
   description:
     "Just Noted: Where ideas flow freely. No formatting distractions, just pure writing with offline/online saving and word tools.",
