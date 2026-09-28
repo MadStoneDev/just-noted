@@ -471,3 +471,11 @@ export async function clearQueue(): Promise<void> {
   await clearAllOps();
   notifySubscribers(0);
 }
+
+// Drop every queued op for a note. Called when a note is deleted so a pending
+// create/update can't replay and resurrect it on the next processQueue cycle.
+export async function dropQueuedOps(noteId: string): Promise<void> {
+  await deleteOpsByNoteId(noteId);
+  const count = await countOps();
+  notifySubscribers(count);
+}

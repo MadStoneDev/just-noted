@@ -19,7 +19,7 @@ import {
   supabaseToCombi,
 } from "@/types/combined-notes";
 import { getAllLocalNotes, saveAllNotesToLocal, clearLocalNotes } from "@/utils/notes-idb-cache";
-import { clearQueue, processQueue } from "@/utils/offline-queue";
+import { clearQueue, processQueue, enqueue } from "@/utils/offline-queue";
 import { stripHtmlToText } from "@/utils/html-utils";
 import {
   HAS_INITIALISED_KEY,
@@ -68,6 +68,13 @@ function mergeLocalWithServer(
     if (!localNote) {
       // No local version — use server
       merged.push(serverNote);
+    } else if (localNote.deletedAt && !serverNote.deletedAt) {
+      // Deleted locally but still present on the server — honour the deletion
+      // (e.g. a deferred delete whose server call didn't land before reload)
+      // instead of resurrecting it. Keep the tombstone hidden and finish the
+      // server-side delete rather than re-pushing it as a live note.
+      merged.push(localNote);
+      enqueue({ type: "delete", noteId: localNote.id, source: localNote.source, userId }).catch(() => {});
     } else if (localNote.updatedAt > serverNote.updatedAt) {
       // Local is strictly newer — use local, push to server in background
       merged.push(localNote);
@@ -93,6 +100,11 @@ function mergeLocalWithServer(
   // Process local-only notes (in IDB but not on server)
   for (const localNote of localNotes) {
     if (!serverMap.has(localNote.id)) {
+      if (localNote.deletedAt) {
+        // Already gone from the server and deleted locally — stay deleted. Never
+        // re-push a tombstone (that's how deleted notes came back to life).
+        continue;
+      }
       const hasContent = localNote.content && localNote.content.trim().length > 0;
       if (hasContent && now - localNote.createdAt < TWENTY_FOUR_HOURS) {
         // Recently created with actual content — assume created offline, keep + push

@@ -30,7 +30,7 @@ import {
 } from "@/types/combined-notes";
 import { generateNoteId } from "@/utils/general/notes";
 import { saveNoteToLocal, saveAllNotesToLocal, deleteLocalNote } from "@/utils/notes-idb-cache";
-import { enqueue } from "@/utils/offline-queue";
+import { enqueue, dropQueuedOps } from "@/utils/offline-queue";
 
 export interface NotesOperations {
   addNote: (templateContent?: string, templateTitle?: string) => Promise<void>;
@@ -47,7 +47,7 @@ export interface NotesOperations {
   saveNoteTitle: (noteId: string, title: string) => Promise<{ success: boolean }>;
   refreshSingleNote: (noteId: string) => Promise<CombinedNote | null>;
 }
-import { USER_NOTE_COUNT_KEY, HAS_INITIALISED_KEY } from "@/constants/app";
+import { HAS_INITIALISED_KEY } from "@/constants/app";
 
 export function useNotesOperations(
   userId: string | null,
@@ -80,9 +80,6 @@ export function useNotesOperations(
     if (!userId) return;
 
     const noteSource: NoteSource = isAuthenticated ? "supabase" : "redis";
-    const noteNumber =
-      parseInt(localStorage.getItem(USER_NOTE_COUNT_KEY) || "0") + 1;
-    localStorage.setItem(USER_NOTE_COUNT_KEY, noteNumber.toString());
 
     if (!localStorage.getItem(HAS_INITIALISED_KEY)) {
       localStorage.setItem(HAS_INITIALISED_KEY, "true");
@@ -94,6 +91,19 @@ export function useNotesOperations(
     // the notes added by earlier iterations — only the last would show until a
     // manual refresh. getState() reflects each optimistic insert immediately.
     const currentNotes = useNotesStore.getState().notes;
+
+    // "New Note #N": number by the notes that actually exist, filling the lowest
+    // free slot, rather than an ever-incrementing counter that kept climbing
+    // past how many notes remained after deletions. Deleted (trashed) notes free
+    // their number for reuse.
+    const usedNumbers = new Set<number>();
+    for (const n of currentNotes) {
+      if (n.deletedAt) continue;
+      const m = /^New Note #(\d+)$/.exec((n.title || "").trim());
+      if (m) usedNumbers.add(parseInt(m[1], 10));
+    }
+    let noteNumber = 1;
+    while (usedNumbers.has(noteNumber)) noteNumber++;
 
     const newNoteInput: CreateNoteInput = {
       id: generateNoteId(currentNotes.map((n) => n.id)),
@@ -609,6 +619,12 @@ export function useNotesOperations(
       const activeNotes = notes.filter((n) => !n.deletedAt);
 
       const { setRecentlyDeleted, clearRecentlyDeleted } = useNotesStore.getState();
+
+      // Drop any queued create/update ops for this note first. Otherwise a
+      // pending create (e.g. from a note made while briefly offline) replays on
+      // the next processQueue cycle and resurrects the note minutes after it was
+      // deleted. If the user undoes, restoreNote re-creates it fresh anyway.
+      dropQueuedOps(noteId).catch(() => {});
 
       // Optimistic soft-delete (sets deletedAt, filtered from view)
       optimisticDeleteNote(noteId);
