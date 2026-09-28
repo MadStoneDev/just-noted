@@ -36,6 +36,8 @@ import {
   IconMarkdown,
   IconFileOff,
   IconCheck,
+  IconCloud,
+  IconDeviceDesktop,
 } from "@tabler/icons-react";
 import { useToast } from "@/components/ui/toast";
 import { readImportableFiles, IMPORT_ACCEPT } from "@/utils/import-file";
@@ -1061,6 +1063,33 @@ function NoteEditor({
               icon: <IconFileExport size={16} />,
               submenu: exportPage,
             },
+            // Move between on-device (Local/Redis) and synced (Cloud/Supabase)
+            // storage. Cloud requires an account, so only offer "Move to Cloud"
+            // when signed in; a Cloud note can always drop back to Local.
+            ...(note.source === "supabase" || isAuthenticated
+              ? [
+                  {
+                    id: "move-source",
+                    label: note.source === "supabase" ? "Move to Local" : "Move to Cloud",
+                    description:
+                      note.source === "supabase"
+                        ? "Store on this device only"
+                        : "Sync across your devices",
+                    keywords: "move local cloud device sync transfer storage",
+                    icon:
+                      note.source === "supabase" ? (
+                        <IconDeviceDesktop size={16} />
+                      ) : (
+                        <IconCloud size={16} />
+                      ),
+                    perform: () =>
+                      notesOperations.transferNote(
+                        note.id,
+                        note.source === "supabase" ? "redis" : "supabase",
+                      ),
+                  },
+                ]
+              : []),
           ],
         },
         ...(canOrganize
@@ -1101,6 +1130,7 @@ function NoteEditor({
     isAuthenticated,
     notebooks,
     note.id,
+    note.source,
     note.notebookId,
     note.isPinned,
     note.isPrivate,

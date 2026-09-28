@@ -398,6 +398,7 @@ export default function NoteWrapper() {
           onOpenTrash={() => setShowTrash(true)}
           onNewNote={() => notesOperations.addNote()}
           onTogglePin={(noteId, isPinned) => notesOperations.updatePinStatus(noteId, isPinned)}
+          onTransferNote={(noteId, targetSource) => notesOperations.transferNote(noteId, targetSource)}
           onOpenShared={(shortcode) => {
             setSharedShortcode(shortcode);
             if (typeof window !== "undefined" && window.innerWidth < 768) {

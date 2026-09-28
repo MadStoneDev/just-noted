@@ -41,6 +41,7 @@ import {
   IconTrash,
   IconNotebook,
   IconGripVertical,
+  IconInfoCircle,
   IconPlus,
   IconChevronDown,
   IconAdjustmentsHorizontal,
@@ -53,7 +54,7 @@ import {
   IconShare,
 } from "@tabler/icons-react";
 import { Dropdown, DropdownItem, DropdownSeparator, DropdownLabel } from "@/components/ds/dropdown";
-import { ConfirmModal } from "@/components/ds/modal";
+import { ConfirmModal, Modal } from "@/components/ds/modal";
 
 function relativeTime(timestamp: number): string {
   const now = Date.now();
@@ -78,6 +79,7 @@ interface SidebarProps {
   onNewNote?: () => void;
   onOpenShared?: (shortcode: string) => void;
   onTogglePin?: (noteId: string, isPinned: boolean) => void;
+  onTransferNote?: (noteId: string, targetSource: "redis" | "supabase") => void;
 }
 
 const SORT_LABELS: Record<"manual" | "edited" | "created" | "title" | "notebook", string> = {
@@ -96,7 +98,7 @@ const SOURCE_LABELS: Record<"all" | "cloud" | "local", string> = {
 const RAIL_VIEW_KEY = "jn_sidebar_rail_view";
 const RAIL_VIEWS = ["notes", "notebooks", "tags", "shared"] as const;
 
-export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMoveNote, onOpenTrash, onNewNote, onOpenShared, onTogglePin }: SidebarProps) {
+export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMoveNote, onOpenTrash, onNewNote, onOpenShared, onTogglePin, onTransferNote }: SidebarProps) {
   const {
     sidebarOpen,
     setSidebarOpen,
@@ -144,6 +146,21 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
   const [dragOverNoteId, setDragOverNoteId] = useState<string | null>(null);
 
   // Multi-select state
+  // Move-storage prompt: tapping a note's Local/Cloud badge overlays that card
+  // with a "Move to Cloud/Local?" prompt. Clicking outside the card dismisses it.
+  const [movePromptNoteId, setMovePromptNoteId] = useState<string | null>(null);
+  const [showMoveInfo, setShowMoveInfo] = useState(false);
+  useEffect(() => {
+    if (!movePromptNoteId || showMoveInfo) return;
+    const onDown = (e: MouseEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && el.closest(`[data-note-card="${movePromptNoteId}"]`)) return;
+      setMovePromptNoteId(null);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [movePromptNoteId, showMoveInfo]);
+
   const [selectMode, setSelectMode] = useState(false);
   const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set());
 
@@ -1015,6 +1032,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                       }}
                     >
                     <div
+                      data-note-card={note.id}
                       className={`group/note relative w-full px-2.5 py-3 md:px-2 md:py-2 text-left transition-colors duration-[var(--duration-fast)] rounded-[var(--radius-8)] border ${
                         draggedNoteId === note.id ? "opacity-40" : ""
                       } ${
@@ -1092,11 +1110,23 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                             {getPreview(note.content) || "Empty note"}
                           </p>
                           <div className="flex items-center gap-1.5 mt-1">
-                            {note.source === "supabase" ? (
-                              <IconCloud size={12} className="text-[var(--color-info)] flex-shrink-0" />
-                            ) : (
-                              <IconDeviceDesktop size={12} className="text-[var(--color-warning)] flex-shrink-0" />
-                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMovePromptNoteId((prev) => (prev === note.id ? null : note.id));
+                              }}
+                              title="Change storage (Local / Cloud)"
+                              className="inline-flex items-center gap-1 px-1 -ml-1 rounded-[var(--radius-sm)] hover:bg-[var(--color-raised-soft)] transition-colors"
+                            >
+                              {note.source === "supabase" ? (
+                                <IconCloud size={12} className="text-[var(--color-info)] flex-shrink-0" />
+                              ) : (
+                                <IconDeviceDesktop size={12} className="text-[var(--color-warning)] flex-shrink-0" />
+                              )}
+                              <span className="text-[11px] text-[var(--color-ink-5)]">
+                                {note.source === "supabase" ? "Cloud" : "Local"}
+                              </span>
+                            </button>
                             <p className="text-[12px] text-[var(--color-ink-5)]">
                               {relativeTime(note.updatedAt)}
                             </p>
@@ -1139,6 +1169,57 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                           </button>
                         )}
                       </div>
+
+                      {/* Move-storage prompt overlay (badge tap). Clicking outside
+                          the card dismisses it via the document listener. */}
+                      {movePromptNoteId === note.id && (() => {
+                        const isCloud = note.source === "supabase";
+                        const targetSource: "redis" | "supabase" = isCloud ? "redis" : "supabase";
+                        const needsAuth = !isCloud && !isAuthenticated;
+                        return (
+                          <div
+                            className="absolute inset-0 z-30 flex items-center justify-center gap-2 px-2 rounded-[var(--radius-8)] bg-[var(--color-panel)]/95 backdrop-blur-[1px]"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {needsAuth ? (
+                              <>
+                                <span className="text-[12px] text-[var(--color-ink-2)]">Sign in to use Cloud</span>
+                                <a
+                                  href="/get-access"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="px-2 py-1 text-[11px] font-medium rounded-[var(--radius-6)] bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:opacity-90 transition-opacity"
+                                >
+                                  Sign in
+                                </a>
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-[12px] text-[var(--color-ink-2)]">
+                                  Move to {isCloud ? "Local" : "Cloud"}?
+                                </span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onTransferNote?.(note.id, targetSource);
+                                    setMovePromptNoteId(null);
+                                  }}
+                                  className="px-2 py-1 text-[11px] font-medium rounded-[var(--radius-6)] bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:opacity-90 transition-opacity"
+                                >
+                                  Move
+                                </button>
+                              </>
+                            )}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setShowMoveInfo(true); }}
+                              title="What does this mean?"
+                              aria-label="About Local and Cloud storage"
+                              className="w-6 h-6 flex items-center justify-center rounded-full text-[var(--color-ink-4)] hover:text-[var(--color-ink-1)] hover:bg-[var(--color-raised-soft)] transition-colors"
+                            >
+                              <IconInfoCircle size={15} />
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </div>
                     </SwipeableRow>
                   </li>
@@ -1360,6 +1441,31 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
         confirmText="Delete"
         destructive
       />
+
+      {/* What Local / Cloud means (from the badge prompt's info button) */}
+      <Modal open={showMoveInfo} onClose={() => setShowMoveInfo(false)} title="Local vs Cloud" size="sm">
+        <div className="space-y-3 text-[13px] text-[var(--color-ink-2)] leading-relaxed">
+          <div className="flex items-start gap-2">
+            <IconDeviceDesktop size={16} className="mt-0.5 text-[var(--color-warning)] shrink-0" />
+            <p>
+              <span className="font-medium text-[var(--color-ink-1)]">Local</span> — kept only in this
+              browser on this device. Fast and private, but it won't show up on your other devices and
+              can be lost if you clear site data.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <IconCloud size={16} className="mt-0.5 text-[var(--color-info)] shrink-0" />
+            <p>
+              <span className="font-medium text-[var(--color-ink-1)]">Cloud</span> — synced to your
+              account, so it's backed up and available on every device you sign in to. Needs a free
+              account.
+            </p>
+          </div>
+          <p className="text-[12px] text-[var(--color-ink-5)]">
+            Moving a note keeps its title and content — it only changes where it's stored.
+          </p>
+        </div>
+      </Modal>
 
       {/* Move-to-notebook sheet (mobile swipe-right → Move) */}
       <div

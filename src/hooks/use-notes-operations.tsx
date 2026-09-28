@@ -46,6 +46,7 @@ export interface NotesOperations {
   ) => Promise<{ success: boolean }>;
   saveNoteTitle: (noteId: string, title: string) => Promise<{ success: boolean }>;
   refreshSingleNote: (noteId: string) => Promise<CombinedNote | null>;
+  transferNote: (noteId: string, targetSource: NoteSource) => Promise<void>;
 }
 import { HAS_INITIALISED_KEY } from "@/constants/app";
 
@@ -460,6 +461,11 @@ export function useNotesOperations(
         // Optimistic update - add new note and remove old one
         optimisticAddNote(noteToTransfer);
         optimisticDeleteNote(noteId);
+        // If the moved note was the open one, follow it to its new id so the
+        // editor doesn't land on the now-deleted original.
+        if (useNotesStore.getState().activeNoteId === noteId) {
+          useNotesStore.getState().setActiveNoteId(noteToTransfer.id);
+        }
 
         // Background save - create in new location
         let createResult;
@@ -932,5 +938,6 @@ export function useNotesOperations(
     saveNoteContent,
     saveNoteTitle,
     refreshSingleNote,
-  }), [addNote, updatePinStatus, updatePrivacyStatus, deleteNote, restoreNote, saveNoteContent, saveNoteTitle, refreshSingleNote]);
+    transferNote,
+  }), [addNote, updatePinStatus, updatePrivacyStatus, deleteNote, restoreNote, saveNoteContent, saveNoteTitle, refreshSingleNote, transferNote]);
 }
