@@ -628,11 +628,10 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
           between 0 and 248px on desktop. */}
       <aside
         ref={sidebarRef}
-        className={`relative left-0 h-full z-40 lg:z-auto bg-[var(--color-panel)] border-r border-[var(--color-hairline)] transition-all duration-[var(--duration-slow)] overflow-hidden ${
+        className={`relative left-0 h-full z-40 lg:z-auto bg-[var(--color-panel)] border-r border-[var(--color-hairline)] overflow-hidden ${
           sidebarOpen ? "w-full lg:w-[340px]" : "w-0 lg:w-14"
         }`}
         style={{
-          transitionTimingFunction: "var(--ease-spring)",
           flexShrink: 0,
         }}
       >
