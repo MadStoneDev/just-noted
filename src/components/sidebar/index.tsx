@@ -899,6 +899,22 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                   <span className="ml-0.5">· {(filterPinned !== "all" ? 1 : 0) + (filterTagIds.length > 0 ? 1 : 0)}</span>
                 )}
               </button>
+
+              {/* Select — enter multi-select to move/delete several notes at once.
+                  Only cloud (Supabase) notes are selectable, so gate on auth. */}
+              {isAuthenticated && (
+                <button
+                  onClick={handleToggleSelectMode}
+                  className={`shrink-0 flex items-center gap-1 px-3 h-11 md:px-2 md:h-7 rounded-[var(--radius-6)] text-[12px] border transition-colors ${
+                    selectMode
+                      ? "border-[var(--color-accent-tint-border)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]"
+                      : "border-[var(--color-border-control)] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)]"
+                  }`}
+                >
+                  <IconCheckbox size={13} />
+                  {selectMode ? "Done" : "Select"}
+                </button>
+              )}
             </div>
           </div>
 

@@ -88,8 +88,15 @@ export function useNotesOperations(
       localStorage.setItem(HAS_INITIALISED_KEY, "true");
     }
 
+    // Read the live store, not the closure's `notes` snapshot: when addNote is
+    // called in a loop (e.g. importing several files at once), the closure value
+    // is stale, so each call would build [newNote, ...originalNotes] and drop
+    // the notes added by earlier iterations — only the last would show until a
+    // manual refresh. getState() reflects each optimistic insert immediately.
+    const currentNotes = useNotesStore.getState().notes;
+
     const newNoteInput: CreateNoteInput = {
-      id: generateNoteId(notes.map((n) => n.id)),
+      id: generateNoteId(currentNotes.map((n) => n.id)),
       title: templateTitle || `New Note #${noteNumber}`,
       content: templateContent || "",
     };
@@ -116,7 +123,7 @@ export function useNotesOperations(
     useNotesStore.getState().setActiveNoteId(newNote.id);
 
     // Add note and immediately re-sort with newNoteId priority
-    const updatedNotes = [newNote, ...notes];
+    const updatedNotes = [newNote, ...currentNotes];
     const sortedNotes = sortNotes(updatedNotes, newNote.id);
     optimisticReorderNotes(sortedNotes);
 
