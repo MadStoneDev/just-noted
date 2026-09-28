@@ -488,8 +488,9 @@ export default function NoteWrapper() {
 
       <MobileAccountDrawer open={showAccountDrawer} onClose={() => setShowAccountDrawer(false)} />
 
-      {/* Mobile FAB — new note, shown on the notes list only. */}
-      {sidebarOpen && !showAdmin && !showRoadmap && !showSettings && !showTrash && !showNotebooksGrid && !sharedShortcode && (
+      {/* Mobile FAB — new note, shown on the notes list only (not the Shared
+          list, where a new note makes no sense and it covers the rows). */}
+      {sidebarOpen && mobileTab !== "shared" && !showAdmin && !showRoadmap && !showSettings && !showTrash && !showNotebooksGrid && !sharedShortcode && (
         <MobileFab onClick={mobileNewNote} />
       )}
 
