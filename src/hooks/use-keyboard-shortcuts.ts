@@ -110,6 +110,14 @@ export function useKeyboardShortcuts({
           return;
         }
 
+        // Ctrl/Cmd + Shift + F - Search all notes (companion to Ctrl+F's
+        // in-note browser find)
+        if (e.shiftKey && (e.key === "f" || e.key === "F")) {
+          e.preventDefault();
+          onSearch?.();
+          return;
+        }
+
         // Ctrl/Cmd + \ - Toggle sidebar
         if (e.key === "\\") {
           e.preventDefault();
@@ -131,10 +139,10 @@ export function useKeyboardShortcuts({
 export const KEYBOARD_SHORTCUTS = [
   { keys: ["Ctrl", "J"], description: "Create new note" },
   { keys: ["Ctrl", "S"], description: "Save current note" },
-  { keys: ["Ctrl", "K"], description: "Open search" },
+  { keys: ["Ctrl", "K"], description: "Search all notes" },
+  { keys: ["Ctrl", "Shift", "F"], description: "Search all notes" },
   { keys: ["Ctrl", "Shift", "M"], description: "Note command menu" },
   { keys: ["Ctrl", "\\"], description: "Toggle sidebar" },
-  { keys: ["Ctrl", "Shift", "F"], description: "Distraction-free mode" },
   { keys: ["Ctrl", "Shift", "T"], description: "Table of Contents" },
   { keys: ["Ctrl", "Shift", "S"], description: "Split view" },
   { keys: ["Ctrl", "Alt", "1-9, 0"], description: "Jump to note 1-10" },
