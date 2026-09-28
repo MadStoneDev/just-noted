@@ -209,6 +209,12 @@ export default function NoteWrapper() {
 
   // ===== Mobile bottom-tab navigation (design surface 08) =====
   const goNotes = useCallback(() => {
+    // Toggle: tapping Notes while its list is already open collapses the sidebar
+    // to reveal the note behind it.
+    if (mobileTab === "notes" && useNotesStore.getState().sidebarOpen) {
+      setSidebarOpen(false);
+      return;
+    }
     router.push("/");
     setShowAccountDrawer(false);
     setShowTrash(false);
@@ -218,9 +224,15 @@ export default function NoteWrapper() {
     window.dispatchEvent(new Event("justnoted:show-notes"));
     setSidebarOpen(true);
     setMobileTab("notes");
-  }, [setSidebarOpen, router]);
+  }, [setSidebarOpen, router, mobileTab]);
 
   const goNotebooks = useCallback(() => {
+    // Toggle: tapping Notebooks while the grid is already open closes it back to
+    // the note.
+    if (mobileTab === "notebooks" && showNotebooksGrid) {
+      setShowNotebooksGrid(false);
+      return;
+    }
     router.push("/");
     setShowAccountDrawer(false);
     setShowTrash(false);
@@ -228,9 +240,14 @@ export default function NoteWrapper() {
     setShowNotebooksGrid(true);
     setSidebarOpen(false);
     setMobileTab("notebooks");
-  }, [setSidebarOpen, router]);
+  }, [setSidebarOpen, router, mobileTab, showNotebooksGrid]);
 
   const goShared = useCallback(() => {
+    // Toggle: tapping Shared while its list is already open collapses the sidebar.
+    if (mobileTab === "shared" && useNotesStore.getState().sidebarOpen) {
+      setSidebarOpen(false);
+      return;
+    }
     router.push("/");
     setShowAccountDrawer(false);
     setShowTrash(false);
@@ -239,7 +256,7 @@ export default function NoteWrapper() {
     window.dispatchEvent(new Event("justnoted:show-shared"));
     setSidebarOpen(true);
     setMobileTab("shared");
-  }, [setSidebarOpen, router]);
+  }, [setSidebarOpen, router, mobileTab]);
 
   // "You": logged in → account drawer (switch / add / log out / help);
   // logged out → sign in. It no longer jumps to Settings.
