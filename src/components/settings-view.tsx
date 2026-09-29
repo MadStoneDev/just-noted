@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import DeviceNotesSection from "@/components/settings/device-notes-section";
 import { createClient } from "@/utils/supabase/client";
 import { uploadAvatar } from "@/app/actions/avatarActions";
 import { compressImage } from "@/utils/image/compress";
@@ -620,7 +621,10 @@ export default function SettingsView({ onClose, initialSection }: SettingsViewPr
           ) : section === "Plan & usage" ? (
             <BillingSection />
           ) : section === "Sync & data" ? (
-            <DataRetentionSection />
+            <div className="space-y-8">
+              <DataRetentionSection />
+              <DeviceNotesSection />
+            </div>
           ) : section === "Security" ? (
             <div className="text-[13.5px] text-[var(--color-ink-4)] leading-[1.6]">
               Notes are encrypted in transit and at rest — this is not end-to-end
