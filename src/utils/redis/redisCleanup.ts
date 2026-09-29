@@ -138,7 +138,7 @@ export async function cleanupOldNotes(options?: { dryRun?: boolean }): Promise<C
   }
 }
 
-async function scanAllKeys(pattern: string): Promise<string[]> {
+export async function scanAllKeys(pattern: string): Promise<string[]> {
   let cursor = 0;
   const allKeys: string[] = [];
 

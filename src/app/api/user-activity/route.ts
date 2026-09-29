@@ -17,8 +17,29 @@ const ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
  * preserves data, so accepting it unauthenticated is safe; we validate the id
  * shape to avoid key injection.
  */
+// Fixed-window rate limit: at most RL_MAX writes per RL_WINDOW seconds per IP.
+// The client only pings every ~5 minutes, so this is generous for real use while
+// capping abuse of the now-unauthenticated endpoint.
+const RL_WINDOW = 60;
+const RL_MAX = 30;
+
 export async function POST(request: Request) {
   try {
+    const ip =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      request.headers.get("x-real-ip")?.trim() ||
+      "unknown";
+    try {
+      const rlKey = `rl:activity:${ip}`;
+      const count = await redis.incr(rlKey);
+      if (count === 1) await redis.expire(rlKey, RL_WINDOW);
+      if (count > RL_MAX) {
+        return Response.json({ error: "Rate limited" }, { status: 429 });
+      }
+    } catch {
+      // If the rate-limit check itself fails, don't block the write.
+    }
+
     let userId: string | undefined;
     try {
       const body = await request.json();

@@ -13,15 +13,19 @@ export default function OfflineIndicator() {
   const [showBanner, setShowBanner] = useState(false);
   const [confirmedOffline, setConfirmedOffline] = useState(false);
 
-  // Edits are never discarded now; instead we warn (once, on the rising edge)
-  // that syncing is having trouble but the work is safe locally.
+  // Edits are never discarded now; instead we warn — at most ONCE per session —
+  // that syncing is having trouble but the work is safe locally. After that the
+  // persistent "Sync problem" status label carries the message.
   useEffect(() => {
     let first = true;
     return subscribeProblem((hasProblem) => {
       if (first) { first = false; return; } // ignore the initial state emit
-      if (hasProblem) {
-        showError("Sync problem — your changes are saved on this device and will sync when it clears.");
-      }
+      if (!hasProblem) return;
+      let toasted = false;
+      try { toasted = sessionStorage.getItem("jn_sync_problem_toasted") === "1"; } catch {}
+      if (toasted) return;
+      try { sessionStorage.setItem("jn_sync_problem_toasted", "1"); } catch {}
+      showError("Sync problem — your changes are saved on this device and will sync when it clears.");
     });
   }, [showError]);
 
