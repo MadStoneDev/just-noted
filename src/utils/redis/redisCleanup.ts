@@ -5,7 +5,7 @@ import {
   GUEST_NOTE_RETENTION_SECONDS,
   REDIS_CLEANUP_ENABLED,
 } from "@/constants/app";
-import type { RedisNote } from "@/types/combined-notes";
+import { readAllNotes, NOTES_BACKUP_PREFIX, NOTES_STAGING_PREFIX } from "@/utils/redis/note-store";
 
 export interface CleanupStats {
   totalKeys: number;
@@ -76,22 +76,27 @@ export async function cleanupOldNotes(options?: { dryRun?: boolean }): Promise<C
     const wouldDelete: string[] = [];
 
     for (const noteKey of noteKeys) {
+      // Never touch reversible backups or in-flight migration staging. (The
+      // `notes:*` glob doesn't match `notes_backup:*`/`notes_staging:*` — the
+      // ':' vs '_' differs — but guard explicitly so it can never regress.)
+      if (noteKey.startsWith(NOTES_BACKUP_PREFIX) || noteKey.startsWith(NOTES_STAGING_PREFIX)) {
+        continue;
+      }
       const id = noteKey.slice(NOTES_KEY_PREFIX.length);
 
       // Newest signal of life: activity timestamp OR newest note updatedAt.
+      // readAllNotes reads the per-note hash (and falls back to a legacy array).
       let lastSeen = lastActivity.get(id) ?? 0;
       try {
-        const notes = (await redis.get<RedisNote[]>(noteKey)) || [];
-        if (Array.isArray(notes)) {
-          for (const n of notes) {
-            const u =
-              typeof n?.updatedAt === "number"
-                ? n.updatedAt
-                : typeof n?.createdAt === "number"
-                  ? n.createdAt
-                  : 0;
-            if (u > lastSeen) lastSeen = u;
-          }
+        const notes = await readAllNotes(id);
+        for (const n of notes) {
+          const u =
+            typeof n?.updatedAt === "number"
+              ? n.updatedAt
+              : typeof n?.createdAt === "number"
+                ? n.createdAt
+                : 0;
+          if (u > lastSeen) lastSeen = u;
         }
       } catch {
         // Couldn't read the notes — never delete on uncertainty.

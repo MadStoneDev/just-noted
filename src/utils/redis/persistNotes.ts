@@ -1,6 +1,7 @@
 import redis from "@/utils/redis";
 import { NOTES_KEY_PREFIX } from "@/constants/app";
 import { scanAllKeys } from "@/utils/redis/redisCleanup";
+import { NOTES_BACKUP_PREFIX, NOTES_STAGING_PREFIX } from "@/utils/redis/note-store";
 
 export interface PersistStats {
   totalKeys: number;
@@ -33,6 +34,11 @@ export async function persistNoteKeys(options?: { dryRun?: boolean }): Promise<P
     const sample: string[] = [];
 
     for (const key of keys) {
+      // Never touch reversible backups or migration staging — those must keep
+      // their own 30-day TTL and are not user note keys.
+      if (key.startsWith(NOTES_BACKUP_PREFIX) || key.startsWith(NOTES_STAGING_PREFIX)) {
+        continue;
+      }
       let ttl: number;
       try {
         // TTL: -1 = no expiry, -2 = key gone, >=0 = seconds remaining.

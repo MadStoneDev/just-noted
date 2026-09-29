@@ -1,7 +1,14 @@
 ﻿"use server";
 
 import redis from "@/utils/redis";
-import { randomUUID } from "crypto";
+import {
+  readAllNotes,
+  putNote,
+  putNotes,
+  deleteNote as hdelNote,
+  casUpdateNote,
+  getNote,
+} from "@/utils/redis/note-store";
 import { headers } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 // Note: revalidatePath removed - client-side state is managed by Zustand
@@ -97,42 +104,10 @@ async function isBotRequest(action: string): Promise<boolean> {
   }
 }
 
-async function getNotesWithRetry(
-  userId: string,
-  retries = MAX_RETRIES,
-): Promise<RedisNote[]> {
-  try {
-    const notes = (await redis.get(`${NOTES_KEY_PREFIX}${userId}`)) as
-      | RedisNote[]
-      | null;
-    return notes || [];
-  } catch (error) {
-    if (retries > 0) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      return getNotesWithRetry(userId, retries - 1);
-    }
-    throw error;
-  }
-}
-
-async function setNotesWithRetry(
-  userId: string,
-  notes: RedisNote[],
-  retries = MAX_RETRIES,
-): Promise<void> {
-  try {
-    // No TTL: note keys must never auto-expire. Abandoned guest notes are
-    // reclaimed only by the (env-gated, activity-aware) cleanup job. Plain SET
-    // also clears any legacy TTL left on this key by the old setex path.
-    await redis.set(`${NOTES_KEY_PREFIX}${userId}`, notes);
-  } catch (error) {
-    if (retries > 0) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      return setNotesWithRetry(userId, notes, retries - 1);
-    }
-    throw error;
-  }
-}
+// The legacy whole-array read/write helpers are gone: notes now live in a
+// per-note hash (utils/redis/note-store). Crucially, nothing SETs a string over
+// the key any more — writes only HSET/HDEL fields — so a partial migration can
+// never be clobbered.
 
 function createNoteInputToRedisNote(
   input: CreateNoteInput,
@@ -168,33 +143,25 @@ async function updateRedisNoteField<K extends keyof RedisNote>(
   noteId: string,
   field: K,
   value: RedisNote[K],
-): Promise<{ success: boolean; notes?: RedisNote[]; error?: string }> {
+): Promise<{ success: boolean; error?: string }> {
   try {
     validateRedisUserId(userId);
 
-    const currentNotes = await getNotesWithRetry(userId);
-    const noteIndex = currentNotes.findIndex((note) => note.id === noteId);
+    // Per-note read-modify-write on a single hash field — no other note is
+    // touched, so metadata changes can't clobber a concurrent content save on a
+    // different note. Bump version so reconcile/realtime see the change.
+    const cur = await getNote(userId, noteId);
+    if (!cur) return { success: false, error: "Note not found" };
 
-    if (noteIndex === -1) {
-      return { success: false, error: "Note not found" };
-    }
-
-    const updatedNote = {
-      ...currentNotes[noteIndex],
+    const updated: RedisNote = {
+      ...cur,
       [field]: value,
       updatedAt: Date.now(),
+      version: (cur.version ?? 1) + 1,
     };
+    await putNote(userId, updated);
 
-    const updatedNotes = [
-      ...currentNotes.slice(0, noteIndex),
-      updatedNote,
-      ...currentNotes.slice(noteIndex + 1),
-    ];
-
-    await setNotesWithRetry(userId, updatedNotes);
-    // revalidatePath("/"); // Removed - causes unnecessary re-renders during editing
-
-    return { success: true, notes: updatedNotes };
+    return { success: true };
   } catch (error) {
     console.error(`Failed to update ${String(field)}:`, error);
     return {
@@ -237,13 +204,10 @@ async function handleRedisOperation(params: NoteOperationParams) {
         } else {
           newNote = createNoteInputToRedisNote(note as CreateNoteInput, userId);
         }
+        if (newNote.version == null) newNote.version = 1;
 
-        const currentNotes = await getNotesWithRetry(userId);
-        const updatedNotes = [newNote, ...currentNotes];
-        await setNotesWithRetry(userId, updatedNotes);
-        // revalidatePath("/"); // Removed - causes unnecessary re-renders during editing
-
-        return { success: true, notes: updatedNotes };
+        await putNote(userId, newNote);
+        return { success: true, notes: [newNote] };
       }
 
       case "update": {
@@ -266,59 +230,25 @@ async function handleRedisOperation(params: NoteOperationParams) {
           };
         }
 
-        const currentNotes = await getNotesWithRetry(userId);
-        const noteIndex = currentNotes.findIndex((note) => note.id === noteId);
-
-        if (noteIndex === -1) {
+        // Atomic per-note compare-and-set (Lua). Concurrent saves to different
+        // notes never collide; a stale write preserves the existing content as a
+        // conflicted-copy field in the same atomic step.
+        const res = await casUpdateNote(
+          userId,
+          noteId,
+          { content, goal: goal || 0, goalType: validateGoalType(goalType) },
+          baseVersion,
+        );
+        if (!res.success) {
+          const notFound = res.error === "not_found";
           return {
             success: false,
-            error: `Note ${noteId} not found. Please refresh and try again.`,
+            error: notFound
+              ? `Note ${noteId} not found. Please refresh and try again.`
+              : res.error || "Update failed",
           };
         }
-
-        const existing = currentNotes[noteIndex];
-        const existingVersion = existing.version ?? 1;
-
-        let notesToWrite: RedisNote[] = currentNotes.slice();
-
-        // Best-effort optimistic concurrency (the whole-array read-modify-write
-        // is only fully atomic once Phase 3 moves to per-note storage). If the
-        // stored version moved past the client's base, preserve the existing
-        // content as a "(conflicted copy)" note in the array so nothing is lost,
-        // then apply the incoming edit.
-        if (typeof baseVersion === "number" && existingVersion > baseVersion) {
-          const stamp = new Date().toLocaleString(undefined, {
-            day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
-          });
-          const copy: RedisNote = {
-            ...existing,
-            id: randomUUID(),
-            title: `${existing.title || "Untitled"} (conflicted copy — ${stamp})`,
-            version: 1,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-          };
-          notesToWrite = [copy, ...notesToWrite];
-        }
-
-        const targetIdx = notesToWrite.findIndex((n) => n.id === noteId);
-        const updatedNote: RedisNote = {
-          ...notesToWrite[targetIdx],
-          content,
-          goal: goal || 0,
-          goal_type: validateGoalType(goalType),
-          updatedAt: Date.now(),
-          version: existingVersion + 1,
-        };
-        notesToWrite = [
-          ...notesToWrite.slice(0, targetIdx),
-          updatedNote,
-          ...notesToWrite.slice(targetIdx + 1),
-        ];
-
-        await setNotesWithRetry(userId, notesToWrite);
-
-        return { success: true, notes: notesToWrite, version: existingVersion + 1 };
+        return { success: true, version: res.version };
       }
 
       case "updateTitle": {
@@ -367,28 +297,15 @@ async function handleRedisOperation(params: NoteOperationParams) {
         const { userId, noteId } = params;
         validateRedisUserId(userId);
 
-        const currentNotes = await getNotesWithRetry(userId);
-        const noteToDelete = currentNotes.find((note) => note.id === noteId);
-
-        if (!noteToDelete) {
-          return { success: false, error: "Note not found" };
-        }
-
-        const updatedNotes = currentNotes.filter((note) => note.id !== noteId);
-        await setNotesWithRetry(userId, updatedNotes);
-        // revalidatePath("/"); // Removed - causes unnecessary re-renders during editing
-
-        return {
-          success: true,
-          notes: updatedNotes,
-          deletedNote: noteToDelete,
-        };
+        const removed = await hdelNote(userId, noteId);
+        if (!removed) return { success: false, error: "Note not found" };
+        return { success: true };
       }
 
       case "getAll": {
         const { userId } = params;
         validateRedisUserId(userId);
-        const notes = await getNotesWithRetry(userId);
+        const notes = await readAllNotes(userId);
         return { success: true, notes };
       }
 
@@ -396,32 +313,20 @@ async function handleRedisOperation(params: NoteOperationParams) {
         const { userId, updates } = params;
         validateRedisUserId(userId);
 
-        // Validate all orders first
         const invalidOrder = updates.find(
           (u) => typeof u.order !== "number" || u.order < 0,
         );
-
         if (invalidOrder) {
-          return {
-            success: false,
-            error: "Invalid order value in batch update",
-          };
+          return { success: false, error: "Invalid order value in batch update" };
         }
 
-        const currentNotes = await getNotesWithRetry(userId);
+        const currentNotes = await readAllNotes(userId);
         const updateMap = new Map(updates.map((u) => [u.id, u.order]));
+        const changed = currentNotes
+          .filter((n) => updateMap.has(n.id))
+          .map((n) => ({ ...n, order: updateMap.get(n.id)!, updatedAt: Date.now() }));
 
-        const updatedNotes = currentNotes.map((note) => {
-          const newOrder = updateMap.get(note.id);
-          if (newOrder !== undefined) {
-            return { ...note, order: newOrder, updatedAt: Date.now() };
-          }
-          return note;
-        });
-
-        await setNotesWithRetry(userId, updatedNotes);
-        // revalidatePath("/"); // Removed - causes unnecessary re-renders during editing
-
+        await putNotes(userId, changed);
         return { success: true };
       }
 
@@ -704,10 +609,17 @@ async function handleSupabaseOperation(params: NoteOperationParams) {
 export async function noteOperation(
   storage: "redis" | "supabase",
   params: NoteOperationParams,
-) {
+): Promise<{
+  success: boolean;
+  notes?: RedisNote[];
+  note?: any;
+  version?: number;
+  deletedNote?: RedisNote;
+  error?: string;
+}> {
   if (storage === "redis") {
-    return handleRedisOperation(params);
+    return handleRedisOperation(params) as any;
   } else {
-    return handleSupabaseOperation(params);
+    return handleSupabaseOperation(params) as any;
   }
 }

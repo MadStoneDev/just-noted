@@ -23,6 +23,7 @@ import {
 import { getAllLocalNotes, saveAllNotesToLocal, clearLocalNotes } from "@/utils/notes-idb-cache";
 import { clearQueue, processQueue, enqueue } from "@/utils/offline-queue";
 import { reconcileNotes } from "@/utils/notes-merge";
+import { subscribeNoteUpdates } from "@/utils/cross-tab";
 import { stripHtmlToText } from "@/utils/html-utils";
 import {
   HAS_INITIALISED_KEY,
@@ -570,6 +571,27 @@ export function useNotesSync() {
 
     return () => clearInterval(interval);
   }, [refreshNotes]);
+
+  // Cross-tab: apply a save broadcast by another tab in this browser so it
+  // doesn't keep stale content and re-save it. Skip notes we're editing/saving.
+  useEffect(() => {
+    return subscribeNoteUpdates((msg) => {
+      const { notes, isEditing, isSaving, optimisticUpdateNote } = useNotesStore.getState();
+      if (isEditing.has(msg.noteId) || isSaving.has(msg.noteId)) return;
+      const existing = notes.find((n) => n.id === msg.noteId);
+      if (!existing) return;
+      const incomingV = msg.version ?? 0;
+      const existingV = existing.version ?? 1;
+      const contentChanged = typeof msg.content === "string" && msg.content !== existing.content;
+      if (incomingV > existingV || contentChanged) {
+        optimisticUpdateNote(msg.noteId, {
+          content: typeof msg.content === "string" ? msg.content : existing.content,
+          contentFormat: (msg.contentFormat as any) || existing.contentFormat,
+          ...(typeof msg.version === "number" ? { version: msg.version } : {}),
+        });
+      }
+    });
+  }, []);
 
   // Update last access on user activity (throttled to 5 minutes)
   useEffect(() => {

@@ -30,6 +30,7 @@ import {
   CombinedNote,
 } from "@/types/combined-notes";
 import { generateNoteId } from "@/utils/general/notes";
+import { withNoteLock, broadcastNoteUpdate } from "@/utils/cross-tab";
 import { saveNoteToLocal, saveAllNotesToLocal, deleteLocalNote } from "@/utils/notes-idb-cache";
 import { enqueue, dropQueuedOps } from "@/utils/offline-queue";
 
@@ -799,44 +800,60 @@ export function useNotesOperations(
       saveNoteToLocal({ ...targetNote, content, goal, goal_type: goalType, contentFormat: "markdown", updatedAt: Date.now() }).catch(() => {});
 
       try {
-        let handledConflict = false;
-        // Loop so a single conflict resolves + retries once; success/failure returns.
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
-          const baseVersion = useNotesStore.getState().notes.find((n) => n.id === noteId)?.version;
+        // Serialize same-note saves across this browser's tabs (belt-and-braces
+        // with the server-side atomic CAS), so two tabs don't both send a stale
+        // base and spawn a redundant conflicted copy.
+        const result = await withNoteLock(noteId, async () => {
+          let handledConflict = false;
+          // Loop so a single conflict resolves + retries once.
+          // eslint-disable-next-line no-constant-condition
+          while (true) {
+            const baseVersion = useNotesStore.getState().notes.find((n) => n.id === noteId)?.version;
 
-          let result: any;
-          if (targetNote.source === "redis") {
-            result = await noteOperation("redis", {
-              operation: "update", userId, noteId, content, goal, goalType, baseVersion,
-            } as any);
-          } else {
-            result = await updateSupabaseNote(noteId, content, goal, goalType, {
-              baseVersion,
-              projection: opts?.projection,
-            });
-          }
-
-          if (result?.conflict && result.current && !handledConflict) {
-            // Foreground conflict: keep local, snapshot server version as a copy,
-            // adopt server version, retry once so the user's text wins cleanly.
-            await createConflictedCopy(targetNote, result.current.title, result.current.content);
-            optimisticUpdateNote(noteId, { version: result.current.version });
-            handledConflict = true;
-            continue;
-          }
-
-          if (result?.success) {
-            setSaveError(noteId, false);
-            if (typeof result.version === "number") {
-              optimisticUpdateNote(noteId, { version: result.version });
+            let r: any;
+            if (targetNote.source === "redis") {
+              r = await noteOperation("redis", {
+                operation: "update", userId, noteId, content, goal, goalType, baseVersion,
+              } as any);
+            } else {
+              r = await updateSupabaseNote(noteId, content, goal, goalType, {
+                baseVersion,
+                projection: opts?.projection,
+              });
             }
-          } else {
-            setSaveError(noteId, true);
-            enqueue({ type: "update", noteId, source: targetNote.source, userId, content, goal, goalType });
+
+            if (r?.conflict && r.current && !handledConflict) {
+              // Foreground conflict: keep local, snapshot server version as a copy,
+              // adopt server version, retry once so the user's text wins cleanly.
+              await createConflictedCopy(targetNote, r.current.title, r.current.content);
+              optimisticUpdateNote(noteId, { version: r.current.version });
+              handledConflict = true;
+              continue;
+            }
+
+            if (r?.success) {
+              setSaveError(noteId, false);
+              if (typeof r.version === "number") {
+                optimisticUpdateNote(noteId, { version: r.version });
+              }
+            } else {
+              setSaveError(noteId, true);
+              enqueue({ type: "update", noteId, source: targetNote.source, userId, content, goal, goalType });
+            }
+            return r;
           }
-          return result;
+        });
+
+        // Tell other tabs so they refresh instead of re-saving stale content.
+        if (result?.success) {
+          broadcastNoteUpdate({
+            noteId,
+            version: typeof result.version === "number" ? result.version : undefined,
+            content,
+            contentFormat: "markdown",
+          });
         }
+        return result;
       } catch (error) {
         console.error("Failed to save note content, queuing for retry:", error);
         setSaveError(noteId, true);
