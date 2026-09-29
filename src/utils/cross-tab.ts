@@ -22,7 +22,8 @@ function getChannel(): BroadcastChannel | null {
 }
 
 export interface NoteUpdateMessage {
-  noteId: string;
+  kind?: "update" | "deleted" | "changed"; // default "update"
+  noteId?: string;
   version?: number;
   content?: string;
   contentFormat?: string;
@@ -37,10 +38,21 @@ export const TAB_ID =
 
 export function broadcastNoteUpdate(msg: Omit<NoteUpdateMessage, "origin">): void {
   try {
-    getChannel()?.postMessage({ ...msg, origin: TAB_ID });
+    getChannel()?.postMessage({ kind: "update", ...msg, origin: TAB_ID });
   } catch {
     /* channel closed / unsupported */
   }
+}
+
+/** A note was deleted here — other tabs should drop it from the list. */
+export function broadcastNoteDeleted(noteId: string): void {
+  broadcastNoteUpdate({ kind: "deleted", noteId });
+}
+
+/** The note list changed here in a way best handled by a lightweight refresh
+ *  (restore, empty-trash, move to Local/Cloud) — other tabs refresh their data. */
+export function broadcastNotesChanged(): void {
+  broadcastNoteUpdate({ kind: "changed" });
 }
 
 export function subscribeNoteUpdates(cb: (msg: NoteUpdateMessage) => void): () => void {

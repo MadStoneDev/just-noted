@@ -84,4 +84,15 @@ describe("casUpdateNote — atomic per-note CAS", () => {
     expect(r.success).toBe(false);
     expect(r.error).toBe("not_found");
   });
+
+  it("edit-after-delete: a note removed in another browser returns not_found (client salvages the text)", async () => {
+    seed("n1", { id: "n1", title: "A", content: "before", version: 2 });
+    // Another browser deleted it (HDEL'd the field) before this one caught up.
+    h.store.get(KEY)!.delete("n1");
+    const r = await casUpdateNote("u1", "n1", { content: "my unsent edit", goal: 0, goalType: "" }, 2);
+    expect(r.success).toBe(false);
+    expect(r.error).toBe("not_found");
+    // The caller (saveNoteContent) turns this into a new "(recovered)" note so
+    // the user's text is never lost.
+  });
 });

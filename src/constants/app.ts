@@ -1,6 +1,8 @@
 ﻿// Timing Constants
 export const DEBOUNCE_DELAY = 2000; // 2 seconds for auto-save
 export const REFRESH_INTERVAL = 30000; // 30 seconds for note refresh
+export const VISIBLE_REFRESH_INTERVAL = 12000; // faster poll while the tab is visible
+export const MIN_REFRESH_GAP = 5000; // don't refresh more than this often (focus+visibility can coincide)
 export const ACTIVITY_TIMEOUT = 30000; // 30 seconds before considering user inactive
 export const INIT_TIMEOUT = 10000; // 10 seconds for initialization timeout
 export const AUTH_TIMEOUT = 3000; // 3 seconds auth timeout

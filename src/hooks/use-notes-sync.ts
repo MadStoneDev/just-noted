@@ -27,8 +27,8 @@ import { subscribeNoteUpdates } from "@/utils/cross-tab";
 import { stripHtmlToText } from "@/utils/html-utils";
 import {
   HAS_INITIALISED_KEY,
-  ACTIVITY_TIMEOUT,
-  REFRESH_INTERVAL,
+  VISIBLE_REFRESH_INTERVAL,
+  MIN_REFRESH_GAP,
   AUTH_TIMEOUT,
   AUTH_MAX_RETRIES,
   INIT_RETRY_DELAYS,
@@ -549,49 +549,85 @@ export function useNotesSync() {
     };
   }, [supabase, isAuthenticated, userId]);
 
-  // Periodic refresh - only when user is not actively editing
+  // Cross-device freshness (local/Redis notes have no realtime channel): poll
+  // faster while the tab is VISIBLE, pause while hidden, and refresh immediately
+  // on focus / becoming visible so a delete or edit made in another browser
+  // shows up in seconds rather than after the slow background interval.
   useEffect(() => {
-    // The guard must be checked when the interval FIRES, not when the effect
-    // runs: refreshNotes is stable (singleton client), so this effect runs once
-    // on mount while hasInitialisedRef is still false. An early-return here would
-    // mean the interval is never created — leaving cross-device polling dead.
-    const interval = setInterval(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    const doRefresh = () => {
       if (!hasInitialisedRef.current) return;
-
-      const timeSinceLastUpdate = Date.now() - lastUpdateTimestamp.current;
       const { isEditing, isSaving } = useNotesStore.getState();
+      if (isEditing.size > 0 || isSaving.size > 0) return; // never clobber active edits
+      if (Date.now() - lastUpdateTimestamp.current < MIN_REFRESH_GAP) return; // de-dupe bursts
+      refreshNotes();
+    };
 
-      // Don't refresh if any note is being edited or saved
-      const isAnyNoteActive = isEditing.size > 0 || isSaving.size > 0;
+    const start = () => {
+      if (interval) return;
+      interval = setInterval(doRefresh, VISIBLE_REFRESH_INTERVAL);
+    };
+    const stop = () => {
+      if (interval) { clearInterval(interval); interval = null; }
+    };
 
-      if (timeSinceLastUpdate > ACTIVITY_TIMEOUT && !isAnyNoteActive) {
-        refreshNotes();
-      }
-    }, REFRESH_INTERVAL);
+    const onVisibility = () => {
+      if (typeof document === "undefined") return;
+      if (document.visibilityState === "visible") { doRefresh(); start(); }
+      else stop();
+    };
+    const onFocus = () => doRefresh();
 
-    return () => clearInterval(interval);
+    if (typeof document === "undefined" || document.visibilityState === "visible") start();
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [refreshNotes]);
 
-  // Cross-tab: apply a save broadcast by another tab in this browser so it
-  // doesn't keep stale content and re-save it. Skip notes we're editing/saving.
+  // Cross-tab: react to another tab's changes so this tab updates instantly
+  // (instead of waiting for the periodic refresh). Covers saves, deletes and
+  // list-level changes (restore / empty-trash / move to Local or Cloud).
   useEffect(() => {
     return subscribeNoteUpdates((msg) => {
-      const { notes, isEditing, isSaving, optimisticUpdateNote } = useNotesStore.getState();
-      if (isEditing.has(msg.noteId) || isSaving.has(msg.noteId)) return;
-      const existing = notes.find((n) => n.id === msg.noteId);
+      const store = useNotesStore.getState();
+
+      if (msg.kind === "changed") {
+        // Restore / empty-trash / transfer: refresh data only (no layout change).
+        if (!(store.isEditing.size > 0 || store.isSaving.size > 0)) refreshNotes();
+        return;
+      }
+
+      if (msg.kind === "deleted") {
+        if (!msg.noteId) return;
+        // Don't yank a note out from under active editing here.
+        if (store.isEditing.has(msg.noteId) || store.isSaving.has(msg.noteId)) return;
+        store.removeNote(msg.noteId);
+        return;
+      }
+
+      // Content update.
+      if (!msg.noteId) return;
+      if (store.isEditing.has(msg.noteId) || store.isSaving.has(msg.noteId)) return;
+      const existing = store.notes.find((n) => n.id === msg.noteId);
       if (!existing) return;
       const incomingV = msg.version ?? 0;
       const existingV = existing.version ?? 1;
       const contentChanged = typeof msg.content === "string" && msg.content !== existing.content;
       if (incomingV > existingV || contentChanged) {
-        optimisticUpdateNote(msg.noteId, {
+        store.optimisticUpdateNote(msg.noteId, {
           content: typeof msg.content === "string" ? msg.content : existing.content,
           contentFormat: (msg.contentFormat as any) || existing.contentFormat,
           ...(typeof msg.version === "number" ? { version: msg.version } : {}),
         });
       }
     });
-  }, []);
+  }, [refreshNotes]);
 
   // Update last access on user activity (throttled to 5 minutes)
   useEffect(() => {

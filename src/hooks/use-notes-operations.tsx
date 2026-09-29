@@ -30,7 +30,7 @@ import {
   CombinedNote,
 } from "@/types/combined-notes";
 import { generateNoteId } from "@/utils/general/notes";
-import { withNoteLock, broadcastNoteUpdate } from "@/utils/cross-tab";
+import { withNoteLock, broadcastNoteUpdate, broadcastNoteDeleted, broadcastNotesChanged } from "@/utils/cross-tab";
 import { saveNoteToLocal, saveAllNotesToLocal, deleteLocalNote } from "@/utils/notes-idb-cache";
 import { enqueue, dropQueuedOps } from "@/utils/offline-queue";
 
@@ -521,6 +521,9 @@ export function useNotesOperations(
 
         // Refresh to ensure consistency
         await refreshNotes();
+        // Other tabs: the note moved storage — refresh so it shows in its new
+        // location and not the old one.
+        broadcastNotesChanged();
       } catch (error) {
         console.error("Transfer failed:", error);
         setTransferError(true); // ADD THIS
@@ -653,6 +656,8 @@ export function useNotesOperations(
 
       // Optimistic soft-delete (sets deletedAt, filtered from view)
       optimisticDeleteNote(noteId);
+      // Tell this browser's other tabs immediately (no realtime for local notes).
+      broadcastNoteDeleted(noteId);
 
       // Select next note if the deleted one was active
       const { activeNoteId, setActiveNoteId, getFilteredNotes } = useNotesStore.getState();
@@ -716,6 +721,8 @@ export function useNotesOperations(
     const noteId = recentlyDeleted.note.id;
     const restoredNote = restoreFromStore();
     if (!restoredNote) return;
+    // Other tabs may have dropped it on the delete broadcast — have them refresh.
+    broadcastNotesChanged();
 
     // Common case: undo happened before the deferred backend delete fired, so
     // the note was never deleted server-side. restoreFromStore already cleared
@@ -775,6 +782,39 @@ export function useNotesOperations(
     [userId, optimisticAddNote],
   );
 
+  // The note being edited was deleted in another browser/tab. Never lose the
+  // user's text: save it as a new "(recovered)" note, drop the deleted original
+  // from view, and follow the active note across.
+  const salvageDeletedEdit = useCallback(
+    async (source: CombinedNote, content: string): Promise<string | null> => {
+      if (!userId) return null;
+      const copy = cloneNote(source);
+      copy.id = generateNoteId(useNotesStore.getState().notes.map((n) => n.id));
+      copy.title = `${source.title || "Untitled"} (recovered)`;
+      copy.content = content;
+      copy.version = 1;
+      copy.deletedAt = null;
+      copy.createdAt = Date.now();
+      copy.updatedAt = Date.now();
+      optimisticAddNote(copy);
+      useNotesStore.getState().removeNote(source.id);
+      if (useNotesStore.getState().activeNoteId === source.id) {
+        useNotesStore.getState().setActiveNoteId(copy.id);
+      }
+      try {
+        if (copy.source === "redis") {
+          await noteOperation("redis", { operation: "create", userId, note: combiToRedis(copy) });
+        } else {
+          await createSupabaseNote(copy);
+        }
+      } catch (e) {
+        console.error("Failed to salvage deleted edit:", e);
+      }
+      return copy.id;
+    },
+    [userId, optimisticAddNote],
+  );
+
   // Save Note Content — versioned (Phase 2). Sends the base version and, on a
   // conflict, keeps the user's local text, saves the server version as a
   // "(conflicted copy)", adopts the server version, and re-saves once.
@@ -824,6 +864,19 @@ export function useNotesOperations(
               });
             }
 
+            // The note was deleted elsewhere before this edit caught up. Never
+            // lose the text: save it as a new "(recovered)" note. Two shapes:
+            // Supabase returns a conflict whose current row is soft-deleted;
+            // Redis returns not_found because the field is gone.
+            const deletedOnServer =
+              (r?.conflict && r.current && r.current.deletedAt) ||
+              (targetNote.source === "redis" && r?.error === "not_found");
+            if (deletedOnServer) {
+              await salvageDeletedEdit(targetNote, content);
+              setSaveError(noteId, false);
+              return { success: true };
+            }
+
             if (r?.conflict && r.current && !handledConflict) {
               // Foreground conflict: keep local, snapshot server version as a copy,
               // adopt server version, retry once so the user's text wins cleanly.
@@ -865,7 +918,7 @@ export function useNotesOperations(
         setSaving(noteId, false);
       }
     },
-    [userId, optimisticUpdateNote, createConflictedCopy],
+    [userId, optimisticUpdateNote, createConflictedCopy, salvageDeletedEdit],
   );
 
   // Save Note Title
