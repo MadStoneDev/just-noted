@@ -5,6 +5,7 @@ import { useCallback, useRef, useEffect, useMemo } from "react";
 import { useNotesStore } from "@/stores/notes-store";
 import { sortNotes, normaliseOrdering } from "@/utils/notes-utils";
 import { noteOperation } from "@/app/actions/notes";
+import { saveVersion } from "@/app/actions/versionActions";
 import {
   updateNotePinStatus as updateSupabaseNotePinStatus,
   updateNotePrivacyStatus as updateSupabaseNotePrivacyStatus,
@@ -43,6 +44,7 @@ export interface NotesOperations {
     content: string,
     goal: number,
     goalType: "" | "words" | "characters",
+    opts?: { projection?: boolean },
   ) => Promise<{ success: boolean }>;
   saveNoteTitle: (noteId: string, title: string) => Promise<{ success: boolean }>;
   refreshSingleNote: (noteId: string) => Promise<CombinedNote | null>;
@@ -452,6 +454,7 @@ export function useNotesOperations(
         const noteToTransfer = cloneNote(localNote);
         noteToTransfer.id = generateNoteId(notes.map((n) => n.id));
         noteToTransfer.source = targetSource;
+        noteToTransfer.version = 1; // fresh record in the target store
 
         if (!validateContentPreservation(localNote, noteToTransfer)) {
           console.error("Content lost during cloning, attempting recovery");
@@ -478,6 +481,19 @@ export function useNotesOperations(
           });
         } else {
           createResult = await createSupabaseNote(noteToTransfer);
+        }
+
+        // A cloud note gets a baseline history entry on transfer so it has a
+        // recoverable snapshot from the moment it landed in the account.
+        if (targetSource === "supabase" && createResult?.success) {
+          saveVersion(
+            noteToTransfer.id,
+            noteToTransfer.title,
+            noteToTransfer.content,
+            noteToTransfer.contentFormat || "markdown",
+            "transfer",
+            1,
+          ).catch(() => {});
         }
 
         if (!createResult?.success) {
@@ -725,90 +741,112 @@ export function useNotesOperations(
     }
   }, [userId, refreshNotes]);
 
-  // Save Note Content
+  // Create a "(conflicted copy)" note (same storage) holding `copyContent`, so a
+  // conflict never discards either side. Returns the new note id.
+  const createConflictedCopy = useCallback(
+    async (source: CombinedNote, baseTitle: string, copyContent: string): Promise<string | null> => {
+      if (!userId) return null;
+      const stamp = new Date().toLocaleString(undefined, {
+        day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
+      });
+      const copy = cloneNote(source);
+      copy.id = generateNoteId(useNotesStore.getState().notes.map((n) => n.id));
+      copy.title = `${baseTitle || "Untitled"} (conflicted copy — ${stamp})`;
+      copy.content = copyContent;
+      copy.version = 1;
+      copy.createdAt = Date.now();
+      copy.updatedAt = Date.now();
+      copy.deletedAt = null;
+      optimisticAddNote(copy);
+      try {
+        if (copy.source === "redis") {
+          await noteOperation("redis", { operation: "create", userId, note: combiToRedis(copy) });
+        } else {
+          await createSupabaseNote(copy);
+        }
+      } catch (e) {
+        console.error("Failed to create conflicted copy:", e);
+      }
+      return copy.id;
+    },
+    [userId, optimisticAddNote],
+  );
+
+  // Save Note Content — versioned (Phase 2). Sends the base version and, on a
+  // conflict, keeps the user's local text, saves the server version as a
+  // "(conflicted copy)", adopts the server version, and re-saves once.
   const saveNoteContent = useCallback(
     async (
       noteId: string,
       content: string,
       goal: number,
       goalType: "" | "words" | "characters",
+      opts?: { projection?: boolean },
     ) => {
       if (!userId) return { success: false };
 
-      // Read notes from store directly to avoid stale closure
-      const currentNotes = useNotesStore.getState().notes;
-      const targetNote = currentNotes.find((note) => note.id === noteId);
+      const targetNote = useNotesStore.getState().notes.find((note) => note.id === noteId);
       if (!targetNote) {
         console.error("❌ Note not found for saving:", noteId);
         return { success: false };
       }
 
-      // Get store methods
       const { setSaving, setEditing, setSaveError } = useNotesStore.getState();
-
-      // Mark as saving (and stop editing since we're saving now)
       setSaving(noteId, true);
       setEditing(noteId, false);
 
-      // Optimistic update — mark as markdown since the editor always emits markdown
       optimisticUpdateNote(noteId, { content, goal, goal_type: goalType, contentFormat: "markdown" });
-
-      // Persist to IDB cache immediately
       saveNoteToLocal({ ...targetNote, content, goal, goal_type: goalType, contentFormat: "markdown", updatedAt: Date.now() }).catch(() => {});
 
-      // Background save
       try {
-        let result;
-        if (targetNote.source === "redis") {
-          result = await noteOperation("redis", {
-            operation: "update",
-            userId,
-            noteId,
-            content,
-            goal,
-            goalType,
-          });
-        } else {
-          result = await updateSupabaseNote(noteId, content, goal, goalType);
-        }
+        let handledConflict = false;
+        // Loop so a single conflict resolves + retries once; success/failure returns.
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const baseVersion = useNotesStore.getState().notes.find((n) => n.id === noteId)?.version;
 
-        // Clear error on success; on a non-throwing failure, flag it AND
-        // queue for retry so the edit isn't lost to a later refresh.
-        if (result.success) {
-          setSaveError(noteId, false);
-        } else {
-          setSaveError(noteId, true);
-          enqueue({
-            type: "update",
-            noteId,
-            source: targetNote.source,
-            userId,
-            content,
-            goal,
-            goalType,
-          });
-        }
+          let result: any;
+          if (targetNote.source === "redis") {
+            result = await noteOperation("redis", {
+              operation: "update", userId, noteId, content, goal, goalType, baseVersion,
+            } as any);
+          } else {
+            result = await updateSupabaseNote(noteId, content, goal, goalType, {
+              baseVersion,
+              projection: opts?.projection,
+            });
+          }
 
-        return result;
+          if (result?.conflict && result.current && !handledConflict) {
+            // Foreground conflict: keep local, snapshot server version as a copy,
+            // adopt server version, retry once so the user's text wins cleanly.
+            await createConflictedCopy(targetNote, result.current.title, result.current.content);
+            optimisticUpdateNote(noteId, { version: result.current.version });
+            handledConflict = true;
+            continue;
+          }
+
+          if (result?.success) {
+            setSaveError(noteId, false);
+            if (typeof result.version === "number") {
+              optimisticUpdateNote(noteId, { version: result.version });
+            }
+          } else {
+            setSaveError(noteId, true);
+            enqueue({ type: "update", noteId, source: targetNote.source, userId, content, goal, goalType });
+          }
+          return result;
+        }
       } catch (error) {
         console.error("Failed to save note content, queuing for retry:", error);
         setSaveError(noteId, true);
-        enqueue({
-          type: "update",
-          noteId,
-          source: targetNote.source,
-          userId,
-          content,
-          goal,
-          goalType,
-        });
+        enqueue({ type: "update", noteId, source: targetNote.source, userId, content, goal, goalType });
         return { success: false };
       } finally {
-        // Mark as done saving
         setSaving(noteId, false);
       }
     },
-    [userId, optimisticUpdateNote],
+    [userId, optimisticUpdateNote, createConflictedCopy],
   );
 
   // Save Note Title

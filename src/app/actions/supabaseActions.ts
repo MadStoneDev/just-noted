@@ -13,6 +13,7 @@ import {
   isScribeRetentionDays,
   resolveRetentionDays,
 } from "@/lib/retention";
+import { LEGACY_VERSIONLESS_WRITES } from "@/constants/app";
 
 // ===========================
 // AUTHENTICATION HELPER
@@ -68,43 +69,154 @@ export const createNote = async (newNote: Partial<CombinedNote>) => {
   }
 };
 
+// ─── Phase 2: optimistic-concurrency helpers (non-exported; allowed in a
+// "use server" file — only EXPORTS must be async functions) ────────────────
+
+type UpdateNoteResult = {
+  success: boolean;
+  version?: number;
+  conflict?: boolean;
+  current?: CombinedNote | null;
+  error?: string;
+};
+
+// Snapshot the current server content to history BEFORE we overwrite it, so a
+// legacy/version-less write never silently discards prior content. reason is
+// preserved so the 50-entry prune only ever evicts routine autosaves.
+async function snapshotCurrentContent(
+  supabase: any,
+  noteId: string,
+  reason: "legacy" | "delete" | "conflict",
+) {
+  try {
+    const { data: cur } = await supabase
+      .from("notes")
+      .select("author, title, content, content_format, version")
+      .eq("id", noteId)
+      .maybeSingle();
+    if (!cur) return;
+    await supabase.from("note_versions").insert({
+      note_id: noteId,
+      author: cur.author,
+      title: cur.title ?? "",
+      content: cur.content ?? "",
+      content_format: cur.content_format || "markdown",
+      reason,
+      note_version: cur.version ?? null,
+    });
+  } catch {
+    /* history is best-effort; never block the write on it */
+  }
+}
+
+// Read the current version, then apply `fields` + version+1 conditional on that
+// version (atomic per row), retrying if another writer raced. For writes that
+// must always land (projection, legacy, delete/restore) rather than reject.
+async function applyWithVersionBump(
+  supabase: any,
+  noteId: string,
+  userId: string,
+  fields: Record<string, unknown>,
+): Promise<{ success: boolean; version?: number; error?: string }> {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const { data: cur, error: readErr } = await supabase
+      .from("notes")
+      .select("version")
+      .eq("id", noteId)
+      .eq("author", userId)
+      .maybeSingle();
+    if (readErr) return { success: false, error: String(readErr.message || readErr) };
+    if (!cur) return { success: false, error: "not_found" };
+    const base = (cur as any).version ?? 1;
+    const { data, error } = await supabase
+      .from("notes")
+      .update({ ...fields, version: base + 1, updated_at: new Date().toISOString() })
+      .eq("id", noteId)
+      .eq("author", userId)
+      .eq("version", base)
+      .select("version")
+      .maybeSingle();
+    if (error) return { success: false, error: String(error.message || error) };
+    if (data) return { success: true, version: (data as any).version };
+    // raced — re-read and retry
+  }
+  return { success: false, error: "retry_exhausted" };
+}
+
+// A projection write may skip CAS only when the note genuinely has a Yjs doc.
+async function noteHasYdoc(supabase: any, noteId: string): Promise<boolean> {
+  try {
+    const { data } = await supabase
+      .from("note_ydoc")
+      .select("note_id")
+      .eq("note_id", noteId)
+      .maybeSingle();
+    return !!data;
+  } catch {
+    return false;
+  }
+}
+
 export const updateNote = async (
   noteId: string,
   content: string,
   wordCountGoal: number = 0,
   wordCountGoalType: string = "",
-) => {
+  opts?: { baseVersion?: number; projection?: boolean; allowLegacy?: boolean },
+): Promise<UpdateNoteResult> => {
   try {
     const { supabase, userId } = await getAuthenticatedUser();
 
-    const { error } = await supabase
-      .from("notes")
-      .update({
-        content,
-        // The editor always emits Markdown, so stamp the format on every save.
-        // Legacy notes were created as "html"; without this the flag goes stale
-        // and shared views render raw Markdown as HTML (wall of text).
-        content_format: "markdown",
-        goal: wordCountGoal || 0,
-        goal_type: validateGoalType(wordCountGoalType),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", noteId)
-      .eq("author", userId);
+    const fields = {
+      content,
+      // The editor always emits Markdown; stamp it so legacy "html" flags don't
+      // go stale and render Markdown as raw text in shared views.
+      content_format: "markdown",
+      goal: wordCountGoal || 0,
+      goal_type: validateGoalType(wordCountGoalType),
+    };
 
-    if (error) {
-      console.error("Supabase update error:", error);
-      throw error;
+    // Projection (Yjs-merged content) — bypass CAS ONLY when the note actually
+    // has a collab doc. A client flag alone must never bypass conflict
+    // protection on a private note (server-verified per audit condition #1).
+    if (opts?.projection && (await noteHasYdoc(supabase, noteId))) {
+      return await applyWithVersionBump(supabase, noteId, userId, fields);
     }
 
-    return { success: true };
+    // CAS: the client sent the base version it edited from.
+    if (typeof opts?.baseVersion === "number") {
+      const base = opts.baseVersion;
+      const { data, error } = await supabase
+        .from("notes")
+        .update({ ...fields, version: base + 1, updated_at: new Date().toISOString() })
+        .eq("id", noteId)
+        .eq("author", userId)
+        .eq("version", base)
+        .select("version")
+        .maybeSingle();
+      if (error) throw error;
+      if (data) return { success: true, version: (data as any).version };
+      // Stale — hand back the current server note so the client resolves it.
+      const { data: cur } = await supabase
+        .from("notes")
+        .select("*")
+        .eq("id", noteId)
+        .eq("author", userId)
+        .maybeSingle();
+      return { success: false, conflict: true, current: cur ? supabaseToCombi(cur as any) : null };
+    }
+
+    // Version-less write: an old client, or a pre-upgrade offline-queue op.
+    if (LEGACY_VERSIONLESS_WRITES || opts?.allowLegacy) {
+      console.warn(`[versionless-write] note=${noteId}`); // counted via logs
+      await snapshotCurrentContent(supabase, noteId, "legacy");
+      return await applyWithVersionBump(supabase, noteId, userId, fields);
+    }
+
+    return { success: false, error: "version_required" };
   } catch (error) {
     console.error("Failed to update note:", error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return {
-      success: false,
-      error: `Failed to update note: ${errorMessage}`,
-    };
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 };
 
@@ -319,38 +431,25 @@ export const updateSupabaseNoteOrder = async (
 export const deleteNote = async (noteId: string) => {
   try {
     const { supabase, userId } = await getAuthenticatedUser();
-
-    // Soft delete — set deleted_at instead of removing
-    const { error } = await supabase
-      .from("notes")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", noteId)
-      .eq("author", userId);
-
-    if (error) throw error;
-
+    // Soft delete — set deleted_at, and bump the version so the change follows
+    // the same optimistic-concurrency rules (content stays in the row + history).
+    const res = await applyWithVersionBump(supabase, noteId, userId, {
+      deleted_at: new Date().toISOString(),
+    });
+    if (!res.success) return { success: false, error: res.error };
     return { success: true };
   } catch (error) {
     console.error("Failed to delete note:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    return {
-      success: false,
-      error: `Failed to delete note: ${errorMessage}`,
-    };
+    return { success: false, error: `Failed to delete note: ${errorMessage}` };
   }
 };
 
 export const restoreNote = async (noteId: string) => {
   try {
     const { supabase, userId } = await getAuthenticatedUser();
-
-    const { error } = await supabase
-      .from("notes")
-      .update({ deleted_at: null })
-      .eq("id", noteId)
-      .eq("author", userId);
-
-    if (error) throw error;
+    const res = await applyWithVersionBump(supabase, noteId, userId, { deleted_at: null });
+    if (!res.success) return { success: false, error: res.error };
     return { success: true };
   } catch (error) {
     console.error("Failed to restore note:", error);

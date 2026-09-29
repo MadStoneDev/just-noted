@@ -10,6 +10,7 @@ import { noteOperation } from "@/app/actions/notes";
 import {
   getNotesByUserId as getSupabaseNotesByUserId,
   updateNote as updateSupabaseNote,
+  createNote as createSupabaseNote,
 } from "@/app/actions/supabaseActions";
 import {
   CombinedNote,
@@ -17,6 +18,7 @@ import {
   SupabaseNote,
   redisToCombi,
   supabaseToCombi,
+  combiToRedis,
 } from "@/types/combined-notes";
 import { getAllLocalNotes, saveAllNotesToLocal, clearLocalNotes } from "@/utils/notes-idb-cache";
 import { clearQueue, processQueue, enqueue } from "@/utils/offline-queue";
@@ -51,6 +53,21 @@ function isEmptyDefaultNote(note: CombinedNote): boolean {
  * Local-only notes older than 24h are dropped (assumed deleted on server).
  * Returns the merged note list and queues server pushes for local-winning notes.
  */
+function conflictCopyOf(note: CombinedNote): CombinedNote {
+  const stamp = new Date().toLocaleString(undefined, {
+    day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
+  });
+  return {
+    ...note,
+    id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${note.id}-copy-${Date.now()}`,
+    title: `${note.title || "Untitled"} (conflicted copy — ${stamp})`,
+    version: 1,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    deletedAt: null,
+  };
+}
+
 function mergeLocalWithServer(
   serverNotes: CombinedNote[],
   localNotes: CombinedNote[],
@@ -59,18 +76,26 @@ function mergeLocalWithServer(
 ): CombinedNote[] {
   // The decision logic is pure and unit-tested in utils/notes-merge; here we
   // just carry out the side effects it prescribes.
-  const { merged, toPush, toDelete } = reconcileNotes(serverNotes, localNotes);
+  const { merged, toPush, toDelete, toConflictCopy } = reconcileNotes(serverNotes, localNotes);
   for (const note of toPush) {
     pushNoteToServer(note, userId, isAuthenticated).catch(() => {});
   }
   for (const note of toDelete) {
     enqueue({ type: "delete", noteId: note.id, source: note.source, userId }).catch(() => {});
   }
+  // Background conflicts (load/reconcile): we took the server copy; preserve the
+  // local text as a "(conflicted copy)" note so nothing is lost.
+  for (const local of toConflictCopy) {
+    const copy = conflictCopyOf(local);
+    merged.push(copy);
+    createNoteOnServer(copy, userId, isAuthenticated).catch(() => {});
+  }
   return merged;
 }
 
 /**
- * Push a local-winning note to the server.
+ * Push a local-winning note to the server. Uses the legacy (always-land +
+ * history snapshot) path so an offline-ahead note is never rejected as stale.
  */
 async function pushNoteToServer(
   note: CombinedNote,
@@ -88,10 +113,26 @@ async function pushNoteToServer(
         goalType: note.goal_type,
       });
     } else if (isAuthenticated) {
-      await updateSupabaseNote(note.id, note.content, note.goal ?? 0, note.goal_type ?? "");
+      await updateSupabaseNote(note.id, note.content, note.goal ?? 0, note.goal_type ?? "", { allowLegacy: true });
     }
   } catch (error) {
     console.error("Failed to push local note to server:", error);
+  }
+}
+
+async function createNoteOnServer(
+  note: CombinedNote,
+  userId: string,
+  isAuthenticated: boolean,
+): Promise<void> {
+  try {
+    if (note.source === "redis") {
+      await noteOperation("redis", { operation: "create", userId, note: combiToRedis(note) });
+    } else if (isAuthenticated) {
+      await createSupabaseNote(note);
+    }
+  } catch (error) {
+    console.error("Failed to create conflicted-copy note:", error);
   }
 }
 
@@ -464,8 +505,10 @@ export function useNotesSync() {
             const existing = notes.find((n) => n.id === updated.id);
             if (!existing) return;
 
-            // Only apply if the server version is newer
-            if (combiNote.updatedAt > existing.updatedAt) {
+            // Apply only when the server VERSION is ahead of ours (not by
+            // timestamp — a wrong clock must not flip this). We already skip
+            // notes we're actively editing/saving above.
+            if ((combiNote.version ?? 1) > (existing.version ?? 1)) {
               optimisticUpdateNote(updated.id, combiNote);
             }
           } else if (payload.eventType === "INSERT") {

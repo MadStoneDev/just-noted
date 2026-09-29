@@ -1,6 +1,7 @@
 ﻿"use server";
 
 import redis from "@/utils/redis";
+import { randomUUID } from "crypto";
 import { headers } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 // Note: revalidatePath removed - client-side state is managed by Zustand
@@ -38,6 +39,7 @@ type NoteOperationParams =
       content: string;
       goal?: number;
       goalType?: string;
+      baseVersion?: number; // Phase 2: best-effort optimistic concurrency
     }
   | { operation: "updateTitle"; userId: string; noteId: string; title: string }
   | {
@@ -245,7 +247,7 @@ async function handleRedisOperation(params: NoteOperationParams) {
       }
 
       case "update": {
-        const { userId, noteId, content, goal = 0, goalType = "" } = params;
+        const { userId, noteId, content, goal = 0, goalType = "", baseVersion } = params;
         validateRedisUserId(userId);
 
         if (!validateNoteContent(content)) {
@@ -274,24 +276,49 @@ async function handleRedisOperation(params: NoteOperationParams) {
           };
         }
 
-        const updatedNote = {
-          ...currentNotes[noteIndex],
+        const existing = currentNotes[noteIndex];
+        const existingVersion = existing.version ?? 1;
+
+        let notesToWrite: RedisNote[] = currentNotes.slice();
+
+        // Best-effort optimistic concurrency (the whole-array read-modify-write
+        // is only fully atomic once Phase 3 moves to per-note storage). If the
+        // stored version moved past the client's base, preserve the existing
+        // content as a "(conflicted copy)" note in the array so nothing is lost,
+        // then apply the incoming edit.
+        if (typeof baseVersion === "number" && existingVersion > baseVersion) {
+          const stamp = new Date().toLocaleString(undefined, {
+            day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
+          });
+          const copy: RedisNote = {
+            ...existing,
+            id: randomUUID(),
+            title: `${existing.title || "Untitled"} (conflicted copy — ${stamp})`,
+            version: 1,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          };
+          notesToWrite = [copy, ...notesToWrite];
+        }
+
+        const targetIdx = notesToWrite.findIndex((n) => n.id === noteId);
+        const updatedNote: RedisNote = {
+          ...notesToWrite[targetIdx],
           content,
           goal: goal || 0,
           goal_type: validateGoalType(goalType),
           updatedAt: Date.now(),
+          version: existingVersion + 1,
         };
-
-        const updatedNotes = [
-          ...currentNotes.slice(0, noteIndex),
+        notesToWrite = [
+          ...notesToWrite.slice(0, targetIdx),
           updatedNote,
-          ...currentNotes.slice(noteIndex + 1),
+          ...notesToWrite.slice(targetIdx + 1),
         ];
 
-        await setNotesWithRetry(userId, updatedNotes);
-        // revalidatePath("/"); // Removed - causes unnecessary re-renders during editing
+        await setNotesWithRetry(userId, notesToWrite);
 
-        return { success: true, notes: updatedNotes };
+        return { success: true, notes: notesToWrite, version: existingVersion + 1 };
       }
 
       case "updateTitle": {

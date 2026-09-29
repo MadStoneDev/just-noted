@@ -146,6 +146,8 @@ export type Database = {
           content: string | null
           content_format: string | null
           created_at: string
+          reason: string
+          note_version: number | null
         }
         Insert: {
           id?: string
@@ -155,6 +157,8 @@ export type Database = {
           content?: string | null
           content_format?: string | null
           created_at?: string
+          reason?: string
+          note_version?: number | null
         }
         Update: {
           id?: string
@@ -164,6 +168,8 @@ export type Database = {
           content?: string | null
           content_format?: string | null
           created_at?: string
+          reason?: string
+          note_version?: number | null
         }
         Relationships: []
       }
@@ -264,6 +270,7 @@ export type Database = {
           created_at: string
           updated_at: string | null
           deleted_at: string | null
+          version: number
         }
         Insert: {
           id?: string
@@ -282,6 +289,7 @@ export type Database = {
           created_at?: string
           updated_at?: string | null
           deleted_at?: string | null
+          version?: number
         }
         Update: {
           id?: string
@@ -300,6 +308,7 @@ export type Database = {
           created_at?: string
           updated_at?: string | null
           deleted_at?: string | null
+          version?: number
         }
         Relationships: [
           {

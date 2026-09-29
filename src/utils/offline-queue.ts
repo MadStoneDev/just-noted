@@ -400,7 +400,10 @@ async function executeOp(payload: QueuedOperationPayload): Promise<void> {
       if (source === "redis") {
         throwIfFailed(await noteOperation("redis", { operation: "update", userId, noteId, content, goal, goalType }), "Update failed");
       } else {
-        throwIfFailed(await updateSupabaseNote(noteId, content, goal, goalType), "Update failed");
+        // Replayed queued edits use the legacy (always-land + history snapshot)
+        // path so an offline edit is never rejected as "stale" with no UI to
+        // resolve it; the prior server content is preserved in history.
+        throwIfFailed(await updateSupabaseNote(noteId, content, goal, goalType, { allowLegacy: true }), "Update failed");
       }
       break;
     }

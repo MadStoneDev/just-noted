@@ -21,6 +21,10 @@ export interface CombinedNote {
   notebookId?: string | null;
   contentFormat: ContentFormat;
   deletedAt?: number | null;
+  // Server-authoritative optimistic-concurrency version. The client stores the
+  // last version it saw and sends it as the base on each save; the server does a
+  // compare-and-set and increments. Defaults to 1 for new/legacy records.
+  version?: number;
 }
 
 // Redis note format (matches your current Redis structure)
@@ -38,6 +42,7 @@ export interface RedisNote {
   goal?: number;
   goal_type?: "words" | "characters" | "";
   contentFormat?: ContentFormat;
+  version?: number;
 }
 
 // Supabase note type (from your database)
@@ -86,6 +91,7 @@ export function redisToCombi(note: RedisNote): CombinedNote {
     goal_type: goalType,
     source: "redis",
     contentFormat: note.contentFormat || "html",
+    version: note.version ?? 1,
   };
 }
 
@@ -105,6 +111,7 @@ export function combiToRedis(note: CombinedNote): RedisNote {
     goal: note.goal,
     goal_type: note.goal_type,
     contentFormat: note.contentFormat,
+    version: note.version ?? 1,
   };
 }
 
@@ -139,6 +146,7 @@ export function supabaseToCombi(note: SupabaseNote): CombinedNote {
     notebookId: note.notebook_id ?? null,
     contentFormat: (note.content_format as ContentFormat) || "html",
     deletedAt: note.deleted_at ? new Date(note.deleted_at).getTime() : null,
+    version: (note as any).version ?? 1,
   };
 }
 
@@ -159,6 +167,7 @@ export function combiToSupabase(note: CombinedNote): Partial<SupabaseNote> {
     updated_at: new Date(note.updatedAt).toISOString(),
     notebook_id: note.notebookId,
     content_format: note.contentFormat,
+    version: note.version ?? 1,
   } as Partial<SupabaseNote>;
 }
 
@@ -183,6 +192,7 @@ export function createNote(
     goal_type: input.goal_type || "",
     source,
     contentFormat: input.contentFormat || "markdown",
+    version: 1,
   };
 }
 

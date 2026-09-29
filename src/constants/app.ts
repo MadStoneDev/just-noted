@@ -24,6 +24,14 @@ export const GUEST_NOTE_RETENTION_SECONDS = GUEST_NOTE_RETENTION_DAYS * 24 * 60 
 // Master kill-switch for the Redis cleanup job. Default OFF: cleanup never
 // deletes unless REDIS_CLEANUP_ENABLED === "true" in the environment.
 export const REDIS_CLEANUP_ENABLED = process.env.REDIS_CLEANUP_ENABLED === "true";
+
+// Phase 2 optimistic concurrency. During rollout, saves from old clients arrive
+// without a base version. When ON (default), the server accepts these
+// "version-less" writes but snapshots the prior server content to history first,
+// so nothing is silently overwritten. Flip to "false" once legacy writes stay at
+// zero. NOTE: offline-queue replay always forces the legacy path regardless of
+// this flag (those ops predate versioning), so no queued edit is ever rejected.
+export const LEGACY_VERSIONLESS_WRITES = process.env.LEGACY_VERSIONLESS_WRITES !== "false";
 export const GLOBAL_NOTE_COUNTER_KEY = "global:note:counter";
 export const USER_NOTE_COUNT_KEY = "justNoted_user_note_count";
 

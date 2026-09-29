@@ -781,28 +781,46 @@ export async function sharingOperation(params: SharingOperationParams) {
           return { success: false, error: "This shared link has expired" };
         }
 
+        // A collaborator's save is a projection of the shared Yjs doc (the CRDT
+        // has already merged everyone's edits), so we bump the version rather
+        // than CAS — the same content arriving from several participants must
+        // not spawn conflicted copies. Only authenticated collaborators reach
+        // this path (anonymous editing is rejected above), so there is no guest
+        // write to guard against here.
+        const noteId = (shareData as any).note_id as string;
+        const { data: curRow } = await svc
+          .from("notes")
+          .select("version")
+          .eq("id", noteId)
+          .maybeSingle();
+        const nextVersion = (((curRow as any)?.version as number) ?? 1) + 1;
+
         const { error: updateErr } = await svc
           .from("notes")
           .update({
             title: title ?? "",
             content: content ?? "",
             content_format: contentFormat || "markdown",
+            version: nextVersion,
             updated_at: new Date().toISOString(),
           } as any)
-          .eq("id", (shareData as any).note_id);
+          .eq("id", noteId);
 
         if (updateErr) {
           return { success: false, error: "Couldn't save your changes" };
         }
 
-        // Best-effort attribution: record a version for the owner's history.
+        // Best-effort attribution snapshot for the owner's history (routine
+        // autosave category, so it's capped like other autosaves).
         try {
           await svc.from("note_versions").insert({
-            note_id: (shareData as any).note_id,
+            note_id: noteId,
             author: authenticatedUserId,
             title: title ?? "",
             content: content ?? "",
             content_format: contentFormat || "markdown",
+            reason: "autosave",
+            note_version: nextVersion,
           } as any);
         } catch {}
 

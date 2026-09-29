@@ -543,6 +543,10 @@ function NoteEditor({
             newContent,
             goalTarget,
             goalType,
+            // When this note is on the Yjs CRDT, the content write is a merged
+            // projection — the server skips CAS (verified against note_ydoc), so
+            // collaborative edits don't spawn spurious conflicted copies.
+            { projection: !!collabConfig },
           );
           // A non-throwing failure (server rejected / queued offline) must
           // propagate so useAutoSave keeps the content dirty and retries.
