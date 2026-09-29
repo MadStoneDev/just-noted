@@ -11,9 +11,19 @@ export const HAS_INITIALISED_KEY = "justNoted_has_initialised"; //
 
 // Redis Constants
 export const MAX_RETRIES = 3;
-export const TWO_MONTHS_IN_SECONDS = 2 * 30 * 24 * 60 * 60; // 5,184,000 seconds
+export const TWO_MONTHS_IN_SECONDS = 2 * 30 * 24 * 60 * 60; // 5,184,000 seconds (legacy; no longer used to expire note keys)
 export const NOTES_KEY_PREFIX = "notes:";
 export const USER_ACTIVITY_PREFIX = "user:activity:";
+
+// Guest (Redis) note retention. Note keys are NO LONGER given a TTL — abandoned
+// guest notes are removed only by the cleanup job, and only after this window of
+// no activity. PROPOSED: 12 months. Flagged for confirmation + privacy-policy
+// update before the cleanup job is enabled in production.
+export const GUEST_NOTE_RETENTION_DAYS = 365;
+export const GUEST_NOTE_RETENTION_SECONDS = GUEST_NOTE_RETENTION_DAYS * 24 * 60 * 60;
+// Master kill-switch for the Redis cleanup job. Default OFF: cleanup never
+// deletes unless REDIS_CLEANUP_ENABLED === "true" in the environment.
+export const REDIS_CLEANUP_ENABLED = process.env.REDIS_CLEANUP_ENABLED === "true";
 export const GLOBAL_NOTE_COUNTER_KEY = "global:note:counter";
 export const USER_NOTE_COUNT_KEY = "justNoted_user_note_count";
 
@@ -67,8 +77,14 @@ export const PAGE_FORMATS = {
 export const OFFLINE_QUEUE_DB_NAME = "OfflineQueueDB";
 export const OFFLINE_QUEUE_DB_VERSION = 1;
 export const OFFLINE_QUEUE_STORE_NAME = "operations";
-export const MAX_QUEUE_RETRIES = 5;
+export const MAX_QUEUE_RETRIES = 5; // legacy; edits are no longer dropped at this count
 export const QUEUE_RETRY_INTERVAL = 30000; // 30 seconds
+// Queued edits are NEVER dropped. On repeated failure they back off
+// exponentially between QUEUE_BACKOFF_BASE_MS and QUEUE_BACKOFF_MAX_MS, and once
+// a note's op has failed QUEUE_PROBLEM_RETRIES times we raise a "sync problem".
+export const QUEUE_BACKOFF_BASE_MS = 5000; // 5s
+export const QUEUE_BACKOFF_MAX_MS = 300000; // 5min
+export const QUEUE_PROBLEM_RETRIES = 3;
 
 // Other
 export const MOBILE_BREAKPOINT = 768;

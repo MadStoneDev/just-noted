@@ -16,7 +16,9 @@ import {
   OFFLINE_QUEUE_DB_NAME,
   OFFLINE_QUEUE_DB_VERSION,
   OFFLINE_QUEUE_STORE_NAME,
-  MAX_QUEUE_RETRIES,
+  QUEUE_BACKOFF_BASE_MS,
+  QUEUE_BACKOFF_MAX_MS,
+  QUEUE_PROBLEM_RETRIES,
 } from "@/constants/app";
 
 // ===========================
@@ -137,6 +139,36 @@ export function subscribeDrops(cb: DropListener): () => void {
   return () => {
     dropListeners.delete(cb);
   };
+}
+
+// Sync-problem channel — true while one or more queued ops keep failing. Unlike
+// drops, this never means data was lost: the ops are retained and retried.
+type ProblemListener = (hasProblem: boolean) => void;
+const problemListeners = new Set<ProblemListener>();
+let syncProblem = false;
+
+function setSyncProblem(next: boolean) {
+  if (next === syncProblem) return;
+  syncProblem = next;
+  problemListeners.forEach((cb) => cb(next));
+}
+
+export function getSyncProblem(): boolean {
+  return syncProblem;
+}
+
+export function subscribeProblem(cb: ProblemListener): () => void {
+  problemListeners.add(cb);
+  cb(syncProblem); // emit current state on subscribe
+  return () => {
+    problemListeners.delete(cb);
+  };
+}
+
+// Exponential backoff for a queued op based on how many times it has failed.
+function backoffMs(retryCount: number): number {
+  if (retryCount <= 0) return 0;
+  return Math.min(QUEUE_BACKOFF_BASE_MS * 2 ** (retryCount - 1), QUEUE_BACKOFF_MAX_MS);
 }
 
 // ===========================
@@ -419,6 +451,17 @@ async function executeOp(payload: QueuedOperationPayload): Promise<void> {
   }
 }
 
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleRetry(delayMs: number): void {
+  if (retryTimer) return; // one pending retry is enough
+  if (typeof setTimeout === "undefined") return;
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    processQueue().catch(() => {});
+  }, Math.max(1000, delayMs));
+}
+
 export async function processQueue(): Promise<void> {
   if (processing) return;
   if (typeof navigator !== "undefined" && !navigator.onLine) return;
@@ -427,26 +470,50 @@ export async function processQueue(): Promise<void> {
 
   try {
     const ops = (await getAllOps()).sort((a, b) => a.timestamp - b.timestamp);
+    const now = Date.now();
+    // Per-note ordering: if a note's op fails or is waiting out its backoff,
+    // skip its later ops this pass, but keep syncing OTHER notes (one stuck note
+    // must not block the whole queue).
+    const blocked = new Set<string>();
+    let nextWakeup = Infinity;
 
     for (const op of ops) {
+      const noteId = op.payload.noteId;
+      if (blocked.has(noteId)) continue;
+
+      // Respect exponential backoff for previously-failed ops.
+      if (op.retryCount > 0 && op.lastAttempt) {
+        const waitLeft = backoffMs(op.retryCount) - (now - op.lastAttempt);
+        if (waitLeft > 0) {
+          blocked.add(noteId);
+          nextWakeup = Math.min(nextWakeup, waitLeft);
+          continue;
+        }
+      }
+
       try {
         await executeOp(op.payload);
         await deleteOp(op.id);
-      } catch (error) {
+      } catch {
+        // NEVER drop a queued edit. Keep it, back off, and retry later. Ops that
+        // are provably obsolete (superseded by a newer op for the same note, or
+        // a delete) are already removed at enqueue time (see enqueue()).
         op.retryCount += 1;
         op.lastAttempt = Date.now();
-
-        if (op.retryCount >= MAX_QUEUE_RETRIES) {
-          console.warn(`Dropping queued op ${op.id} after ${MAX_QUEUE_RETRIES} retries:`, op.payload.type, op.payload.noteId);
-          notifyDropListeners(op.payload);
-          await deleteOp(op.id);
-        } else {
-          await putOp(op);
-        }
-
-        // Stop processing — retry remaining ops next cycle
-        break;
+        await putOp(op);
+        blocked.add(noteId);
+        nextWakeup = Math.min(nextWakeup, backoffMs(op.retryCount));
       }
+    }
+
+    // Raise/clear the sync-problem flag based on the worst offender.
+    const remaining = await getAllOps();
+    const hasProblem = remaining.some((o) => o.retryCount >= QUEUE_PROBLEM_RETRIES);
+    setSyncProblem(hasProblem);
+
+    // If anything is still pending, keep retrying (while online) with backoff.
+    if (remaining.length > 0 && Number.isFinite(nextWakeup)) {
+      scheduleRetry(nextWakeup);
     }
   } finally {
     processing = false;

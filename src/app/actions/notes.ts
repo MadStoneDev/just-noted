@@ -24,7 +24,6 @@ import {
 import {
   NOTES_KEY_PREFIX,
   MAX_RETRIES,
-  TWO_MONTHS_IN_SECONDS,
 } from "@/constants/app";
 
 // ===========================
@@ -120,11 +119,10 @@ async function setNotesWithRetry(
   retries = MAX_RETRIES,
 ): Promise<void> {
   try {
-    await redis.setex(
-      `${NOTES_KEY_PREFIX}${userId}`,
-      TWO_MONTHS_IN_SECONDS,
-      notes,
-    );
+    // No TTL: note keys must never auto-expire. Abandoned guest notes are
+    // reclaimed only by the (env-gated, activity-aware) cleanup job. Plain SET
+    // also clears any legacy TTL left on this key by the old setex path.
+    await redis.set(`${NOTES_KEY_PREFIX}${userId}`, notes);
   } catch (error) {
     if (retries > 0) {
       await new Promise((resolve) => setTimeout(resolve, 1000));

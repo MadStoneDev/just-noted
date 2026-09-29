@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { IconWifi, IconWifiOff, IconX } from "@tabler/icons-react";
 import { useOnlineStatus, useOfflineQueue } from "@/hooks/use-online-status";
-import { subscribeDrops } from "@/utils/offline-queue";
+import { subscribeProblem } from "@/utils/offline-queue";
 import { useToast } from "@/components/ui/toast";
 
 export default function OfflineIndicator() {
@@ -13,9 +13,15 @@ export default function OfflineIndicator() {
   const [showBanner, setShowBanner] = useState(false);
   const [confirmedOffline, setConfirmedOffline] = useState(false);
 
+  // Edits are never discarded now; instead we warn (once, on the rising edge)
+  // that syncing is having trouble but the work is safe locally.
   useEffect(() => {
-    return subscribeDrops(() => {
-      showError("A note save was discarded after multiple retries.");
+    let first = true;
+    return subscribeProblem((hasProblem) => {
+      if (first) { first = false; return; } // ignore the initial state emit
+      if (hasProblem) {
+        showError("Sync problem — your changes are saved on this device and will sync when it clears.");
+      }
     });
   }, [showError]);
 

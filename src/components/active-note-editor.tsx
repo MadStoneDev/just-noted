@@ -56,6 +56,7 @@ import { CommandPalette, type CommandPage } from "@/components/ds/command-palett
 import { getSortedNotebookTree } from "@/utils/notebook-tree";
 import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import VersionHistoryPanel from "@/components/version-history-panel";
+import { subscribeProblem } from "@/utils/offline-queue";
 import GoalSuggestionsModal from "@/components/goal-suggestions-modal";
 import SplitToolbar, { SplitToolbarMobile } from "@/components/editor/split-toolbar";
 import { saveVersion } from "@/app/actions/versionActions";
@@ -377,6 +378,10 @@ function NoteEditor({
   // there are unsaved edits it reads "Saving…", and a failed/queued write reads
   // "Not saved" rather than falsely claiming success.
   const [saveState, setSaveState] = useState<"clean" | "dirty" | "saving" | "error">("clean");
+  // Global sync-problem flag from the offline queue — queued edits are safe on
+  // this device but the server sync is repeatedly failing.
+  const [syncProblem, setSyncProblem] = useState(false);
+  useEffect(() => subscribeProblem(setSyncProblem), []);
   // Wide view: global default + per-note override (read once on mount; the
   // component is keyed by note.id so this re-reads per note).
   const [wideDefault, setWideDefault] = useState(() => readWideDefault());
@@ -1360,7 +1365,9 @@ function NoteEditor({
                 {goalTarget > 0 ? `${Math.round(progressPercentage)}% of ${goalTarget} ${goalType}` : "set goal"}
               </button>
               {" "}·{" "}
-              {saveState === "error" ? (
+              {syncProblem ? (
+                <span className="text-[var(--color-warn)]" title="You're connected, but syncing is failing. Your changes are safe on this device and will sync once it clears.">Sync problem</span>
+              ) : saveState === "error" ? (
                 <span className="text-[var(--color-warn)]" title="Your last edit hasn't been saved yet — it's queued and will retry">Not saved</span>
               ) : saveState === "saving" || saveState === "dirty" ? (
                 <span className="text-[var(--color-ink-4)]">Saving…</span>

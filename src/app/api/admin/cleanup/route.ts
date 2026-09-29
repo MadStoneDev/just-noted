@@ -37,8 +37,23 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // Dry run (?dryRun=1): report what the Redis cleanup WOULD delete without
+    // deleting anything, and skip the trash purge entirely.
+    const dryRun =
+      request.nextUrl.searchParams.get("dryRun") === "1" ||
+      request.nextUrl.searchParams.get("dryRun") === "true";
+
+    if (dryRun) {
+      const redis = await cleanupOldNotes({ dryRun: true });
+      return NextResponse.json(
+        { success: redis.success, dryRun: true, redis, trash: { skipped: true } },
+        { status: redis.success ? 200 : 500 },
+      );
+    }
+
     // Run both cleanup operations: inactive Redis (guest) notes, and Supabase
-    // soft-deleted notes past the physical retention cutoff.
+    // soft-deleted notes past the physical retention cutoff. The Redis cleanup
+    // is itself env-gated (REDIS_CLEANUP_ENABLED) and no-ops unless enabled.
     const [redis, trash] = await Promise.all([
       cleanupOldNotes(),
       purgeExpiredTrash(),
