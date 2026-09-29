@@ -462,9 +462,11 @@ export function useNotesOperations(
           noteToTransfer.content = localNote.content;
         }
 
-        // Optimistic update - add new note and remove old one
+        // Optimistic update - add the new note and HARD-remove the old one so
+        // the moved note never shows twice (a soft-delete could be un-hidden by
+        // a refresh landing before the source delete settles).
         optimisticAddNote(noteToTransfer);
-        optimisticDeleteNote(noteId);
+        useNotesStore.getState().removeNote(noteId);
         // If the moved note was the open one, follow it to its new id so the
         // editor doesn't land on the now-deleted original.
         if (useNotesStore.getState().activeNoteId === noteId) {

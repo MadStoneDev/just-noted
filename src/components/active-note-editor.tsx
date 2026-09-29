@@ -660,6 +660,21 @@ function NoteEditor({
     }
   }, [hasServerSynced, note.id, content]);
 
+  // Adopt an external content change into the OPEN editor — e.g. another tab
+  // saved this note and it reached the store via BroadcastChannel/realtime. Only
+  // when we have no unsaved local edits, so in-progress typing is never clobbered
+  // (a genuine concurrent edit is handled by the conflict path instead).
+  useEffect(() => {
+    if (isHydrating) return;
+    if (note.content === content) return; // nothing new
+    if (content !== lastSavedContentRef.current) return; // we have unsaved edits — keep them
+    setContent(note.content);
+    setContentFormat(note.contentFormat || "markdown");
+    lastSavedContentRef.current = note.content;
+    setEditorRemountKey((k) => k + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note.content, note.version]);
+
   // Focus the editor body as soon as a freshly-created note opens. Without this
   // the cursor never enters the note: keystrokes are lost (a guest's first words
   // vanish) and, worse, focus stays on the "New note" button so Space/Enter

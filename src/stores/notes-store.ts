@@ -133,6 +133,7 @@ interface NotesStore {
   optimisticUpdateNote: (noteId: string, updates: Partial<CombinedNote>) => void;
   optimisticAddNote: (note: CombinedNote) => void;
   optimisticDeleteNote: (noteId: string) => void;
+  removeNote: (noteId: string) => void;
   optimisticReorderNotes: (notes: CombinedNote[]) => void;
 
   // ========== Undo Delete ==========
@@ -446,6 +447,16 @@ export const useNotesStore = create<NotesStore>()(
             ? { ...note, deletedAt: Date.now() }
             : note
         ),
+        lastUpdateTimestamp: Date.now(),
+      }));
+    },
+
+    // Hard-remove a note from the list entirely (not a tombstone). Used when a
+    // note has been moved elsewhere (transfer) and its old entry must vanish
+    // immediately rather than linger as a soft-deleted duplicate.
+    removeNote: (noteId) => {
+      set((state) => ({
+        notes: state.notes.filter((note) => note.id !== noteId),
         lastUpdateTimestamp: Date.now(),
       }));
     },
