@@ -86,7 +86,10 @@ export default function DeviceNotesSection() {
     } catch {
       /* ignore */
     }
-    window.location.reload();
+    // Land on the notes view (not back on /settings) so the recovered notes are
+    // shown and the sidebar re-initialises in its normal docked position — a
+    // reload into /settings leaves the sidebar open behind the Settings panel.
+    window.location.href = "/";
   };
 
   return (
