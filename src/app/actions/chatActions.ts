@@ -90,10 +90,17 @@ export async function listChatMessages(
   return { success: true, canSend, messages };
 }
 
-/** Send a text message. Gated on participation + the owner's Scribe plan. */
+export interface MessageAnchorInput {
+  relStart: string;
+  relEnd: string;
+  quote: string;
+}
+
+/** Send a text message (optionally anchored to a highlight in the note). */
 export async function sendChatMessage(
   noteId: string,
   body: string,
+  anchor?: MessageAnchorInput | null,
 ): Promise<{ success: boolean; error?: string }> {
   const uid = await sessionUserId();
   if (!uid) return { success: false, error: "Sign in to chat" };
@@ -108,9 +115,15 @@ export async function sendChatMessage(
   const rl = await checkRateLimit(uid, `chat:${noteId}`, SEND_LIMIT, SEND_WINDOW_MS);
   if (!rl.allowed) return { success: false, error: "You're sending messages too fast — slow down a moment." };
 
+  // Only store a well-formed anchor with a bounded quote.
+  const anchorValue =
+    anchor && anchor.relStart && anchor.relEnd && anchor.quote
+      ? { relStart: anchor.relStart, relEnd: anchor.relEnd, quote: String(anchor.quote).slice(0, 300) }
+      : null;
+
   const { error } = await svc
     .from("note_chat_messages")
-    .insert({ note_id: noteId, author_id: uid, kind: "text", body: text } as any);
+    .insert({ note_id: noteId, author_id: uid, kind: "text", body: text, anchor: anchorValue } as any);
   return { success: !error, error: error ? "Couldn't send the message" : undefined };
 }
 

@@ -26,6 +26,12 @@ export interface ChatAuthor {
   avatarUrl: string | null;
 }
 
+export interface MessageAnchor {
+  relStart: string;
+  relEnd: string;
+  quote: string;
+}
+
 export interface ChatMessageView {
   id: string;
   kind: ChatKind;
@@ -39,6 +45,16 @@ export interface ChatMessageView {
   replyTo: string | null;
   createdAt: string;
   hasMedia: boolean;
+  anchor: MessageAnchor | null;
+}
+
+function readAnchor(raw: unknown): MessageAnchor | null {
+  if (!raw || typeof raw !== "object") return null;
+  const a = raw as Record<string, unknown>;
+  if (typeof a.relStart === "string" && typeof a.relEnd === "string" && typeof a.quote === "string") {
+    return { relStart: a.relStart, relEnd: a.relEnd, quote: a.quote };
+  }
+  return null;
 }
 
 /**
@@ -66,5 +82,6 @@ export function toMessageView(
     replyTo: row.reply_to,
     createdAt: row.created_at,
     hasMedia: !isDeleted && !!row.media_key,
+    anchor: isDeleted ? null : readAnchor(row.anchor),
   };
 }

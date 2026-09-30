@@ -11,7 +11,9 @@ import {
   IconPaperclip,
   IconMicrophone,
   IconPlayerStopFilled,
+  IconQuote,
 } from "@tabler/icons-react";
+import { getAnchorApi, type NoteAnchor } from "@/lib/note-anchor-bridge";
 import { useNoteChat } from "@/hooks/use-note-chat";
 import {
   sendChatMessage,
@@ -91,10 +93,12 @@ function MessageRow({
   m,
   onEdit,
   onDelete,
+  onAnchorClick,
 }: {
   m: ChatMessageView;
   onEdit: (m: ChatMessageView) => void;
   onDelete: (m: ChatMessageView) => void;
+  onAnchorClick: (a: NonNullable<ChatMessageView["anchor"]>) => void;
 }) {
   if (m.isDeleted) {
     return (
@@ -112,6 +116,16 @@ function MessageRow({
           <span className="text-[10.5px] text-[var(--color-ink-6)] shrink-0">{relativeTime(m.createdAt)}</span>
           {m.isEdited && <span className="text-[10px] text-[var(--color-ink-6)] shrink-0">(edited)</span>}
         </div>
+        {m.anchor && (
+          <button
+            onClick={() => onAnchorClick(m.anchor!)}
+            title="Jump to the quoted text"
+            className="mt-0.5 mb-1 w-full text-left flex gap-1.5 pl-2 border-l-2 border-[var(--color-accent-tint-border)] hover:border-[var(--color-accent-text)] transition-colors"
+          >
+            <IconQuote size={12} className="mt-0.5 shrink-0 text-[var(--color-ink-6)]" />
+            <span className="text-[11.5px] italic text-[var(--color-ink-5)] line-clamp-2">{m.anchor.quote}</span>
+          </button>
+        )}
         {m.body && (
           <p className="text-[13px] text-[var(--color-ink-2)] whitespace-pre-wrap break-words leading-snug">{m.body}</p>
         )}
@@ -149,6 +163,7 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
   const [confirmDelete, setConfirmDelete] = useState<ChatMessageView | null>(null);
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [pendingAnchor, setPendingAnchor] = useState<NoteAnchor | null>(null);
 
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -248,17 +263,29 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
     try {
       const res = editing
         ? await editChatMessage(editing.id, value)
-        : await sendChatMessage(noteId, value);
+        : await sendChatMessage(noteId, value, editing ? null : pendingAnchor);
       if (!res.success) {
         showError(res.error || "Couldn't send the message");
         return;
       }
       setText("");
       setEditing(null);
+      setPendingAnchor(null);
       await reload();
     } finally {
       setSending(false);
     }
+  };
+
+  const quoteSelection = () => {
+    const a = getAnchorApi(noteId)?.capture() ?? null;
+    if (a) setPendingAnchor(a);
+    else showError("Select some text in the note first, then quote it.");
+  };
+
+  const goToAnchor = (a: NoteAnchor) => {
+    const ok = getAnchorApi(noteId)?.scrollTo(a) ?? false;
+    if (!ok) showError("The quoted text has changed or isn’t open here.");
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -311,7 +338,7 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
           ) : (
             <ul className="flex flex-col">
               {messages.map((m) => (
-                <MessageRow key={m.id} m={m} onEdit={setEditing} onDelete={setConfirmDelete} />
+                <MessageRow key={m.id} m={m} onEdit={setEditing} onDelete={setConfirmDelete} onAnchorClick={goToAnchor} />
               ))}
             </ul>
           )}
@@ -326,9 +353,31 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
                 <button onClick={() => { setEditing(null); setText(""); }} className="hover:text-[var(--color-ink-2)]">Cancel</button>
               </div>
             )}
+            {pendingAnchor && !editing && (
+              <div className="flex items-start gap-1.5 px-2 py-1.5 mb-1.5 rounded-[var(--radius-8)] bg-[var(--color-raised-soft)] border-l-2 border-[var(--color-accent-text)]">
+                <IconQuote size={12} className="mt-0.5 shrink-0 text-[var(--color-ink-5)]" />
+                <span className="flex-1 min-w-0 text-[11.5px] italic text-[var(--color-ink-4)] line-clamp-2">{pendingAnchor.quote}</span>
+                <button
+                  onClick={() => setPendingAnchor(null)}
+                  aria-label="Remove quote"
+                  className="shrink-0 text-[var(--color-ink-5)] hover:text-[var(--color-ink-2)]"
+                >
+                  <IconX size={13} />
+                </button>
+              </div>
+            )}
             <div className="flex items-end gap-1.5">
               {!editing && (
                 <>
+                  <button
+                    onClick={quoteSelection}
+                    disabled={uploading || recording}
+                    aria-label="Quote selected text from the note"
+                    title="Quote selected text from the note"
+                    className="shrink-0 w-9 h-9 flex items-center justify-center rounded-[var(--radius-md)] text-[var(--color-ink-4)] hover:text-[var(--color-ink-1)] hover:bg-[var(--color-raised-soft)] transition-colors disabled:opacity-40"
+                  >
+                    <IconQuote size={17} />
+                  </button>
                   <input
                     ref={fileInputRef}
                     type="file"

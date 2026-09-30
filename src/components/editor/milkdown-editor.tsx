@@ -18,8 +18,14 @@ import { cursor } from "@milkdown/plugin-cursor";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import { $prose } from "@milkdown/utils";
 import { keymap } from "@milkdown/prose/keymap";
-import { Plugin, PluginKey } from "@milkdown/prose/state";
+import { Plugin, PluginKey, TextSelection } from "@milkdown/prose/state";
 import { Slice } from "@milkdown/prose/model";
+import {
+  ySyncPluginKey,
+  absolutePositionToRelativePosition,
+  relativePositionToAbsolutePosition,
+} from "y-prosemirror";
+import { registerAnchorApi, type NoteAnchor } from "@/lib/note-anchor-bridge";
 import DockedToolbar from "./docked-toolbar";
 import SlashMenu from "./slash-menu";
 import LinkPopover from "./link-popover";
@@ -369,6 +375,7 @@ function MilkdownEditorInner({
 
     let saveTimer: ReturnType<typeof setTimeout> | null = null;
     let persistHandler: (() => void) | null = null;
+    let unregisterAnchor: (() => void) | null = null;
 
     const persistNow = () => {
       if (!doc || !collabConfig.save) return;
@@ -462,11 +469,71 @@ function MilkdownEditorInner({
         saveTimer = setTimeout(persistNow, 1200);
       };
       doc.on("update", persistHandler);
+
+      // Anchor API for the chat panel: capture the current selection as Yjs
+      // relative positions (+ a quote fallback), and resolve/scroll/flash one.
+      const captureAnchor = (): NoteAnchor | null => {
+        const editor = get();
+        if (!editor || !doc) return null;
+        let out: NoteAnchor | null = null;
+        try {
+          editor.action((ctx: any) => {
+            const view = ctx.get(editorViewCtx) as any;
+            const st = view.state;
+            const { from, to } = st.selection;
+            if (from === to) return;
+            const ys: any = ySyncPluginKey.getState(st);
+            if (!ys?.type || !ys.binding?.mapping) return;
+            const relStart = absolutePositionToRelativePosition(from, ys.type, ys.binding.mapping);
+            const relEnd = absolutePositionToRelativePosition(to, ys.type, ys.binding.mapping);
+            const quote = (st.doc.textBetween(from, to, " ") || "").trim().slice(0, 300);
+            if (!quote) return;
+            out = {
+              relStart: bytesToB64(Y.encodeRelativePosition(relStart)),
+              relEnd: bytesToB64(Y.encodeRelativePosition(relEnd)),
+              quote,
+            };
+          });
+        } catch {}
+        return out;
+      };
+      const scrollToAnchor = (a: NoteAnchor): boolean => {
+        const editor = get();
+        if (!editor || !doc) return false;
+        let ok = false;
+        try {
+          editor.action((ctx: any) => {
+            const view = ctx.get(editorViewCtx) as any;
+            const st = view.state;
+            const ys: any = ySyncPluginKey.getState(st);
+            if (!ys?.type || !ys.binding?.mapping) return;
+            const relS = Y.decodeRelativePosition(b64ToBytes(a.relStart));
+            const relE = Y.decodeRelativePosition(b64ToBytes(a.relEnd));
+            const absS = relativePositionToAbsolutePosition(doc!, ys.type, relS, ys.binding.mapping);
+            const absE = relativePositionToAbsolutePosition(doc!, ys.type, relE, ys.binding.mapping);
+            if (absS == null || absE == null) return;
+            const lo = Math.min(absS, absE);
+            const hi = Math.max(absS, absE);
+            view.dispatch(st.tr.setSelection(TextSelection.create(st.doc, lo, hi)).scrollIntoView());
+            view.focus();
+            try {
+              const at = view.domAtPos(lo);
+              const node = at?.node as Node | undefined;
+              const el = (node?.nodeType === 3 ? node.parentElement : node) as HTMLElement | null;
+              if (el) { el.classList.add("anchor-flash"); setTimeout(() => el.classList.remove("anchor-flash"), 1600); }
+            } catch {}
+            ok = true;
+          });
+        } catch {}
+        return ok;
+      };
+      unregisterAnchor = registerAnchorApi(collabConfig.roomKey, { capture: captureAnchor, scrollTo: scrollToAnchor });
     };
     bind();
 
     return () => {
       cancelled = true;
+      unregisterAnchor?.();
       if (seedTimer) clearTimeout(seedTimer);
       if (saveTimer) clearTimeout(saveTimer);
       if (doc && persistHandler) doc.off("update", persistHandler);

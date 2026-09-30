@@ -1157,3 +1157,13 @@ summary {
 @keyframes jn-caret-flag {
   to { opacity: 0; }
 }
+
+/* Highlight flash when jumping to a chat message anchor (collab chat P3). */
+@keyframes anchor-flash {
+  0% { background-color: var(--color-accent-tint); }
+  100% { background-color: transparent; }
+}
+.anchor-flash {
+  animation: anchor-flash 1.6s ease-out;
+  border-radius: 3px;
+}
