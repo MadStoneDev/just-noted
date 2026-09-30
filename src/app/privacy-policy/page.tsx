@@ -82,7 +82,7 @@ export default async function PrivacyPolicyPage() {
             </span>
           </h1>
           <p className="mt-3 text-[var(--color-text-secondary)]">
-            <span className="font-medium">Last updated:</span> September 30, 2026
+            <span className="font-medium">Last updated:</span> October 1, 2026
           </p>
 
           {/* Who we are */}
@@ -262,6 +262,7 @@ export default async function PrivacyPolicyPage() {
                   "Canada and Australia (Sydney)",
                 ],
                 ["Upstash", "Local notes, security rate limits", "Australia (Sydney)"],
+                ["Cloudflare R2", "Chat media and temporary account exports", "Oceania"],
                 ["Stripe", "Scribe payments", "United States and other countries"],
                 ["Resend", "Account and export emails", "United States"],
                 [
@@ -276,6 +277,17 @@ export default async function PrivacyPolicyPage() {
           </div>
           <p className="mt-3">
             Each of these services only receives what it needs to do its job.
+          </p>
+
+          {/* Chat in shared notes */}
+          <h2 className={H2}>Chat in shared notes</h2>
+          <p className="mt-3">
+            If you chat inside a shared note, your messages and any photos, GIFs or
+            audio you send are stored with that note and are deleted when the note is
+            deleted. When someone deletes their account, their chat messages stay
+            (shown as &ldquo;Deleted user&rdquo;) so the conversation still makes
+            sense to everyone else, but the files they uploaded are deleted. Location
+            (EXIF) data is stripped from photos when they&apos;re uploaded.
           </p>
 
           {/* Cookies and analytics */}
@@ -344,12 +356,16 @@ export default async function PrivacyPolicyPage() {
               Settings, or ask us.
             </li>
             <li>
-              <span className="font-medium">Delete:</span> to delete your account —
-              permanently removing your profile, cloud notes, trash, version
-              history, notebooks and shares, and cancelling any Scribe subscription
-              — email us at {mail} and we&apos;ll action it. Self-service deletion
-              in Settings is coming soon. Local notes aren&apos;t part of your
-              account and are deleted separately.
+              <span className="font-medium">Delete:</span> go to{" "}
+              <span className="font-medium">Settings &rarr; Delete account</span> and
+              confirm by typing your email. Your account is then scheduled for
+              deletion: you can restore it for <span className="font-medium">30 days</span>{" "}
+              by signing back in. After that, your profile, cloud notes, trash,
+              version history, notebooks and shares are permanently deleted. Any
+              Scribe subscription is cancelled straight away (restoring your account
+              doesn&apos;t bring the subscription back). Roadmap suggestions you&apos;ve
+              made stay on the public board, but your votes are removed. Local notes
+              aren&apos;t part of your account and are deleted separately.
             </li>
             <li>
               <span className="font-medium">Withdraw consent</span> for analytics
