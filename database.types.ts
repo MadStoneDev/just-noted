@@ -12,6 +12,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_deletions: {
+        Row: {
+          user_id: string
+          email: string | null
+          requested_at: string
+          purge_at: string
+          stripe_canceled: boolean
+          status: string
+        }
+        Insert: {
+          user_id: string
+          email?: string | null
+          requested_at?: string
+          purge_at: string
+          stripe_canceled?: boolean
+          status?: string
+        }
+        Update: {
+          user_id?: string
+          email?: string | null
+          requested_at?: string
+          purge_at?: string
+          stripe_canceled?: boolean
+          status?: string
+        }
+        Relationships: []
+      }
       authors: {
         Row: {
           id: string
