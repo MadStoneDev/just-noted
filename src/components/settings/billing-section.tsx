@@ -69,6 +69,10 @@ export default function BillingSection() {
   // A Draft user who still has a subscription row with a period end has lapsed
   // from Scribe — used to show the "what changed" downgrade summary.
   const [lapsed, setLapsed] = useState(false);
+  // Scribe granted directly in the DB (comp/admin), with no Stripe customer —
+  // there's no billing to manage or cancel, so we show a label, not a portal
+  // button that could only fail.
+  const [manualGrant, setManualGrant] = useState(false);
   const [usage, setUsage] = useState({ notes: 0, notebooks: 0, collaborators: 0 });
   const [portalBusy, setPortalBusy] = useState(false);
 
@@ -83,7 +87,7 @@ export default function BillingSection() {
       const [activeTier, { data: sub }, notesCount, notebooksCount, shareRows] = await Promise.all([
         // Resolve tier via the shared resolver, not an inline re-implementation.
         getUserTier(supabase, user.id),
-        supabase.from("subscriptions").select("current_period_end, cancel_at_period_end").eq("user_id", user.id).maybeSingle(),
+        supabase.from("subscriptions").select("current_period_end, cancel_at_period_end, stripe_customer_id").eq("user_id", user.id).maybeSingle(),
         supabase.from("notes").select("id", { count: "exact", head: true }).eq("author", user.id).is("deleted_at", null),
         supabase.from("notebooks").select("id", { count: "exact", head: true }).eq("owner", user.id),
         supabase.from("shared_notes").select("id").eq("note_owner_id", user.id),
@@ -95,6 +99,7 @@ export default function BillingSection() {
       setRenews(periodEnd);
       setCancelAtEnd(!!(sub as any)?.cancel_at_period_end);
       setLapsed(activeTier === "draft" && !!periodEnd);
+      setManualGrant(activeTier === "scribe" && !(sub as any)?.stripe_customer_id);
 
       // Count named editors across the user's shared notes.
       let collaborators = 0;
@@ -154,13 +159,19 @@ export default function BillingSection() {
             </div>
             <p className="mt-0.5 text-[12px] text-[var(--color-ink-5)]">
               {isPaid
-                ? renews
-                  ? `${cancelAtEnd ? "Ends" : "Renews"} ${new Date(renews).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })} · ${PLANS.scribe.price.display}`
-                  : PLANS.scribe.price.display
+                ? manualGrant
+                  ? "Scribe granted directly — no billing to manage."
+                  : renews
+                    ? `${cancelAtEnd ? "Ends" : "Renews"} ${new Date(renews).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })} · ${PLANS.scribe.price.display}`
+                    : PLANS.scribe.price.display
                 : "Note-taking and sharing — free forever."}
             </p>
           </div>
-          {isPaid && (
+          {isPaid && (manualGrant ? (
+            <span className="h-8 inline-flex items-center px-2.5 rounded-[var(--radius-7)] text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)] border border-[var(--color-hairline)]">
+              Managed manually
+            </span>
+          ) : (
             <button
               onClick={manage}
               disabled={portalBusy}
@@ -168,12 +179,13 @@ export default function BillingSection() {
             >
               {portalBusy ? "Opening…" : "Manage"}
             </button>
-          )}
+          ))}
         </div>
       </div>
 
-      {/* Downgrade summary — before cancelling (Scribe) and after (lapsed Draft). */}
-      {isPaid && <DowngradeSummary title="If you cancel, here's what changes" />}
+      {/* Downgrade summary — before cancelling (Scribe with real billing) and
+          after (lapsed Draft). A manual grant has no self-serve cancel. */}
+      {isPaid && !manualGrant && <DowngradeSummary title="If you cancel, here's what changes" />}
       {lapsed && <DowngradeSummary title="You're on Draft now — what changed" />}
 
       {/* Usage */}

@@ -16,6 +16,8 @@ import PlanComparison from "@/components/plan-comparison";
 export default function PricingView({ onClose }: { onClose: () => void }) {
   const { showError } = useToast();
   const [tier, setTier] = useState<PlanTier | null>(null);
+  // Scribe granted directly in the DB (no Stripe customer) — no portal to open.
+  const [manualGrant, setManualGrant] = useState(false);
   const [authed, setAuthed] = useState(false);
   const [email, setEmail] = useState("");
   const [userId, setUserId] = useState("");
@@ -32,13 +34,16 @@ export default function PricingView({ onClose }: { onClose: () => void }) {
       setEmail(user.email || "");
       const { data: sub } = await supabase
         .from("subscriptions")
-        .select("tier, status")
+        .select("tier, status, stripe_customer_id")
         .eq("user_id", user.id)
         .maybeSingle();
-      const s = sub as { tier?: string; status?: string } | null;
+      const s = sub as { tier?: string; status?: string; stripe_customer_id?: string | null } | null;
       const isScribe =
         (s?.status === "active" || s?.status === "trialing") && s?.tier === "scribe";
-      if (alive) setTier(isScribe ? "scribe" : "draft");
+      if (alive) {
+        setTier(isScribe ? "scribe" : "draft");
+        setManualGrant(isScribe && !s?.stripe_customer_id);
+      }
     })();
     return () => { alive = false; };
   }, []);
@@ -120,13 +125,19 @@ export default function PricingView({ onClose }: { onClose: () => void }) {
                 <div className="mt-5">
                   {isScribe ? (
                     isCurrent ? (
-                      <button
-                        onClick={manage}
-                        disabled={busy}
-                        className="w-full h-9 rounded-[var(--radius-7)] text-[13px] font-medium border border-[var(--color-border-control)] text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)] transition-colors disabled:opacity-50"
-                      >
-                        {busy ? "Opening…" : "Manage billing"}
-                      </button>
+                      manualGrant ? (
+                        <div className="h-9 flex items-center justify-center text-[12px] text-[var(--color-ink-5)]">
+                          Managed manually
+                        </div>
+                      ) : (
+                        <button
+                          onClick={manage}
+                          disabled={busy}
+                          className="w-full h-9 rounded-[var(--radius-7)] text-[13px] font-medium border border-[var(--color-border-control)] text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)] transition-colors disabled:opacity-50"
+                        >
+                          {busy ? "Opening…" : "Manage billing"}
+                        </button>
+                      )
                     ) : (
                       <button
                         onClick={upgrade}
