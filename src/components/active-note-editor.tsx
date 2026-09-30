@@ -1200,7 +1200,7 @@ function NoteEditor({
 
   return (
     <div className="flex-1 flex h-full overflow-hidden">
-     <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+     <div className={`flex-1 flex-col overflow-hidden min-w-0 ${showChat ? "hidden lg:flex" : "flex"}`}>
       {/* Editor top bar */}
       <div className="print:hidden hidden md:flex items-center justify-between px-4 md:px-8 py-2 border-b border-[var(--color-hairline)] bg-[var(--color-canvas)]">
         <div className="flex items-center gap-2">

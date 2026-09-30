@@ -297,7 +297,7 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
         </div>
         {showHistory && <SharedHistoryPanel shortcode={shortcode} onClose={() => setShowHistory(false)} />}
         <div className="flex-1 flex min-h-0">
-          <div className="flex-1 flex flex-col min-w-0">
+          <div className={`flex-1 flex-col min-w-0 ${showChat ? "hidden lg:flex" : "flex"}`}>
             <div className="flex-1 overflow-y-auto scrollbar-thin">
               <article className="max-w-[var(--content-width)] mx-auto px-4 md:px-8 py-8">
                 <AutoGrowTitle
@@ -352,6 +352,12 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
           <div className="mb-8">
             <NoteStatsRow content={note.content} goal={note.goal} goalType={note.goal_type} />
           </div>
+          {note.editBlockedByOwnerPlan && (
+            <div className="mb-6 flex items-center gap-2 px-3 py-2 rounded-[var(--radius-8)] bg-[var(--color-raised-soft)] text-[12px] text-[var(--color-ink-4)]">
+              <IconLock size={13} className="shrink-0" />
+              The owner’s plan doesn’t include shared editing.
+            </div>
+          )}
           <MilkdownEditor
             content={note.content || ""}
             contentFormat={(note.content_format as ContentFormat) || "markdown"}

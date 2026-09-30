@@ -372,6 +372,14 @@ function MilkdownEditorInner({
 
     const persistNow = () => {
       if (!doc || !collabConfig.save) return;
+      // Root-cause guard: never persist an EMPTY doc for a note that has
+      // canonical content. Before seeding, the fresh doc is empty; persisting it
+      // used to create a non-null empty note_ydoc that then blocked seeding for
+      // good (blank editor even though note.content had text). If the note is
+      // genuinely empty (no initial content), persisting empty is fine.
+      try {
+        if (doc.getXmlFragment("prosemirror").length === 0 && initialMarkdown) return;
+      } catch {}
       try {
         collabConfig.save(bytesToB64(Y.encodeStateAsUpdate(doc)));
       } catch {}
@@ -412,25 +420,40 @@ function MilkdownEditorInner({
       // First-time seed only: if nothing is persisted and no peer has content
       // after a grace period, seed from markdown once, then persist. Re-checking
       // load() right before seeding guards against a simultaneous first opener.
+      // Am I the elected seeder? Only the client with the lowest Yjs clientID
+      // among current participants seeds, so two people opening at once can't
+      // both apply the template and duplicate the text. Peers receive the seed
+      // over the broadcast (and via load() on the next open).
+      const iAmSeeder = () => {
+        try {
+          const others = [...awareness.getStates().keys()].filter((id) => id !== doc!.clientID);
+          return others.every((id) => doc!.clientID < id);
+        } catch {
+          return true;
+        }
+      };
+
+      // Seed only after a grace period (so peer state broadcast on connect has
+      // arrived — the provider syncs on SUBSCRIBED), and only when still empty.
       seedTimer = setTimeout(async () => {
         if (cancelled || !service) return;
         if (!fragmentEmpty()) { persistNow(); return; }
-        // Re-check for late-arriving persisted state (guards a simultaneous opener).
+        // Re-check persisted state right before seeding (guards a peer that
+        // seeded + persisted during the grace window).
         let again: string | null = null;
         try { again = (await collabConfig.load?.()) ?? null; } catch {}
         if (cancelled) return;
         if (again) { try { Y.applyUpdate(doc!, b64ToBytes(again), "load"); } catch {} }
-        // If the doc is STILL empty but the note has canonical content, seed from
-        // it. This recovers a note whose Yjs doc was persisted empty while
-        // note.content holds the real text (they'd otherwise diverge — a blank
-        // editor even though the note clearly has content). When the note was
-        // legitimately emptied via collaboration, note.content is empty too, so
-        // initialMarkdown is "" and nothing is resurrected.
-        if (fragmentEmpty() && initialMarkdown) {
+        // Still empty + the note has canonical content + I'm the elected seeder:
+        // seed from note.content. This recovers a doc that was persisted empty
+        // while note.content held the real text. A note legitimately emptied via
+        // collaboration has empty note.content, so initialMarkdown is "" and
+        // nothing is resurrected.
+        if (fragmentEmpty() && initialMarkdown && iAmSeeder()) {
           try { service.applyTemplate(initialMarkdown); } catch {}
         }
         persistNow();
-      }, 800);
+      }, 1000);
 
       // Persist on change (debounced). Skip our own applied-load updates.
       persistHandler = () => {

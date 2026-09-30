@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient, createServiceRoleClient } from "@/utils/supabase/server";
 import { getCollabAllowance, ownerCanCollaborate } from "@/lib/subscription";
+import { wouldBlankNonEmpty } from "@/lib/collab-guard";
 import { NOTES_KEY_PREFIX } from "@/constants/app";
 
 // ===========================
@@ -693,14 +694,21 @@ export async function sharingOperation(params: SharingOperationParams) {
         // set to "Can edit", or when they were added as an editor. Anonymous
         // editing is not supported and the Redis tier is view-only. Re-checked
         // on save.
-        const canEdit =
+        // Would this viewer edit if the owner's plan allowed it?
+        const wouldEdit =
           (linkPermission === "edit" || viewerRole === "edit") &&
           !!authenticatedUserId &&
-          storage === "supabase" &&
-          // Enforce-at-read downgrade gate: editing is only live while the note's
-          // owner is on a collaboration plan. A lapsed Scribe's note goes
-          // view-only for everyone but the owner (their editor rows are kept).
-          (await ownerCanCollaborate(serviceClient, shareData.note_id));
+          storage === "supabase";
+        // Enforce-at-read downgrade gate: editing is only live while the note's
+        // owner is on a collaboration plan. A lapsed Scribe's note goes view-only
+        // for everyone but the owner (their editor rows are kept).
+        const ownerCanCollab = wouldEdit
+          ? await ownerCanCollaborate(serviceClient, shareData.note_id)
+          : false;
+        const canEdit = wouldEdit && ownerCanCollab;
+        // True only when the viewer WOULD have edit access but the owner's plan
+        // doesn't include shared editing — so the UI can explain the read-only.
+        const editBlockedByOwnerPlan = wouldEdit && !ownerCanCollab;
 
         let authorInfo: { username: string; avatar_url: string | null } = {
           username: "Anonymous",
@@ -731,6 +739,7 @@ export async function sharingOperation(params: SharingOperationParams) {
             authorAvatar: isAnonymous ? null : authorInfo.avatar_url,
             content_format: (noteResult.note as any).content_format,
             canEdit,
+            editBlockedByOwnerPlan,
             shareInfo: {
               shortcode: shareData.shortcode,
               isPublic: shareData.is_public,
@@ -800,9 +809,17 @@ export async function sharingOperation(params: SharingOperationParams) {
         const noteId = (shareData as any).note_id as string;
         const { data: curRow } = await svc
           .from("notes")
-          .select("version")
+          .select("version, content")
           .eq("id", noteId)
           .maybeSingle();
+
+        // Safety guard: a collaborator's projection must never blank a note that
+        // has content — e.g. the editor autosaving before the shared Yjs doc has
+        // seeded. Keep the note as-is and report success (nothing to save).
+        if (wouldBlankNonEmpty(content, (curRow as any)?.content)) {
+          return { success: true };
+        }
+
         const nextVersion = (((curRow as any)?.version as number) ?? 1) + 1;
 
         const { error: updateErr } = await svc

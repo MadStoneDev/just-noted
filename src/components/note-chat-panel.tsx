@@ -161,7 +161,7 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
     <>
       {/* Docked side column — sits beside the note so editing continues. Full
           width on mobile, a fixed rail on larger screens. */}
-      <aside className="w-full sm:w-[340px] shrink-0 h-full min-h-0 bg-[var(--color-bg-elevated)] border-l border-[var(--color-border-secondary)] flex flex-col">
+      <aside className="w-full lg:w-[340px] shrink-0 h-full min-h-0 bg-[var(--color-bg-elevated)] border-l border-[var(--color-border-secondary)] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-secondary)]">
           <div className="flex items-center gap-2">
