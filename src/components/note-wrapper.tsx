@@ -97,6 +97,7 @@ export default function NoteWrapper() {
     const isRoadmap = pathname === "/roadmap";
     const isSettings = pathname === "/settings";
     const isAdmin = pathname === "/admin";
+    const sharedMatch = pathname.match(/^\/n\/([^/]+)$/);
     setShowRoadmap(isRoadmap);
     setShowSettings(isSettings);
     setShowAdmin(isAdmin);
@@ -111,6 +112,14 @@ export default function NoteWrapper() {
       setSharedShortcode(null);
       setSidebarOpen(false);
       setShowAccountDrawer(false);
+    } else if (sharedMatch) {
+      // A public shared-note link (/n/<shortcode>) — open it in the shell (rail
+      // + sidebar + the note in the main area), not the old standalone page.
+      setShowTrash(false);
+      setShowNotebooksGrid(false);
+      setShowAccountDrawer(false);
+      setSharedShortcode(decodeURIComponent(sharedMatch[1]));
+      setSidebarOpen(true);
     } else {
       setSidebarOpen(true);
     }
@@ -454,7 +463,10 @@ export default function NoteWrapper() {
           ) : sharedShortcode ? (
             <SharedNoteInline
               shortcode={sharedShortcode}
-              onClose={() => setSharedShortcode(null)}
+              onClose={() => {
+                setSharedShortcode(null);
+                if (pathname.startsWith("/n/")) router.replace("/");
+              }}
             />
           ) : (
             <>
