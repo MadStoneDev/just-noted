@@ -313,6 +313,33 @@ export async function noteChatAvailable(noteId: string): Promise<boolean> {
   return !!(data && (data as any[]).length > 0);
 }
 
+/** Unread message count for the current user on a note (others' non-deleted
+ *  messages since their last read). Drives the Chat button badge. */
+export async function getChatUnread(noteId: string): Promise<number> {
+  const uid = await sessionUserId();
+  if (!uid) return 0;
+  const svc = createServiceRoleClient();
+  if (!(await isParticipant(svc, noteId, uid))) return 0;
+
+  const { data: read } = await svc
+    .from("note_chat_reads")
+    .select("last_read_at")
+    .eq("note_id", noteId)
+    .eq("user_id", uid)
+    .maybeSingle();
+  const lastRead = (read as any)?.last_read_at as string | undefined;
+
+  let q = svc
+    .from("note_chat_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("note_id", noteId)
+    .is("deleted_at", null)
+    .neq("author_id", uid);
+  if (lastRead) q = q.gt("created_at", lastRead);
+  const { count } = await q;
+  return count ?? 0;
+}
+
 /** Mark the note's chat read up to now (drives unread badges). */
 export async function markChatRead(noteId: string): Promise<{ success: boolean }> {
   const supabase = await createClient();

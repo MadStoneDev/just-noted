@@ -59,6 +59,7 @@ import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import VersionHistoryPanel from "@/components/version-history-panel";
 import NoteChatPanel from "@/components/note-chat-panel";
 import { noteChatAvailable } from "@/app/actions/chatActions";
+import { useChatUnread } from "@/hooks/use-chat-unread";
 import { subscribeProblem } from "@/utils/offline-queue";
 import GoalSuggestionsModal from "@/components/goal-suggestions-modal";
 import SplitToolbar, { SplitToolbarMobile } from "@/components/editor/split-toolbar";
@@ -415,6 +416,7 @@ function NoteEditor({
     noteChatAvailable(note.id).then((ok) => { if (alive) setChatAvailable(ok); });
     return () => { alive = false; };
   }, [note.id, note.source, isAuthenticated]);
+  const { unread: chatUnread } = useChatUnread(note.id, chatAvailable && !showChat);
   const [showGoalSuggestions, setShowGoalSuggestions] = useState(false);
   const lastVersionRef = useRef<number>(0);
   const [goalInput, setGoalInput] = useState(String(note.goal || ""));
@@ -1224,13 +1226,20 @@ function NoteEditor({
           </IconButton>
 
           {isAuthenticated && chatAvailable && (
-            <IconButton
-              label="Chat"
-              size="sm"
-              onClick={() => setShowChat(true)}
-            >
-              <IconMessageCircle size={14} />
-            </IconButton>
+            <span className="relative inline-flex">
+              <IconButton
+                label="Chat"
+                size="sm"
+                onClick={() => setShowChat(true)}
+              >
+                <IconMessageCircle size={14} />
+              </IconButton>
+              {chatUnread > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-0.5 rounded-full bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] text-[9px] font-semibold flex items-center justify-center pointer-events-none">
+                  {chatUnread > 9 ? "9+" : chatUnread}
+                </span>
+              )}
+            </span>
           )}
 
           {isAuthenticated && (

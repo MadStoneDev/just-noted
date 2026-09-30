@@ -10,6 +10,7 @@ import { usePresence, colorForUser } from "@/hooks/use-presence";
 import { PresenceStack } from "@/components/presence-stack";
 import { SharedHistoryPanel } from "@/components/shared-history-panel";
 import NoteChatPanel from "@/components/note-chat-panel";
+import { useChatUnread } from "@/hooks/use-chat-unread";
 import { loadCollabDoc, saveCollabDoc } from "@/app/actions/collabActions";
 import NoteStatsRow from "@/components/note-stats-row";
 import AutoGrowTitle from "@/components/auto-grow-title";
@@ -52,6 +53,7 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
   const presence = usePresence(note?.id ?? null);
   const [showHistory, setShowHistory] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const { unread: chatUnread } = useChatUnread(note?.id ?? null, !!note?.id && !showChat);
   // Bottom slot the formatting toolbar portals into, so it docks to the bottom
   // of the editor column even when the note is too short to fill it (matching
   // the standard editor).
@@ -266,8 +268,13 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
               </span>
             )}
             <button onClick={() => setShowChat(true)} title="Chat"
-              className="w-8 h-8 flex items-center justify-center rounded-[var(--radius-6)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)] transition-colors">
+              className="relative w-8 h-8 flex items-center justify-center rounded-[var(--radius-6)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)] transition-colors">
               <IconMessageCircle size={16} />
+              {chatUnread > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] px-0.5 rounded-full bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] text-[9px] font-semibold flex items-center justify-center">
+                  {chatUnread > 9 ? "9+" : chatUnread}
+                </span>
+              )}
             </button>
             <button onClick={() => setShowHistory(true)} title="Version history"
               className="w-8 h-8 flex items-center justify-center rounded-[var(--radius-6)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)] transition-colors">
