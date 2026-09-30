@@ -277,11 +277,11 @@ export default function ShareNoteButton({
                     const gated = p === "edit" && !canCollaborate;
                     if (gated) {
                       return (
-                        <div key={p} className="px-3 py-1.5 flex items-center gap-2 text-[12px] text-[var(--color-ink-5)] cursor-not-allowed" title="Upgrade to Scribe to let people edit">
+                        <a key={p} href="/pricing?ref=share-edit" className="px-3 py-1.5 flex items-center gap-2 text-[12px] text-[var(--color-ink-5)] hover:text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)] transition-colors" title="Let people edit with Scribe — see plans">
                           <span className="w-[13px]" />
                           Can edit
                           <span className="ml-auto text-[10px] font-[family-name:var(--font-meta)] px-1 rounded-[var(--radius-4)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]">Scribe</span>
-                        </div>
+                        </a>
                       );
                     }
                     return (

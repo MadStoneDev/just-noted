@@ -180,7 +180,10 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
   // sidebarOpen flag (whose default is true and can win a race on those routes,
   // leaving the list docked over the rail).
   const isRoutedView =
-    pathname === "/settings" || pathname === "/admin" || pathname === "/roadmap";
+    pathname === "/settings" ||
+    pathname === "/admin" ||
+    pathname === "/roadmap" ||
+    pathname === "/pricing";
   const listOpen = sidebarOpen && !isRoutedView;
   // Filters live in a slide-up sheet, out of the list's way
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);

@@ -16,6 +16,13 @@ export default function GlobalFooter() {
       </Link>
       .{" "}
       <Link
+        href={`/pricing`}
+        className={`hover:text-[var(--color-accent)] transition-all duration-300 ease-in-out`}
+      >
+        Plans
+      </Link>
+      {" · "}
+      <Link
         href={`/privacy-policy`}
         className={`hover:text-[var(--color-accent)] transition-all duration-300 ease-in-out`}
       >

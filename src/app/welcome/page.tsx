@@ -56,6 +56,12 @@ export default async function WelcomePage() {
               Open App
             </Link>
           </div>
+          <p className="mt-4 text-xs text-[var(--color-text-tertiary)]">
+            Free forever.{" "}
+            <Link href="/pricing" className="underline underline-offset-2 hover:text-[var(--color-accent)] transition-colors">
+              See plans
+            </Link>
+          </p>
         </section>
 
         {/* Features grid */}

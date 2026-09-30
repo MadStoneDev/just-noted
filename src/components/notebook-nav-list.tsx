@@ -334,6 +334,14 @@ export default function NotebookNavList({
           <IconPlus size={16} />
           <span className="text-sm font-medium">Create notebook</span>
         </button>
+        {notebookLimitReached && (
+          <a
+            href="/pricing?ref=notebook-limit"
+            className="mt-1.5 block text-center text-[11px] text-[var(--color-ink-5)] hover:text-[var(--color-accent-text)] transition-colors"
+          >
+            You’re at {notebookLimit} notebooks — go unlimited with Scribe
+          </a>
+        )}
       </div>
     </div>
   );

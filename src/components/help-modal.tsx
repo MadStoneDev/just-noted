@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import {
   IconX,
   IconChevronRight,
@@ -10,6 +11,7 @@ import {
   IconHelpCircle,
   IconInfoCircle,
   IconArticle,
+  IconSparkles,
 } from "@tabler/icons-react";
 import { KEYBOARD_SHORTCUTS } from "@/hooks/use-keyboard-shortcuts";
 
@@ -20,6 +22,7 @@ type View = "menu" | "shortcuts";
 // inline. How it Works / About / Blog are wired as they're built. (Roadmap is
 // its own rail page now, not a Help subview.)
 export default function HelpModal() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>("menu");
 
@@ -59,6 +62,7 @@ export default function HelpModal() {
     onClick?: () => void;
   }[] = [
     { id: "blog", label: "Articles", icon: <IconArticle size={17} />, arrow: true, soon: true },
+    { id: "plans", label: "Plans & pricing", icon: <IconSparkles size={17} />, arrow: true, onClick: () => { setOpen(false); router.push("/pricing"); } },
     { id: "shortcuts", label: "Keyboard shortcuts", icon: <IconKeyboard size={17} />, arrow: true, onClick: () => setView("shortcuts") },
     { id: "how", label: "How it works", icon: <IconHelpCircle size={17} />, soon: true },
     { id: "about", label: "About", icon: <IconInfoCircle size={17} />, soon: true },

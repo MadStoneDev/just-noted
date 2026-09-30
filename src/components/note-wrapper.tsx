@@ -15,6 +15,7 @@ import SharedNoteInline from "@/components/shared-note-inline";
 import NotebooksGrid from "@/components/notebooks-grid";
 import SettingsView from "@/components/settings-view";
 import RoadmapView from "@/components/roadmap-view";
+import PricingView from "@/components/pricing-view";
 import AdminView from "@/components/admin-view";
 import { readEditorFont, applyEditorFont, readEditorFontSize, applyEditorFontSize } from "@/utils/editor-font";
 import { captureCurrentAccount } from "@/utils/accounts";
@@ -76,6 +77,8 @@ export default function NoteWrapper() {
   const [showNotebooksGrid, setShowNotebooksGrid] = useState(false);
   // Standalone Roadmap page (kanban), opened from the rail.
   const [showRoadmap, setShowRoadmap] = useState(false);
+  // Public pricing page — same shell as Roadmap (rail + content).
+  const [showPricing, setShowPricing] = useState(false);
   // Admin dashboard (role >= 10), opened from the rail.
   const [showAdmin, setShowAdmin] = useState(false);
   // Mobile "You" account drawer (bottom sheet).
@@ -97,16 +100,18 @@ export default function NoteWrapper() {
     const isRoadmap = pathname === "/roadmap";
     const isSettings = pathname === "/settings";
     const isAdmin = pathname === "/admin";
+    const isPricing = pathname === "/pricing";
     const sharedMatch = pathname.match(/^\/n\/([^/]+)$/);
     setShowRoadmap(isRoadmap);
     setShowSettings(isSettings);
     setShowAdmin(isAdmin);
+    setShowPricing(isPricing);
     setSettingsSection(
       isSettings
         ? new URLSearchParams(window.location.search).get("section") ?? undefined
         : undefined,
     );
-    if (isRoadmap || isSettings || isAdmin) {
+    if (isRoadmap || isSettings || isAdmin || isPricing) {
       setShowTrash(false);
       setShowNotebooksGrid(false);
       setSharedShortcode(null);
@@ -373,7 +378,7 @@ export default function NoteWrapper() {
     // Escape closes the top open main-area layer first; the hook then handles
     // the sidebar on the next press. Order = visual stacking, most-recent first.
     onEscape: () => {
-      if (showAdmin || showRoadmap || showSettings) { router.push("/"); return true; }
+      if (showAdmin || showRoadmap || showSettings || showPricing) { router.push("/"); return true; }
       if (showTrash) { setShowTrash(false); setSidebarOpen(true); return true; }
       if (showNotebooksGrid) { setShowNotebooksGrid(false); setSidebarOpen(true); return true; }
       if (sharedShortcode) { setSharedShortcode(null); setSidebarOpen(true); return true; }
@@ -427,6 +432,8 @@ export default function NoteWrapper() {
             <AdminView onClose={() => router.push("/")} />
           ) : showRoadmap ? (
             <RoadmapView onClose={() => router.push("/")} />
+          ) : showPricing ? (
+            <PricingView onClose={() => router.push("/")} />
           ) : showSettings ? (
             <SettingsView
               initialSection={settingsSection}
@@ -503,7 +510,7 @@ export default function NoteWrapper() {
 
       {/* Mobile FAB — new note, shown on the notes list only (not the Shared
           list, where a new note makes no sense and it covers the rows). */}
-      {sidebarOpen && mobileTab !== "shared" && !showAdmin && !showRoadmap && !showSettings && !showTrash && !showNotebooksGrid && !sharedShortcode && (
+      {sidebarOpen && mobileTab !== "shared" && !showAdmin && !showRoadmap && !showSettings && !showPricing && !showTrash && !showNotebooksGrid && !sharedShortcode && (
         <MobileFab onClick={mobileNewNote} />
       )}
 
