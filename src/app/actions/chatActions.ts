@@ -4,6 +4,15 @@ import { createClient, createServiceRoleClient } from "@/utils/supabase/server";
 import { ownerCanCollaborate } from "@/lib/subscription";
 import { checkRateLimit } from "@/utils/rate-limit";
 import { toMessageView, type ChatAuthor, type ChatMessageView, type ChatMessageRow } from "@/lib/chat";
+import { validateChatMedia, baseMime } from "@/lib/chat-media";
+import {
+  CHAT_PREFIX,
+  PRESIGN_TTL_SECONDS,
+  presignPut,
+  presignGet,
+  headPrivateObject,
+  deletePrivateObject,
+} from "@/utils/storage/r2-private";
 
 const MAX_BODY = 4000;
 // Send limit per user per note. The SQL is_note_chat_participant() is caller
@@ -105,6 +114,107 @@ export async function sendChatMessage(
   return { success: !error, error: error ? "Couldn't send the message" : undefined };
 }
 
+/**
+ * Step 1 of a media send: validate + reserve a key and hand back a short-lived
+ * presigned PUT URL so the (already EXIF-stripped) file uploads straight to the
+ * private bucket. Gated on participation + the owner's Scribe plan.
+ */
+export async function requestChatMediaUpload(
+  noteId: string,
+  kind: string,
+  mime: string,
+  size: number,
+): Promise<{ ok: boolean; url?: string; key?: string; error?: string }> {
+  const uid = await sessionUserId();
+  if (!uid) return { ok: false, error: "Sign in to chat" };
+  const v = validateChatMedia(kind, mime, size);
+  if (!v.ok) return { ok: false, error: v.error };
+
+  const svc = createServiceRoleClient();
+  if (!(await isParticipant(svc, noteId, uid))) return { ok: false, error: "You don't have access to this chat" };
+  if (!(await ownerCanCollaborate(svc, noteId))) return { ok: false, error: "Chat is read-only" };
+  const rl = await checkRateLimit(uid, `chat:${noteId}`, SEND_LIMIT, SEND_WINDOW_MS);
+  if (!rl.allowed) return { ok: false, error: "You're sending messages too fast — slow down a moment." };
+
+  const key = `${CHAT_PREFIX}${noteId}/${crypto.randomUUID()}.${v.ext}`;
+  try {
+    const url = await presignPut(key, baseMime(mime));
+    return { ok: true, url, key };
+  } catch {
+    return { ok: false, error: "Uploads aren't available right now" };
+  }
+}
+
+/**
+ * Step 2 of a media send: after the client uploaded to the presigned URL, create
+ * the message. Re-checks access, confirms the key is under this note's prefix,
+ * and HEADs the object to verify it landed and matches the declared type/size.
+ */
+export async function sendChatMediaMessage(
+  noteId: string,
+  input: { key: string; kind: string; mime: string; meta?: Record<string, unknown> },
+): Promise<{ success: boolean; error?: string }> {
+  const uid = await sessionUserId();
+  if (!uid) return { success: false, error: "Sign in to chat" };
+
+  const svc = createServiceRoleClient();
+  if (!(await isParticipant(svc, noteId, uid))) return { success: false, error: "You don't have access to this chat" };
+  if (!(await ownerCanCollaborate(svc, noteId))) return { success: false, error: "Chat is read-only" };
+
+  // The key must live under THIS note's prefix (no cross-note / prefix escape).
+  if (!input.key.startsWith(`${CHAT_PREFIX}${noteId}/`) || input.key.includes("..")) {
+    return { success: false, error: "Invalid upload" };
+  }
+  // Confirm the object actually landed and re-validate its real size/type.
+  const head = await headPrivateObject(input.key);
+  if (!head) return { success: false, error: "Upload didn't complete" };
+  const v = validateChatMedia(input.kind, head.contentType || input.mime, head.size);
+  if (!v.ok) {
+    await deletePrivateObject(input.key);
+    return { success: false, error: v.error };
+  }
+
+  const { error } = await svc.from("note_chat_messages").insert({
+    note_id: noteId,
+    author_id: uid,
+    kind: input.kind,
+    media_key: input.key,
+    media_mime: baseMime(head.contentType || input.mime),
+    media_meta: input.meta ?? null,
+  } as any);
+  if (error) {
+    await deletePrivateObject(input.key);
+    return { success: false, error: "Couldn't send the attachment" };
+  }
+  return { success: true };
+}
+
+/**
+ * A short-lived presigned URL to view a message's media, only for participants
+ * of the note. Returns the TTL so the client can refresh before it expires.
+ */
+export async function getChatMediaUrl(
+  messageId: string,
+): Promise<{ ok: boolean; url?: string; expiresInSeconds?: number }> {
+  const uid = await sessionUserId();
+  if (!uid) return { ok: false };
+  const svc = createServiceRoleClient();
+  const { data: msg } = await svc
+    .from("note_chat_messages")
+    .select("note_id, media_key, deleted_at")
+    .eq("id", messageId)
+    .maybeSingle();
+  const m = msg as any;
+  if (!m || !m.media_key || m.deleted_at) return { ok: false };
+  if (!(await isParticipant(svc, m.note_id, uid))) return { ok: false };
+  try {
+    const url = await presignGet(m.media_key);
+    return { ok: true, url, expiresInSeconds: PRESIGN_TTL_SECONDS };
+  } catch {
+    return { ok: false };
+  }
+}
+
 /** Edit your own message (adds the "(edited)" marker via edited_at). */
 export async function editChatMessage(
   messageId: string,
@@ -141,7 +251,7 @@ export async function editChatMessage(
 /**
  * Delete your own message → a "Message deleted" tombstone (row kept, content
  * cleared). Allowed even when the chat is read-only: it's your own content.
- * (Media purge from R2 arrives with the media phase.)
+ * Any attached media is purged from the private bucket.
  */
 export async function deleteOwnChatMessage(messageId: string): Promise<{ success: boolean }> {
   const uid = await sessionUserId();
@@ -169,10 +279,10 @@ export async function deleteOwnChatMessage(messageId: string): Promise<{ success
     .eq("id", messageId);
   if (error) return { success: false };
 
-  // Purge the edit history too — a deleted message must leave no recoverable
-  // content. (Media purge from private R2 when m.media_key is set arrives with
-  // the media phase; media_key is always null until then.)
+  // A deleted message must leave no recoverable content: purge the edit history
+  // and any attached media object from the private bucket.
   await svc.from("note_chat_message_versions").delete().eq("message_id", messageId);
+  if (m.media_key) await deletePrivateObject(m.media_key);
   return { success: true };
 }
 

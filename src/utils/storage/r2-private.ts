@@ -4,6 +4,7 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  HeadObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -90,6 +91,36 @@ export async function presignGet(
     new GetObjectCommand({ Bucket: bucket!, Key: key }),
     { expiresIn: ttlSeconds },
   );
+}
+
+/**
+ * A short-lived presigned PUT URL so a verified client can upload directly to
+ * R2 (keeping large media off the Next server). The CALLER must have verified
+ * the uploader may write this key and validated the content type. contentType
+ * is pinned into the signature, so the upload must send the same header.
+ */
+export async function presignPut(
+  key: string,
+  contentType: string,
+  ttlSeconds: number = 120,
+): Promise<string> {
+  return getSignedUrl(
+    client(),
+    new PutObjectCommand({ Bucket: bucket!, Key: key, ContentType: contentType }),
+    { expiresIn: ttlSeconds },
+  );
+}
+
+/** Object metadata (to confirm an upload landed and check its real size/type). */
+export async function headPrivateObject(
+  key: string,
+): Promise<{ size: number; contentType: string | null } | null> {
+  try {
+    const r = await client().send(new HeadObjectCommand({ Bucket: bucket!, Key: key }));
+    return { size: r.ContentLength ?? 0, contentType: r.ContentType ?? null };
+  } catch {
+    return null;
+  }
 }
 
 /** Best-effort delete; never throws (cleanup must not fail the caller). */
