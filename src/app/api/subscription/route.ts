@@ -40,8 +40,6 @@ export async function GET(request: NextRequest) {
       userId: data.user_id,
       tier: data.tier as SubscriptionTier,
       status: data.status,
-      paddleSubscriptionId: data.paddle_subscription_id,
-      paddleCustomerId: data.paddle_customer_id,
       currentPeriodEnd: data.current_period_end
         ? new Date(data.current_period_end).getTime()
         : undefined,

@@ -32,7 +32,7 @@ export async function createClient() {
 /**
  * Creates a Supabase client with service role privileges.
  * Use this ONLY for server-side operations that need to bypass RLS:
- * - Webhook handlers (Paddle)
+ * - Webhook handlers (Stripe)
  * - Admin cleanup tasks
  * - Background jobs
  *

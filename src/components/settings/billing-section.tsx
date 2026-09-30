@@ -133,7 +133,7 @@ export default function BillingSection() {
                 ? renews
                   ? `${cancelAtEnd ? "Ends" : "Renews"} ${new Date(renews).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}`
                   : "Active subscription"
-                : "Note-taking, sharing, and a taste of AI — free forever."}
+                : "Note-taking and sharing — free forever."}
             </p>
           </div>
           {isPaid && (
@@ -166,7 +166,7 @@ export default function BillingSection() {
             Become a Scribe
           </div>
           <ul className="mt-2 space-y-1 text-[12.5px] text-[var(--color-ink-2)]">
-            {["Share notes others can edit — with live collaboration", "Unlimited notebooks", "Full AI", "100 versions of history"].map((f) => (
+            {["Share notes others can edit — with live collaboration", "Unlimited notebooks"].map((f) => (
               <li key={f} className="flex items-center gap-1.5">
                 <IconCheck size={13} className="text-[var(--color-accent-text)] shrink-0" />
                 {f}

@@ -8,8 +8,6 @@ export interface Subscription {
   userId: string;
   tier: SubscriptionTier;
   status: "active" | "cancelled" | "past_due" | "trialing";
-  paddleSubscriptionId?: string;
-  paddleCustomerId?: string;
   currentPeriodEnd?: number;
   cancelAtPeriodEnd?: boolean;
   createdAt: number;
@@ -19,7 +17,6 @@ export interface Subscription {
 export interface SubscriptionLimits {
   maxNotes: number;
   maxCollaborators: number;
-  canUseAI: boolean;
   canExportAll: boolean;
   canUseTemplates: boolean;
   maxVersionHistory: number;
@@ -30,7 +27,6 @@ export const SUBSCRIPTION_LIMITS: Record<SubscriptionTier, SubscriptionLimits> =
   draft: {
     maxNotes: -1, // Note-taking stays free & generous
     maxCollaborators: 0,
-    canUseAI: false, // limited/taste only
     canExportAll: true,
     canUseTemplates: true,
     maxVersionHistory: 10,
@@ -39,7 +35,6 @@ export const SUBSCRIPTION_LIMITS: Record<SubscriptionTier, SubscriptionLimits> =
   scribe: {
     maxNotes: -1,
     maxCollaborators: -1, // unlimited — individuals sharing, no team cap
-    canUseAI: true,
     canExportAll: true,
     canUseTemplates: true,
     maxVersionHistory: 100,
@@ -78,26 +73,4 @@ export interface UserPresence {
   cursorPosition?: number;
   lastActiveAt: number;
   isEditing: boolean;
-}
-
-// Paddle webhook event types
-export interface PaddleWebhookEvent {
-  event_type: string;
-  event_time: string;
-  data: {
-    subscription_id?: string;
-    customer_id?: string;
-    status?: string;
-    billing_period?: {
-      ends_at: string;
-    };
-    custom_data?: {
-      userId?: string;
-    };
-    items?: Array<{
-      price?: {
-        id?: string;
-      };
-    }>;
-  };
 }
