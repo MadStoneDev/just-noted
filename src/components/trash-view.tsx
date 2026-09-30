@@ -10,6 +10,7 @@ import {
 import { supabaseToCombi } from "@/types/combined-notes";
 import type { CombinedNote } from "@/types/combined-notes";
 import { useNotesStore } from "@/stores/notes-store";
+import { broadcastNoteDeleted, broadcastNotesChanged } from "@/utils/cross-tab";
 import { countWordsInContent } from "@/utils/word-count";
 import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import { DEFAULT_SCRIBE_RETENTION_DAYS } from "@/lib/retention";
@@ -86,7 +87,10 @@ export default function TrashView({ onClose }: TrashViewProps) {
 
   const handleRestore = useCallback(async (noteId: string) => {
     const result = await restoreNote(noteId);
-    if (result.success) setAllNotes((prev) => prev.filter((n) => n.id !== noteId));
+    if (result.success) {
+      setAllNotes((prev) => prev.filter((n) => n.id !== noteId));
+      broadcastNotesChanged(); // other tabs re-fetch so the note reappears
+    }
   }, []);
 
   const handleRestoreAll = useCallback(async () => {
@@ -95,12 +99,16 @@ export default function TrashView({ onClose }: TrashViewProps) {
     for (const id of ids) await restoreNote(id);
     setAllNotes((prev) => prev.filter((n) => !ids.includes(n.id)));
     setBusy(false);
+    broadcastNotesChanged();
   }, [notes]);
 
   const handlePermanentDelete = useCallback(async (noteId: string) => {
     setConfirmDeleteId(null);
     const result = await permanentlyDeleteNote(noteId);
-    if (result.success) setAllNotes((prev) => prev.filter((n) => n.id !== noteId));
+    if (result.success) {
+      setAllNotes((prev) => prev.filter((n) => n.id !== noteId));
+      broadcastNoteDeleted(noteId); // other tabs drop it instantly
+    }
   }, []);
 
   const handleEmptyTrash = useCallback(async () => {
@@ -110,6 +118,7 @@ export default function TrashView({ onClose }: TrashViewProps) {
     setAllNotes((prev) => prev.filter((n) => !ids.includes(n.id)));
     setBusy(false);
     setConfirmEmpty(false);
+    ids.forEach((id) => broadcastNoteDeleted(id));
   }, [notes]);
 
   return (

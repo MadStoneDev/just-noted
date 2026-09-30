@@ -23,6 +23,7 @@ vi.mock("@/utils/redis", () => ({
       return 1;
     },
     hdel: async (key: string, field: string) => (h.store.get(key)?.delete(field) ? 1 : 0),
+    incr: async () => 1,
     // CAS_LUA: if HGET(field) === expected then [HSET copy] + HSET(field,new).
     eval: async (_script: string, keys: string[], argv: string[]) => {
       const key = keys[0];

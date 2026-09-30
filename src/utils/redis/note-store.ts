@@ -31,9 +31,33 @@ const MAX_ATTEMPTS = 5;
 const backoffMs = (attempt: number) => Math.min(50 * 2 ** attempt, 800);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+export const NOTES_REV_PREFIX = "notes_rev:";
 const notesKey = (userId: string) => `${NOTES_HASH_PREFIX}${userId}`;
 const backupKey = (userId: string) => `${NOTES_BACKUP_PREFIX}${userId}`;
 const stagingKey = (userId: string) => `${NOTES_STAGING_PREFIX}${userId}`;
+const revKey = (userId: string) => `${NOTES_REV_PREFIX}${userId}`;
+
+// A tiny per-user revision counter bumped on every write, so a poll can do a
+// cheap 1-command change check and skip the full HGETALL when nothing changed
+// (Upstash bills per command + data). Fire-and-forget on writes.
+function touchRevision(userId: string): void {
+  try {
+    Promise.resolve(redisRaw.incr(revKey(userId))).catch(() => {});
+  } catch {
+    /* best-effort */
+  }
+}
+
+/** Current revision (0 if none). One cheap GET. */
+export async function getNotesRevision(userId: string): Promise<number> {
+  try {
+    const v = (await redisRaw.get(revKey(userId))) as string | number | null;
+    const n = typeof v === "number" ? v : parseInt(String(v ?? "0"), 10);
+    return Number.isFinite(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+}
 
 const conflictTitle = (base: string) => {
   const stamp = new Date().toLocaleString(undefined, {
@@ -224,12 +248,14 @@ export async function readAllNotes(userId: string): Promise<RedisNote[]> {
 export async function putNote(userId: string, note: RedisNote): Promise<void> {
   await ensureHash(userId);
   await (redisRaw as any).hset(notesKey(userId), { [note.id]: JSON.stringify(note) });
+  touchRevision(userId);
 }
 
 /** Remove a note field. */
 export async function deleteNote(userId: string, noteId: string): Promise<boolean> {
   await ensureHash(userId);
   const removed = (await redisRaw.hdel(notesKey(userId), noteId)) as number;
+  if (removed > 0) touchRevision(userId);
   return removed > 0;
 }
 
@@ -296,7 +322,10 @@ export async function casUpdateNote(
       [noteId, raw, JSON.stringify(updated), copyField, copyRaw],
     )) as number;
 
-    if (res === 1) return { success: true, version: nextVersion, conflicted };
+    if (res === 1) {
+      touchRevision(userId);
+      return { success: true, version: nextVersion, conflicted };
+    }
     // Field changed under us — re-read and retry.
     await sleep(backoffMs(attempt));
   }
@@ -316,4 +345,5 @@ export async function putNotes(userId: string, notes: RedisNote[]): Promise<void
   const obj: Record<string, string> = {};
   for (const n of notes) obj[n.id] = JSON.stringify(n);
   await (redisRaw as any).hset(notesKey(userId), obj);
+  touchRevision(userId);
 }

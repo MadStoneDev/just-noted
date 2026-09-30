@@ -6,7 +6,7 @@ import { useNotesStore } from "@/stores/notes-store";
 import { createClient } from "@/utils/supabase/client";
 import { getUserId } from "@/utils/general/notes";
 import { sortNotes, normaliseOrdering } from "@/utils/notes-utils";
-import { noteOperation } from "@/app/actions/notes";
+import { noteOperation, fetchNotesRevision } from "@/app/actions/notes";
 import {
   getNotesByUserId as getSupabaseNotesByUserId,
   updateNote as updateSupabaseNote,
@@ -27,6 +27,7 @@ import { subscribeNoteUpdates } from "@/utils/cross-tab";
 import { stripHtmlToText } from "@/utils/html-utils";
 import {
   HAS_INITIALISED_KEY,
+  REFRESH_INTERVAL,
   VISIBLE_REFRESH_INTERVAL,
   MIN_REFRESH_GAP,
   AUTH_TIMEOUT,
@@ -555,18 +556,42 @@ export function useNotesSync() {
   // shows up in seconds rather than after the slow background interval.
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
+    let lastRev = -1;
+    let lastFull = 0;
 
-    const doRefresh = () => {
-      if (!hasInitialisedRef.current) return;
+    const canRefresh = () => {
+      if (!hasInitialisedRef.current) return false;
       const { isEditing, isSaving } = useNotesStore.getState();
-      if (isEditing.size > 0 || isSaving.size > 0) return; // never clobber active edits
-      if (Date.now() - lastUpdateTimestamp.current < MIN_REFRESH_GAP) return; // de-dupe bursts
+      return !(isEditing.size > 0 || isSaving.size > 0);
+    };
+
+    const fullRefresh = () => {
+      if (!canRefresh()) return;
+      if (Date.now() - lastFull < MIN_REFRESH_GAP) return;
+      lastFull = Date.now();
       refreshNotes();
+    };
+
+    // Interval tick: do a CHEAP 1-command revision check and only fetch all
+    // notes when the local (Redis) revision actually moved. A full refresh still
+    // runs at least every REFRESH_INTERVAL as a fallback for cloud changes.
+    const tick = async () => {
+      if (!canRefresh()) return;
+      if (Date.now() - lastFull >= REFRESH_INTERVAL) { fullRefresh(); return; }
+      const uid = useNotesStore.getState().userId;
+      if (!uid) return;
+      try {
+        const rev = await fetchNotesRevision(uid);
+        if (lastRev !== -1 && rev !== lastRev) fullRefresh();
+        lastRev = rev;
+      } catch {
+        /* ignore a failed cheap check */
+      }
     };
 
     const start = () => {
       if (interval) return;
-      interval = setInterval(doRefresh, VISIBLE_REFRESH_INTERVAL);
+      interval = setInterval(tick, VISIBLE_REFRESH_INTERVAL);
     };
     const stop = () => {
       if (interval) { clearInterval(interval); interval = null; }
@@ -574,10 +599,10 @@ export function useNotesSync() {
 
     const onVisibility = () => {
       if (typeof document === "undefined") return;
-      if (document.visibilityState === "visible") { doRefresh(); start(); }
+      if (document.visibilityState === "visible") { fullRefresh(); start(); }
       else stop();
     };
-    const onFocus = () => doRefresh();
+    const onFocus = () => fullRefresh();
 
     if (typeof document === "undefined" || document.visibilityState === "visible") start();
     document.addEventListener("visibilitychange", onVisibility);

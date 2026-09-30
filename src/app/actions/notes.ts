@@ -8,6 +8,7 @@ import {
   deleteNote as hdelNote,
   casUpdateNote,
   getNote,
+  getNotesRevision,
 } from "@/utils/redis/note-store";
 import { headers } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
@@ -606,6 +607,17 @@ async function handleSupabaseOperation(params: NoteOperationParams) {
 // ===========================
 // MAIN EXPORTED FUNCTION
 // ===========================
+// Cheap change check for the visible poll: returns the per-user Redis revision
+// (one GET), so the client only does a full note fetch when it actually changed.
+export async function fetchNotesRevision(userId: string): Promise<number> {
+  if (!userId) return 0;
+  try {
+    return await getNotesRevision(userId);
+  } catch {
+    return 0;
+  }
+}
+
 export async function noteOperation(
   storage: "redis" | "supabase",
   params: NoteOperationParams,
