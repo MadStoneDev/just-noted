@@ -14,6 +14,8 @@ export interface Subscription {
   updatedAt: number;
 }
 
+// Plan limits, as consumed by getLimits(). The values live in the single plan
+// config (@/lib/plans); this is only the shape the resolver returns.
 export interface SubscriptionLimits {
   maxNotes: number;
   maxCollaborators: number;
@@ -22,25 +24,6 @@ export interface SubscriptionLimits {
   maxVersionHistory: number;
   canCollaborate: boolean;
 }
-
-export const SUBSCRIPTION_LIMITS: Record<SubscriptionTier, SubscriptionLimits> = {
-  draft: {
-    maxNotes: -1, // Note-taking stays free & generous
-    maxCollaborators: 0,
-    canExportAll: true,
-    canUseTemplates: true,
-    maxVersionHistory: 10,
-    canCollaborate: false,
-  },
-  scribe: {
-    maxNotes: -1,
-    maxCollaborators: -1, // unlimited — individuals sharing, no team cap
-    canExportAll: true,
-    canUseTemplates: true,
-    maxVersionHistory: 100,
-    canCollaborate: true,
-  },
-};
 
 // Collaboration types
 export type CollaboratorRole = "viewer" | "editor" | "owner";

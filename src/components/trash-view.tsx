@@ -42,7 +42,7 @@ export default function TrashView({ onClose }: TrashViewProps) {
   const [busy, setBusy] = useState(false);
   // null while resolving; false = guest (no account, notes never retained).
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
-  const [retentionDays, setRetentionDays] = useState(DEFAULT_SCRIBE_RETENTION_DAYS);
+  const [retentionDays, setRetentionDays] = useState<number>(DEFAULT_SCRIBE_RETENTION_DAYS);
 
   const loadTrash = useCallback(async () => {
     setLoading(true);

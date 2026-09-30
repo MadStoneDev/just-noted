@@ -7,8 +7,9 @@ import {
   CreateNotebookInput,
   UpdateNotebookInput,
   notebookRowToNotebook,
-  NOTEBOOK_LIMITS,
 } from "@/types/notebook";
+import { getUserTier } from "@/lib/subscription";
+import { PLANS } from "@/lib/plans";
 import {
   DEFAULT_COVER_TYPE,
   DEFAULT_COVER_VALUE,
@@ -96,16 +97,9 @@ export async function createNotebook(
 
     const currentCount = count || 0;
 
-    // Check user's subscription tier for notebook limit
-    let limit: number = NOTEBOOK_LIMITS.free;
-    const { data: subData } = await supabase
-      .from("subscriptions")
-      .select("tier, status")
-      .eq("user_id", userId)
-      .single();
-    if (subData?.status === "active" && subData?.tier === "scribe") {
-      limit = NOTEBOOK_LIMITS.premium;
-    }
+    // Check user's subscription tier for notebook limit (single plan config).
+    const tier = await getUserTier(supabase, userId);
+    const limit = PLANS[tier].limits.maxNotebooks;
 
     // limit < 0 means unlimited (Scribe); only enforce a finite cap.
     if (limit >= 0 && currentCount >= limit) {

@@ -1,9 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  SUBSCRIPTION_LIMITS,
-  type SubscriptionTier,
-  type SubscriptionLimits,
-} from "@/types/subscription";
+import type { SubscriptionTier, SubscriptionLimits } from "@/types/subscription";
+import { PLANS } from "@/lib/plans";
 
 /**
  * Resolve a user's active subscription tier. A subscription only counts when its
@@ -28,7 +25,15 @@ export async function getUserTier(
 }
 
 export function getLimits(tier: SubscriptionTier): SubscriptionLimits {
-  return SUBSCRIPTION_LIMITS[tier];
+  const plan = PLANS[tier];
+  return {
+    maxNotes: plan.limits.maxNotes,
+    maxCollaborators: plan.limits.maxEditCollaborators,
+    canExportAll: plan.features.export,
+    canUseTemplates: plan.features.templates,
+    maxVersionHistory: plan.limits.autosaveVersionCap,
+    canCollaborate: plan.features.editCollaboration,
+  };
 }
 
 /** Convenience for the collaboration gate. */

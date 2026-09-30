@@ -33,13 +33,8 @@ export interface UpdateNotebookInput {
   showHiddenChildren?: boolean;
 }
 
-// Notebook limit for paywall
-export const NOTEBOOK_LIMITS = {
-  free: 10, // Draft (free): 10 notebooks max
-  premium: -1, // Scribe (paid): unlimited (-1), matching unlimited notes
-} as const;
-
-export type NotebookTier = keyof typeof NOTEBOOK_LIMITS;
+// The notebook cap lives in the single plan config: PLANS[tier].limits.maxNotebooks
+// (@/lib/plans).
 
 // Database row type (snake_case from Supabase)
 export interface NotebookRow {

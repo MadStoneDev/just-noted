@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { SUBSCRIPTION_LIMITS, type SubscriptionTier } from "@/types/subscription";
-import { NOTEBOOK_LIMITS } from "@/types/notebook";
+import { type SubscriptionTier } from "@/types/subscription";
+import { getLimits } from "@/lib/subscription";
+import { PLANS } from "@/lib/plans";
 import { openUpgradeCheckout, billingConfigured } from "@/lib/billing-client";
 import { getPortalUrl } from "@/app/actions/billingActions";
 import { useToast } from "@/components/ui/toast";
@@ -92,8 +93,8 @@ export default function BillingSection() {
     return () => { alive = false; };
   }, []);
 
-  const limits = SUBSCRIPTION_LIMITS[tier];
-  const notebookLimit = tier === "draft" ? NOTEBOOK_LIMITS.free : NOTEBOOK_LIMITS.premium;
+  const limits = getLimits(tier);
+  const notebookLimit = PLANS[tier].limits.maxNotebooks;
 
   const upgrade = async () => {
     const ok = await openUpgradeCheckout({ email, userId });

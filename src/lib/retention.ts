@@ -10,10 +10,17 @@
 // nothing physically lingers much past ~3 months.
 
 import type { SubscriptionTier } from "@/types/subscription";
+import { PLANS } from "@/lib/plans";
 
-export const DRAFT_RETENTION_DAYS = 30;
-export const SCRIBE_RETENTION_OPTIONS = [60, 90] as const;
-export const DEFAULT_SCRIBE_RETENTION_DAYS = 60;
+// Per-plan retention comes from the single plan config; these are convenience
+// re-exports so callers don't reach into PLANS for a single number.
+export const DRAFT_RETENTION_DAYS = PLANS.draft.retention.trashDays; // 30
+export const SCRIBE_RETENTION_OPTIONS = PLANS.scribe.retention.trashOptions; // [60, 90]
+export const DEFAULT_SCRIBE_RETENTION_DAYS = PLANS.scribe.retention.trashDays; // 60
+
+// Operational backstop (not a plan fact): a cron hard-deletes rows past this,
+// just beyond the largest window a user can choose, so nothing lingers much
+// past ~3 months and no chosen window ever loses a note early.
 export const PHYSICAL_PURGE_DAYS = 91;
 
 export type ScribeRetentionDays = (typeof SCRIBE_RETENTION_OPTIONS)[number];

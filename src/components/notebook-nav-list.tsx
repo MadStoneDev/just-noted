@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { useNotesStore, useNotebooks } from "@/stores/notes-store";
 import { createClient } from "@/utils/supabase/client";
-import { Notebook, NOTEBOOK_LIMITS } from "@/types/notebook";
+import { Notebook } from "@/types/notebook";
+import { PLANS } from "@/lib/plans";
 import { reorderNotebooks } from "@/app/actions/notebookActions";
 import {
   IconChevronDown,
@@ -45,7 +46,7 @@ export default function NotebookNavList({
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
-  // Scribe has no notebook cap; Draft is capped at NOTEBOOK_LIMITS.free. The
+  // Scribe has no notebook cap; Draft is capped (see PLANS in @/lib/plans). The
   // server enforces the real limit — this only drives the "Create" button state.
   const [isScribe, setIsScribe] = useState(false);
 
@@ -86,7 +87,7 @@ export default function NotebookNavList({
 
   const totalNotesCount = notes.filter((n) => n.source === "supabase").length;
   const hiddenNotebookCount = notebooks.filter((nb) => nb.isHidden && !nb.parentId).length;
-  const notebookLimit = isScribe ? NOTEBOOK_LIMITS.premium : NOTEBOOK_LIMITS.free;
+  const notebookLimit = PLANS[isScribe ? "scribe" : "draft"].limits.maxNotebooks;
   const notebookLimitReached = notebookLimit >= 0 && notebooks.length >= notebookLimit;
 
   const handleSelect = (id: string | null) => {
