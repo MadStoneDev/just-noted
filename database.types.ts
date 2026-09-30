@@ -39,6 +39,39 @@ export type Database = {
         }
         Relationships: []
       }
+      account_exports: {
+        Row: {
+          id: string
+          user_id: string
+          status: string
+          storage_key: string | null
+          size_bytes: number | null
+          error: string | null
+          created_at: string
+          expires_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          status?: string
+          storage_key?: string | null
+          size_bytes?: number | null
+          error?: string | null
+          created_at?: string
+          expires_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          status?: string
+          storage_key?: string | null
+          size_bytes?: number | null
+          error?: string | null
+          created_at?: string
+          expires_at?: string | null
+        }
+        Relationships: []
+      }
       authors: {
         Row: {
           id: string
