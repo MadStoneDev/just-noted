@@ -333,22 +333,23 @@ export default async function PrivacyPolicyPage() {
           <p className="mt-3">You&apos;re in control of your information:</p>
           <ul className="mt-3 space-y-2 list-disc pl-5">
             <li>
-              <span className="font-medium">Export:</span> Settings lets you export
-              your whole account (notes, history and account details) as JSON or
-              Markdown. We email you a link when it&apos;s ready; it works for 7
-              days and requires you to be signed in. The &ldquo;Export all&rdquo;
-              button in the sidebar exports your notes on the spot.
+              <span className="font-medium">Export:</span> the &ldquo;Export
+              all&rdquo; button in the sidebar exports your notes on the spot. For
+              a full account export (notes, history and account details), email us
+              at {mail} and we&apos;ll prepare one for you. Self-service export in
+              Settings is coming soon.
             </li>
             <li>
               <span className="font-medium">Correct:</span> update your details in
               Settings, or ask us.
             </li>
             <li>
-              <span className="font-medium">Delete:</span> delete your account in
-              Settings. This permanently removes your profile, cloud notes, trash,
-              version history, notebooks and shares, and cancels any Scribe
-              subscription. Local notes aren&apos;t part of your account and are
-              deleted separately.
+              <span className="font-medium">Delete:</span> to delete your account —
+              permanently removing your profile, cloud notes, trash, version
+              history, notebooks and shares, and cancelling any Scribe subscription
+              — email us at {mail} and we&apos;ll action it. Self-service deletion
+              in Settings is coming soon. Local notes aren&apos;t part of your
+              account and are deleted separately.
             </li>
             <li>
               <span className="font-medium">Withdraw consent</span> for analytics
