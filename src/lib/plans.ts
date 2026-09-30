@@ -120,6 +120,22 @@ export function planFor(tier: PlanTier): Plan {
   return PLANS[tier];
 }
 
+/**
+ * What changes when a Scribe goes back to Draft, generated from the config so
+ * the numbers always match enforcement. Shown before cancelling and in Plan &
+ * Usage after. Nothing is deleted — every change is reversible on re-upgrade.
+ */
+export function downgradeEffects(): string[] {
+  const d = PLANS.draft;
+  return [
+    "Nothing is deleted.",
+    `Your notebooks stay — you just can't create new ones past ${d.limits.maxNotebooks}.`,
+    "People you shared notes with for editing become view-only (their access returns if you upgrade again).",
+    `Version history is kept and trims back toward ${d.limits.autosaveVersionCap} per note over time as you edit.`,
+    `Trash keeps a ${d.retention.trashDays}-day window measured from your downgrade date.`,
+  ];
+}
+
 /** A limit of -1 (or any negative) means unlimited. */
 export function isUnlimited(limit: number): boolean {
   return limit < 0;

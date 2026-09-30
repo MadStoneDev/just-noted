@@ -3,12 +3,13 @@
 import React, { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { type SubscriptionTier } from "@/types/subscription";
-import { getLimits } from "@/lib/subscription";
-import { PLANS } from "@/lib/plans";
+import { getLimits, getUserTier } from "@/lib/subscription";
+import { PLANS, downgradeEffects } from "@/lib/plans";
 import { openUpgradeCheckout, billingConfigured } from "@/lib/billing-client";
 import { getPortalUrl } from "@/app/actions/billingActions";
 import { useToast } from "@/components/ui/toast";
-import { IconCheck, IconSparkles } from "@tabler/icons-react";
+import PlanComparison from "@/components/plan-comparison";
+import { IconCheck, IconSparkles, IconInfoCircle } from "@tabler/icons-react";
 
 const TIER_LABEL: Record<SubscriptionTier, string> = { draft: "Draft", scribe: "Scribe" };
 
@@ -37,6 +38,25 @@ function Meter({ label, used, limit }: { label: string; used: number; limit: num
   );
 }
 
+function DowngradeSummary({ title }: { title: string }) {
+  return (
+    <div className="rounded-[var(--radius-9)] border border-[var(--color-hairline)] p-4">
+      <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-[var(--color-ink-1)]">
+        <IconInfoCircle size={14} className="text-[var(--color-ink-4)]" />
+        {title}
+      </div>
+      <ul className="mt-2 space-y-1 text-[12px] text-[var(--color-ink-4)]">
+        {downgradeEffects().map((e) => (
+          <li key={e} className="flex items-start gap-1.5">
+            <span className="mt-[6px] w-1 h-1 rounded-full bg-[var(--color-ink-6)] shrink-0" />
+            {e}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export default function BillingSection() {
   const supabase = createClient();
   const { showError } = useToast();
@@ -46,6 +66,9 @@ export default function BillingSection() {
   const [userId, setUserId] = useState("");
   const [renews, setRenews] = useState<string | null>(null);
   const [cancelAtEnd, setCancelAtEnd] = useState(false);
+  // A Draft user who still has a subscription row with a period end has lapsed
+  // from Scribe — used to show the "what changed" downgrade summary.
+  const [lapsed, setLapsed] = useState(false);
   const [usage, setUsage] = useState({ notes: 0, notebooks: 0, collaborators: 0 });
   const [portalBusy, setPortalBusy] = useState(false);
 
@@ -57,21 +80,21 @@ export default function BillingSection() {
       setUserId(user.id);
       setEmail(user.email || "");
 
-      const [{ data: sub }, notesCount, notebooksCount, shareRows] = await Promise.all([
-        supabase.from("subscriptions").select("tier, status, current_period_end, cancel_at_period_end").eq("user_id", user.id).maybeSingle(),
+      const [activeTier, { data: sub }, notesCount, notebooksCount, shareRows] = await Promise.all([
+        // Resolve tier via the shared resolver, not an inline re-implementation.
+        getUserTier(supabase, user.id),
+        supabase.from("subscriptions").select("current_period_end, cancel_at_period_end").eq("user_id", user.id).maybeSingle(),
         supabase.from("notes").select("id", { count: "exact", head: true }).eq("author", user.id).is("deleted_at", null),
         supabase.from("notebooks").select("id", { count: "exact", head: true }).eq("owner", user.id),
         supabase.from("shared_notes").select("id").eq("note_owner_id", user.id),
       ]);
       if (!alive) return;
 
-      const status = (sub as any)?.status;
-      const t = (sub as any)?.tier as string | undefined;
-      const activeTier: SubscriptionTier =
-        (status === "active" || status === "trialing") && t === "scribe" ? "scribe" : "draft";
       setTier(activeTier);
-      setRenews((sub as any)?.current_period_end ?? null);
+      const periodEnd = (sub as any)?.current_period_end ?? null;
+      setRenews(periodEnd);
       setCancelAtEnd(!!(sub as any)?.cancel_at_period_end);
+      setLapsed(activeTier === "draft" && !!periodEnd);
 
       // Count named editors across the user's shared notes.
       let collaborators = 0;
@@ -132,8 +155,8 @@ export default function BillingSection() {
             <p className="mt-0.5 text-[12px] text-[var(--color-ink-5)]">
               {isPaid
                 ? renews
-                  ? `${cancelAtEnd ? "Ends" : "Renews"} ${new Date(renews).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}`
-                  : "Active subscription"
+                  ? `${cancelAtEnd ? "Ends" : "Renews"} ${new Date(renews).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })} · ${PLANS.scribe.price.display}`
+                  : PLANS.scribe.price.display
                 : "Note-taking and sharing — free forever."}
             </p>
           </div>
@@ -149,6 +172,10 @@ export default function BillingSection() {
         </div>
       </div>
 
+      {/* Downgrade summary — before cancelling (Scribe) and after (lapsed Draft). */}
+      {isPaid && <DowngradeSummary title="If you cancel, here's what changes" />}
+      {lapsed && <DowngradeSummary title="You're on Draft now — what changed" />}
+
       {/* Usage */}
       <div>
         <div className="mb-2 text-[11px] font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)]">Usage</div>
@@ -157,6 +184,12 @@ export default function BillingSection() {
           <Meter label="Notebooks" used={usage.notebooks} limit={notebookLimit} />
           <Meter label="Collaborators (editors)" used={usage.collaborators} limit={limits.maxCollaborators} />
         </div>
+      </div>
+
+      {/* Compare plans — the same table as /pricing, from the plan config. */}
+      <div>
+        <div className="mb-2 text-[11px] font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)]">Compare plans</div>
+        <PlanComparison />
       </div>
 
       {/* Upgrade */}

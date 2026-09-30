@@ -1,27 +1,17 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { IconX, IconCheck, IconMinus, IconSparkles } from "@tabler/icons-react";
+import { IconX, IconCheck, IconSparkles } from "@tabler/icons-react";
 import { createClient } from "@/utils/supabase/client";
-import { PLANS, COMPARISON_ROWS, type PlanTier, type Plan } from "@/lib/plans";
+import { PLANS, type PlanTier, type Plan } from "@/lib/plans";
 import { openUpgradeCheckout, billingConfigured } from "@/lib/billing-client";
 import { getPortalUrl } from "@/app/actions/billingActions";
 import { useToast } from "@/components/ui/toast";
+import PlanComparison from "@/components/plan-comparison";
 
 // Public pricing page (design: same shell as Roadmap — the rail stays, this
 // fills the rest). Everything renders from the single plan config so it can
 // never drift from what's actually enforced.
-
-function Cell({ value }: { value: string | boolean }) {
-  if (typeof value === "boolean") {
-    return value ? (
-      <IconCheck size={15} className="mx-auto text-[var(--color-accent-text)]" />
-    ) : (
-      <IconMinus size={14} className="mx-auto text-[var(--color-ink-6)]" />
-    );
-  }
-  return <span className="text-[12.5px] text-[var(--color-ink-2)]">{value}</span>;
-}
 
 export default function PricingView({ onClose }: { onClose: () => void }) {
   const { showError } = useToast();
@@ -173,26 +163,7 @@ export default function PricingView({ onClose }: { onClose: () => void }) {
           <div className="mb-2 text-[11px] font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)]">
             Compare
           </div>
-          <div className="rounded-[var(--radius-9)] border border-[var(--color-hairline)] overflow-hidden">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-[var(--color-hairline-soft)]">
-                  <th className="px-4 py-2.5 text-[12px] font-medium text-[var(--color-ink-4)]">Feature</th>
-                  <th className="px-4 py-2.5 text-[12px] font-medium text-[var(--color-ink-4)] text-center w-[28%]">Draft</th>
-                  <th className="px-4 py-2.5 text-[12px] font-medium text-[var(--color-ink-1)] text-center w-[28%]">Scribe</th>
-                </tr>
-              </thead>
-              <tbody>
-                {COMPARISON_ROWS.map((row, i) => (
-                  <tr key={row.label} className={i % 2 ? "bg-[var(--color-raised-soft)]/40" : ""}>
-                    <td className="px-4 py-2.5 text-[12.5px] text-[var(--color-ink-2)]">{row.label}</td>
-                    <td className="px-4 py-2.5 text-center"><Cell value={row.draft} /></td>
-                    <td className="px-4 py-2.5 text-center"><Cell value={row.scribe} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <PlanComparison />
         </div>
 
         {/* FAQ */}
