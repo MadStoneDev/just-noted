@@ -175,6 +175,13 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
   // Current route — drives active state on the routed rail entries (Admin /
   // Roadmap / Settings each own a URL).
   const pathname = usePathname();
+  // On a routed full-screen view (Settings / Admin / Roadmap) the notes list
+  // must never show — the sidebar collapses to just the rail, regardless of the
+  // sidebarOpen flag (whose default is true and can win a race on those routes,
+  // leaving the list docked over the rail).
+  const isRoutedView =
+    pathname === "/settings" || pathname === "/admin" || pathname === "/roadmap";
+  const listOpen = sidebarOpen && !isRoutedView;
   // Filters live in a slide-up sheet, out of the list's way
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   // Show the Admin rail entry only to admins (role >= 10). Server enforces the
@@ -634,7 +641,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
       {/* Overlay for mobile — tap to close */}
       <div
         className={`fixed inset-0 z-40 lg:hidden transition-opacity duration-[var(--duration-slow)] ${
-          sidebarOpen
+          listOpen
             ? "bg-[var(--color-bg-overlay)] opacity-100"
             : "opacity-0 pointer-events-none"
         }`}
@@ -646,7 +653,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
       <aside
         ref={sidebarRef}
         className={`relative left-0 h-full z-40 lg:z-auto bg-[var(--color-panel)] border-r border-[var(--color-hairline)] overflow-hidden ${
-          sidebarOpen ? "w-full lg:w-[340px]" : "w-0 lg:w-14"
+          listOpen ? "w-full lg:w-[340px]" : "w-0 lg:w-14"
         }`}
         style={{
           flexShrink: 0,

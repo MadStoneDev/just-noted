@@ -25,7 +25,10 @@ export async function getPortalUrl(): Promise<string | null> {
     .eq("user_id", user.id)
     .maybeSingle();
   const customerId = (sub as any)?.stripe_customer_id;
-  if (!customerId) return null;
+  if (!customerId) {
+    console.error("[billing] getPortalUrl: no stripe_customer_id for user", user.id);
+    return null;
+  }
 
   try {
     const stripe = new Stripe(secret);
@@ -36,7 +39,11 @@ export async function getPortalUrl(): Promise<string | null> {
       return_url: origin || undefined,
     });
     return session.url;
-  } catch {
+  } catch (err) {
+    // Most common: the Customer Portal hasn't been activated in the Stripe
+    // dashboard (Settings → Billing → Customer portal → Save), which makes
+    // billingPortal.sessions.create throw. Log the real reason so it's visible.
+    console.error("[billing] getPortalUrl: Stripe portal error:", err instanceof Error ? err.message : err);
     return null;
   }
 }
