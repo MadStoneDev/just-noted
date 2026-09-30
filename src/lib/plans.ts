@@ -142,6 +142,15 @@ export function isUnlimited(limit: number): boolean {
 }
 
 /**
+ * How many of the oldest autosave snapshots to delete before inserting a new
+ * one, so the total settles at `cap`. Pure so the version-cap enforcement is
+ * testable without a database.
+ */
+export function autosaveTrimCount(existingCount: number, cap: number): number {
+  return existingCount >= cap ? existingCount - (cap - 1) : 0;
+}
+
+/**
  * Row model for the Draft-vs-Scribe comparison table, generated from the config
  * so the pricing page and Plan & Usage never diverge. Each cell is either a
  * boolean (rendered as a tick/dash) or a string.

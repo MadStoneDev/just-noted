@@ -13,7 +13,7 @@ import { useNotesStore } from "@/stores/notes-store";
 import { broadcastNoteDeleted, broadcastNotesChanged } from "@/utils/cross-tab";
 import { countWordsInContent } from "@/utils/word-count";
 import { getCoverPreviewStyle } from "@/lib/notebook-covers";
-import { DEFAULT_SCRIBE_RETENTION_DAYS } from "@/lib/retention";
+import { DEFAULT_SCRIBE_RETENTION_DAYS, recoverableUntilMs } from "@/lib/retention";
 import { IconX, IconTrash } from "@tabler/icons-react";
 import { ConfirmModal } from "@/components/ds/modal";
 
@@ -83,10 +83,10 @@ export default function TrashView({ onClose }: TrashViewProps) {
   // Retention is enforced at the display layer: notes older than the window are
   // treated as gone (a cron hard-deletes them past the physical cutoff).
   const notes = useMemo(() => {
-    const cutoff = Date.now() - retentionDays * DAY;
+    const now = Date.now();
     // Grace: measure the window from max(deletedAt, downgrade date).
     return allNotes.filter(
-      (n) => Math.max(n.deletedAt ?? 0, graceAnchor) >= cutoff,
+      (n) => recoverableUntilMs(n.deletedAt ?? 0, graceAnchor, retentionDays) > now,
     );
   }, [allNotes, retentionDays, graceAnchor]);
 
@@ -222,8 +222,11 @@ export default function TrashView({ onClose }: TrashViewProps) {
               const nb = note.notebookId
                 ? notebooks.find((n) => n.id === note.notebookId)
                 : null;
-              const purgeAt =
-                Math.max(note.deletedAt || Date.now(), graceAnchor) + retentionDays * DAY;
+              const purgeAt = recoverableUntilMs(
+                note.deletedAt || Date.now(),
+                graceAnchor,
+                retentionDays,
+              );
               const daysLeft = Math.max(0, Math.ceil((purgeAt - Date.now()) / DAY));
               const countdownColor =
                 daysLeft < 3

@@ -30,6 +30,21 @@ export function isScribeRetentionDays(n: unknown): n is ScribeRetentionDays {
 }
 
 /**
+ * When a trashed note stops being recoverable (ms). The window is measured from
+ * max(deletedAt, graceAnchor): on downgrade, graceAnchor is the date paid access
+ * ended, so notes trashed under a longer Scribe window keep 30 days from the
+ * downgrade date instead of being purged early. graceAnchor 0 = no grace. Pure
+ * so the downgrade trash behaviour is testable.
+ */
+export function recoverableUntilMs(
+  deletedAtMs: number,
+  graceAnchorMs: number,
+  retentionDays: number,
+): number {
+  return Math.max(deletedAtMs, graceAnchorMs) + retentionDays * 86400000;
+}
+
+/**
  * The retention window (in days) the user's Trash should honour. Draft is fixed
  * at 30; Scribe honours the stored preference (60 or 90), defaulting to 60.
  */

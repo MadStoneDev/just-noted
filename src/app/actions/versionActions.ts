@@ -2,7 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { getUserTier } from "@/lib/subscription";
-import { PLANS } from "@/lib/plans";
+import { PLANS, autosaveTrimCount } from "@/lib/plans";
 
 async function getAuthenticatedUser() {
   const supabase = await createClient();
@@ -40,12 +40,11 @@ export async function saveVersion(
         .eq("reason", "autosave")
         .order("created_at", { ascending: false });
 
-      if (existing && existing.length >= cap) {
-        // Keep the newest (cap - 1); the incoming insert makes it exactly cap.
-        const toDelete = existing.slice(cap - 1).map((v: any) => v.id);
-        if (toDelete.length > 0) {
-          await supabase.from("note_versions").delete().in("id", toDelete);
-        }
+      const trim = existing ? autosaveTrimCount(existing.length, cap) : 0;
+      if (trim > 0) {
+        // Delete the oldest `trim`; the incoming insert makes the total exactly cap.
+        const toDelete = existing!.slice(cap - 1).map((v: any) => v.id);
+        await supabase.from("note_versions").delete().in("id", toDelete);
       }
     }
 
