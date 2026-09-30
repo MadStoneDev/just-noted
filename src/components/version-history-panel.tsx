@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { getVersions } from "@/app/actions/versionActions";
-import { IconHistory, IconX, IconArrowBackUp } from "@tabler/icons-react";
+import { IconHistory, IconX, IconArrowBackUp, IconCalendar, IconSparkles } from "@tabler/icons-react";
 import { ConfirmModal } from "@/components/ds/modal";
 
 interface Version {
@@ -35,18 +35,33 @@ function relativeTime(dateStr: string): string {
 export default function VersionHistoryPanel({ noteId, open, onClose, onRestore }: VersionHistoryPanelProps) {
   const [versions, setVersions] = useState<Version[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadedOnce, setLoadedOnce] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [confirmRestore, setConfirmRestore] = useState<Version | null>(null);
+  // Date/time range filter — a Scribe feature. canFilter comes back from the
+  // server (the source of truth for the gate); Draft still sees every version.
+  const [canFilter, setCanFilter] = useState(false);
+  const [rangeFrom, setRangeFrom] = useState("");
+  const [rangeTo, setRangeTo] = useState("");
 
   const loadVersions = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await getVersions(noteId);
+      const range =
+        rangeFrom || rangeTo
+          ? {
+              from: rangeFrom ? new Date(rangeFrom).toISOString() : null,
+              to: rangeTo ? new Date(rangeTo).toISOString() : null,
+            }
+          : undefined;
+      const result = await getVersions(noteId, range);
       if (result.success) setVersions(result.versions);
+      setCanFilter(!!result.canFilter);
     } finally {
       setLoading(false);
+      setLoadedOnce(true);
     }
-  }, [noteId]);
+  }, [noteId, rangeFrom, rangeTo]);
 
   useEffect(() => {
     if (open) loadVersions();
@@ -105,6 +120,45 @@ export default function VersionHistoryPanel({ noteId, open, onClose, onRestore }
               </div>
             </>
           ) : (
+            <>
+            {loadedOnce && (canFilter ? (
+              <div className="px-4 py-2 border-b border-[var(--color-border-secondary)] flex items-center gap-1.5 flex-wrap">
+                <IconCalendar size={12} className="text-[var(--color-text-tertiary)] shrink-0" />
+                <input
+                  type="datetime-local"
+                  aria-label="From date"
+                  value={rangeFrom}
+                  max={rangeTo || undefined}
+                  onChange={(e) => setRangeFrom(e.target.value)}
+                  className="min-w-0 flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-[var(--color-border-secondary)] rounded-[var(--radius-sm)] text-[var(--color-text-secondary)] focus:outline-none focus:border-[var(--color-accent)]"
+                />
+                <span className="text-[10px] text-[var(--color-text-tertiary)]">–</span>
+                <input
+                  type="datetime-local"
+                  aria-label="To date"
+                  value={rangeTo}
+                  min={rangeFrom || undefined}
+                  onChange={(e) => setRangeTo(e.target.value)}
+                  className="min-w-0 flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-[var(--color-border-secondary)] rounded-[var(--radius-sm)] text-[var(--color-text-secondary)] focus:outline-none focus:border-[var(--color-accent)]"
+                />
+                {(rangeFrom || rangeTo) && (
+                  <button
+                    onClick={() => { setRangeFrom(""); setRangeTo(""); }}
+                    className="px-1.5 py-1 text-[10px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            ) : (
+              <a
+                href="/pricing?ref=history-filter"
+                className="px-4 py-2 border-b border-[var(--color-border-secondary)] flex items-center gap-1.5 text-[10px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
+              >
+                <IconSparkles size={12} className="shrink-0" />
+                Filter history by date range — a Scribe feature
+              </a>
+            ))}
             <div className="flex-1 overflow-y-auto scrollbar-thin">
               {loading ? (
                 <div className="py-8 text-center text-sm text-[var(--color-text-tertiary)]">Loading...</div>
@@ -132,6 +186,7 @@ export default function VersionHistoryPanel({ noteId, open, onClose, onRestore }
                 </ul>
               )}
             </div>
+            </>
           )}
         </div>
 
