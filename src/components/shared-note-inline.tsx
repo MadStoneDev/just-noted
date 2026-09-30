@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { IconX, IconLock, IconEye, IconShare, IconHistory, IconLink, IconDots } from "@tabler/icons-react";
+import { IconX, IconLock, IconEye, IconShare, IconHistory, IconLink, IconDots, IconMessageCircle } from "@tabler/icons-react";
 import { sharingOperation } from "@/app/actions/sharing";
 import { createClient } from "@/utils/supabase/client";
 import MilkdownEditor from "@/components/editor/milkdown-editor";
@@ -9,6 +9,7 @@ import type { ContentFormat } from "@/types/combined-notes";
 import { usePresence, colorForUser } from "@/hooks/use-presence";
 import { PresenceStack } from "@/components/presence-stack";
 import { SharedHistoryPanel } from "@/components/shared-history-panel";
+import NoteChatPanel from "@/components/note-chat-panel";
 import { loadCollabDoc, saveCollabDoc } from "@/app/actions/collabActions";
 import NoteStatsRow from "@/components/note-stats-row";
 import AutoGrowTitle from "@/components/auto-grow-title";
@@ -50,6 +51,7 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
   const canEdit = !!note?.canEdit;
   const presence = usePresence(note?.id ?? null);
   const [showHistory, setShowHistory] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const toast = useToast();
   const shareLink = typeof window !== "undefined" ? `${window.location.origin}/n/${shortcode}` : "";
   const copyLink = () => { navigator.clipboard.writeText(shareLink); toast.showSuccess("Link copied"); };
@@ -259,6 +261,10 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
                 {saveLabel}
               </span>
             )}
+            <button onClick={() => setShowChat(true)} title="Chat"
+              className="w-8 h-8 flex items-center justify-center rounded-[var(--radius-6)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)] transition-colors">
+              <IconMessageCircle size={16} />
+            </button>
             <button onClick={() => setShowHistory(true)} title="Version history"
               className="w-8 h-8 flex items-center justify-center rounded-[var(--radius-6)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)] transition-colors">
               <IconHistory size={16} />
@@ -286,6 +292,9 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
           </div>
         </div>
         {showHistory && <SharedHistoryPanel shortcode={shortcode} onClose={() => setShowHistory(false)} />}
+        {note?.id && (
+          <NoteChatPanel noteId={note.id} open={showChat} onClose={() => setShowChat(false)} />
+        )}
         <div className="flex-1 overflow-y-auto scrollbar-thin">
           <article className="max-w-[var(--content-width)] mx-auto px-4 md:px-8 py-8">
             <AutoGrowTitle

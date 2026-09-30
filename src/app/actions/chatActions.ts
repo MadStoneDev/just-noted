@@ -176,6 +176,20 @@ export async function deleteOwnChatMessage(messageId: string): Promise<{ success
   return { success: true };
 }
 
+/**
+ * Whether to surface chat for a note: the caller participates AND the note has
+ * actually been shared with someone. (A collaborator viewing a share always
+ * qualifies; this gates the owner's own editor so chat only shows once shared.)
+ */
+export async function noteChatAvailable(noteId: string): Promise<boolean> {
+  const uid = await sessionUserId();
+  if (!uid) return false;
+  const svc = createServiceRoleClient();
+  if (!(await isParticipant(svc, noteId, uid))) return false;
+  const { data } = await svc.from("shared_notes").select("id").eq("note_id", noteId).limit(1);
+  return !!(data && (data as any[]).length > 0);
+}
+
 /** Mark the note's chat read up to now (drives unread badges). */
 export async function markChatRead(noteId: string): Promise<{ success: boolean }> {
   const supabase = await createClient();

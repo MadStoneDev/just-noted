@@ -107,6 +107,131 @@ export type Database = {
           },
         ]
       }
+      note_chat_message_versions: {
+        Row: {
+          id: string
+          message_id: string
+          body: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          message_id: string
+          body?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          message_id?: string
+          body?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_chat_message_versions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "note_chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      note_chat_messages: {
+        Row: {
+          id: string
+          note_id: string
+          author_id: string | null
+          kind: string
+          body: string | null
+          reply_to: string | null
+          anchor: Json | null
+          media_key: string | null
+          media_mime: string | null
+          media_meta: Json | null
+          created_at: string
+          edited_at: string | null
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          note_id: string
+          author_id?: string | null
+          kind?: string
+          body?: string | null
+          reply_to?: string | null
+          anchor?: Json | null
+          media_key?: string | null
+          media_mime?: string | null
+          media_meta?: Json | null
+          created_at?: string
+          edited_at?: string | null
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          note_id?: string
+          author_id?: string | null
+          kind?: string
+          body?: string | null
+          reply_to?: string | null
+          anchor?: Json | null
+          media_key?: string | null
+          media_mime?: string | null
+          media_meta?: Json | null
+          created_at?: string
+          edited_at?: string | null
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_chat_messages_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "note_chat_messages_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "note_chat_messages_reply_to_fkey"
+            columns: ["reply_to"]
+            isOneToOne: false
+            referencedRelation: "note_chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      note_chat_reads: {
+        Row: {
+          note_id: string
+          user_id: string
+          last_read_at: string
+        }
+        Insert: {
+          note_id: string
+          user_id: string
+          last_read_at?: string
+        }
+        Update: {
+          note_id?: string
+          user_id?: string
+          last_read_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_chat_reads_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       note_tags: {
         Row: {
           note_id: string
@@ -688,6 +813,12 @@ export type Database = {
           shortcode_param: string
         }
         Returns: number
+      }
+      is_note_chat_participant: {
+        Args: {
+          p_note_id: string
+        }
+        Returns: boolean
       }
     }
     Enums: {

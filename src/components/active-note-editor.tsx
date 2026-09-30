@@ -26,6 +26,7 @@ import {
   IconShare,
   IconHelp,
   IconHistory,
+  IconMessageCircle,
   IconNotebook,
   IconX,
   IconPrinter,
@@ -56,6 +57,8 @@ import { CommandPalette, type CommandPage } from "@/components/ds/command-palett
 import { getSortedNotebookTree } from "@/utils/notebook-tree";
 import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import VersionHistoryPanel from "@/components/version-history-panel";
+import NoteChatPanel from "@/components/note-chat-panel";
+import { noteChatAvailable } from "@/app/actions/chatActions";
 import { subscribeProblem } from "@/utils/offline-queue";
 import GoalSuggestionsModal from "@/components/goal-suggestions-modal";
 import SplitToolbar, { SplitToolbarMobile } from "@/components/editor/split-toolbar";
@@ -401,6 +404,17 @@ function NoteEditor({
   // scroll area) so it spans the pane and never overlaps the note text.
   const [toolbarSlot, setToolbarSlot] = useState<HTMLDivElement | null>(null);
   const [showVersions, setShowVersions] = useState(false);
+  // Chat — only surfaced once the note is actually shared with someone.
+  const [showChat, setShowChat] = useState(false);
+  const [chatAvailable, setChatAvailable] = useState(false);
+  useEffect(() => {
+    setShowChat(false);
+    setChatAvailable(false);
+    if (!isAuthenticated || note.source !== "supabase") return;
+    let alive = true;
+    noteChatAvailable(note.id).then((ok) => { if (alive) setChatAvailable(ok); });
+    return () => { alive = false; };
+  }, [note.id, note.source, isAuthenticated]);
   const [showGoalSuggestions, setShowGoalSuggestions] = useState(false);
   const lastVersionRef = useRef<number>(0);
   const [goalInput, setGoalInput] = useState(String(note.goal || ""));
@@ -1208,6 +1222,16 @@ function NoteEditor({
             <IconHelp size={14} />
           </IconButton>
 
+          {isAuthenticated && chatAvailable && (
+            <IconButton
+              label="Chat"
+              size="sm"
+              onClick={() => setShowChat(true)}
+            >
+              <IconMessageCircle size={14} />
+            </IconButton>
+          )}
+
           {isAuthenticated && (
             <IconButton
               label="Version history"
@@ -1600,6 +1624,11 @@ function NoteEditor({
           setShowGoalPicker(false);
         }}
       />
+
+      {/* Chat (only when the note is shared) */}
+      {chatAvailable && (
+        <NoteChatPanel noteId={note.id} open={showChat} onClose={() => setShowChat(false)} />
+      )}
 
       {/* Version history */}
       <VersionHistoryPanel
