@@ -415,11 +415,20 @@ function MilkdownEditorInner({
       seedTimer = setTimeout(async () => {
         if (cancelled || !service) return;
         if (!fragmentEmpty()) { persistNow(); return; }
+        // Re-check for late-arriving persisted state (guards a simultaneous opener).
         let again: string | null = null;
         try { again = (await collabConfig.load?.()) ?? null; } catch {}
         if (cancelled) return;
-        if (again) { try { Y.applyUpdate(doc!, b64ToBytes(again), "load"); } catch {} return; }
-        try { service.applyTemplate(initialMarkdown); } catch {}
+        if (again) { try { Y.applyUpdate(doc!, b64ToBytes(again), "load"); } catch {} }
+        // If the doc is STILL empty but the note has canonical content, seed from
+        // it. This recovers a note whose Yjs doc was persisted empty while
+        // note.content holds the real text (they'd otherwise diverge — a blank
+        // editor even though the note clearly has content). When the note was
+        // legitimately emptied via collaboration, note.content is empty too, so
+        // initialMarkdown is "" and nothing is resurrected.
+        if (fragmentEmpty() && initialMarkdown) {
+          try { service.applyTemplate(initialMarkdown); } catch {}
+        }
         persistNow();
       }, 800);
 

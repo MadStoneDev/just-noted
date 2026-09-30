@@ -1017,9 +1017,17 @@ export async function getSharedWithMe(): Promise<{
     const linkPerm = s.link_permission || (s.is_public ? "view" : "off");
     // For a granted note the reader cares about THEIR access: edit if the link
     // grants edit or they were personally made an editor, else view.
-    const viewerPerm = granted
+    let viewerPerm = granted
       ? (linkPerm === "edit" || roleByShareId.get(s.id) === "edit" ? "edit" : "view")
       : linkPerm;
+    // Effective, not just stored: editing needs the OWNER's plan to allow
+    // collaboration (enforce-at-read). If it doesn't, the note is view-only, so
+    // the list matches what the note view actually shows — no "can edit" label
+    // on a note that opens read-only.
+    if (viewerPerm === "edit" && s.storage !== "redis") {
+      const { canCollaborate } = await getCollabAllowance(svc, s.note_owner_id);
+      if (!canCollaborate) viewerPerm = "view";
+    }
     notes.push({
       shortcode: s.shortcode,
       title,

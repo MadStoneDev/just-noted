@@ -52,6 +52,10 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
   const presence = usePresence(note?.id ?? null);
   const [showHistory, setShowHistory] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  // Bottom slot the formatting toolbar portals into, so it docks to the bottom
+  // of the editor column even when the note is too short to fill it (matching
+  // the standard editor).
+  const [toolbarSlot, setToolbarSlot] = useState<HTMLDivElement | null>(null);
   const toast = useToast();
   const shareLink = typeof window !== "undefined" ? `${window.location.origin}/n/${shortcode}` : "";
   const copyLink = () => { navigator.clipboard.writeText(shareLink); toast.showSuccess("Link copied"); };
@@ -292,31 +296,37 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
           </div>
         </div>
         {showHistory && <SharedHistoryPanel shortcode={shortcode} onClose={() => setShowHistory(false)} />}
-        {note?.id && (
-          <NoteChatPanel noteId={note.id} open={showChat} onClose={() => setShowChat(false)} />
-        )}
-        <div className="flex-1 overflow-y-auto scrollbar-thin">
-          <article className="max-w-[var(--content-width)] mx-auto px-4 md:px-8 py-8">
-            <AutoGrowTitle
-              value={title}
-              onChange={(v) => { setTitle(v); scheduleSave(v, content); }}
-              className="mb-1"
-            />
-            <div className="mb-6">
-              <NoteStatsRow content={content} goal={note.goal} goalType={note.goal_type} />
+        <div className="flex-1 flex min-h-0">
+          <div className="flex-1 flex flex-col min-w-0">
+            <div className="flex-1 overflow-y-auto scrollbar-thin">
+              <article className="max-w-[var(--content-width)] mx-auto px-4 md:px-8 py-8">
+                <AutoGrowTitle
+                  value={title}
+                  onChange={(v) => { setTitle(v); scheduleSave(v, content); }}
+                  className="mb-1"
+                />
+                <div className="mb-6">
+                  <NoteStatsRow content={content} goal={note.goal} goalType={note.goal_type} />
+                </div>
+                <MilkdownEditor
+                  content={note.content || ""}
+                  contentFormat={(note.content_format as ContentFormat) || "markdown"}
+                  onChange={(markdown) => { setContent(markdown); scheduleSave(title, markdown); }}
+                  toolbarContainer={toolbarSlot}
+                  collab={me ? {
+                    roomKey: note.id,
+                    user: me,
+                    load: () => loadCollabDoc({ shortcode }).then((r) => r.state),
+                    save: (state) => saveCollabDoc({ shortcode, state }).then(() => {}),
+                  } : undefined}
+                />
+              </article>
             </div>
-            <MilkdownEditor
-              content={note.content || ""}
-              contentFormat={(note.content_format as ContentFormat) || "markdown"}
-              onChange={(markdown) => { setContent(markdown); scheduleSave(title, markdown); }}
-              collab={me ? {
-                roomKey: note.id,
-                user: me,
-                load: () => loadCollabDoc({ shortcode }).then((r) => r.state),
-                save: (state) => saveCollabDoc({ shortcode, state }).then(() => {}),
-              } : undefined}
-            />
-          </article>
+            <div ref={setToolbarSlot} className="shrink-0 empty:hidden" />
+          </div>
+          {note?.id && (
+            <NoteChatPanel noteId={note.id} open={showChat} onClose={() => setShowChat(false)} />
+          )}
         </div>
       </div>
     );

@@ -1199,7 +1199,8 @@ function NoteEditor({
   }, []);
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden">
+    <div className="flex-1 flex h-full overflow-hidden">
+     <div className="flex-1 flex flex-col overflow-hidden min-w-0">
       {/* Editor top bar */}
       <div className="print:hidden hidden md:flex items-center justify-between px-4 md:px-8 py-2 border-b border-[var(--color-hairline)] bg-[var(--color-canvas)]">
         <div className="flex items-center gap-2">
@@ -1625,11 +1626,6 @@ function NoteEditor({
         }}
       />
 
-      {/* Chat (only when the note is shared) */}
-      {chatAvailable && (
-        <NoteChatPanel noteId={note.id} open={showChat} onClose={() => setShowChat(false)} />
-      )}
-
       {/* Version history */}
       <VersionHistoryPanel
         noteId={note.id}
@@ -1643,6 +1639,12 @@ function NoteEditor({
           notesOperations.saveNoteTitle?.(note.id, restoredTitle);
         }}
       />
+     </div>
+
+      {/* Chat — a docked column so the note stays editable beside it. */}
+      {chatAvailable && (
+        <NoteChatPanel noteId={note.id} open={showChat} onClose={() => setShowChat(false)} />
+      )}
     </div>
   );
 }
