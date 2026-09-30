@@ -37,6 +37,7 @@ import {
 } from "@/utils/accounts";
 import BillingSection from "@/components/settings/billing-section";
 import DeleteAccountModal from "@/components/delete-account-modal";
+import AccountExportSection from "@/components/settings/account-export-section";
 import { getTrashState, setScribeRetentionDays } from "@/app/actions/supabaseActions";
 import { SCRIBE_RETENTION_OPTIONS, DRAFT_RETENTION_DAYS } from "@/lib/retention";
 
@@ -625,6 +626,7 @@ export default function SettingsView({ onClose, initialSection }: SettingsViewPr
           ) : section === "Sync & data" ? (
             <div className="space-y-8">
               <DataRetentionSection />
+              <AccountExportSection />
               <DeviceNotesSection />
             </div>
           ) : section === "Security" ? (

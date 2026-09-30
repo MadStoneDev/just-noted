@@ -1,6 +1,7 @@
 import "server-only";
 import { createServiceRoleClient } from "@/utils/supabase/server";
 import { purgeUserChatMedia } from "@/utils/chat/purge";
+import { purgeUserExports } from "@/utils/account/export-runner";
 
 type Svc = ReturnType<typeof createServiceRoleClient>;
 
@@ -25,8 +26,9 @@ export async function purgeOneAccount(userId: string): Promise<void> {
   const svc = createServiceRoleClient();
   await svc.from("account_deletions").update({ status: "purging" } as any).eq("user_id", userId);
 
-  // 1. Chat media objects (+ clear the columns); message text is kept.
+  // 1. Chat media + account export objects/rows from the private bucket.
   try { await purgeUserChatMedia(userId); } catch (e) { console.error("[account purge] chat media failed:", e); }
+  try { await purgeUserExports(userId); } catch (e) { console.error("[account purge] exports failed:", e); }
 
   // 2. Remove them as an editor/viewer on OTHERS' notes.
   await del(svc, "shared_notes_readers", "reader_id", userId);

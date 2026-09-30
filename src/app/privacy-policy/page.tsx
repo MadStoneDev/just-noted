@@ -347,9 +347,10 @@ export default async function PrivacyPolicyPage() {
             <li>
               <span className="font-medium">Export:</span> the &ldquo;Export
               all&rdquo; button in the sidebar exports your notes on the spot. For
-              a full account export (notes, history and account details), email us
-              at {mail} and we&apos;ll prepare one for you. Self-service export in
-              Settings is coming soon.
+              a full account export (notes, notebooks, tags, version history and
+              account details), go to{" "}
+              <span className="font-medium">Settings &rarr; Sync &amp; data &rarr; Export your data</span>.
+              The file is available to download for 7 days, then it&apos;s deleted.
             </li>
             <li>
               <span className="font-medium">Correct:</span> update your details in
