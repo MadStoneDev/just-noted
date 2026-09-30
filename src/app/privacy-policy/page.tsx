@@ -328,7 +328,7 @@ export default async function PrivacyPolicyPage() {
                   "Up to 50 automatic versions per note, plus some safety copies; deleted with the note",
                 ],
                 ["Local notes", "12 months after their last activity"],
-                ["Account exports", "7 days, then deleted"],
+                ["Account export files", "7 days, then deleted (request record kept up to 90 days)"],
                 ["Backups", "About 30 days, then overwritten"],
                 ["Billing records", "As long as tax law requires (usually 5 years in Australia)"],
                 ["Analytics data", "[confirm retention settings]"],
@@ -347,10 +347,15 @@ export default async function PrivacyPolicyPage() {
             <li>
               <span className="font-medium">Export:</span> the &ldquo;Export
               all&rdquo; button in the sidebar exports your notes on the spot. For
-              a full account export (notes, notebooks, tags, version history and
-              account details), go to{" "}
-              <span className="font-medium">Settings &rarr; Sync &amp; data &rarr; Export your data</span>.
-              The file is available to download for 7 days, then it&apos;s deleted.
+              a full account export, go to{" "}
+              <span className="font-medium">Settings &rarr; Sync &amp; data &rarr; Export your data</span>{" "}
+              and choose JSON (complete) or a zip of Markdown files. It includes
+              your cloud notes, notebooks, tags, version history and account
+              details, plus the local notes from the browser you request it in. We
+              email you when it&apos;s ready; downloading requires being signed in,
+              and the file stays available for 7 days before it&apos;s deleted. You
+              can request one export every 48 hours. We keep a small record that you
+              requested an export, but not its contents once it has expired.
             </li>
             <li>
               <span className="font-medium">Correct:</span> update your details in

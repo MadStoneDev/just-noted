@@ -85,10 +85,18 @@ export async function putPrivateObject(
 export async function presignGet(
   key: string,
   ttlSeconds: number = PRESIGN_TTL_SECONDS,
+  downloadFilename?: string,
 ): Promise<string> {
   return getSignedUrl(
     client(),
-    new GetObjectCommand({ Bucket: bucket!, Key: key }),
+    new GetObjectCommand({
+      Bucket: bucket!,
+      Key: key,
+      // Force a download with a friendly name when asked.
+      ResponseContentDisposition: downloadFilename
+        ? `attachment; filename="${downloadFilename.replace(/"/g, "")}"`
+        : undefined,
+    }),
     { expiresIn: ttlSeconds },
   );
 }

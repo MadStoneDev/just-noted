@@ -1,24 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Receiver } from "@upstash/qstash";
 import { processExport } from "@/utils/account/export-runner";
 
 export const dynamic = "force-dynamic";
 
-// QStash delivers the job here. Auth is a shared secret header (EXPORT_JOB_SECRET)
-// that the publisher sets — matching the cleanup-cron convention. The payload
+// QStash delivers the export job here. Requests are verified with the QStash
+// signature (QSTASH_CURRENT_SIGNING_KEY / QSTASH_NEXT_SIGNING_KEY) — the payload
 // carries only an export id; all content is gathered server-side.
-function authorized(req: NextRequest): boolean {
-  const secret = process.env.EXPORT_JOB_SECRET;
-  if (!secret) return false;
-  return (req.headers.get("authorization") || "") === `Bearer ${secret}`;
-}
-
 export async function POST(req: NextRequest) {
-  if (!authorized(req)) {
+  const currentSigningKey = process.env.QSTASH_CURRENT_SIGNING_KEY;
+  const nextSigningKey = process.env.QSTASH_NEXT_SIGNING_KEY;
+  if (!currentSigningKey || !nextSigningKey) {
+    console.error("[export worker] QStash signing keys are not configured");
+    return NextResponse.json({ error: "Not configured" }, { status: 500 });
+  }
+
+  const bodyText = await req.text();
+  const signature = req.headers.get("upstash-signature") || "";
+  try {
+    const receiver = new Receiver({ currentSigningKey, nextSigningKey });
+    const valid = await receiver.verify({ signature, body: bodyText });
+    if (!valid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
   let exportId: string | undefined;
   try {
-    const body = await req.json();
+    const body = JSON.parse(bodyText);
     exportId = typeof body?.exportId === "string" ? body.exportId : undefined;
   } catch {
     /* fall through */
