@@ -265,12 +265,29 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
 
   const hasLoadedNotebooks = useRef(false);
 
-  // Focus search input when sidebar opens
+  // Focus the search input only when the notes list is actually visible. Gating
+  // on listOpen (not sidebarOpen) is essential on routed views: on /settings the
+  // aside collapses to just the rail, but the notes list still renders clipped
+  // inside a 340px inner container. sidebarOpen defaults true and briefly wins
+  // before the URL effect flips it, so focusing the off-screen search input made
+  // the browser horizontally scroll the aside (overflow-hidden doesn't block a
+  // focus-scroll), shoving the rail off-screen and exposing the list. listOpen is
+  // false the entire time on a routed view, so the focus — and the scroll — never
+  // happen.
   useEffect(() => {
-    if (sidebarOpen && searchInputRef.current) {
+    if (listOpen && searchInputRef.current) {
       setTimeout(() => searchInputRef.current?.focus(), 100);
     }
-  }, [sidebarOpen]);
+  }, [listOpen]);
+
+  // Safeguard: whenever the list is collapsed, force the aside back to scrollLeft
+  // 0 so nothing (a stray focus, a restored scroll position) can leave the rail
+  // scrolled out of view with the clipped list showing in its place.
+  useEffect(() => {
+    if (!listOpen && sidebarRef.current) {
+      sidebarRef.current.scrollLeft = 0;
+    }
+  }, [listOpen]);
 
   // Load notebooks and tags when authenticated (once)
   useEffect(() => {
@@ -766,8 +783,12 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
             )}
           </nav>
 
-          {/* Content column */}
-          <div className="flex-1 flex flex-col min-w-0 relative">
+          {/* Content column. Marked inert while the list is collapsed so nothing
+              inside (search input, note rows, buttons) is focusable or tabbable
+              while it's clipped off-screen — a focus here would scroll the aside
+              and expose the list over the rail. The rail <nav> is a sibling, so
+              it stays fully interactive. */}
+          <div className="flex-1 flex flex-col min-w-0 relative" inert={!listOpen}>
             {/* View header */}
             <div className="flex items-center justify-between px-3 h-[52px] flex-none border-b border-[var(--color-hairline-soft)]">
               {railView === "notes" && notebookChain.length > 0 ? (
