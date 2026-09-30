@@ -41,7 +41,7 @@ Comprehensive RLS security fix that:
 
 **Creates subscriptions table:**
 - Creates table if not exists with proper RLS
-- Only service role can modify (for Paddle webhooks)
+- Only service role can modify (for Stripe webhooks)
 
 ## Post-Migration Verification
 
@@ -67,7 +67,7 @@ ORDER BY tablename, policyname;
 
 ## Important Notes
 
-1. **Service Role Key**: Webhook handlers (Paddle) use the service role key to bypass RLS. Ensure `SUPABASE_SERVICE_ROLE_KEY` is set in your environment.
+1. **Service Role Key**: Webhook handlers (Stripe) use the service role key to bypass RLS. Ensure `SUPABASE_SERVICE_ROLE_KEY` is set in your environment.
 
 2. **Backup First**: Always backup your data before running migrations in production.
 

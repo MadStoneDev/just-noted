@@ -2,9 +2,61 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SubscriptionTier, SubscriptionLimits } from "@/types/subscription";
 import { PLANS } from "@/lib/plans";
 
+export type PlanSource = "stripe" | "manual";
+export type BillingState = "ok" | "manual" | "billing_issue";
+
+export interface SubscriptionRow {
+  tier?: string | null;
+  status?: string | null;
+  plan_source?: string | null;
+  comp_until?: string | null;
+}
+
 /**
- * Resolve a user's active subscription tier. A subscription only counts when its
- * status is active/trialing; anything else (cancelled, past_due, none) is free.
+ * Resolve the effective tier from a subscription row. Pure (no I/O) so it's the
+ * one place the rules live and can be unit-tested.
+ *
+ * - manual (comped/admin grant): Scribe as long as the comp window hasn't
+ *   passed. There's no Stripe status to check; comp_until (if set) bounds it —
+ *   once it's in the past the account falls back to the free tier at read time,
+ *   so no cron is needed.
+ * - stripe (default): Scribe only while status is active/trialing. Anything else
+ *   (cancelled, past_due, none) is free.
+ */
+export function resolvePlanTier(
+  row: SubscriptionRow | null | undefined,
+  now: number = Date.now(),
+): SubscriptionTier {
+  if (!row) return "draft";
+  if (row.plan_source === "manual") {
+    const compExpired = row.comp_until
+      ? new Date(row.comp_until).getTime() <= now
+      : false;
+    return row.tier === "scribe" && !compExpired ? "scribe" : "draft";
+  }
+  return (row.status === "active" || row.status === "trialing") && row.tier === "scribe"
+    ? "scribe"
+    : "draft";
+}
+
+/**
+ * The billing-management state for a paid account, so the UI never shows a
+ * "Manage billing" button that can only fail. Pure and testable.
+ */
+export function billingStateFor(opts: {
+  isPaid: boolean;
+  planSource: string | null | undefined;
+  hasStripeCustomer: boolean;
+}): BillingState {
+  if (!opts.isPaid) return "ok";
+  if (opts.planSource === "manual") return "manual";
+  if (!opts.hasStripeCustomer) return "billing_issue";
+  return "ok";
+}
+
+/**
+ * Resolve a user's active subscription tier. Reads the row and applies the plan
+ * rules (Stripe status / manual comp window) via resolvePlanTier.
  */
 export async function getUserTier(
   supabase: SupabaseClient,
@@ -13,15 +65,10 @@ export async function getUserTier(
   if (!userId) return "draft";
   const { data } = await supabase
     .from("subscriptions")
-    .select("tier, status")
+    .select("tier, status, plan_source, comp_until")
     .eq("user_id", userId)
     .maybeSingle();
-  const status = (data as any)?.status;
-  const tier = (data as any)?.tier as string | undefined;
-  if ((status === "active" || status === "trialing") && tier === "scribe") {
-    return "scribe";
-  }
-  return "draft";
+  return resolvePlanTier(data as SubscriptionRow | null);
 }
 
 export function getLimits(tier: SubscriptionTier): SubscriptionLimits {

@@ -49,11 +49,17 @@ export async function POST(request: NextRequest) {
         const sub = await stripe.subscriptions.retrieve(session.subscription as string);
         const tier = tierFromPriceId(sub.items.data[0]?.price?.id);
 
+        // A real checkout always makes the account Stripe-managed. If this user
+        // had a manual comp, plan_source flips to 'stripe' and comp_until clears
+        // so billing takes over cleanly (requirement: manual -> stripe on
+        // subscribe).
         await supabase.from("subscriptions").upsert(
           {
             user_id: userId,
             tier,
             status: sub.status,
+            plan_source: "stripe",
+            comp_until: null,
             stripe_customer_id: (session.customer as string) ?? null,
             stripe_subscription_id: sub.id,
             current_period_end: periodEnd(sub),
@@ -72,11 +78,14 @@ export async function POST(request: NextRequest) {
           event.type === "customer.subscription.deleted"
             ? "draft"
             : tierFromPriceId(sub.items.data[0]?.price?.id);
+        // Matched by stripe_subscription_id, which a manual grant never has, so
+        // this can't touch a comped account. plan_source stays 'stripe'.
         await supabase
           .from("subscriptions")
           .update({
             tier,
             status: sub.status,
+            plan_source: "stripe",
             current_period_end: periodEnd(sub),
             cancel_at_period_end: sub.cancel_at_period_end ?? false,
             updated_at: new Date().toISOString(),

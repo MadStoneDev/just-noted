@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient, createServiceRoleClient } from "@/utils/supabase/server";
+import { resolvePlanTier } from "@/lib/subscription";
 import type { RoadmapStatusValue } from "@/types/roadmap";
 
 // Admin access is authors.role >= 10 (see 20260925_author_role.sql). 3 = default
@@ -116,7 +117,7 @@ export async function getUsers(): Promise<AdminUser[]> {
   const { data: authors } = await svc.from("authors").select("id, username, role").in("id", ids);
   const { data: subs } = await svc
     .from("subscriptions")
-    .select("user_id, tier, status")
+    .select("user_id, tier, status, plan_source, comp_until")
     .in("user_id", ids);
 
   const aById = new Map((authors ?? []).map((a: any) => [a.id, a]));
@@ -126,14 +127,12 @@ export async function getUsers(): Promise<AdminUser[]> {
     .map((u) => {
       const a = aById.get(u.id) as any;
       const s = sByUser.get(u.id) as any;
-      const isScribe =
-        (s?.status === "active" || s?.status === "trialing") && s?.tier === "scribe";
       return {
         id: u.id,
         email: u.email ?? "",
         username: a?.username ?? null,
         role: typeof a?.role === "number" ? a.role : 3,
-        tier: (isScribe ? "scribe" : "draft") as "draft" | "scribe",
+        tier: resolvePlanTier(s ?? null),
       };
     })
     .sort((x, y) => (x.username || x.email).localeCompare(y.username || y.email));
@@ -146,16 +145,29 @@ export async function setUserRole(userId: string, role: number): Promise<{ succe
   return { success: !error };
 }
 
-/** Comp or revoke Scribe for a user (no Stripe involved — a manual grant). */
+/**
+ * Comp or revoke Scribe for a user (no Stripe involved — a manual grant). Sets
+ * plan_source='manual' so billing sync leaves the account alone; an optional
+ * compUntil bounds the grant (after it passes it resolves back to free).
+ * Revoking hands the row back to Stripe so future real billing takes over.
+ */
 export async function setUserScribe(
   userId: string,
   active: boolean,
+  compUntil?: string | null,
 ): Promise<{ success: boolean }> {
   await assertAdmin();
   const svc = createServiceRoleClient();
   if (active) {
     const { error } = await svc.from("subscriptions").upsert(
-      { user_id: userId, tier: "scribe", status: "active", updated_at: new Date().toISOString() } as any,
+      {
+        user_id: userId,
+        tier: "scribe",
+        status: "active",
+        plan_source: "manual",
+        comp_until: compUntil ?? null,
+        updated_at: new Date().toISOString(),
+      } as any,
       { onConflict: "user_id" },
     );
     return { success: !error };
@@ -163,7 +175,13 @@ export async function setUserScribe(
   // Revoke: only touches an existing row (no row = already free/draft).
   const { error } = await svc
     .from("subscriptions")
-    .update({ tier: "draft", status: "cancelled", updated_at: new Date().toISOString() } as any)
+    .update({
+      tier: "draft",
+      status: "cancelled",
+      plan_source: "stripe",
+      comp_until: null,
+      updated_at: new Date().toISOString(),
+    } as any)
     .eq("user_id", userId);
   return { success: !error };
 }

@@ -551,39 +551,45 @@ export type Database = {
           user_id: string
           tier: string
           status: string
-          paddle_subscription_id: string | null
-          paddle_customer_id: string | null
           current_period_end: string | null
           cancel_at_period_end: boolean | null
           created_at: string | null
           updated_at: string | null
           trash_retention_days: number
+          plan_source: string
+          comp_until: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
         }
         Insert: {
           id?: string
           user_id: string
           tier?: string
           status?: string
-          paddle_subscription_id?: string | null
-          paddle_customer_id?: string | null
           current_period_end?: string | null
           cancel_at_period_end?: boolean | null
           created_at?: string | null
           updated_at?: string | null
           trash_retention_days?: number
+          plan_source?: string
+          comp_until?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
         }
         Update: {
           id?: string
           user_id?: string
           tier?: string
           status?: string
-          paddle_subscription_id?: string | null
-          paddle_customer_id?: string | null
           current_period_end?: string | null
           cancel_at_period_end?: boolean | null
           created_at?: string | null
           updated_at?: string | null
           trash_retention_days?: number
+          plan_source?: string
+          comp_until?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
         }
         Relationships: []
       }

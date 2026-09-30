@@ -5,6 +5,7 @@ import { useNotesStore, useNotebooks } from "@/stores/notes-store";
 import { createClient } from "@/utils/supabase/client";
 import { Notebook } from "@/types/notebook";
 import { PLANS } from "@/lib/plans";
+import { getUserTier } from "@/lib/subscription";
 import { reorderNotebooks } from "@/app/actions/notebookActions";
 import {
   IconChevronDown,
@@ -54,18 +55,8 @@ export default function NotebookNavList({
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) return;
-      supabase
-        .from("subscriptions")
-        .select("tier, status")
-        .eq("user_id", data.user.id)
-        .maybeSingle()
-        .then(({ data: sub }) => {
-          const s = sub as { tier?: string; status?: string } | null;
-          setIsScribe(
-            (s?.status === "active" || s?.status === "trialing") &&
-              s?.tier === "scribe",
-          );
-        });
+      // Shared resolver so a comped (manual) grant and comp expiry are honored.
+      getUserTier(supabase, data.user.id).then((t) => setIsScribe(t === "scribe"));
     });
   }, []);
 

@@ -8,6 +8,7 @@ import {
 } from "@/types/combined-notes";
 import { validateGoalType, validateNoteTitle } from "@/utils/validation";
 import type { SubscriptionTier } from "@/types/subscription";
+import { resolvePlanTier } from "@/lib/subscription";
 import {
   DEFAULT_SCRIBE_RETENTION_DAYS,
   isScribeRetentionDays,
@@ -508,7 +509,7 @@ export const getTrashState = async () => {
 
   const { data } = await supabase
     .from("subscriptions")
-    .select("tier, status, trash_retention_days, current_period_end")
+    .select("tier, status, plan_source, comp_until, trash_retention_days, current_period_end")
     .eq("user_id", authData.user.id)
     .maybeSingle();
 
@@ -516,14 +517,14 @@ export const getTrashState = async () => {
     | {
         tier?: string;
         status?: string;
+        plan_source?: string | null;
+        comp_until?: string | null;
         trash_retention_days?: number;
         current_period_end?: string | null;
       }
     | null;
-  const isScribe =
-    (sub?.status === "active" || sub?.status === "trialing") &&
-    sub?.tier === "scribe";
-  const tier: SubscriptionTier = isScribe ? "scribe" : "draft";
+  const tier: SubscriptionTier = resolvePlanTier(sub);
+  const isScribe = tier === "scribe";
   const scribePref = isScribeRetentionDays(sub?.trash_retention_days)
     ? sub!.trash_retention_days!
     : DEFAULT_SCRIBE_RETENTION_DAYS;

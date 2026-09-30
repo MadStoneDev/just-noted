@@ -4,8 +4,9 @@ import React, { useEffect, useState } from "react";
 import { IconX, IconCheck, IconSparkles } from "@tabler/icons-react";
 import { createClient } from "@/utils/supabase/client";
 import { PLANS, type PlanTier, type Plan } from "@/lib/plans";
+import { type BillingState } from "@/lib/subscription";
 import { openUpgradeCheckout, billingConfigured } from "@/lib/billing-client";
-import { getPortalUrl } from "@/app/actions/billingActions";
+import { getPortalUrl, getBillingState } from "@/app/actions/billingActions";
 import { useToast } from "@/components/ui/toast";
 import PlanComparison from "@/components/plan-comparison";
 
@@ -16,8 +17,7 @@ import PlanComparison from "@/components/plan-comparison";
 export default function PricingView({ onClose }: { onClose: () => void }) {
   const { showError } = useToast();
   const [tier, setTier] = useState<PlanTier | null>(null);
-  // Scribe granted directly in the DB (no Stripe customer) — no portal to open.
-  const [manualGrant, setManualGrant] = useState(false);
+  const [billingState, setBillingState] = useState<BillingState>("ok");
   const [authed, setAuthed] = useState(false);
   const [email, setEmail] = useState("");
   const [userId, setUserId] = useState("");
@@ -32,17 +32,10 @@ export default function PricingView({ onClose }: { onClose: () => void }) {
       setAuthed(true);
       setUserId(user.id);
       setEmail(user.email || "");
-      const { data: sub } = await supabase
-        .from("subscriptions")
-        .select("tier, status, stripe_customer_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      const s = sub as { tier?: string; status?: string; stripe_customer_id?: string | null } | null;
-      const isScribe =
-        (s?.status === "active" || s?.status === "trialing") && s?.tier === "scribe";
-      if (alive) {
-        setTier(isScribe ? "scribe" : "draft");
-        setManualGrant(isScribe && !s?.stripe_customer_id);
+      const state = await getBillingState();
+      if (alive && state.authenticated) {
+        setTier(state.tier);
+        setBillingState(state.billingState);
       }
     })();
     return () => { alive = false; };
@@ -125,10 +118,17 @@ export default function PricingView({ onClose }: { onClose: () => void }) {
                 <div className="mt-5">
                   {isScribe ? (
                     isCurrent ? (
-                      manualGrant ? (
-                        <div className="h-9 flex items-center justify-center text-[12px] text-[var(--color-ink-5)]">
-                          Managed manually
+                      billingState === "manual" ? (
+                        <div className="h-9 flex items-center justify-center text-[12px] text-[var(--color-accent-text)]">
+                          Complimentary
                         </div>
+                      ) : billingState === "billing_issue" ? (
+                        <a
+                          href="/contact"
+                          className="w-full h-9 flex items-center justify-center rounded-[var(--radius-7)] text-[13px] font-medium border border-[var(--color-border-control)] text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)] transition-colors"
+                        >
+                          Contact support
+                        </a>
                       ) : (
                         <button
                           onClick={manage}

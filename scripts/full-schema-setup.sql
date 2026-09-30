@@ -96,10 +96,15 @@ CREATE TABLE IF NOT EXISTS public.shared_notes_readers (
 CREATE TABLE IF NOT EXISTS public.subscriptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL,
-  tier TEXT NOT NULL DEFAULT 'free',
+  tier TEXT NOT NULL DEFAULT 'draft',
   status TEXT NOT NULL DEFAULT 'active',
-  paddle_subscription_id TEXT,
-  paddle_customer_id TEXT,
+  -- Billing is Stripe (see 20260924_subscriptions_stripe.sql). plan_source /
+  -- comp_until added 20260930 for manual (comped) grants.
+  plan_source TEXT NOT NULL DEFAULT 'stripe' CHECK (plan_source IN ('stripe', 'manual')),
+  comp_until TIMESTAMPTZ,
+  stripe_customer_id TEXT,
+  stripe_subscription_id TEXT,
+  trash_retention_days INTEGER,
   current_period_end TIMESTAMPTZ,
   cancel_at_period_end BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT now(),
