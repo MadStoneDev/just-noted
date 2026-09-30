@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1117.0",
+    "@aws-sdk/s3-request-presigner": "^3.1117.0",
     "@floating-ui/react": "^0.27.10",
     "@milkdown/core": "^7.21.1",
     "@milkdown/ctx": "^7.21.1",
@@ -71,6 +72,7 @@
     "supabase": "^2.22.12",
     "tailwindcss": "^4.0.15",
     "typescript": "5.9.3",
+    "vite": "^8.3.1",
     "vitest": "^5.0.2",
     "xml2js": "^0.6.2"
   }
