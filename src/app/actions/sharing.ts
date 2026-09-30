@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient, createServiceRoleClient } from "@/utils/supabase/server";
-import { getCollabAllowance } from "@/lib/subscription";
+import { getCollabAllowance, ownerCanCollaborate } from "@/lib/subscription";
 import { NOTES_KEY_PREFIX } from "@/constants/app";
 
 // ===========================
@@ -696,7 +696,11 @@ export async function sharingOperation(params: SharingOperationParams) {
         const canEdit =
           (linkPermission === "edit" || viewerRole === "edit") &&
           !!authenticatedUserId &&
-          storage === "supabase";
+          storage === "supabase" &&
+          // Enforce-at-read downgrade gate: editing is only live while the note's
+          // owner is on a collaboration plan. A lapsed Scribe's note goes
+          // view-only for everyone but the owner (their editor rows are kept).
+          (await ownerCanCollaborate(serviceClient, shareData.note_id));
 
         let authorInfo: { username: string; avatar_url: string | null } = {
           username: "Anonymous",
@@ -770,6 +774,12 @@ export async function sharingOperation(params: SharingOperationParams) {
             .eq("reader_id", authenticatedUserId)
             .maybeSingle();
           mayEdit = (r as any)?.role === "edit";
+        }
+        // Enforce-at-read downgrade gate: an editor can only write while the
+        // owner's plan includes collaboration. A lapsed Scribe's editors keep
+        // their rows but are view-only until the owner upgrades again.
+        if (mayEdit && !(await ownerCanCollaborate(svc, (shareData as any).note_id))) {
+          mayEdit = false;
         }
         if (!mayEdit) {
           return { success: false, error: "You don't have edit access to this note" };

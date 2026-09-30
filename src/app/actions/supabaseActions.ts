@@ -508,12 +508,17 @@ export const getTrashState = async () => {
 
   const { data } = await supabase
     .from("subscriptions")
-    .select("tier, status, trash_retention_days")
+    .select("tier, status, trash_retention_days, current_period_end")
     .eq("user_id", authData.user.id)
     .maybeSingle();
 
   const sub = data as
-    | { tier?: string; status?: string; trash_retention_days?: number }
+    | {
+        tier?: string;
+        status?: string;
+        trash_retention_days?: number;
+        current_period_end?: string | null;
+      }
     | null;
   const isScribe =
     (sub?.status === "active" || sub?.status === "trialing") &&
@@ -523,11 +528,21 @@ export const getTrashState = async () => {
     ? sub!.trash_retention_days!
     : DEFAULT_SCRIBE_RETENTION_DAYS;
 
+  // Downgrade grace: a lapsed Scribe keeps the (now 30-day) Draft window
+  // measured from when paid access ended (current_period_end), not from each
+  // note's deletion. So notes trashed under a longer Scribe window get at least
+  // 30 more days from the downgrade date instead of being purged early. Null for
+  // active Scribe and for anyone who never subscribed.
+  const graceAnchor = !isScribe && sub?.current_period_end
+    ? sub.current_period_end
+    : null;
+
   return {
     authenticated: true as const,
     tier,
     retentionDays: resolveRetentionDays(tier, scribePref),
     scribeRetentionPref: scribePref,
+    graceAnchor,
   };
 };
 

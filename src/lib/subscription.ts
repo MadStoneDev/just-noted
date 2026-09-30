@@ -45,3 +45,27 @@ export async function getCollabAllowance(
   const limits = getLimits(tier);
   return { tier, canCollaborate: limits.canCollaborate, maxCollaborators: limits.maxCollaborators };
 }
+
+/**
+ * Whether a note's OWNER may currently have people edit it — i.e. their active
+ * plan includes edit collaboration. This is the enforce-at-read gate for
+ * downgrade: a lapsed Scribe's editors keep their `edit` rows (reversible) but
+ * every edit *write* path checks this so they're view-only until the owner is
+ * Scribe again. Call it from each write gate (shared-note save, Yjs doc
+ * persistence), not just where editors are added.
+ */
+export async function ownerCanCollaborate(
+  supabase: SupabaseClient,
+  noteId: string,
+): Promise<boolean> {
+  if (!noteId) return false;
+  const { data } = await supabase
+    .from("notes")
+    .select("author")
+    .eq("id", noteId)
+    .maybeSingle();
+  const ownerId = (data as any)?.author as string | undefined;
+  if (!ownerId) return false;
+  const { canCollaborate } = await getCollabAllowance(supabase, ownerId);
+  return canCollaborate;
+}

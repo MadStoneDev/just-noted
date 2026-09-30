@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient, createServiceRoleClient } from "@/utils/supabase/server";
+import { ownerCanCollaborate } from "@/lib/subscription";
 
 /**
  * Persistence for the collaborative Yjs document (design surface 05).
@@ -58,8 +59,14 @@ async function resolve(target: Target): Promise<{
       reader = (data as any) ?? null;
     }
     const canRead = !!(share as any).is_public || !!reader;
-    const canWrite =
+    let canWrite =
       !!userId && ((share as any).link_permission === "edit" || reader?.role === "edit");
+    // Enforce-at-read downgrade gate: collaborators can only WRITE the shared
+    // Yjs doc while the note's owner is on a plan that includes collaboration.
+    // A lapsed Scribe's editors keep their rows but become view-only here.
+    if (canWrite && !(await ownerCanCollaborate(svc, (share as any).note_id))) {
+      canWrite = false;
+    }
     return { noteId: (share as any).note_id, canRead, canWrite };
   }
 

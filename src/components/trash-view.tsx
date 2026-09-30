@@ -43,6 +43,10 @@ export default function TrashView({ onClose }: TrashViewProps) {
   // null while resolving; false = guest (no account, notes never retained).
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [retentionDays, setRetentionDays] = useState<number>(DEFAULT_SCRIBE_RETENTION_DAYS);
+  // Downgrade grace anchor (ms). When set (a lapsed Scribe), a note's window is
+  // measured from max(deletedAt, graceAnchor) so pre-downgrade trash keeps 30
+  // days from the downgrade date rather than being purged early. 0 = no grace.
+  const [graceAnchor, setGraceAnchor] = useState<number>(0);
 
   const loadTrash = useCallback(async () => {
     setLoading(true);
@@ -54,6 +58,9 @@ export default function TrashView({ onClose }: TrashViewProps) {
       }
       setAuthenticated(true);
       setRetentionDays(state.retentionDays);
+      setGraceAnchor(
+        state.graceAnchor ? new Date(state.graceAnchor).getTime() : 0,
+      );
 
       const result = await getTrashedNotes();
       if (result.success && result.notes) {
@@ -77,8 +84,11 @@ export default function TrashView({ onClose }: TrashViewProps) {
   // treated as gone (a cron hard-deletes them past the physical cutoff).
   const notes = useMemo(() => {
     const cutoff = Date.now() - retentionDays * DAY;
-    return allNotes.filter((n) => (n.deletedAt ?? 0) >= cutoff);
-  }, [allNotes, retentionDays]);
+    // Grace: measure the window from max(deletedAt, downgrade date).
+    return allNotes.filter(
+      (n) => Math.max(n.deletedAt ?? 0, graceAnchor) >= cutoff,
+    );
+  }, [allNotes, retentionDays, graceAnchor]);
 
   const totalWords = useMemo(
     () => notes.reduce((sum, n) => sum + countWordsInContent(n.content || ""), 0),
@@ -212,7 +222,8 @@ export default function TrashView({ onClose }: TrashViewProps) {
               const nb = note.notebookId
                 ? notebooks.find((n) => n.id === note.notebookId)
                 : null;
-              const purgeAt = (note.deletedAt || Date.now()) + retentionDays * DAY;
+              const purgeAt =
+                Math.max(note.deletedAt || Date.now(), graceAnchor) + retentionDays * DAY;
               const daysLeft = Math.max(0, Math.ceil((purgeAt - Date.now()) / DAY));
               const countdownColor =
                 daysLeft < 3
