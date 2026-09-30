@@ -36,6 +36,7 @@ import {
   type DeviceAccount,
 } from "@/utils/accounts";
 import BillingSection from "@/components/settings/billing-section";
+import DeleteAccountModal from "@/components/delete-account-modal";
 import { getTrashState, setScribeRetentionDays } from "@/app/actions/supabaseActions";
 import { SCRIBE_RETENTION_OPTIONS, DRAFT_RETENTION_DAYS } from "@/lib/retention";
 
@@ -425,6 +426,7 @@ export default function SettingsView({ onClose, initialSection }: SettingsViewPr
   const [mobileDetail, setMobileDetail] = useState(
     !!initialSection && SECTIONS.includes(initialSection as Section),
   );
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   // Honour a deep-link that changes while Settings is already open.
   useEffect(() => {
     if (initialSection && SECTIONS.includes(initialSection as Section)) {
@@ -483,12 +485,12 @@ export default function SettingsView({ onClose, initialSection }: SettingsViewPr
             </button>
           ))}
           <div className="mt-2 pt-2 border-t border-[var(--color-hairline-soft)]">
-            <Link
-              href="/profile"
+            <button
+              onClick={() => setShowDeleteAccount(true)}
               className="block w-full text-left px-2.5 py-2 rounded-[var(--radius-8)] text-[13.5px] text-[var(--color-danger-strong)] hover:bg-[var(--color-raised-soft)] transition-colors"
             >
-              Danger zone
-            </Link>
+              Delete account
+            </button>
           </div>
         </div>
       </nav>
@@ -638,6 +640,8 @@ export default function SettingsView({ onClose, initialSection }: SettingsViewPr
           )}
         </div>
       </div>
+
+      <DeleteAccountModal open={showDeleteAccount} onClose={() => setShowDeleteAccount(false)} />
     </div>
   );
 }

@@ -16,6 +16,7 @@ import NotebooksGrid from "@/components/notebooks-grid";
 import SettingsView from "@/components/settings-view";
 import RoadmapView from "@/components/roadmap-view";
 import PricingView from "@/components/pricing-view";
+import AccountDeletionGate from "@/components/account-deletion-gate";
 import AdminView from "@/components/admin-view";
 import { readEditorFont, applyEditorFont, readEditorFontSize, applyEditorFontSize } from "@/utils/editor-font";
 import { captureCurrentAccount } from "@/utils/accounts";
@@ -388,6 +389,7 @@ export default function NoteWrapper() {
 
   return (
     <NotesErrorBoundary>
+      <AccountDeletionGate />
       <SkipLinks />
 
       {/* Shell: on desktop the rail owns navigation; on mobile a bottom tab bar
