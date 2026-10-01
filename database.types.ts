@@ -15,7 +15,6 @@ export type Database = {
       account_deletions: {
         Row: {
           user_id: string
-          email: string | null
           requested_at: string
           purge_at: string
           stripe_canceled: boolean
@@ -23,7 +22,6 @@ export type Database = {
         }
         Insert: {
           user_id: string
-          email?: string | null
           requested_at?: string
           purge_at: string
           stripe_canceled?: boolean
@@ -31,7 +29,6 @@ export type Database = {
         }
         Update: {
           user_id?: string
-          email?: string | null
           requested_at?: string
           purge_at?: string
           stripe_canceled?: boolean
