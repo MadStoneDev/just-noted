@@ -24,6 +24,7 @@ import { getPlainTextPreview as getPlainTextPreviewUtil } from "@/utils/html-uti
 import NotebookMoveMenu from "@/components/notebook-move-menu";
 import AccountMenu from "@/components/account-menu";
 import NotificationsNavList from "@/components/notifications-nav-list";
+import NotebookTree from "@/components/sidebar/notebook-tree";
 import { useNotifications } from "@/hooks/use-notifications";
 import { SwipeableRow } from "@/components/mobile-chrome";
 import {
@@ -178,6 +179,9 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
   // must never show — the sidebar collapses to just the rail, regardless of the
   // sidebarOpen flag (whose default is true and can win a race on those routes,
   // leaving the list docked over the rail).
+  // Notebooks routes keep the sidebar open and show the notebook TREE instead of
+  // the notes list (spec §2/§3) — so they are NOT routed-full-screen views.
+  const onNotebooksRoute = pathname === "/notebooks" || pathname.startsWith("/notebooks/");
   const isRoutedView =
     pathname === "/settings" ||
     pathname === "/admin" ||
@@ -185,8 +189,6 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
     pathname === "/pricing" ||
     pathname === "/the-how" ||
     pathname === "/the-what" ||
-    pathname === "/notebooks" ||
-    pathname.startsWith("/notebooks/") ||
     pathname === "/tools" ||
     pathname.startsWith("/tools/");
   const listOpen = sidebarOpen && !isRoutedView;
@@ -713,11 +715,8 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
             {isAuthenticated && (
               <RailButton
                 label="Notebooks"
-                active={railView === "notebooks"}
-                onClick={() => {
-                  if (sidebarOpen && railView === "notebooks") { setSidebarOpen(false); return; }
-                  setRailView("notebooks"); setSidebarOpen(true);
-                }}
+                active={onNotebooksRoute}
+                onClick={() => window.dispatchEvent(new Event("justnoted:open-notebooks-grid"))}
               >
                 <IconNotebook size={20} />
               </RailButton>
@@ -812,12 +811,24 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
             )}
           </nav>
 
+          {/* Notebook tree (Level 1 + Level 2). Its own content column, shown on
+              /notebooks routes in place of the notes list (spec §3). */}
+          {onNotebooksRoute && (
+            <div className="flex-1 flex flex-col min-w-0 relative bg-[var(--color-panel)]">
+              <NotebookTree />
+            </div>
+          )}
+
           {/* Content column. Marked inert while the list is collapsed so nothing
               inside (search input, note rows, buttons) is focusable or tabbable
               while it's clipped off-screen — a focus here would scroll the aside
               and expose the list over the rail. The rail <nav> is a sibling, so
-              it stays fully interactive. */}
-          <div className="flex-1 flex flex-col min-w-0 relative" inert={!listOpen}>
+              it stays fully interactive. Hidden on notebook routes (the tree takes
+              its place). */}
+          <div
+            className={`flex-1 flex flex-col min-w-0 relative ${onNotebooksRoute ? "hidden" : ""}`}
+            inert={!listOpen || onNotebooksRoute}
+          >
             {/* View header */}
             <div className="flex items-center justify-between px-3 h-[52px] flex-none border-b border-[var(--color-hairline-soft)]">
               {railView === "notes" && notebookChain.length > 0 ? (

@@ -141,11 +141,18 @@ export default function NoteWrapper() {
         ? new URLSearchParams(window.location.search).get("section") ?? undefined
         : undefined,
     );
-    if (isRoadmap || isSettings || isAdmin || isPricing || isHow || isWhat || isNotebooks || nbViewId || isTools || toolSlugFromUrl) {
+    if (isRoadmap || isSettings || isAdmin || isPricing || isHow || isWhat || isTools || toolSlugFromUrl) {
       setShowTrash(false);
       setSharedShortcode(null);
       setSidebarOpen(false);
       setShowAccountDrawer(false);
+    } else if (isNotebooks || nbViewId) {
+      // Notebooks keep the sidebar OPEN — it shows the notebook tree (spec §3)
+      // alongside the grid (Level 1) or notebook view (Level 2) in the main area.
+      setShowTrash(false);
+      setSharedShortcode(null);
+      setShowAccountDrawer(false);
+      setSidebarOpen(true);
     } else if (sharedMatch) {
       // A public shared-note link (/n/<shortcode>) — open it in the shell (rail
       // + sidebar + the note in the main area), not the old standalone page.
