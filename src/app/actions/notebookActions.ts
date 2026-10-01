@@ -4,6 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import {
   Notebook,
   NotebookRow,
+  NotebookGoal,
   CreateNotebookInput,
   UpdateNotebookInput,
   notebookRowToNotebook,
@@ -15,6 +16,20 @@ import {
   DEFAULT_COVER_VALUE,
 } from "@/lib/notebook-covers";
 import { validateNotebookName, isValidUUID } from "@/utils/validation";
+
+// Mirror the DB CHECK constraints so the UI gets a friendly error instead of a
+// raw constraint violation (see migration 20261001d).
+function validateDescription(d: string | null | undefined): { valid: boolean; error?: string } {
+  if (d && d.length > 280) return { valid: false, error: "Description must be 280 characters or fewer." };
+  return { valid: true };
+}
+function validateGoal(goal: NotebookGoal | undefined): { valid: boolean; error?: string } {
+  if (goal === undefined || goal === null) return { valid: true };
+  if ((goal.type === "daily" || goal.type === "total") && typeof goal.target === "number" && goal.target > 0) {
+    return { valid: true };
+  }
+  return { valid: false, error: "A goal needs a positive target." };
+}
 
 // ===========================
 // AUTHENTICATION HELPER
@@ -140,7 +155,23 @@ export async function createNotebook(
       cover_type: coverType,
       cover_value: coverValue,
       display_order: nextOrder,
+      sort_index: nextOrder,
     };
+
+    // New model (optional — the new create sheet supplies these; defaults in the DB).
+    if (input.colour !== undefined) insertData.colour = input.colour;
+    if (input.cover !== undefined) insertData.cover = input.cover;
+    if (input.description !== undefined) {
+      const d = validateDescription(input.description);
+      if (!d.valid) return { success: false, error: d.error };
+      insertData.description = input.description || null;
+    }
+    if (input.goal !== undefined) {
+      const g = validateGoal(input.goal);
+      if (!g.valid) return { success: false, error: g.error };
+      insertData.goal = input.goal;
+    }
+    if (input.isPrivate !== undefined) insertData.is_private = input.isPrivate;
 
     if (input.parentId) {
       const { data: parentNb, error: parentErr } = await supabase
@@ -238,6 +269,23 @@ export async function updateNotebook(
     if (updates.showHiddenChildren !== undefined) {
       updateData.show_hidden_children = updates.showHiddenChildren;
     }
+
+    // New model
+    if (updates.colour !== undefined) updateData.colour = updates.colour;
+    if (updates.cover !== undefined) updateData.cover = updates.cover;
+    if (updates.description !== undefined) {
+      const d = validateDescription(updates.description);
+      if (!d.valid) return { success: false, error: d.error };
+      updateData.description = updates.description || null;
+    }
+    if (updates.goal !== undefined) {
+      const g = validateGoal(updates.goal);
+      if (!g.valid) return { success: false, error: g.error };
+      updateData.goal = updates.goal;
+    }
+    if (updates.isPrivate !== undefined) updateData.is_private = updates.isPrivate;
+    if (updates.isPublished !== undefined) updateData.is_published = updates.isPublished;
+    if (updates.sortIndex !== undefined) updateData.sort_index = updates.sortIndex;
 
     if (updates.parentId !== undefined) {
       if (updates.parentId === null) {

@@ -401,6 +401,13 @@ export type Database = {
           parent_id: string | null
           is_hidden: boolean
           show_hidden_children: boolean
+          colour: string
+          cover: Json
+          description: string | null
+          goal: Json | null
+          is_private: boolean
+          is_published: boolean
+          sort_index: number
         }
         Insert: {
           id?: string
@@ -415,6 +422,13 @@ export type Database = {
           parent_id?: string | null
           is_hidden?: boolean
           show_hidden_children?: boolean
+          colour?: string
+          cover?: Json
+          description?: string | null
+          goal?: Json | null
+          is_private?: boolean
+          is_published?: boolean
+          sort_index?: number
         }
         Update: {
           id?: string
@@ -429,6 +443,13 @@ export type Database = {
           parent_id?: string | null
           is_hidden?: boolean
           show_hidden_children?: boolean
+          colour?: string
+          cover?: Json
+          description?: string | null
+          goal?: Json | null
+          is_private?: boolean
+          is_published?: boolean
+          sort_index?: number
         }
         Relationships: [
           {

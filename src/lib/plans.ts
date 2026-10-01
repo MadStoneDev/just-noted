@@ -72,7 +72,7 @@ export const PLANS = {
     },
     highlights: [
       "Unlimited notes",
-      "Up to 10 notebooks",
+      "10 notebooks (including sections)",
       "Share notes to view",
       "30-day trash recovery",
       "50 versions of history per note",

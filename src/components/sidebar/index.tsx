@@ -17,7 +17,6 @@ import NotebookNavList from "@/components/notebook-nav-list";
 import SharedNavList from "@/components/shared-nav-list";
 import NotebookModal from "@/components/notebook-modal";
 import TagFilter from "@/components/tag-filter";
-import WritingSessionIndicator from "@/components/writing-session-indicator";
 import { getTags, bulkGetNoteTags } from "@/app/actions/tagActions";
 import BulkActionBar from "@/components/bulk-action-bar";
 import { getCoverPreviewStyle } from "@/lib/notebook-covers";
@@ -1292,12 +1291,11 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
             />
           )}
 
-          {/* Writing session indicator */}
-          {isAuthenticated && !selectMode && (
-            <div className="px-3 py-1.5 border-t border-[var(--color-hairline-soft)]">
-              <WritingSessionIndicator />
-            </div>
-          )}
+          {/* Writing-session "words today" / streak indicator removed — the
+             per-session/daily stats behind it are unreliable. Daily goals and
+             streaks return as a dedicated sub-phase with proper per-note daily
+             tracking (see docs/notebooks-redesign-plan.md, Open Question f). The
+             hook + component remain in the tree for that work. */}
 
           {/* Footer */}
           {!selectMode && (
