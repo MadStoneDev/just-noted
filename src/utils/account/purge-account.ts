@@ -64,6 +64,23 @@ export async function purgeOneAccount(userId: string): Promise<void> {
   await svc.from("account_deletions").update({ status: "done" } as any).eq("user_id", userId);
 }
 
+/** Delete completed deletion records older than 12 months (audit retention). */
+export async function purgeOldDeletionRecords(): Promise<{ success: boolean; removed: number }> {
+  try {
+    const svc = createServiceRoleClient();
+    const cutoff = new Date(Date.now() - 365 * 86400000).toISOString();
+    const { error, count } = await svc
+      .from("account_deletions")
+      .delete({ count: "exact" })
+      .eq("status", "done")
+      .lte("requested_at", cutoff);
+    if (error) return { success: false, removed: 0 };
+    return { success: true, removed: count ?? 0 };
+  } catch {
+    return { success: false, removed: 0 };
+  }
+}
+
 /** Purge every account whose grace window has elapsed (called by the cron). */
 export async function purgeDueAccounts(): Promise<{ success: boolean; purged: number }> {
   const svc = createServiceRoleClient();

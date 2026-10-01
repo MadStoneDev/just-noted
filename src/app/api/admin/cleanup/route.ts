@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cleanupOldNotes } from "@/utils/redis/redisCleanup";
 import { purgeExpiredTrash } from "@/utils/supabase/trashCleanup";
-import { purgeDueAccounts } from "@/utils/account/purge-account";
+import { purgeDueAccounts, purgeOldDeletionRecords } from "@/utils/account/purge-account";
 import { purgeExpiredExports } from "@/utils/account/export-runner";
 import { purgeOldNotifications } from "@/utils/notifications/create";
 import { isAuthorizedCleanupRequest } from "@/lib/admin-cleanup-auth";
@@ -32,17 +32,19 @@ export async function POST(request: NextRequest) {
     // Run both cleanup operations: inactive Redis (guest) notes, and Supabase
     // soft-deleted notes past the physical retention cutoff. The Redis cleanup
     // is itself env-gated (REDIS_CLEANUP_ENABLED) and no-ops unless enabled.
-    const [redis, trash, accounts, exports, notifications] = await Promise.all([
+    const [redis, trash, accounts, exports, notifications, deletionRecords] = await Promise.all([
       cleanupOldNotes(),
       purgeExpiredTrash(),
       purgeDueAccounts(),
       purgeExpiredExports(),
       purgeOldNotifications(),
+      purgeOldDeletionRecords(),
     ]);
 
     const success =
-      redis.success && trash.success && accounts.success && exports.success && notifications.success;
-    return NextResponse.json({ success, redis, trash, accounts, exports, notifications }, {
+      redis.success && trash.success && accounts.success && exports.success &&
+      notifications.success && deletionRecords.success;
+    return NextResponse.json({ success, redis, trash, accounts, exports, notifications, deletionRecords }, {
       status: success ? 200 : 500,
     });
   } catch (error) {

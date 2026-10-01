@@ -65,7 +65,6 @@ export async function requestAccountDeletion(
   const { error } = await svc.from("account_deletions").upsert(
     {
       user_id: user.id,
-      email: user.email ?? null,
       requested_at: new Date(now).toISOString(),
       purge_at: purgeAt,
       stripe_canceled: stripeCanceled,
