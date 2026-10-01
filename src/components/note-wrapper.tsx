@@ -14,6 +14,8 @@ import NotebookBreadcrumb from "@/components/notebook-breadcrumb";
 import SharedNoteInline from "@/components/shared-note-inline";
 import NotebooksGrid from "@/components/notebooks-grid";
 import NotebookView from "@/components/notebook-view";
+import ToolsGrid from "@/components/tools/tools-grid";
+import ToolView from "@/components/tools/tool-view";
 import SettingsView from "@/components/settings-view";
 import RoadmapView from "@/components/roadmap-view";
 import PricingView from "@/components/pricing-view";
@@ -81,6 +83,9 @@ export default function NoteWrapper() {
   const [showNotebooksGrid, setShowNotebooksGrid] = useState(false);
   // Single notebook view (Level 2, /notebooks/:id) — the id, or null.
   const [notebookViewId, setNotebookViewId] = useState<string | null>(null);
+  // Tools (public): grid at /tools, a single tool at /tools/:slug.
+  const [showTools, setShowTools] = useState(false);
+  const [toolSlug, setToolSlug] = useState<string | null>(null);
   // Standalone Roadmap page (kanban), opened from the rail.
   const [showRoadmap, setShowRoadmap] = useState(false);
   // Public pricing page — same shell as Roadmap (rail + content).
@@ -115,6 +120,9 @@ export default function NoteWrapper() {
     const isNotebooks = pathname === "/notebooks";
     const nbViewMatch = pathname.match(/^\/notebooks\/([^/]+)$/);
     const nbViewId = nbViewMatch ? decodeURIComponent(nbViewMatch[1]) : null;
+    const isTools = pathname === "/tools";
+    const toolMatch = pathname.match(/^\/tools\/([^/]+)$/);
+    const toolSlugFromUrl = toolMatch ? decodeURIComponent(toolMatch[1]) : null;
     const sharedMatch = pathname.match(/^\/n\/([^/]+)$/);
     setShowRoadmap(isRoadmap);
     setShowSettings(isSettings);
@@ -126,12 +134,14 @@ export default function NoteWrapper() {
     // never co-render — exactly one is set from the path.
     setShowNotebooksGrid(isNotebooks);
     setNotebookViewId(nbViewId);
+    setShowTools(isTools);
+    setToolSlug(toolSlugFromUrl);
     setSettingsSection(
       isSettings
         ? new URLSearchParams(window.location.search).get("section") ?? undefined
         : undefined,
     );
-    if (isRoadmap || isSettings || isAdmin || isPricing || isHow || isWhat || isNotebooks || nbViewId) {
+    if (isRoadmap || isSettings || isAdmin || isPricing || isHow || isWhat || isNotebooks || nbViewId || isTools || toolSlugFromUrl) {
       setShowTrash(false);
       setSharedShortcode(null);
       setSidebarOpen(false);
@@ -216,6 +226,8 @@ export default function NoteWrapper() {
     const openHelp = () => {};
     const openRoadmap = () =>
       router.push(window.location.pathname === "/roadmap" ? "/" : "/roadmap");
+    const openTools = () =>
+      router.push(window.location.pathname.startsWith("/tools") ? "/" : "/tools");
     const openAdmin = () =>
       router.push(window.location.pathname === "/admin" ? "/" : "/admin");
     window.addEventListener("justnoted:open-notebooks-grid", openGrid);
@@ -223,6 +235,7 @@ export default function NoteWrapper() {
     window.addEventListener("justnoted:open-search", openSearch);
     window.addEventListener("justnoted:open-help", openHelp);
     window.addEventListener("justnoted:open-roadmap", openRoadmap);
+    window.addEventListener("justnoted:open-tools", openTools);
     window.addEventListener("justnoted:open-admin", openAdmin);
     return () => {
       window.removeEventListener("justnoted:open-notebooks-grid", openGrid);
@@ -230,6 +243,7 @@ export default function NoteWrapper() {
       window.removeEventListener("justnoted:open-search", openSearch);
       window.removeEventListener("justnoted:open-help", openHelp);
       window.removeEventListener("justnoted:open-roadmap", openRoadmap);
+      window.removeEventListener("justnoted:open-tools", openTools);
       window.removeEventListener("justnoted:open-admin", openAdmin);
     };
   }, []);
@@ -395,6 +409,8 @@ export default function NoteWrapper() {
     // the sidebar on the next press. Order = visual stacking, most-recent first.
     onEscape: () => {
       if (showAdmin || showRoadmap || showSettings || showPricing || showHow || showWhat) { router.push("/"); return true; }
+      if (toolSlug) { router.push("/tools"); return true; }           // a tool → tools grid
+      if (showTools) { router.push("/"); return true; }               // tools grid → notes
       if (notebookViewId) { router.push("/notebooks"); return true; } // Level 2 → Level 1
       if (showNotebooksGrid) { router.push("/"); return true; }       // Level 1 → notes
       if (showTrash) { setShowTrash(false); setSidebarOpen(true); return true; }
@@ -463,6 +479,13 @@ export default function NoteWrapper() {
             />
           ) : showTrash ? (
             <TrashView onClose={() => setShowTrash(false)} />
+          ) : toolSlug ? (
+            <ToolView slug={toolSlug} onBack={() => router.push("/tools")} />
+          ) : showTools ? (
+            <ToolsGrid
+              onOpenTool={(slug) => router.push(`/tools/${slug}`)}
+              onClose={() => router.push("/")}
+            />
           ) : notebookViewId ? (
             <NotebookView
               notebookId={notebookViewId}
@@ -536,7 +559,7 @@ export default function NoteWrapper() {
 
       {/* Mobile FAB — new note, shown on the notes list only (not the Shared
           list, where a new note makes no sense and it covers the rows). */}
-      {sidebarOpen && mobileTab !== "shared" && !showAdmin && !showRoadmap && !showSettings && !showPricing && !showHow && !showWhat && !showTrash && !showNotebooksGrid && !notebookViewId && !sharedShortcode && (
+      {sidebarOpen && mobileTab !== "shared" && !showAdmin && !showRoadmap && !showSettings && !showPricing && !showHow && !showWhat && !showTrash && !showNotebooksGrid && !notebookViewId && !showTools && !toolSlug && !sharedShortcode && (
         <MobileFab onClick={mobileNewNote} />
       )}
 

@@ -53,6 +53,7 @@ import {
   IconTag,
   IconShare,
   IconBell,
+  IconTool,
 } from "@tabler/icons-react";
 import { Dropdown, DropdownItem, DropdownSeparator, DropdownLabel } from "@/components/ds/dropdown";
 import { ConfirmModal, Modal } from "@/components/ds/modal";
@@ -185,7 +186,9 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
     pathname === "/the-how" ||
     pathname === "/the-what" ||
     pathname === "/notebooks" ||
-    pathname.startsWith("/notebooks/");
+    pathname.startsWith("/notebooks/") ||
+    pathname === "/tools" ||
+    pathname.startsWith("/tools/");
   const listOpen = sidebarOpen && !isRoutedView;
   // Filters live in a slide-up sheet, out of the list's way
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
@@ -736,6 +739,14 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
               onClick={() => window.dispatchEvent(new Event("justnoted:open-search"))}
             >
               <IconSearch size={20} />
+            </RailButton>
+            {/* Tools — public (guests + signed-in). */}
+            <RailButton
+              label="Tools"
+              active={pathname === "/tools" || pathname.startsWith("/tools/")}
+              onClick={() => window.dispatchEvent(new Event("justnoted:open-tools"))}
+            >
+              <IconTool size={20} />
             </RailButton>
             <div className="flex-1" />
             {isAuthenticated && (
