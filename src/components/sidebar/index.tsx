@@ -42,7 +42,6 @@ import {
   IconTrash,
   IconNotebook,
   IconGripVertical,
-  IconInfoCircle,
   IconPlus,
   IconChevronDown,
   IconAdjustmentsHorizontal,
@@ -148,20 +147,9 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
   const [dragOverNoteId, setDragOverNoteId] = useState<string | null>(null);
 
   // Multi-select state
-  // Move-storage prompt: tapping a note's Local/Cloud badge overlays that card
-  // with a "Move to Cloud/Local?" prompt. Clicking outside the card dismisses it.
-  const [movePromptNoteId, setMovePromptNoteId] = useState<string | null>(null);
-  const [showMoveInfo, setShowMoveInfo] = useState(false);
-  useEffect(() => {
-    if (!movePromptNoteId || showMoveInfo) return;
-    const onDown = (e: MouseEvent) => {
-      const el = e.target as HTMLElement | null;
-      if (el && el.closest(`[data-note-card="${movePromptNoteId}"]`)) return;
-      setMovePromptNoteId(null);
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [movePromptNoteId, showMoveInfo]);
+  // Storage info: tapping a note's status dot or Local/Cloud badge opens a modal
+  // explaining what they mean, with the option to move the note's storage.
+  const [storageInfoNoteId, setStorageInfoNoteId] = useState<string | null>(null);
 
   const [selectMode, setSelectMode] = useState(false);
   const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set());
@@ -1163,20 +1151,25 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                                     ? "Saved on this device"
                                     : "Saved to cloud";
                               return (
-                                <span
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setStorageInfoNoteId(note.id); }}
                                   title={title}
-                                  aria-label={title}
-                                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${saving ? "animate-pulse" : ""}`}
-                                  style={{ backgroundColor: color }}
-                                />
+                                  aria-label={`${title}. What does this mean?`}
+                                  className="flex items-center justify-center -m-1 p-1 rounded-full hover:bg-[var(--color-raised-soft)] transition-colors shrink-0"
+                                >
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${saving ? "animate-pulse" : ""}`}
+                                    style={{ backgroundColor: color }}
+                                  />
+                                </button>
                               );
                             })()}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setMovePromptNoteId((prev) => (prev === note.id ? null : note.id));
+                                setStorageInfoNoteId(note.id);
                               }}
-                              title="Change storage (Local / Cloud)"
+                              title="What does this mean?"
                               className={`inline-flex items-center gap-1 px-1.5 py-px rounded-[var(--radius-sm)] transition-colors ${
                                 note.source === "supabase"
                                   ? "hover:bg-[var(--color-raised-soft)]"
@@ -1235,56 +1228,6 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                         )}
                       </div>
 
-                      {/* Move-storage prompt overlay (badge tap). Clicking outside
-                          the card dismisses it via the document listener. */}
-                      {movePromptNoteId === note.id && (() => {
-                        const isCloud = note.source === "supabase";
-                        const targetSource: "redis" | "supabase" = isCloud ? "redis" : "supabase";
-                        const needsAuth = !isCloud && !isAuthenticated;
-                        return (
-                          <div
-                            className="absolute inset-0 z-30 flex items-center justify-center gap-2 px-2 rounded-[var(--radius-8)] bg-[var(--color-panel)]/95 backdrop-blur-[1px]"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {needsAuth ? (
-                              <>
-                                <span className="text-[12px] text-[var(--color-ink-2)]">Sign in to use Cloud</span>
-                                <a
-                                  href="/get-access"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="px-2 py-1 text-[11px] font-medium rounded-[var(--radius-6)] bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:opacity-90 transition-opacity"
-                                >
-                                  Sign in
-                                </a>
-                              </>
-                            ) : (
-                              <>
-                                <span className="text-[12px] text-[var(--color-ink-2)]">
-                                  Move to {isCloud ? "Local" : "Cloud"}?
-                                </span>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onTransferNote?.(note.id, targetSource);
-                                    setMovePromptNoteId(null);
-                                  }}
-                                  className="px-2 py-1 text-[11px] font-medium rounded-[var(--radius-6)] bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:opacity-90 transition-opacity"
-                                >
-                                  Move
-                                </button>
-                              </>
-                            )}
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setShowMoveInfo(true); }}
-                              title="What does this mean?"
-                              aria-label="About Local and Cloud storage"
-                              className="w-6 h-6 flex items-center justify-center rounded-full text-[var(--color-ink-4)] hover:text-[var(--color-ink-1)] hover:bg-[var(--color-raised-soft)] transition-colors"
-                            >
-                              <IconInfoCircle size={15} />
-                            </button>
-                          </div>
-                        );
-                      })()}
                     </div>
                     </SwipeableRow>
                   </li>
@@ -1507,30 +1450,104 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
         destructive
       />
 
-      {/* What Local / Cloud means (from the badge prompt's info button) */}
-      <Modal open={showMoveInfo} onClose={() => setShowMoveInfo(false)} title="Local vs Cloud" size="sm">
-        <div className="space-y-3 text-[13px] text-[var(--color-ink-2)] leading-relaxed">
-          <div className="flex items-start gap-2">
-            <IconDeviceDesktop size={16} className="mt-0.5 text-[var(--color-warning)] shrink-0" />
-            <p>
-              <span className="font-medium text-[var(--color-ink-1)]">Local</span> — kept only in this
-              browser on this device. Fast and private, but it won't show up on your other devices and
-              can be lost if you clear site data.
-            </p>
-          </div>
-          <div className="flex items-start gap-2">
-            <IconCloud size={16} className="mt-0.5 text-[var(--color-info)] shrink-0" />
-            <p>
-              <span className="font-medium text-[var(--color-ink-1)]">Cloud</span> — synced to your
-              account, so it's backed up and available on every device you sign in to. Needs a free
-              account.
-            </p>
-          </div>
-          <p className="text-[12px] text-[var(--color-ink-5)]">
-            Moving a note keeps its title and content — it only changes where it's stored.
-          </p>
-        </div>
-      </Modal>
+      {/* Storage & status — opened from a note's status dot or Local/Cloud badge.
+          Explains the dot colour and Local vs Cloud, and offers to move storage.
+          Replaces the old move-prompt overlay (which was easy to open by accident
+          and awkward to dismiss). */}
+      {(() => {
+        const note = storageInfoNoteId ? notes.find((n) => n.id === storageInfoNoteId) : null;
+        const isCloud = note?.source === "supabase";
+        const saving = note ? isSaving.has(note.id) : false;
+        const conflict = note ? /conflicted copy/i.test(note.title || "") : false;
+        const statusLabel = saving
+          ? "Saving…"
+          : conflict
+            ? "Conflicted copy"
+            : isCloud
+              ? "Saved to cloud"
+              : "Saved on this device";
+        const statusColor = saving
+          ? "var(--color-warning)"
+          : conflict
+            ? "var(--color-danger-strong)"
+            : isCloud
+              ? "#3DA35D"
+              : "var(--color-ink-6)";
+        const statusDesc = saving
+          ? "Your latest changes are being saved right now."
+          : conflict
+            ? "Two versions of this note diverged — open it to review and merge."
+            : isCloud
+              ? "This note is saved to your account and backed up across your devices."
+              : "This note is saved in this browser on this device only.";
+        const needsAuth = !isCloud && !isAuthenticated;
+        return (
+          <Modal open={!!note} onClose={() => setStorageInfoNoteId(null)} title="Storage & status" size="sm">
+            {note && (
+              <div className="space-y-4 text-[13px] text-[var(--color-ink-2)] leading-relaxed">
+                {/* What the status dot means for this note */}
+                <div className="flex items-start gap-2.5">
+                  <span className="w-2 h-2 rounded-full shrink-0 mt-1.5" style={{ backgroundColor: statusColor }} />
+                  <p>
+                    <span className="font-medium text-[var(--color-ink-1)]">{statusLabel}</span> — {statusDesc}
+                  </p>
+                </div>
+
+                <div className="h-px bg-[var(--color-hairline-soft)]" />
+
+                {/* Local vs Cloud */}
+                <div className="flex items-start gap-2">
+                  <IconDeviceDesktop size={16} className="mt-0.5 text-[var(--color-warning)] shrink-0" />
+                  <p>
+                    <span className="font-medium text-[var(--color-ink-1)]">Local</span> — kept only in this
+                    browser on this device. Fast and private, but it won't show up on your other devices and
+                    can be lost if you clear site data.
+                  </p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <IconCloud size={16} className="mt-0.5 text-[var(--color-info)] shrink-0" />
+                  <p>
+                    <span className="font-medium text-[var(--color-ink-1)]">Cloud</span> — synced to your
+                    account, so it's backed up and available on every device you sign in to. Needs a free
+                    account.
+                  </p>
+                </div>
+                <p className="text-[12px] text-[var(--color-ink-5)]">
+                  Moving a note keeps its title and content — it only changes where it's stored.
+                </p>
+
+                {/* Action: move storage (or sign in, if Cloud needs an account) */}
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    onClick={() => setStorageInfoNoteId(null)}
+                    className="px-3 py-1.5 text-[12px] font-medium rounded-[var(--radius-6)] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)] transition-colors"
+                  >
+                    Close
+                  </button>
+                  {needsAuth ? (
+                    <a
+                      href="/get-access"
+                      className="px-3 py-1.5 text-[12px] font-medium rounded-[var(--radius-6)] bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:opacity-90 transition-opacity"
+                    >
+                      Sign in to use Cloud
+                    </a>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        onTransferNote?.(note.id, isCloud ? "redis" : "supabase");
+                        setStorageInfoNoteId(null);
+                      }}
+                      className="px-3 py-1.5 text-[12px] font-medium rounded-[var(--radius-6)] bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:opacity-90 transition-opacity"
+                    >
+                      Move to {isCloud ? "Local" : "Cloud"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </Modal>
+        );
+      })()}
 
       {/* Move-to-notebook sheet (mobile swipe-right → Move) */}
       <div
