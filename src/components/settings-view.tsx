@@ -490,6 +490,12 @@ export default function SettingsView({ onClose, initialSection }: SettingsViewPr
           ))}
           <div className="mt-2 pt-2 border-t border-[var(--color-hairline-soft)]">
             <button
+              onClick={() => window.dispatchEvent(new Event("justnoted:open-cookie-settings"))}
+              className="block w-full text-left px-2.5 py-2 rounded-[var(--radius-8)] text-[13.5px] text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)] transition-colors"
+            >
+              Cookie settings
+            </button>
+            <button
               onClick={() => setShowDeleteAccount(true)}
               className="block w-full text-left px-2.5 py-2 rounded-[var(--radius-8)] text-[13.5px] text-[var(--color-danger-strong)] hover:bg-[var(--color-raised-soft)] transition-colors"
             >

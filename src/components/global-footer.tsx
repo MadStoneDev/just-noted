@@ -1,5 +1,6 @@
 ﻿import Link from "next/link";
 import React from "react";
+import CookieSettingsLink from "@/components/cookie-settings-link";
 
 export default function GlobalFooter() {
   // check this year
@@ -28,6 +29,8 @@ export default function GlobalFooter() {
       >
         Privacy Policy
       </Link>
+      {" · "}
+      <CookieSettingsLink className="hover:text-[var(--color-accent)] transition-all duration-300 ease-in-out" />
     </footer>
   );
 }
