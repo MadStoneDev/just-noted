@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { IconX, IconChevronUp, IconPlus } from "@tabler/icons-react";
 import { useToast } from "@/components/ui/toast";
@@ -39,7 +40,9 @@ function CategoryTag({ category }: { category: string | null }) {
   );
 }
 
-export default function RoadmapView({ onClose }: { onClose: () => void }) {
+export default function RoadmapView() {
+  const router = useRouter();
+  const onClose = () => router.push("/");
   const { showSuccess, showError } = useToast();
   const [items, setItems] = useState<RoadmapBoardItem[] | null>(null);
   const [voting, setVoting] = useState<Set<string>>(new Set());

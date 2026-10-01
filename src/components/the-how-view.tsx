@@ -53,8 +53,9 @@ function Chip({ children, accent }: { children: React.ReactNode; accent?: boolea
   );
 }
 
-export default function TheHowView({ onClose }: { onClose: () => void }) {
+export default function TheHowView() {
   const router = useRouter();
+  const onClose = () => router.push("/");
 
   return (
     <div className="flex-1 overflow-y-auto scrollbar-thin bg-[var(--color-canvas)]">

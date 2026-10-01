@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { getTool, TOOLS } from "@/lib/text-tools/registry";
+import ToolView from "@/components/tools/tool-view";
 
 // Per-tool SEO: own title / description / canonical / OG, derived from the
 // registry. NoteWrapper reads the :tool slug from the URL and renders the tool.
@@ -39,6 +40,9 @@ export function generateStaticParams() {
   return TOOLS.map((t) => ({ tool: t.slug }));
 }
 
-export default function ToolPage() {
-  return null;
+export default async function ToolPage(
+  { params }: { params: Promise<{ tool: string }> },
+) {
+  const { tool } = await params;
+  return <ToolView slug={tool} />;
 }

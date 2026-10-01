@@ -1,7 +1,8 @@
 import { Metadata } from "next";
+import ToolsGrid from "@/components/tools/tools-grid";
 
-// Rendered by NoteWrapper (in the (app) layout) via the URL — the tools grid
-// opens inside the app shell (rail + content), like Roadmap/Pricing. Marker page.
+// Server-rendered into the (app) shell's main slot (NoteWrapper renders it on
+// /tools) so the grid is in the first HTML response for search.
 export const metadata: Metadata = {
   title: "Free Text Tools — JustNoted",
   description:
@@ -25,5 +26,5 @@ export const metadata: Metadata = {
 };
 
 export default function ToolsPage() {
-  return null;
+  return <ToolsGrid />;
 }

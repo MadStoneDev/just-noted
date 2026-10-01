@@ -11,8 +11,9 @@ function Brand() {
   return <span className="font-medium text-[var(--color-ink-1)]">JustNoted</span>;
 }
 
-export default function TheWhatView({ onClose }: { onClose: () => void }) {
+export default function TheWhatView() {
   const router = useRouter();
+  const onClose = () => router.push("/");
 
   return (
     <div className="flex-1 overflow-y-auto scrollbar-thin bg-[var(--color-canvas)]">

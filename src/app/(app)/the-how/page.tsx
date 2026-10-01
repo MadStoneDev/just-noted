@@ -1,7 +1,8 @@
 import { Metadata } from "next";
+import TheHowView from "@/components/the-how-view";
 
-// Rendered by NoteWrapper (in the (app) layout) via the URL — "The How" opens
-// inside the app shell (rail + content), like Roadmap and Pricing. Marker page.
+// Server-rendered into the (app) shell's main slot (NoteWrapper renders it on
+// /the-how) so the content is in the first HTML response for search.
 export const metadata: Metadata = {
   title: "The How — JustNoted",
   description:
@@ -9,5 +10,5 @@ export const metadata: Metadata = {
 };
 
 export default function TheHowPage() {
-  return null;
+  return <TheHowView />;
 }

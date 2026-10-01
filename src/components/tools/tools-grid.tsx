@@ -1,17 +1,15 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 import { IconX, IconArrowRight } from "@tabler/icons-react";
 import { TOOLS } from "@/lib/text-tools/registry";
 
 // Tools landing grid (route /tools). Public — rail stays, no notes sidebar.
-export default function ToolsGrid({
-  onOpenTool,
-  onClose,
-}: {
-  onOpenTool: (slug: string) => void;
-  onClose: () => void;
-}) {
+export default function ToolsGrid() {
+  const router = useRouter();
+  const onOpenTool = (slug: string) => router.push(`/tools/${slug}`);
+  const onClose = () => router.push("/");
   return (
     <div className="flex-1 overflow-y-auto scrollbar-thin bg-[var(--color-canvas)]">
       <div className="mx-auto max-w-[980px] px-6 md:px-10 py-10">

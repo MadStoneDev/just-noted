@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 import { IconChevronLeft, IconDeviceDesktop } from "@tabler/icons-react";
 import { getTool } from "@/lib/text-tools/registry";
 import SlugGenerator from "@/components/tools/slug-generator";
@@ -8,13 +9,9 @@ import CaseConverter from "@/components/tools/case-converter";
 
 // Renders a single tool (route /tools/:slug): shared chrome (header, how-it-works,
 // the privacy line and a quiet link home) around the tool's interactive UI.
-export default function ToolView({
-  slug,
-  onBack,
-}: {
-  slug: string;
-  onBack: () => void;
-}) {
+export default function ToolView({ slug }: { slug: string }) {
+  const router = useRouter();
+  const onBack = () => router.push("/tools");
   const tool = getTool(slug);
 
   if (!tool) {

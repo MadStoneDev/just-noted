@@ -14,13 +14,7 @@ import NotebookBreadcrumb from "@/components/notebook-breadcrumb";
 import SharedNoteInline from "@/components/shared-note-inline";
 import NotebooksGrid from "@/components/notebooks-grid";
 import NotebookView from "@/components/notebook-view";
-import ToolsGrid from "@/components/tools/tools-grid";
-import ToolView from "@/components/tools/tool-view";
 import SettingsView from "@/components/settings-view";
-import RoadmapView from "@/components/roadmap-view";
-import PricingView from "@/components/pricing-view";
-import TheHowView from "@/components/the-how-view";
-import TheWhatView from "@/components/the-what-view";
 import AccountDeletionGate from "@/components/account-deletion-gate";
 import AdminView from "@/components/admin-view";
 import { readEditorFont, applyEditorFont, readEditorFontSize, applyEditorFontSize } from "@/utils/editor-font";
@@ -41,7 +35,7 @@ import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { useNotesStore } from "@/stores/notes-store";
 import { SkipLinks } from "@/hooks/use-accessibility";
 
-export default function NoteWrapper() {
+export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }) {
   const {
     userId,
     isAuthenticated,
@@ -83,16 +77,9 @@ export default function NoteWrapper() {
   const [showNotebooksGrid, setShowNotebooksGrid] = useState(false);
   // Single notebook view (Level 2, /notebooks/:id) — the id, or null.
   const [notebookViewId, setNotebookViewId] = useState<string | null>(null);
-  // Tools (public): grid at /tools, a single tool at /tools/:slug.
-  const [showTools, setShowTools] = useState(false);
-  const [toolSlug, setToolSlug] = useState<string | null>(null);
-  // Standalone Roadmap page (kanban), opened from the rail.
-  const [showRoadmap, setShowRoadmap] = useState(false);
-  // Public pricing page — same shell as Roadmap (rail + content).
-  const [showPricing, setShowPricing] = useState(false);
-  // Info pages ("The How" / "The What") — same shell as Roadmap/Pricing.
-  const [showHow, setShowHow] = useState(false);
-  const [showWhat, setShowWhat] = useState(false);
+  // Public routed views (Pricing, Roadmap, the-how, the-what, Tools) are
+  // SERVER-rendered and arrive via `mainSlot`; NoteWrapper just renders the slot
+  // on those routes (see publicRouted below) — no per-view client state.
   // Admin dashboard (role >= 10), opened from the rail.
   const [showAdmin, setShowAdmin] = useState(false);
   // Mobile "You" account drawer (bottom sheet).
@@ -110,38 +97,34 @@ export default function NoteWrapper() {
   // shared link lands on the right place (no more lost state).
   const pathname = usePathname();
   const router = useRouter();
+  // Public routed views whose content is server-rendered and passed in via
+  // `mainSlot`. NoteWrapper renders the slot for these (no notes sidebar).
+  const publicRouted =
+    pathname === "/roadmap" ||
+    pathname === "/pricing" ||
+    pathname === "/the-how" ||
+    pathname === "/the-what" ||
+    pathname === "/tools" ||
+    pathname.startsWith("/tools/");
   useEffect(() => {
-    const isRoadmap = pathname === "/roadmap";
     const isSettings = pathname === "/settings";
     const isAdmin = pathname === "/admin";
-    const isPricing = pathname === "/pricing";
-    const isHow = pathname === "/the-how";
-    const isWhat = pathname === "/the-what";
     const isNotebooks = pathname === "/notebooks";
     const nbViewMatch = pathname.match(/^\/notebooks\/([^/]+)$/);
     const nbViewId = nbViewMatch ? decodeURIComponent(nbViewMatch[1]) : null;
-    const isTools = pathname === "/tools";
-    const toolMatch = pathname.match(/^\/tools\/([^/]+)$/);
-    const toolSlugFromUrl = toolMatch ? decodeURIComponent(toolMatch[1]) : null;
     const sharedMatch = pathname.match(/^\/n\/([^/]+)$/);
-    setShowRoadmap(isRoadmap);
     setShowSettings(isSettings);
     setShowAdmin(isAdmin);
-    setShowPricing(isPricing);
-    setShowHow(isHow);
-    setShowWhat(isWhat);
     // Notebooks grid (Level 1) and notebook view (Level 2) are URL-driven and
     // never co-render — exactly one is set from the path.
     setShowNotebooksGrid(isNotebooks);
     setNotebookViewId(nbViewId);
-    setShowTools(isTools);
-    setToolSlug(toolSlugFromUrl);
     setSettingsSection(
       isSettings
         ? new URLSearchParams(window.location.search).get("section") ?? undefined
         : undefined,
     );
-    if (isRoadmap || isSettings || isAdmin || isPricing || isHow || isWhat || isTools || toolSlugFromUrl) {
+    if (isSettings || isAdmin || publicRouted) {
       setShowTrash(false);
       setSharedShortcode(null);
       setSidebarOpen(false);
@@ -415,9 +398,8 @@ export default function NoteWrapper() {
     // Escape closes the top open main-area layer first; the hook then handles
     // the sidebar on the next press. Order = visual stacking, most-recent first.
     onEscape: () => {
-      if (showAdmin || showRoadmap || showSettings || showPricing || showHow || showWhat) { router.push("/"); return true; }
-      if (toolSlug) { router.push("/tools"); return true; }           // a tool → tools grid
-      if (showTools) { router.push("/"); return true; }               // tools grid → notes
+      if (pathname.startsWith("/tools/")) { router.push("/tools"); return true; } // a tool → tools grid
+      if (publicRouted || showAdmin || showSettings) { router.push("/"); return true; }
       if (notebookViewId) { router.push("/notebooks"); return true; } // Level 2 → Level 1
       if (showNotebooksGrid) { router.push("/"); return true; }       // Level 1 → notes
       if (showTrash) { setShowTrash(false); setSidebarOpen(true); return true; }
@@ -469,16 +451,13 @@ export default function NoteWrapper() {
           role="main"
           aria-label={sharedShortcode ? "Shared note" : "Note editor"}
         >
-          {showAdmin ? (
+          {publicRouted ? (
+            // Server-rendered public view (Pricing / Roadmap / the-how / the-what
+            // / Tools) passed in from the marker page — content is in the first
+            // HTML response for SEO.
+            mainSlot
+          ) : showAdmin ? (
             <AdminView onClose={() => router.push("/")} />
-          ) : showRoadmap ? (
-            <RoadmapView onClose={() => router.push("/")} />
-          ) : showPricing ? (
-            <PricingView onClose={() => router.push("/")} />
-          ) : showHow ? (
-            <TheHowView onClose={() => router.push("/")} />
-          ) : showWhat ? (
-            <TheWhatView onClose={() => router.push("/")} />
           ) : showSettings ? (
             <SettingsView
               initialSection={settingsSection}
@@ -486,13 +465,6 @@ export default function NoteWrapper() {
             />
           ) : showTrash ? (
             <TrashView onClose={() => setShowTrash(false)} />
-          ) : toolSlug ? (
-            <ToolView slug={toolSlug} onBack={() => router.push("/tools")} />
-          ) : showTools ? (
-            <ToolsGrid
-              onOpenTool={(slug) => router.push(`/tools/${slug}`)}
-              onClose={() => router.push("/")}
-            />
           ) : notebookViewId ? (
             <NotebookView
               notebookId={notebookViewId}
@@ -566,7 +538,7 @@ export default function NoteWrapper() {
 
       {/* Mobile FAB — new note, shown on the notes list only (not the Shared
           list, where a new note makes no sense and it covers the rows). */}
-      {sidebarOpen && mobileTab !== "shared" && !showAdmin && !showRoadmap && !showSettings && !showPricing && !showHow && !showWhat && !showTrash && !showNotebooksGrid && !notebookViewId && !showTools && !toolSlug && !sharedShortcode && (
+      {sidebarOpen && mobileTab !== "shared" && !publicRouted && !showAdmin && !showSettings && !showTrash && !showNotebooksGrid && !notebookViewId && !sharedShortcode && (
         <MobileFab onClick={mobileNewNote} />
       )}
 

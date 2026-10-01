@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { IconX, IconCheck, IconSparkles } from "@tabler/icons-react";
 import { createClient } from "@/utils/supabase/client";
 import { PLANS, type PlanTier, type Plan } from "@/lib/plans";
@@ -14,7 +15,9 @@ import PlanComparison from "@/components/plan-comparison";
 // fills the rest). Everything renders from the single plan config so it can
 // never drift from what's actually enforced.
 
-export default function PricingView({ onClose }: { onClose: () => void }) {
+export default function PricingView() {
+  const router = useRouter();
+  const onClose = () => router.push("/");
   const { showError } = useToast();
   const [tier, setTier] = useState<PlanTier | null>(null);
   const [billingState, setBillingState] = useState<BillingState>("ok");

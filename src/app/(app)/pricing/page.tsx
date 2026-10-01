@@ -1,7 +1,10 @@
 import { Metadata } from "next";
+import PricingView from "@/components/pricing-view";
 
-// Rendered by NoteWrapper (in the (app) layout) via the URL — the pricing page
-// opens inside the app shell (rail + content), like Roadmap. Marker page.
+// Server-rendered into the (app) shell's main slot (NoteWrapper renders it on
+// /pricing). PricingView is a client component, so its static content (plan
+// names, prices, FAQ) is in the first HTML response for SEO; billing state
+// hydrates on top.
 export const metadata: Metadata = {
   title: "Plans & Pricing — JustNoted",
   description:
@@ -23,5 +26,5 @@ export const metadata: Metadata = {
 };
 
 export default function PricingPage() {
-  return null;
+  return <PricingView />;
 }
