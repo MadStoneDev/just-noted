@@ -518,11 +518,35 @@ function NoteEditor({
   }, []);
   const toast = useToast();
 
-  // Hydration lock: while the app is still reconciling with the server on load,
-  // hold the editor read-only so the (possibly stale) cached content can't be
-  // edited and then overwrite newer cloud content. Releases once reconciled.
   const hasServerSynced = useNotesStore((s) => s.hasServerSynced);
   const isHydrating = !hasServerSynced;
+
+  // The note version this editor is editing FROM. Pinned and passed to the save
+  // so an edit made during initial sync is CAS'd against where it started — if
+  // the server has since advanced, that triggers the conflict path (a conflicted
+  // copy) instead of a silent overwrite. Advanced on a clean adopt / successful
+  // save; left alone while there are unsaved edits.
+  const baseVersionRef = useRef(note.version);
+  useEffect(() => { baseVersionRef.current = note.version; }, [note.id]);
+
+  // Hydration lock, time-boxed (editor-lock change, option c+d). The editor is
+  // read-only only until this note reconciles. After 300ms it fades and shows
+  // "Syncing your notes…"; after 5s the lock releases on the cached content and
+  // surfaces a sync-problem status, so a slow/stalled sync never traps the user.
+  // Editing before reconcile is safe — edits persist locally and save against
+  // baseVersionRef, so a newer server version becomes a conflicted copy.
+  const [lockReleased, setLockReleased] = useState(false);
+  const [showSyncingNotice, setShowSyncingNotice] = useState(false);
+  const locked = isHydrating && !lockReleased;
+  const lockedRef = useRef(locked);
+  lockedRef.current = locked;
+  const timedOut = lockReleased && isHydrating;
+  useEffect(() => {
+    if (!isHydrating) { setLockReleased(false); setShowSyncingNotice(false); return; }
+    const fade = setTimeout(() => setShowSyncingNotice(true), 300);
+    const release = setTimeout(() => setLockReleased(true), 5000);
+    return () => { clearTimeout(fade); clearTimeout(release); };
+  }, [isHydrating]);
 
   // Sync progress bar — eases up while loading, then completes to 100% and
   // lingers briefly so the user actually sees it finish before it fades.
@@ -579,7 +603,8 @@ function NoteEditor({
             // When this note is on the Yjs CRDT, the content write is a merged
             // projection — the server skips CAS (verified against note_ydoc), so
             // collaborative edits don't spawn spurious conflicted copies.
-            { projection: !!collabConfig },
+            // baseVersion pins the version we edited from (see baseVersionRef).
+            { projection: !!collabConfig, baseVersion: baseVersionRef.current },
           );
           // A non-throwing failure (server rejected / queued offline) must
           // propagate so useAutoSave keeps the content dirty and retries.
@@ -587,6 +612,11 @@ function NoteEditor({
           if (result && result.success === false) {
             setSaveState("error");
             return false;
+          }
+          // Advance the pinned base to the version the server now holds.
+          const savedVersion = (result as { version?: number } | undefined)?.version;
+          if (typeof savedVersion === "number") {
+            baseVersionRef.current = savedVersion;
           }
         }
         lastSavedContentRef.current = newContent;
@@ -651,9 +681,9 @@ function NoteEditor({
 
   const handleContentChange = useCallback(
     (value: string) => {
-      // Ignore edits while the hydration lock is engaged — no local edits should
-      // exist yet, so nothing to lose; this just guards any programmatic path.
-      if (!useNotesStore.getState().hasServerSynced) return;
+      // Ignore edits only while the lock is engaged (not merely while hydrating —
+      // after the 5s release, editing cached content is allowed and safe).
+      if (lockedRef.current) return;
 
       setContent(value);
       setContentFormat("markdown");
@@ -695,12 +725,20 @@ function NoteEditor({
     if (!hasServerSynced || didReconcileRef.current) return;
     didReconcileRef.current = true;
     const latest = useNotesStore.getState().notes.find((n) => n.id === note.id);
-    if (latest && latest.content !== content) {
+    if (!latest) return;
+    // Keep in-progress edits: if the editor has unsaved local changes (possible
+    // now that editing is allowed during the 5s window), DON'T clobber them.
+    // They stay in the editor and save against baseVersionRef (the pre-sync
+    // version), so a newer server version becomes a conflicted copy rather than a
+    // silent overwrite. baseVersionRef is deliberately NOT advanced here.
+    if (content !== lastSavedContentRef.current) return;
+    if (latest.content !== content) {
       setContent(latest.content);
       setContentFormat(latest.contentFormat || "markdown");
       lastSavedContentRef.current = latest.content;
       setEditorRemountKey((k) => k + 1);
     }
+    baseVersionRef.current = latest.version; // clean adopt — move the base forward
   }, [hasServerSynced, note.id, content]);
 
   // Adopt an external content change into the OPEN editor — e.g. another tab
@@ -714,6 +752,7 @@ function NoteEditor({
     setContent(note.content);
     setContentFormat(note.contentFormat || "markdown");
     lastSavedContentRef.current = note.content;
+    baseVersionRef.current = note.version; // clean adopt — move the base forward
     setEditorRemountKey((k) => k + 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.content, note.version]);
@@ -1535,10 +1574,24 @@ function NoteEditor({
           {/* Content editor — grows to fill the remaining height */}
           <div
             ref={dropZoneRef}
-            className={`jn-droppable relative flex-1 flex flex-col ${
-              isHydrating ? "pointer-events-none select-none" : ""
-            }`}
+            aria-busy={locked}
+            className={`jn-droppable relative flex-1 flex flex-col transition-opacity duration-200 ${
+              locked ? "pointer-events-none select-none" : ""
+            } ${locked && showSyncingNotice ? "opacity-60" : "opacity-100"}`}
           >
+            {/* Lock status (c+d): a quiet line after 300ms, then a sync-problem
+                note if the 5s release fired before the sync finished. */}
+            {locked && showSyncingNotice && (
+              <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3 py-1.5 rounded-[var(--radius-8)] bg-[var(--color-panel-alt)] border border-[var(--color-hairline)] shadow-[var(--shadow-lg)] pointer-events-none">
+                <span className="size-3.5 rounded-full border-2 border-[var(--color-border-primary)] border-t-[var(--color-accent)] animate-spin" />
+                <span className="text-[12.5px] text-[var(--color-ink-3)]">Syncing your notes…</span>
+              </div>
+            )}
+            {timedOut && (
+              <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3 py-1.5 rounded-[var(--radius-8)] bg-[var(--color-warn-tint)] text-[var(--color-warn)] pointer-events-none">
+                <span className="text-[12.5px]">Sync problem — editing your cached copy. Changes will sync when it clears.</span>
+              </div>
+            )}
             {isDraggingFile && (
               <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none rounded-[var(--radius-lg)] border-2 border-dashed border-[var(--color-accent)] bg-[var(--color-accent-subtle)]">
                 <div className="flex flex-col items-center gap-1.5 text-[var(--color-accent)]">
@@ -1584,7 +1637,7 @@ function NoteEditor({
               <textarea
                 value={content}
                 onChange={(e) => handleContentChange(e.target.value)}
-                readOnly={isHydrating}
+                readOnly={locked}
                 spellCheck={false}
                 placeholder="# Markdown source"
                 className="flex-1 w-full resize-none bg-transparent border-none outline-none font-mono text-sm leading-relaxed text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]"
@@ -1597,7 +1650,7 @@ function NoteEditor({
                 contentFormat={contentFormat}
                 onChange={handleContentChange}
                 onReady={handleEditorReady}
-                readOnly={isHydrating}
+                readOnly={locked}
                 distractionFreeMode
                 placeholder="Start writing..."
                 className="flex-1 flex flex-col overflow-visible"

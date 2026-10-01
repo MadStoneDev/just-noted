@@ -45,8 +45,8 @@ export interface NotesOperations {
     content: string,
     goal: number,
     goalType: "" | "words" | "characters",
-    opts?: { projection?: boolean },
-  ) => Promise<{ success: boolean }>;
+    opts?: { projection?: boolean; baseVersion?: number },
+  ) => Promise<{ success: boolean; version?: number }>;
   saveNoteTitle: (noteId: string, title: string) => Promise<{ success: boolean }>;
   refreshSingleNote: (noteId: string) => Promise<CombinedNote | null>;
   transferNote: (noteId: string, targetSource: NoteSource) => Promise<void>;
@@ -824,7 +824,7 @@ export function useNotesOperations(
       content: string,
       goal: number,
       goalType: "" | "words" | "characters",
-      opts?: { projection?: boolean },
+      opts?: { projection?: boolean; baseVersion?: number },
     ) => {
       if (!userId) return { success: false };
 
@@ -847,10 +847,18 @@ export function useNotesOperations(
         // base and spawn a redundant conflicted copy.
         const result = await withNoteLock(noteId, async () => {
           let handledConflict = false;
+          // An explicit base version pins the version the caller edited FROM (the
+          // editor passes this so an edit made during initial sync is CAS'd
+          // against where it started, not a version reconcile may have advanced —
+          // a newer server version then triggers the conflict path instead of a
+          // silent overwrite). Cleared after a conflict so the retry uses the
+          // adopted version.
+          let pinnedBase = opts?.baseVersion;
           // Loop so a single conflict resolves + retries once.
           // eslint-disable-next-line no-constant-condition
           while (true) {
-            const baseVersion = useNotesStore.getState().notes.find((n) => n.id === noteId)?.version;
+            const storeVersion = useNotesStore.getState().notes.find((n) => n.id === noteId)?.version;
+            const baseVersion = pinnedBase !== undefined ? pinnedBase : storeVersion;
 
             let r: any;
             if (targetNote.source === "redis") {
@@ -893,6 +901,7 @@ export function useNotesOperations(
               await createConflictedCopy(targetNote, r.current.title, r.current.content);
               optimisticUpdateNote(noteId, { version: r.current.version });
               handledConflict = true;
+              pinnedBase = undefined; // retry against the adopted server version
               continue;
             }
 

@@ -75,6 +75,18 @@ describe("reconcileNotes — version-based (clock-independent)", () => {
     expect(toConflictCopy).toHaveLength(0);
   });
 
+  it("user typed during sync + server has a newer version → both preserved", () => {
+    // The editor-lock change allows editing cached content during initial sync.
+    // If that edit (local, still at the version it loaded from) meets a newer
+    // server version, reconcile must keep the server copy AND preserve the user's
+    // text as a conflicted copy — never silently drop either side.
+    const server = [mk({ id: "z", content: "newer server text", version: 7 })];
+    const local = [mk({ id: "z", content: "text I typed during sync", version: 4 })];
+    const { merged, toConflictCopy } = reconcileNotes(server, local, NOW);
+    expect(merged[0].content).toBe("newer server text");
+    expect(toConflictCopy.map((n) => n.content)).toContain("text I typed during sync");
+  });
+
   it("keeps a strictly-newer local version and pushes it", () => {
     const server = [mk({ id: "f", content: "old", version: 2 })];
     const local = [mk({ id: "f", content: "new offline edit", version: 3 })];
