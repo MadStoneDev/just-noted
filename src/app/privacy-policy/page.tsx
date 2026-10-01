@@ -329,6 +329,7 @@ export default async function PrivacyPolicyPage() {
                 ],
                 ["Local notes", "12 months after their last activity"],
                 ["Account export files", "7 days, then deleted (request record kept up to 90 days)"],
+                ["In-app notifications", "90 days, then deleted"],
                 ["Backups", "About 30 days, then overwritten"],
                 ["Billing records", "As long as tax law requires (usually 5 years in Australia)"],
                 ["Analytics data", "[confirm retention settings]"],

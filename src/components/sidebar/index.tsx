@@ -24,6 +24,7 @@ import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import { getPlainTextPreview as getPlainTextPreviewUtil } from "@/utils/html-utils";
 import NotebookMoveMenu from "@/components/notebook-move-menu";
 import AccountMenu from "@/components/account-menu";
+import NotificationBell from "@/components/notification-bell";
 import { SwipeableRow } from "@/components/mobile-chrome";
 import {
   IconX,
@@ -736,6 +737,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
               <IconSearch size={20} />
             </RailButton>
             <div className="flex-1" />
+            {isAuthenticated && <NotificationBell enabled={isAuthenticated} />}
             {isAdmin && (
               <RailButton
                 label="Admin"

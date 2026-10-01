@@ -1,19 +1,45 @@
 import { describe, it, expect } from "vitest";
-import { prefEnabled, renderNotification, NOTIFICATION_TYPES } from "@/lib/notifications";
+import {
+  inAppEnabled,
+  prefForType,
+  sanitizeNotificationPrefs,
+  renderNotification,
+  NOTIFICATION_TYPES,
+} from "@/lib/notifications";
 
-describe("prefEnabled", () => {
-  it("uses the registry default when no pref is set", () => {
-    expect(prefEnabled(null, "shared_with_me")).toBe(true);
-    expect(prefEnabled(null, "edited_shared_note")).toBe(false);
-    expect(prefEnabled({}, "chat_message")).toBe(true);
+describe("inAppEnabled / defaults", () => {
+  it("uses the registry defaults (shares instantly; edits/chat off; mentions instantly)", () => {
+    expect(inAppEnabled(null, "shared_with_me")).toBe(true);
+    expect(inAppEnabled(null, "edited_shared_note")).toBe(false);
+    expect(inAppEnabled({}, "chat_message")).toBe(false);
+    expect(inAppEnabled(null, "mention")).toBe(true);
   });
-  it("lets a stored pref override the default", () => {
-    expect(prefEnabled({ shared_with_me: false }, "shared_with_me")).toBe(false);
-    expect(prefEnabled({ edited_shared_note: true }, "edited_shared_note")).toBe(true);
+  it("lets a stored frequency override the default", () => {
+    expect(inAppEnabled({ shared_with_me: { inApp: "off" } }, "shared_with_me")).toBe(false);
+    expect(inAppEnabled({ chat_message: { inApp: "instantly" } }, "chat_message")).toBe(true);
   });
   it("rejects an unknown type", () => {
     // @ts-expect-error unknown type
-    expect(prefEnabled(null, "nope")).toBe(false);
+    expect(inAppEnabled(null, "nope")).toBe(false);
+  });
+});
+
+describe("prefForType", () => {
+  it("merges stored over default and normalises bad values", () => {
+    expect(prefForType({ shared_with_me: { email: "weekly" } }, "shared_with_me")).toEqual({ inApp: "instantly", email: "weekly" });
+    expect(prefForType({ shared_with_me: { inApp: "garbage" as any } }, "shared_with_me")).toEqual({ inApp: "instantly", email: "off" });
+  });
+});
+
+describe("sanitizeNotificationPrefs", () => {
+  it("drops unknown types and invalid values", () => {
+    const out = sanitizeNotificationPrefs({ shared_with_me: { inApp: "daily", email: "nope" }, bogus: { inApp: "off" } });
+    expect(out.shared_with_me).toEqual({ inApp: "daily", email: "off" });
+    expect((out as any).bogus).toBeUndefined();
+  });
+  it("returns an empty object for junk input", () => {
+    expect(sanitizeNotificationPrefs("x")).toEqual({});
+    expect(sanitizeNotificationPrefs(null)).toEqual({});
   });
 });
 

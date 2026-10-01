@@ -1,6 +1,6 @@
 import "server-only";
 import { createServiceRoleClient } from "@/utils/supabase/server";
-import { prefEnabled, type NotificationType } from "@/lib/notifications";
+import { inAppEnabled, type NotificationType } from "@/lib/notifications";
 
 type Svc = ReturnType<typeof createServiceRoleClient>;
 
@@ -35,7 +35,7 @@ export async function createNotification(
 
   const { data: us } = await svc.from("user_settings").select("settings").eq("user_id", recipientId).maybeSingle();
   const prefs = ((us as any)?.settings?.notifications) ?? null;
-  if (!prefEnabled(prefs, type)) return;
+  if (!inAppEnabled(prefs, type)) return;
 
   // For chatty types, keep only one unread per (recipient, note) so the bell
   // nudges once until read rather than per message.
@@ -139,6 +139,22 @@ export async function notifyNoteEdited(noteId: string, actorId: string): Promise
     await notifyNoteParticipants(noteId, actorId, "edited_shared_note", data, true);
   } catch (e) {
     console.error("[notifications] edit notify failed:", e);
+  }
+}
+
+/** Delete notifications older than 90 days (cleanup cron). */
+export async function purgeOldNotifications(): Promise<{ success: boolean; removed: number }> {
+  try {
+    const svc = createServiceRoleClient();
+    const cutoff = new Date(Date.now() - 90 * 86400000).toISOString();
+    const { error, count } = await svc
+      .from("notifications")
+      .delete({ count: "exact" })
+      .lte("created_at", cutoff);
+    if (error) return { success: false, removed: 0 };
+    return { success: true, removed: count ?? 0 };
+  } catch {
+    return { success: false, removed: 0 };
   }
 }
 
