@@ -16,6 +16,8 @@ import NotebooksGrid from "@/components/notebooks-grid";
 import SettingsView from "@/components/settings-view";
 import RoadmapView from "@/components/roadmap-view";
 import PricingView from "@/components/pricing-view";
+import TheHowView from "@/components/the-how-view";
+import TheWhatView from "@/components/the-what-view";
 import AccountDeletionGate from "@/components/account-deletion-gate";
 import AdminView from "@/components/admin-view";
 import { readEditorFont, applyEditorFont, readEditorFontSize, applyEditorFontSize } from "@/utils/editor-font";
@@ -80,6 +82,9 @@ export default function NoteWrapper() {
   const [showRoadmap, setShowRoadmap] = useState(false);
   // Public pricing page — same shell as Roadmap (rail + content).
   const [showPricing, setShowPricing] = useState(false);
+  // Info pages ("The How" / "The What") — same shell as Roadmap/Pricing.
+  const [showHow, setShowHow] = useState(false);
+  const [showWhat, setShowWhat] = useState(false);
   // Admin dashboard (role >= 10), opened from the rail.
   const [showAdmin, setShowAdmin] = useState(false);
   // Mobile "You" account drawer (bottom sheet).
@@ -102,17 +107,21 @@ export default function NoteWrapper() {
     const isSettings = pathname === "/settings";
     const isAdmin = pathname === "/admin";
     const isPricing = pathname === "/pricing";
+    const isHow = pathname === "/the-how";
+    const isWhat = pathname === "/the-what";
     const sharedMatch = pathname.match(/^\/n\/([^/]+)$/);
     setShowRoadmap(isRoadmap);
     setShowSettings(isSettings);
     setShowAdmin(isAdmin);
     setShowPricing(isPricing);
+    setShowHow(isHow);
+    setShowWhat(isWhat);
     setSettingsSection(
       isSettings
         ? new URLSearchParams(window.location.search).get("section") ?? undefined
         : undefined,
     );
-    if (isRoadmap || isSettings || isAdmin || isPricing) {
+    if (isRoadmap || isSettings || isAdmin || isPricing || isHow || isWhat) {
       setShowTrash(false);
       setShowNotebooksGrid(false);
       setSharedShortcode(null);
@@ -379,7 +388,7 @@ export default function NoteWrapper() {
     // Escape closes the top open main-area layer first; the hook then handles
     // the sidebar on the next press. Order = visual stacking, most-recent first.
     onEscape: () => {
-      if (showAdmin || showRoadmap || showSettings || showPricing) { router.push("/"); return true; }
+      if (showAdmin || showRoadmap || showSettings || showPricing || showHow || showWhat) { router.push("/"); return true; }
       if (showTrash) { setShowTrash(false); setSidebarOpen(true); return true; }
       if (showNotebooksGrid) { setShowNotebooksGrid(false); setSidebarOpen(true); return true; }
       if (sharedShortcode) { setSharedShortcode(null); setSidebarOpen(true); return true; }
@@ -436,6 +445,10 @@ export default function NoteWrapper() {
             <RoadmapView onClose={() => router.push("/")} />
           ) : showPricing ? (
             <PricingView onClose={() => router.push("/")} />
+          ) : showHow ? (
+            <TheHowView onClose={() => router.push("/")} />
+          ) : showWhat ? (
+            <TheWhatView onClose={() => router.push("/")} />
           ) : showSettings ? (
             <SettingsView
               initialSection={settingsSection}
@@ -512,7 +525,7 @@ export default function NoteWrapper() {
 
       {/* Mobile FAB — new note, shown on the notes list only (not the Shared
           list, where a new note makes no sense and it covers the rows). */}
-      {sidebarOpen && mobileTab !== "shared" && !showAdmin && !showRoadmap && !showSettings && !showPricing && !showTrash && !showNotebooksGrid && !sharedShortcode && (
+      {sidebarOpen && mobileTab !== "shared" && !showAdmin && !showRoadmap && !showSettings && !showPricing && !showHow && !showWhat && !showTrash && !showNotebooksGrid && !sharedShortcode && (
         <MobileFab onClick={mobileNewNote} />
       )}
 
