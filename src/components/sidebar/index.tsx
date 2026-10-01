@@ -183,7 +183,9 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
     pathname === "/roadmap" ||
     pathname === "/pricing" ||
     pathname === "/the-how" ||
-    pathname === "/the-what";
+    pathname === "/the-what" ||
+    pathname === "/notebooks" ||
+    pathname.startsWith("/notebooks/");
   const listOpen = sidebarOpen && !isRoutedView;
   // Filters live in a slide-up sheet, out of the list's way
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);

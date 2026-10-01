@@ -4,28 +4,25 @@ import React, { useMemo, useState } from "react";
 import { useNotesStore } from "@/stores/notes-store";
 import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import { countWordsInContent } from "@/utils/word-count";
-import NotebookDetailDrawer from "@/components/notebook-detail-drawer";
 import { IconPlus, IconX, IconLock } from "@tabler/icons-react";
 
 interface NotebooksGridProps {
   onNewNotebook: () => void;
-  onOpenNotebook: (id: string) => void;
-  onEditCover: (id: string) => void;
+  /** Open a notebook's Level 2 view (route /notebooks/:id). */
+  onOpenNotebookView: (id: string) => void;
   onDropNote: (noteId: string, notebookId: string) => void;
   onClose: () => void;
 }
 
-// Notebooks cover grid — design handoff surface 03.
+// Notebooks cover grid — Level 1 (route /notebooks), design handoff surface 03.
 export default function NotebooksGrid({
   onNewNotebook,
-  onOpenNotebook,
-  onEditCover,
+  onOpenNotebookView,
   onDropNote,
   onClose,
 }: NotebooksGridProps) {
   const notebooks = useNotesStore((s) => s.notebooks);
   const notes = useNotesStore((s) => s.notes);
-  const [detailId, setDetailId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const { wordByNb, countByNb, subByNb, totalFiled, looseCount } = useMemo(() => {
@@ -112,7 +109,7 @@ export default function NotebooksGrid({
               return (
                 <button
                   key={nb.id}
-                  onClick={() => setDetailId(nb.id)}
+                  onClick={() => onOpenNotebookView(nb.id)}
                   onDragOver={(e) => {
                     if (e.dataTransfer.types.includes("application/x-jn-note")) {
                       e.preventDefault();
@@ -184,14 +181,6 @@ export default function NotebooksGrid({
           </div>
         )}
       </div>
-
-      <NotebookDetailDrawer
-        notebookId={detailId}
-        onClose={() => setDetailId(null)}
-        onGoTo={(id) => { setDetailId(null); onOpenNotebook(id); }}
-        onEditCover={(id) => { setDetailId(null); onEditCover(id); }}
-        onOpenSub={(id) => setDetailId(id)}
-      />
     </div>
   );
 }

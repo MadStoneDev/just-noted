@@ -13,6 +13,7 @@ import TrashView from "@/components/trash-view";
 import NotebookBreadcrumb from "@/components/notebook-breadcrumb";
 import SharedNoteInline from "@/components/shared-note-inline";
 import NotebooksGrid from "@/components/notebooks-grid";
+import NotebookView from "@/components/notebook-view";
 import SettingsView from "@/components/settings-view";
 import RoadmapView from "@/components/roadmap-view";
 import PricingView from "@/components/pricing-view";
@@ -76,8 +77,10 @@ export default function NoteWrapper() {
   const [showTrash, setShowTrash] = useState(false);
   // Read-only shared note open in the main area (by shortcode)
   const [sharedShortcode, setSharedShortcode] = useState<string | null>(null);
-  // Notebooks cover grid open in the main area
+  // Notebooks cover grid (Level 1, /notebooks) open in the main area
   const [showNotebooksGrid, setShowNotebooksGrid] = useState(false);
+  // Single notebook view (Level 2, /notebooks/:id) — the id, or null.
+  const [notebookViewId, setNotebookViewId] = useState<string | null>(null);
   // Standalone Roadmap page (kanban), opened from the rail.
   const [showRoadmap, setShowRoadmap] = useState(false);
   // Public pricing page — same shell as Roadmap (rail + content).
@@ -109,6 +112,9 @@ export default function NoteWrapper() {
     const isPricing = pathname === "/pricing";
     const isHow = pathname === "/the-how";
     const isWhat = pathname === "/the-what";
+    const isNotebooks = pathname === "/notebooks";
+    const nbViewMatch = pathname.match(/^\/notebooks\/([^/]+)$/);
+    const nbViewId = nbViewMatch ? decodeURIComponent(nbViewMatch[1]) : null;
     const sharedMatch = pathname.match(/^\/n\/([^/]+)$/);
     setShowRoadmap(isRoadmap);
     setShowSettings(isSettings);
@@ -116,14 +122,17 @@ export default function NoteWrapper() {
     setShowPricing(isPricing);
     setShowHow(isHow);
     setShowWhat(isWhat);
+    // Notebooks grid (Level 1) and notebook view (Level 2) are URL-driven and
+    // never co-render — exactly one is set from the path.
+    setShowNotebooksGrid(isNotebooks);
+    setNotebookViewId(nbViewId);
     setSettingsSection(
       isSettings
         ? new URLSearchParams(window.location.search).get("section") ?? undefined
         : undefined,
     );
-    if (isRoadmap || isSettings || isAdmin || isPricing || isHow || isWhat) {
+    if (isRoadmap || isSettings || isAdmin || isPricing || isHow || isWhat || isNotebooks || nbViewId) {
       setShowTrash(false);
-      setShowNotebooksGrid(false);
       setSharedShortcode(null);
       setSidebarOpen(false);
       setShowAccountDrawer(false);
@@ -131,7 +140,6 @@ export default function NoteWrapper() {
       // A public shared-note link (/n/<shortcode>) — open it in the shell (rail
       // + sidebar + the note in the main area), not the old standalone page.
       setShowTrash(false);
-      setShowNotebooksGrid(false);
       setShowAccountDrawer(false);
       setSharedShortcode(decodeURIComponent(sharedMatch[1]));
       setSidebarOpen(true);
@@ -139,6 +147,7 @@ export default function NoteWrapper() {
       setSidebarOpen(true);
     }
     if (isSettings) setMobileTab("settings");
+    if (isNotebooks || nbViewId) setMobileTab("notebooks");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
@@ -184,7 +193,7 @@ export default function NoteWrapper() {
 
   // Cross-component triggers from the rail.
   useEffect(() => {
-    const openGrid = () => setShowNotebooksGrid(true);
+    const openGrid = () => router.push("/notebooks");
     // Settings replaces the notes sidebar (its own section list stands in for it).
     // An optional string detail deep-links to a section (e.g. "Plan & usage").
     // These now navigate — NoteWrapper's URL effect drives the view. Dispatchers
@@ -251,20 +260,17 @@ export default function NoteWrapper() {
   }, [setSidebarOpen, router, mobileTab]);
 
   const goNotebooks = useCallback(() => {
-    // Toggle: tapping Notebooks while the grid is already open closes it back to
-    // the note.
-    if (mobileTab === "notebooks" && showNotebooksGrid) {
-      setShowNotebooksGrid(false);
+    // Toggle: tapping Notebooks while already in the notebooks area returns to
+    // notes; otherwise open the grid (Level 1).
+    if (window.location.pathname.startsWith("/notebooks")) {
+      router.push("/");
+      setMobileTab("notes");
       return;
     }
-    router.push("/");
     setShowAccountDrawer(false);
-    setShowTrash(false);
-    setSharedShortcode(null);
-    setShowNotebooksGrid(true);
-    setSidebarOpen(false);
+    router.push("/notebooks");
     setMobileTab("notebooks");
-  }, [setSidebarOpen, router, mobileTab, showNotebooksGrid]);
+  }, [router]);
 
   const goShared = useCallback(() => {
     // Toggle: tapping Shared while its list is already open collapses the sidebar.
@@ -389,8 +395,9 @@ export default function NoteWrapper() {
     // the sidebar on the next press. Order = visual stacking, most-recent first.
     onEscape: () => {
       if (showAdmin || showRoadmap || showSettings || showPricing || showHow || showWhat) { router.push("/"); return true; }
+      if (notebookViewId) { router.push("/notebooks"); return true; } // Level 2 → Level 1
+      if (showNotebooksGrid) { router.push("/"); return true; }       // Level 1 → notes
       if (showTrash) { setShowTrash(false); setSidebarOpen(true); return true; }
-      if (showNotebooksGrid) { setShowNotebooksGrid(false); setSidebarOpen(true); return true; }
       if (sharedShortcode) { setSharedShortcode(null); setSidebarOpen(true); return true; }
       return false;
     },
@@ -456,22 +463,26 @@ export default function NoteWrapper() {
             />
           ) : showTrash ? (
             <TrashView onClose={() => setShowTrash(false)} />
-          ) : showNotebooksGrid ? (
-            <NotebooksGrid
-              onClose={() => setShowNotebooksGrid(false)}
-              onOpenNotebook={(id) => {
+          ) : notebookViewId ? (
+            <NotebookView
+              notebookId={notebookViewId}
+              onNavigateNotebook={(id) => router.push(id ? `/notebooks/${id}` : "/notebooks")}
+              onOpenNotes={(id) => {
                 const s = useNotesStore.getState();
                 s.setActiveNotebookId(id);
-                s.setSidebarOpen(true);
-                // Switch the sidebar back to the notes list, filtered to this notebook.
                 window.dispatchEvent(new Event("justnoted:show-notes"));
-                setShowNotebooksGrid(false);
+                router.push("/");
               }}
+              onEdit={(id) =>
+                window.dispatchEvent(new CustomEvent("justnoted:edit-notebook", { detail: id }))
+              }
+            />
+          ) : showNotebooksGrid ? (
+            <NotebooksGrid
+              onClose={() => router.push("/")}
+              onOpenNotebookView={(id) => router.push(`/notebooks/${id}`)}
               onNewNotebook={() =>
                 window.dispatchEvent(new Event("justnoted:new-notebook"))
-              }
-              onEditCover={(id) =>
-                window.dispatchEvent(new CustomEvent("justnoted:edit-notebook", { detail: id }))
               }
               onDropNote={(noteId, notebookId) => {
                 const s = useNotesStore.getState();
@@ -525,7 +536,7 @@ export default function NoteWrapper() {
 
       {/* Mobile FAB — new note, shown on the notes list only (not the Shared
           list, where a new note makes no sense and it covers the rows). */}
-      {sidebarOpen && mobileTab !== "shared" && !showAdmin && !showRoadmap && !showSettings && !showPricing && !showHow && !showWhat && !showTrash && !showNotebooksGrid && !sharedShortcode && (
+      {sidebarOpen && mobileTab !== "shared" && !showAdmin && !showRoadmap && !showSettings && !showPricing && !showHow && !showWhat && !showTrash && !showNotebooksGrid && !notebookViewId && !sharedShortcode && (
         <MobileFab onClick={mobileNewNote} />
       )}
 
