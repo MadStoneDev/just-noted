@@ -4,8 +4,9 @@ import React, { useState, useEffect } from "react";
 import { Notebook, CoverType } from "@/types/notebook";
 import NotebookCoverPicker from "./notebook-cover-picker";
 import { DEFAULT_COVER_TYPE, DEFAULT_COVER_VALUE } from "@/lib/notebook-covers";
-import { IconLoader2, IconTrash, IconEyeOff } from "@tabler/icons-react";
+import { IconLoader2, IconTrash, IconEyeOff, IconChevronDown, IconCheck } from "@tabler/icons-react";
 import { Drawer } from "@/components/ds/drawer";
+import { Dropdown, DropdownItem } from "@/components/ds/dropdown";
 
 interface NotebookModalProps {
   isOpen: boolean;
@@ -45,6 +46,7 @@ export default function NotebookModal({
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [parentMenuOpen, setParentMenuOpen] = useState(false);
 
   const isEditing = !!notebook;
 
@@ -69,6 +71,7 @@ export default function NotebookModal({
       setPendingFile(null);
       setError(null);
       setShowDeleteConfirm(false);
+      setParentMenuOpen(false);
     }
   }, [isOpen, notebook]);
 
@@ -247,23 +250,55 @@ export default function NotebookModal({
                   return true;
                 });
                 if (eligibleParents.length === 0) return null;
+                const disabled = isSaving || isDeleting || hasChildren;
+                const selectedName =
+                  parentId ? (eligibleParents.find((nb) => nb.id === parentId)?.name ?? "None (top-level)") : "None (top-level)";
+                // A plain <select>'s popup can't be given a z-index and, inside a
+                // portaled drawer, rendered behind it; the DS Dropdown portals to
+                // <body> at a tier above drawers, so its menu always sits on top.
                 return (
                   <div>
-                    <label htmlFor="parent-notebook" className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
+                    <span className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                       Parent Notebook <span className="text-[var(--color-text-tertiary)] font-normal">(optional)</span>
-                    </label>
-                    <select
-                      id="parent-notebook"
-                      value={parentId || ""}
-                      onChange={(e) => setParentId(e.target.value || null)}
-                      disabled={isSaving || isDeleting || hasChildren}
-                      className="w-full px-3 py-2 border border-[var(--color-border-primary)] rounded-[var(--radius-lg)] focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)] text-sm bg-[var(--color-bg-primary)] disabled:opacity-50"
-                    >
-                      <option value="">None (top-level)</option>
-                      {eligibleParents.map((nb) => (
-                        <option key={nb.id} value={nb.id}>{nb.name}</option>
-                      ))}
-                    </select>
+                    </span>
+                    {disabled ? (
+                      <div className="w-full flex items-center justify-between gap-2 px-3 py-2 border border-[var(--color-border-primary)] rounded-[var(--radius-lg)] text-sm bg-[var(--color-bg-primary)] opacity-50">
+                        <span>{selectedName}</span>
+                        <IconChevronDown size={16} className="text-[var(--color-text-tertiary)]" />
+                      </div>
+                    ) : (
+                      <Dropdown
+                        open={parentMenuOpen}
+                        onOpenChange={setParentMenuOpen}
+                        className="min-w-[220px]"
+                        trigger={
+                          <button
+                            type="button"
+                            aria-haspopup="menu"
+                            className="w-full flex items-center justify-between gap-2 px-3 py-2 border border-[var(--color-border-primary)] rounded-[var(--radius-lg)] text-sm text-left bg-[var(--color-bg-primary)] focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+                          >
+                            <span className={parentId ? "" : "text-[var(--color-text-tertiary)]"}>{selectedName}</span>
+                            <IconChevronDown size={16} className="text-[var(--color-text-tertiary)]" />
+                          </button>
+                        }
+                      >
+                        <DropdownItem
+                          icon={parentId ? <span className="w-4" /> : <IconCheck />}
+                          onClick={() => { setParentId(null); setParentMenuOpen(false); }}
+                        >
+                          None (top-level)
+                        </DropdownItem>
+                        {eligibleParents.map((nb) => (
+                          <DropdownItem
+                            key={nb.id}
+                            icon={parentId === nb.id ? <IconCheck /> : <span className="w-4" />}
+                            onClick={() => { setParentId(nb.id); setParentMenuOpen(false); }}
+                          >
+                            {nb.name}
+                          </DropdownItem>
+                        ))}
+                      </Dropdown>
+                    )}
                     {hasChildren && (
                       <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
                         Cannot nest a notebook that has sub-notebooks

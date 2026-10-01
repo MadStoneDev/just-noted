@@ -21,6 +21,13 @@ interface DropdownProps {
   children: React.ReactNode;
   placement?: Placement;
   className?: string;
+  /**
+   * Optional controlled open state. When provided (with onOpenChange) the parent
+   * drives open/close — e.g. a select-style menu that closes when an item is
+   * picked. Omit both for the default uncontrolled behaviour.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function Dropdown({
@@ -28,8 +35,19 @@ export function Dropdown({
   children,
   placement = "bottom-start",
   className,
+  open,
+  onOpenChange,
 }: DropdownProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const isControlled = open !== undefined;
+  const isOpen = isControlled ? open : uncontrolledOpen;
+  const setIsOpen = useCallback(
+    (next: boolean) => {
+      if (!isControlled) setUncontrolledOpen(next);
+      onOpenChange?.(next);
+    },
+    [isControlled, onOpenChange],
+  );
 
   const { refs, floatingStyles, context, isPositioned } = useFloating({
     open: isOpen,
