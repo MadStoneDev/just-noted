@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, createServiceRoleClient } from "@/utils/supabase/server";
 import { getCollabAllowance, ownerCanCollaborate } from "@/lib/subscription";
 import { wouldBlankNonEmpty } from "@/lib/collab-guard";
+import { notifyShareAdded, notifyNoteEdited } from "@/utils/notifications/create";
 import { NOTES_KEY_PREFIX } from "@/constants/app";
 
 // ===========================
@@ -458,6 +459,7 @@ export async function sharingOperation(params: SharingOperationParams) {
           if (insertReaderError) {
             return { success: false, error: "Failed to share with user" };
           }
+          if (readerId) void notifyShareAdded(shareId, readerId);
         }
 
         // No revalidatePath here: the share sheet refetches its own state, and
@@ -836,6 +838,8 @@ export async function sharingOperation(params: SharingOperationParams) {
         if (updateErr) {
           return { success: false, error: "Couldn't save your changes" };
         }
+
+        void notifyNoteEdited(noteId, authenticatedUserId);
 
         // Best-effort attribution snapshot for the owner's history (routine
         // autosave category, so it's capped like other autosaves).

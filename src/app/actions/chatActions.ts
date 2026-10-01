@@ -5,6 +5,7 @@ import { ownerCanCollaborate } from "@/lib/subscription";
 import { checkRateLimit } from "@/utils/rate-limit";
 import { toMessageView, type ChatAuthor, type ChatMessageView, type ChatMessageRow } from "@/lib/chat";
 import { validateChatMedia, baseMime } from "@/lib/chat-media";
+import { notifyChatMessage, markChatNotificationsRead } from "@/utils/notifications/create";
 import {
   CHAT_PREFIX,
   PRESIGN_TTL_SECONDS,
@@ -124,6 +125,7 @@ export async function sendChatMessage(
   const { error } = await svc
     .from("note_chat_messages")
     .insert({ note_id: noteId, author_id: uid, kind: "text", body: text, anchor: anchorValue } as any);
+  if (!error) void notifyChatMessage(noteId, uid);
   return { success: !error, error: error ? "Couldn't send the message" : undefined };
 }
 
@@ -199,6 +201,7 @@ export async function sendChatMediaMessage(
     await deletePrivateObject(input.key);
     return { success: false, error: "Couldn't send the attachment" };
   }
+  void notifyChatMessage(noteId, uid);
   return { success: true };
 }
 
@@ -351,5 +354,6 @@ export async function markChatRead(noteId: string): Promise<{ success: boolean }
       { note_id: noteId, user_id: user.id, last_read_at: new Date().toISOString() } as any,
       { onConflict: "note_id,user_id" },
     );
+  void markChatNotificationsRead(user.id, noteId);
   return { success: !error };
 }

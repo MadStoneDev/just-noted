@@ -47,6 +47,8 @@ export async function purgeOneAccount(userId: string): Promise<void> {
   await del(svc, "saved_shared_notes", "user_id", userId);
   await del(svc, "writing_sessions", "user_id", userId);
   await del(svc, "roadmap_votes", "user_id", userId);
+  await del(svc, "notifications", "user_id", userId);
+  await del(svc, "user_settings", "user_id", userId);
   await del(svc, "subscriptions", "user_id", userId);
 
   // 5. Profile row.
