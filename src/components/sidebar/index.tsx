@@ -24,7 +24,8 @@ import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import { getPlainTextPreview as getPlainTextPreviewUtil } from "@/utils/html-utils";
 import NotebookMoveMenu from "@/components/notebook-move-menu";
 import AccountMenu from "@/components/account-menu";
-import NotificationBell from "@/components/notification-bell";
+import NotificationsNavList from "@/components/notifications-nav-list";
+import { useNotifications } from "@/hooks/use-notifications";
 import { SwipeableRow } from "@/components/mobile-chrome";
 import {
   IconX,
@@ -52,6 +53,7 @@ import {
   IconNote,
   IconTag,
   IconShare,
+  IconBell,
 } from "@tabler/icons-react";
 import { Dropdown, DropdownItem, DropdownSeparator, DropdownLabel } from "@/components/ds/dropdown";
 import { ConfirmModal, Modal } from "@/components/ds/modal";
@@ -161,7 +163,14 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
 
   // Rail navigation: which panel the content column shows. Defaults to "notes";
   // the last-open view is restored from localStorage on mount (see effects below).
-  const [railView, setRailView] = useState<"notes" | "notebooks" | "tags" | "shared">("notes");
+  // "notifications" is a real view (peer of notes/notebooks/shared), not a modal,
+  // but it's intentionally left out of the persisted RAIL_VIEWS set so a reload
+  // returns to notes rather than reopening the inbox.
+  const [railView, setRailView] = useState<"notes" | "notebooks" | "tags" | "shared" | "notifications">("notes");
+  // Notifications: a single source for both the rail badge and the panel (one
+  // realtime subscription), shown in the content column when railView is it.
+  const { items: notifItems, unread: notifUnread, markRead: notifMarkRead, markAll: notifMarkAll, clearAll: notifClearAll } =
+    useNotifications(isAuthenticated);
   // Current route — drives active state on the routed rail entries (Admin /
   // Roadmap / Settings each own a URL).
   const pathname = usePathname();
@@ -728,7 +737,19 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
               <IconSearch size={20} />
             </RailButton>
             <div className="flex-1" />
-            {isAuthenticated && <NotificationBell enabled={isAuthenticated} />}
+            {isAuthenticated && (
+              <RailButton
+                label="Notifications"
+                active={railView === "notifications"}
+                badge={notifUnread}
+                onClick={() => {
+                  if (sidebarOpen && railView === "notifications") { setSidebarOpen(false); return; }
+                  setRailView("notifications"); setSidebarOpen(true);
+                }}
+              >
+                <IconBell size={20} />
+              </RailButton>
+            )}
             {isAdmin && (
               <RailButton
                 label="Admin"
@@ -837,7 +858,9 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                       ? "Tags"
                       : railView === "shared"
                         ? "Shared"
-                        : viewContextName}
+                        : railView === "notifications"
+                          ? "Notifications"
+                          : viewContextName}
                 </h2>
               )}
               {railView === "notes" && hasActiveFilters && (
@@ -859,6 +882,26 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                   <IconLayoutGrid size={14} />
                   Grid
                 </button>
+              )}
+              {railView === "notifications" && (
+                <div className="flex items-center gap-3 flex-none">
+                  {notifUnread > 0 && (
+                    <button
+                      onClick={() => notifMarkAll()}
+                      className="text-[11px] text-[var(--color-accent-text)] hover:underline"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                  {notifItems.length > 0 && (
+                    <button
+                      onClick={() => notifClearAll()}
+                      className="text-[11px] text-[var(--color-ink-4)] hover:text-[var(--color-ink-1)] transition-colors"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
               )}
             </div>
 
@@ -1310,6 +1353,19 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
             {/* ===== SHARED VIEW ===== */}
             {railView === "shared" && isAuthenticated && (
               <SharedNavList onOpen={(sc) => onOpenShared?.(sc)} />
+            )}
+
+            {/* ===== NOTIFICATIONS VIEW ===== */}
+            {railView === "notifications" && isAuthenticated && (
+              <NotificationsNavList
+                items={notifItems}
+                onRead={(id) => notifMarkRead(id)}
+                onNavigate={() => {
+                  if (typeof window !== "undefined" && window.innerWidth < 768) {
+                    setSidebarOpen(false);
+                  }
+                }}
+              />
             )}
 
             {/* ===== FILTER SHEET (mobile) / MODAL (desktop) ===== */}
