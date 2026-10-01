@@ -44,7 +44,7 @@ export default function ToolView({ slug }: { slug: string }) {
         <h1 className="mt-2 font-[family-name:var(--font-editor)] text-[30px] leading-[1.08] font-medium tracking-[-0.01em] text-[var(--color-ink)]">
           {tool.name}
         </h1>
-        <p className="mt-1.5 text-[13.5px] text-[var(--color-ink-5)]">{tool.tagline}</p>
+        <p className="mt-1.5 text-[13.5px] text-[var(--color-ink-5)]">{tool.description}</p>
 
         {/* Interactive tool */}
         <div className="mt-6">

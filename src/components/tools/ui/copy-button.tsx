@@ -2,24 +2,21 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { IconCopy, IconCheck } from "@tabler/icons-react";
-
-const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+import { isMacPlatform } from "@/lib/text-tools/platform";
 
 // Shared Copy button (spec §5.1): filled accent primary, 4 states, fixed
 // min-width so it doesn't resize when it flips to "Copied" (1.6s), aria-live
-// announcement, clipboard fallback, and an optional ⌘⇧C / Ctrl+Shift+C global
-// shortcut that copies the tool's output from anywhere on the page.
+// announcement, and a clipboard fallback. No global copy shortcut — the button
+// is always visible, and Ctrl+Shift+C is taken by Chrome DevTools on Windows.
 export default function CopyButton({
   text,
   label = "Copy",
   disabled = false,
-  shortcut = false,
   className = "",
 }: {
   text: string;
   label?: string;
   disabled?: boolean;
-  shortcut?: boolean;
   className?: string;
 }) {
   const [state, setState] = useState<"idle" | "copied" | "fallback">("idle");
@@ -42,22 +39,11 @@ export default function CopyButton({
     }
   }, [text]);
 
-  useEffect(() => {
-    if (!shortcut) return;
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "c" || e.key === "C")) {
-        e.preventDefault();
-        void doCopy();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [shortcut, doCopy]);
-
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
   const copiedLabel = "Copied";
-  const fallbackLabel = isMac ? "Press ⌘C" : "Press Ctrl+C";
+  // Computed at click time (client), so it's always correct for the user's OS.
+  const fallbackLabel = isMacPlatform() ? "Press ⌘C" : "Press Ctrl+C";
   const shown = state === "copied" ? copiedLabel : state === "fallback" ? fallbackLabel : label;
 
   return (

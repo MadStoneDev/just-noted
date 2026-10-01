@@ -1,26 +1,26 @@
 import { Metadata } from "next";
-import { getTool, TOOLS } from "@/lib/text-tools/registry";
+import { notFound } from "next/navigation";
+import { getTool, liveTools } from "@/lib/text-tools/registry";
 import ToolView from "@/components/tools/tool-view";
 
-// Per-tool SEO: own title / description / canonical / OG, derived from the
-// registry. NoteWrapper reads the :tool slug from the URL and renders the tool.
+// Per-tool SEO: own title / description / canonical / OG, from the registry.
+// Phase-2 ("coming soon") tools have no route yet — they 404.
 export async function generateMetadata(
   { params }: { params: Promise<{ tool: string }> },
 ): Promise<Metadata> {
   const { tool: slug } = await params;
   const tool = getTool(slug);
-  if (!tool) {
-    return { title: "Tool — JustNoted" };
+  if (!tool || tool.phase !== 1) {
+    return { title: "Tool not found | JustNoted" };
   }
-  const title = `${tool.name} — JustNoted`;
   const url = `/tools/${tool.slug}`;
   return {
-    title,
-    description: tool.tagline,
+    title: tool.title,
+    description: tool.description,
     alternates: { canonical: url },
     openGraph: {
-      title,
-      description: tool.tagline,
+      title: tool.title,
+      description: tool.description,
       url,
       type: "website",
       siteName: "JustNoted",
@@ -28,21 +28,23 @@ export async function generateMetadata(
     },
     twitter: {
       card: "summary_large_image",
-      title,
-      description: tool.tagline,
+      title: tool.title,
+      description: tool.description,
       images: ["/JustNoted_OG.jpg"],
     },
   };
 }
 
-// Pre-render a path for each known tool (nicer SEO + static where possible).
+// Only live (Phase 1) tools get a prerendered route.
 export function generateStaticParams() {
-  return TOOLS.map((t) => ({ tool: t.slug }));
+  return liveTools().map((t) => ({ tool: t.slug }));
 }
 
 export default async function ToolPage(
   { params }: { params: Promise<{ tool: string }> },
 ) {
-  const { tool } = await params;
-  return <ToolView slug={tool} />;
+  const { tool: slug } = await params;
+  const tool = getTool(slug);
+  if (!tool || tool.phase !== 1) notFound();
+  return <ToolView slug={slug} />;
 }
