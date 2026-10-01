@@ -49,6 +49,8 @@ export type Database = {
           error: string | null
           created_at: string
           expires_at: string | null
+          format: string
+          anon_id: string | null
         }
         Insert: {
           id?: string
@@ -59,6 +61,8 @@ export type Database = {
           error?: string | null
           created_at?: string
           expires_at?: string | null
+          format?: string
+          anon_id?: string | null
         }
         Update: {
           id?: string
@@ -69,6 +73,8 @@ export type Database = {
           error?: string | null
           created_at?: string
           expires_at?: string | null
+          format?: string
+          anon_id?: string | null
         }
         Relationships: []
       }
