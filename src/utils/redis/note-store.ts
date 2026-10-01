@@ -16,6 +16,7 @@
 import { redisRaw } from "@/utils/redis";
 import { randomUUID } from "crypto";
 import type { RedisNote } from "@/types/combined-notes";
+import { sameNoteContent } from "@/utils/notes-utils";
 
 export const NOTES_HASH_PREFIX = "notes:";
 export const NOTES_BACKUP_PREFIX = "notes_backup:";
@@ -290,7 +291,13 @@ export async function casUpdateNote(
     if (!cur) return { success: false, error: "corrupt" };
     const curVersion = cur.version ?? 1;
 
-    const conflicted = typeof baseVersion === "number" && curVersion > baseVersion;
+    // A version gap alone isn't a real conflict: if the stored content already
+    // matches what we're writing (same normalisation as the save no-op), there's
+    // nothing to preserve — just bump the version, no "(conflicted copy)".
+    const conflicted =
+      typeof baseVersion === "number" &&
+      curVersion > baseVersion &&
+      !sameNoteContent(cur.content, patch.content);
     let copyField = "";
     let copyRaw = "";
     if (conflicted) {

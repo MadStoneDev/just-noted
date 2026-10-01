@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Editor, rootCtx, defaultValueCtx, remarkStringifyOptionsCtx, editorViewCtx, editorViewOptionsCtx, parserCtx } from "@milkdown/core";
 import { collab, collabServiceCtx } from "@milkdown/plugin-collab";
 import * as Y from "yjs";
+import { collabDocIsBlank } from "@/utils/collab-doc";
 import { Awareness } from "y-protocols/awareness";
 import { SupabaseYjsProvider } from "@/lib/yjs-supabase-provider";
 import { commonmark } from "@milkdown/preset-commonmark";
@@ -400,13 +401,15 @@ function MilkdownEditorInner({
 
     const persistNow = () => {
       if (!doc || !collabConfig.save) return;
-      // Root-cause guard: never persist an EMPTY doc for a note that has
-      // canonical content. Before seeding, the fresh doc is empty; persisting it
-      // used to create a non-null empty note_ydoc that then blocked seeding for
-      // good (blank editor even though note.content had text). If the note is
-      // genuinely empty (no initial content), persisting empty is fine.
+      // Root-cause guard: never persist a BLANK doc for a note that has
+      // canonical content. Before seeding, the fresh doc is blank; persisting it
+      // used to create a non-null blank note_ydoc that then blocked seeding for
+      // good (blank editor even though note.content had text). A blank doc is not
+      // just length 0 — an empty paragraph (length 1) is blank too, which is why
+      // this uses visible-text emptiness. If the note is genuinely empty (no
+      // initial content), persisting blank is fine.
       try {
-        if (doc.getXmlFragment("prosemirror").length === 0 && initialMarkdown) return;
+        if (collabDocIsBlank(doc) && initialMarkdown) return;
       } catch {}
       try {
         collabConfig.save(bytesToB64(Y.encodeStateAsUpdate(doc)));
@@ -441,9 +444,10 @@ function MilkdownEditorInner({
         try { Y.applyUpdate(doc, b64ToBytes(persisted), "load"); } catch {}
       }
 
-      const fragmentEmpty = () => {
-        try { return doc!.getXmlFragment("prosemirror").length === 0; } catch { return false; }
-      };
+      // Blank = no visible text (an empty paragraph counts as blank). Using the
+      // fragment's child count instead left a once-blank-persisted doc stuck
+      // forever, since its empty paragraph made it look non-empty.
+      const fragmentEmpty = () => collabDocIsBlank(doc!);
 
       // First-time seed only: if nothing is persisted and no peer has content
       // after a grace period, seed from markdown once, then persist. Re-checking

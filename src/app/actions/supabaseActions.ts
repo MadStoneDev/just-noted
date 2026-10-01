@@ -8,6 +8,7 @@ import {
 } from "@/types/combined-notes";
 import { validateGoalType, validateNoteTitle } from "@/utils/validation";
 import { sameNoteContent } from "@/utils/notes-utils";
+import { wouldBlankNonEmpty } from "@/lib/collab-guard";
 import type { SubscriptionTier } from "@/types/subscription";
 import { resolvePlanTier } from "@/lib/subscription";
 import {
@@ -192,6 +193,15 @@ export const updateNote = async (
         .eq("id", noteId)
         .eq("author", userId)
         .maybeSingle();
+
+      // Collab blank-guard: a projection of the shared Yjs doc must never blank a
+      // note that still has content (e.g. the editor autosaving before the doc
+      // has seeded). Keep the note as-is and report success. Mirrors the
+      // shared-note save path (wouldBlankNonEmpty).
+      if (opts?.projection && wouldBlankNonEmpty(content, (cur as any)?.content)) {
+        return { success: true, version: (cur as any)?.version };
+      }
+
       if (
         cur &&
         sameNoteContent((cur as any).content, content) &&

@@ -64,6 +64,17 @@ describe("reconcileNotes — version-based (clock-independent)", () => {
     expect(toConflictCopy.map((n) => n.content)).toContain("my unsynced text");
   });
 
+  it("server ahead but content identical after normalisation → no conflicted copy", () => {
+    // Stale baseVersion (server moved from 3 to 5) yet the bodies are the same
+    // once line endings / trailing whitespace are ignored — a spurious conflict.
+    // It must take the server copy and create NO "(conflicted copy)".
+    const server = [mk({ id: "e2", content: "Same body\n\ntext", version: 5 })];
+    const local = [mk({ id: "e2", content: "Same body\r\n\r\ntext\n", version: 3 })];
+    const { merged, toConflictCopy } = reconcileNotes(server, local, NOW);
+    expect(merged[0].content).toBe("Same body\n\ntext");
+    expect(toConflictCopy).toHaveLength(0);
+  });
+
   it("keeps a strictly-newer local version and pushes it", () => {
     const server = [mk({ id: "f", content: "old", version: 2 })];
     const local = [mk({ id: "f", content: "new offline edit", version: 3 })];

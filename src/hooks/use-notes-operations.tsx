@@ -3,7 +3,7 @@
 
 import { useCallback, useRef, useEffect, useMemo } from "react";
 import { useNotesStore } from "@/stores/notes-store";
-import { sortNotes, normaliseOrdering } from "@/utils/notes-utils";
+import { sortNotes, normaliseOrdering, sameNoteContent } from "@/utils/notes-utils";
 import { noteOperation } from "@/app/actions/notes";
 import { saveVersion } from "@/app/actions/versionActions";
 import {
@@ -878,8 +878,18 @@ export function useNotesOperations(
             }
 
             if (r?.conflict && r.current && !handledConflict) {
-              // Foreground conflict: keep local, snapshot server version as a copy,
-              // adopt server version, retry once so the user's text wins cleanly.
+              // Spurious conflict: the server's current content already matches
+              // what we're saving (our own earlier write landed, or a re-serialise
+              // bumped the version with identical text). There's nothing to
+              // preserve — adopt the server version as our base and report success,
+              // no copy. Compared with the same normalisation as the save no-op.
+              if (sameNoteContent(r.current.content, content)) {
+                optimisticUpdateNote(noteId, { version: r.current.version });
+                setSaveError(noteId, false);
+                return { success: true, version: r.current.version };
+              }
+              // Real foreground conflict: keep local, snapshot server version as a
+              // copy, adopt server version, retry once so the user's text wins.
               await createConflictedCopy(targetNote, r.current.title, r.current.content);
               optimisticUpdateNote(noteId, { version: r.current.version });
               handledConflict = true;

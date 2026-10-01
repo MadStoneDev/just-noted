@@ -14,6 +14,7 @@
 //   re-pushed. Empty/old local-only notes are dropped.
 
 import type { CombinedNote } from "@/types/combined-notes";
+import { sameNoteContent } from "@/utils/notes-utils";
 
 const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
 
@@ -22,8 +23,11 @@ const hasText = (n: CombinedNote): boolean =>
 
 const ver = (n: CombinedNote): number => n.version ?? 1;
 
+// Use the same normalisation as the save no-op: content that differs only by
+// line endings or trailing whitespace is NOT a real difference, so it must not
+// trigger a push or — worse — a spurious "(conflicted copy)".
 const contentDiffers = (a: CombinedNote, b: CombinedNote): boolean =>
-  (a.content ?? "").trim() !== (b.content ?? "").trim();
+  !sameNoteContent(a.content, b.content);
 
 export interface ReconcileResult {
   /** The list to show and cache. */
