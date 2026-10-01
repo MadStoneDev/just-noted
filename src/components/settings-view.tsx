@@ -40,6 +40,7 @@ import DeleteAccountModal from "@/components/delete-account-modal";
 import AccountExportSection from "@/components/settings/account-export-section";
 import NotificationPrefsSection from "@/components/settings/notification-prefs-section";
 import SecuritySection from "@/components/settings/security-section";
+import EditorPrefsSection from "@/components/settings/editor-prefs-section";
 import { getTrashState, setScribeRetentionDays } from "@/app/actions/supabaseActions";
 import { SCRIBE_RETENTION_OPTIONS, DRAFT_RETENTION_DAYS } from "@/lib/retention";
 
@@ -631,6 +632,8 @@ export default function SettingsView({ onClose, initialSection }: SettingsViewPr
               <AccountExportSection />
               <DeviceNotesSection />
             </div>
+          ) : section === "Editor" ? (
+            <EditorPrefsSection />
           ) : section === "Notifications" ? (
             <NotificationPrefsSection />
           ) : section === "Security" ? (

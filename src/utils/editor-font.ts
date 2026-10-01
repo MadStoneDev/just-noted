@@ -57,3 +57,22 @@ export function writeEditorFontSize(px: number): void {
   } catch {}
   applyEditorFontSize(px);
 }
+
+// --- Editor spellcheck (persisted in user_settings server-side; mirrored to
+// localStorage so the editor can read it synchronously at mount). Default on.
+const SPELLCHECK_KEY = "justnoted_editor_spellcheck";
+
+export function readEditorSpellcheck(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    const v = localStorage.getItem(SPELLCHECK_KEY);
+    if (v === "0" || v === "false") return false;
+  } catch {}
+  return true;
+}
+
+export function writeEditorSpellcheck(on: boolean): void {
+  try {
+    localStorage.setItem(SPELLCHECK_KEY, on ? "1" : "0");
+  } catch {}
+}

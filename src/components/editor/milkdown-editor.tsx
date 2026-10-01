@@ -32,6 +32,7 @@ import LinkPopover from "./link-popover";
 
 import type { ContentFormat } from "@/types/combined-notes";
 import { htmlToMarkdown } from "@/utils/html-to-markdown";
+import { readEditorSpellcheck } from "@/utils/editor-font";
 
 // Markdown-on-paste. When someone pastes plain text that contains Markdown
 // (### headings, **bold**, - lists, > quotes, ``` fences, [links](…)), convert
@@ -314,7 +315,10 @@ function MilkdownEditorInner({
         // Lock ProseMirror editing in read-only mode (the data-readonly styling
         // alone didn't stop edits). Reads a ref so it stays correct if readOnly
         // changes without rebuilding the editor.
-        ctx.set(editorViewOptionsCtx, { editable: () => !readOnlyRef.current });
+        ctx.set(editorViewOptionsCtx, {
+          editable: () => !readOnlyRef.current,
+          attributes: { spellcheck: readEditorSpellcheck() ? "true" : "false" },
+        });
         // In collab mode the Yjs document is the source of truth; seed via the
         // provider instead of the default value to avoid a double-insert.
         ctx.set(defaultValueCtx, collabEnabled ? "" : initialMarkdown);
