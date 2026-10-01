@@ -11,6 +11,10 @@
 
 const BASE = (process.env.BASE_URL || "http://localhost:3050").replace(/\/$/, "");
 
+// The notes sidebar must NOT be server-rendered on public routes (SEO noise +
+// hydration mismatch). None of these may appear in any public route's HTML.
+const FORBIDDEN = ["Nothing written yet", "Skip to notes", "Your notes will appear here"];
+
 // Each route must contain ALL of these substrings in the first HTML response.
 const ROUTES = [
   { path: "/pricing", needs: ["Plans", "Scribe", "Draft"] },
@@ -30,10 +34,12 @@ for (const { path, needs } of ROUTES) {
     const res = await fetch(url, { headers: { "User-Agent": "justnoted-ssr-check" } });
     const html = await res.text();
     const missing = needs.filter((s) => !html.includes(s));
-    if (res.status !== 200 || missing.length) {
+    const leaked = FORBIDDEN.filter((s) => html.includes(s));
+    if (res.status !== 200 || missing.length || leaked.length) {
       failed++;
       console.error(`✗ ${path}  (status ${res.status})`);
       if (missing.length) console.error(`    missing from server HTML: ${missing.map((m) => JSON.stringify(m)).join(", ")}`);
+      if (leaked.length) console.error(`    notes-sidebar markup leaked into server HTML: ${leaked.map((m) => JSON.stringify(m)).join(", ")}`);
     } else {
       console.log(`✓ ${path}`);
     }

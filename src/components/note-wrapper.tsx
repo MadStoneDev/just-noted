@@ -411,7 +411,7 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
   return (
     <NotesErrorBoundary>
       <AccountDeletionGate />
-      <SkipLinks />
+      <SkipLinks notes={!publicRouted} />
 
       {/* Shell: on desktop the rail owns navigation; on mobile a bottom tab bar
           (design surface 08) sits below the rail+sidebar+editor row. */}

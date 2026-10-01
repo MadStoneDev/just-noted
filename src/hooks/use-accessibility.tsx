@@ -162,7 +162,7 @@ export function useSaveAnnouncements() {
 /**
  * Skip link component for keyboard navigation
  */
-export function SkipLinks() {
+export function SkipLinks({ notes = true }: { notes?: boolean }) {
   return (
     <div className="sr-only focus-within:not-sr-only">
       <a
@@ -171,12 +171,16 @@ export function SkipLinks() {
       >
         Skip to main content
       </a>
-      <a
-        href="#notes-list"
-        className="absolute top-2 left-40 z-[100] px-4 py-2 bg-[var(--color-accent)] text-white rounded-[var(--radius-lg)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--color-accent)]"
-      >
-        Skip to notes
-      </a>
+      {/* "Skip to notes" is only meaningful where the notes list is rendered —
+          omitted on public routes (Tools / Pricing / Roadmap / info pages). */}
+      {notes && (
+        <a
+          href="#notes-list"
+          className="absolute top-2 left-40 z-[100] px-4 py-2 bg-[var(--color-accent)] text-white rounded-[var(--radius-lg)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--color-accent)]"
+        >
+          Skip to notes
+        </a>
+      )}
     </div>
   );
 }

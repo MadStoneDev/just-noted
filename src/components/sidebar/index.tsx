@@ -819,15 +819,16 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
             </div>
           )}
 
-          {/* Content column. Marked inert while the list is collapsed so nothing
-              inside (search input, note rows, buttons) is focusable or tabbable
-              while it's clipped off-screen — a focus here would scroll the aside
-              and expose the list over the rail. The rail <nav> is a sibling, so
-              it stays fully interactive. Hidden on notebook routes (the tree takes
-              its place). */}
+          {/* Notes content column. NOT rendered on routed full-screen views
+              (settings/admin/roadmap/pricing/tools/info) or notebook routes, so
+              the notes-list markup ("All Notes", "Nothing written yet") never
+              reaches the server HTML of a public page — server and client match,
+              and there's no SEO noise. Marked inert while collapsed so nothing
+              inside is focusable while clipped off-screen. */}
+          {!isRoutedView && !onNotebooksRoute && (
           <div
-            className={`flex-1 flex flex-col min-w-0 relative ${onNotebooksRoute ? "hidden" : ""}`}
-            inert={!listOpen || onNotebooksRoute}
+            className="flex-1 flex flex-col min-w-0 relative"
+            inert={!listOpen}
           >
             {/* View header */}
             <div className="flex items-center justify-between px-3 h-[52px] flex-none border-b border-[var(--color-hairline-soft)]">
@@ -1497,6 +1498,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
               </div>
             </div>
           </div>
+          )}
         </div>
       </aside>
 
