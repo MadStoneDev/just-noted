@@ -4,6 +4,7 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { IconChevronLeft, IconDeviceDesktop } from "@tabler/icons-react";
 import { getTool } from "@/lib/text-tools/registry";
+import ToolsChrome from "@/components/tools/tools-chrome";
 import SlugGenerator from "@/components/tools/slug-generator";
 import CaseConverter from "@/components/tools/case-converter";
 
@@ -16,7 +17,7 @@ export default function ToolView({ slug }: { slug: string }) {
 
   if (!tool) {
     return (
-      <div className="flex-1 overflow-y-auto scrollbar-thin bg-[var(--color-canvas)]">
+      <ToolsChrome>
         <div className="mx-auto max-w-[760px] px-6 md:px-10 py-10">
           <button
             onClick={onBack}
@@ -26,12 +27,12 @@ export default function ToolView({ slug }: { slug: string }) {
           </button>
           <p className="mt-8 text-[14px] text-[var(--color-ink-4)]">That tool doesn’t exist.</p>
         </div>
-      </div>
+      </ToolsChrome>
     );
   }
 
   return (
-    <div className="flex-1 overflow-y-auto scrollbar-thin bg-[var(--color-canvas)]">
+    <ToolsChrome>
       <div className="mx-auto max-w-[760px] px-6 md:px-10 py-8">
         <button
           onClick={onBack}
@@ -81,6 +82,6 @@ export default function ToolView({ slug }: { slug: string }) {
           — a distraction-free notes app.
         </div>
       </div>
-    </div>
+    </ToolsChrome>
   );
 }

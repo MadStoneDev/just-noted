@@ -4,6 +4,7 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { IconX, IconArrowRight } from "@tabler/icons-react";
 import { TOOLS } from "@/lib/text-tools/registry";
+import ToolsChrome from "@/components/tools/tools-chrome";
 
 // Tools landing grid (route /tools). Public — rail stays, no notes sidebar.
 export default function ToolsGrid() {
@@ -11,7 +12,7 @@ export default function ToolsGrid() {
   const onOpenTool = (slug: string) => router.push(`/tools/${slug}`);
   const onClose = () => router.push("/");
   return (
-    <div className="flex-1 overflow-y-auto scrollbar-thin bg-[var(--color-canvas)]">
+    <ToolsChrome>
       <div className="mx-auto max-w-[980px] px-6 md:px-10 py-10">
         <div className="flex items-start justify-between gap-4 mb-8">
           <div>
@@ -47,6 +48,6 @@ export default function ToolsGrid() {
           ))}
         </div>
       </div>
-    </div>
+    </ToolsChrome>
   );
 }
