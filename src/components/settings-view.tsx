@@ -38,6 +38,8 @@ import {
 import BillingSection from "@/components/settings/billing-section";
 import DeleteAccountModal from "@/components/delete-account-modal";
 import AccountExportSection from "@/components/settings/account-export-section";
+import NotificationPrefsSection from "@/components/settings/notification-prefs-section";
+import SecuritySection from "@/components/settings/security-section";
 import { getTrashState, setScribeRetentionDays } from "@/app/actions/supabaseActions";
 import { SCRIBE_RETENTION_OPTIONS, DRAFT_RETENTION_DAYS } from "@/lib/retention";
 
@@ -629,11 +631,10 @@ export default function SettingsView({ onClose, initialSection }: SettingsViewPr
               <AccountExportSection />
               <DeviceNotesSection />
             </div>
+          ) : section === "Notifications" ? (
+            <NotificationPrefsSection />
           ) : section === "Security" ? (
-            <div className="text-[13.5px] text-[var(--color-ink-4)] leading-[1.6]">
-              Notes are encrypted in transit and at rest — this is not end-to-end
-              encryption. Active sessions and password management are coming here.
-            </div>
+            <SecuritySection />
           ) : (
             <div className="text-[13.5px] text-[var(--color-ink-4)] leading-[1.6]">
               {section} settings are coming here as the redesign lands. For now,
