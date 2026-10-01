@@ -7,6 +7,7 @@ import {
   supabaseToCombi,
 } from "@/types/combined-notes";
 import { validateGoalType, validateNoteTitle } from "@/utils/validation";
+import { sameNoteContent } from "@/utils/notes-utils";
 import type { SubscriptionTier } from "@/types/subscription";
 import { resolvePlanTier } from "@/lib/subscription";
 import {
@@ -176,6 +177,30 @@ export const updateNote = async (
       goal: wordCountGoal || 0,
       goal_type: validateGoalType(wordCountGoalType),
     };
+
+    // No-op safety net: if nothing actually changed — same body (ignoring only
+    // line endings / trailing whitespace) and same goal — skip the write
+    // entirely. No version bump, no updated_at change, no snapshot. This keeps a
+    // mere note-open (whose editor re-serialisation can differ byte-for-byte)
+    // from registering as an edit even if a client slips past the editor-side
+    // baseline guard. Conservative by design: a false "changed" just does a
+    // harmless extra save, a false "unchanged" would drop a real edit.
+    {
+      const { data: cur } = await supabase
+        .from("notes")
+        .select("content, version, goal, goal_type")
+        .eq("id", noteId)
+        .eq("author", userId)
+        .maybeSingle();
+      if (
+        cur &&
+        sameNoteContent((cur as any).content, content) &&
+        ((cur as any).goal ?? 0) === fields.goal &&
+        ((cur as any).goal_type ?? "") === fields.goal_type
+      ) {
+        return { success: true, version: (cur as any).version };
+      }
+    }
 
     // Projection (Yjs-merged content) — bypass CAS ONLY when the note actually
     // has a collab doc. A client flag alone must never bypass conflict

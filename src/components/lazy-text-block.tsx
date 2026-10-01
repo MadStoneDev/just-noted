@@ -74,6 +74,7 @@ export default function LazyTextBlock({
   value,
   contentFormat = "html",
   onChange,
+  onReady,
   placeholder = "Start typing...",
   distractionFreeMode = false,
   className = "",
@@ -173,6 +174,7 @@ export default function LazyTextBlock({
           content={localValue}
           contentFormat={localFormat}
           onChange={handleChange}
+          onReady={onReady}
           placeholder={placeholder}
           toolbarContainer={toolbarContainer}
           readOnly={readOnly}

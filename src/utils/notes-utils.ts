@@ -2,6 +2,26 @@
 import { CombinedNote } from "@/types/combined-notes";
 
 /**
+ * Conservative content normaliser for "has this note actually changed?" checks.
+ *
+ * It equates ONLY differences that never carry meaning: line-ending style
+ * (CRLF vs LF) and trailing whitespace / blank lines at the end of the
+ * document. It deliberately does NOT touch leading whitespace, per-line trailing
+ * spaces (which can be Markdown hard breaks) or escaping — because this feeds a
+ * save-skipping no-op, a false "equal" would silently drop a real edit. Keeping
+ * it minimal means the worst case is a harmless extra save, never data loss.
+ */
+export function normalizeNoteContent(s?: string | null): string {
+  if (!s) return "";
+  return s.replace(/\r\n/g, "\n").replace(/[\s﻿ ]+$/g, "");
+}
+
+/** True when two note bodies are identical once trivially normalised. */
+export function sameNoteContent(a?: string | null, b?: string | null): boolean {
+  return normalizeNoteContent(a) === normalizeNoteContent(b);
+}
+
+/**
  * Sort notes by order, pin status, and timestamps
  * New notes (identified by newNoteId) always appear at the top
  */

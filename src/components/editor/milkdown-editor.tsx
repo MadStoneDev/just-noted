@@ -211,6 +211,8 @@ interface MilkdownEditorProps {
   content: string;
   contentFormat: ContentFormat;
   onChange?: (markdown: string) => void;
+  /** Fires once when the editor view is mounted — used to time the load window. */
+  onReady?: () => void;
   onFocus?: () => void;
   onBlur?: () => void;
   placeholder?: string;
@@ -279,6 +281,7 @@ function MilkdownEditorInner({
   content,
   contentFormat,
   onChange,
+  onReady,
   onFocus,
   onBlur,
   placeholder = "Start writing...",
@@ -289,12 +292,14 @@ function MilkdownEditorInner({
 }: MilkdownEditorProps) {
   const collabEnabled = !!collabConfig;
   const onChangeRef = useRef(onChange);
+  const onReadyRef = useRef(onReady);
   const onFocusRef = useRef(onFocus);
   const onBlurRef = useRef(onBlur);
   const readOnlyRef = useRef(readOnly);
   const containerRef = useRef<HTMLDivElement>(null);
 
   onChangeRef.current = onChange;
+  onReadyRef.current = onReady;
   onFocusRef.current = onFocus;
   onBlurRef.current = onBlur;
   readOnlyRef.current = readOnly;
@@ -367,6 +372,18 @@ function MilkdownEditorInner({
       });
     } catch {}
   }, [readOnly, get]);
+
+  // Fire onReady once, as soon as the editor instance exists. Consumers use this
+  // to time the "load re-serialisation" window from the editor actually mounting
+  // (not from React render), so a slow lazy-load can't push the first emission
+  // outside the window and make opening a note look like an edit.
+  const readyFiredRef = useRef(false);
+  useEffect(() => {
+    if (readyFiredRef.current) return;
+    if (!get()) return;
+    readyFiredRef.current = true;
+    onReadyRef.current?.();
+  }, [get]);
 
   // Live collaboration: bind a Yjs doc + awareness synced over Supabase Realtime.
   useEffect(() => {

@@ -12,6 +12,7 @@ import { exportNote, EXPORT_FORMATS } from "@/utils/export-note";
 import { useNotesStore, useNotebooks } from "@/stores/notes-store";
 import { useAutoSave } from "@/hooks/use-auto-save";
 import { saveNoteToLocal } from "@/utils/notes-idb-cache";
+import { decideEditorChange } from "@/utils/editor-save-decision";
 import { useNoteStatistics } from "@/hooks/use-note-statistics";
 import { CombinedNote } from "@/types/combined-notes";
 import { NotesOperations } from "@/hooks/use-notes-operations";
@@ -494,11 +495,27 @@ function NoteEditor({
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastSavedContentRef = useRef(note.content);
-  // Milkdown normalises the stored content when it mounts and emits it via
-  // onChange — that first emission is NOT a user edit. We adopt it as the saved
-  // baseline so merely opening a note never rewrites it / bumps updated_at.
-  const normalizedBaselineRef = useRef(false);
-  useEffect(() => { normalizedBaselineRef.current = false; }, [editorRemountKey]);
+  // Milkdown parses the stored Markdown and serialises it back on mount; that
+  // round-trip can change the bytes without changing meaning and is emitted via
+  // onChange. It is NOT a user edit, so we adopt it as the clean baseline (see
+  // decideEditorChange) — opening a note must never save / bump updated_at /
+  // snapshot. We only arm this for a note that loaded WITH content: an empty new
+  // note has nothing to re-serialise, so its first emission is a real keystroke.
+  const awaitingLoadEmissionRef = useRef(false);
+  const mountTimeRef = useRef(0);
+  // Arm on (re)mount: a note that loaded WITH content will emit one load
+  // re-serialisation we must not treat as an edit. mountTimeRef here is a
+  // fallback — it's re-stamped accurately from the editor's own ready signal
+  // (handleEditorReady), so a slow lazy-load can't push the emission past the
+  // window and make opening a note look like an edit.
+  useEffect(() => {
+    awaitingLoadEmissionRef.current = (lastSavedContentRef.current ?? "").trim().length > 0;
+    mountTimeRef.current = Date.now();
+  }, [editorRemountKey]);
+  const handleEditorReady = useCallback(() => {
+    mountTimeRef.current = Date.now();
+    awaitingLoadEmissionRef.current = (lastSavedContentRef.current ?? "").trim().length > 0;
+  }, []);
   const toast = useToast();
 
   // Hydration lock: while the app is still reconciling with the server on load,
@@ -641,16 +658,26 @@ function NoteEditor({
       setContent(value);
       setContentFormat("markdown");
 
-      // Decide whether to persist by COMPARING CONTENT, not by "is this the
-      // first emission after mount". Milkdown emits the loaded content once on
-      // mount (its normalisation); that equals the last-saved content, so we
-      // skip it and don't bump updated_at. Anything that differs is a real edit
-      // and must be persisted — even the first emission, and even right after
-      // the editor remounts. The old first-emission-is-baseline flag reset on
-      // every remount and then swallowed the next keystrokes, so a new note's
-      // typing never reached IndexedDB or the server (it stayed "" on reload).
-      normalizedBaselineRef.current = true;
-      if (value === lastSavedContentRef.current) return;
+      // Classify the emission: the editor's load re-serialisation (adopt as the
+      // clean baseline, never save) vs a real edit (persist). This is the ONE
+      // place a note-open could masquerade as an edit; keeping the logic in a
+      // pure helper lets it be tested directly.
+      const decision = decideEditorChange({
+        value,
+        baseline: lastSavedContentRef.current,
+        awaitingLoadEmission: awaitingLoadEmissionRef.current,
+        msSinceMount: Date.now() - mountTimeRef.current,
+      });
+      // The first emission after (re)mount is now consumed either way.
+      awaitingLoadEmissionRef.current = false;
+
+      if (decision.adoptBaseline) {
+        // content === lastSavedContentRef keeps the "clean" invariant, so the
+        // auto-save flush (which also tracks `content`) sees nothing to save.
+        lastSavedContentRef.current = value;
+        return;
+      }
+      if (!decision.persist) return;
 
       setSaveState("dirty");
       useNotesStore.getState().setEditing(note.id, true);
@@ -1569,6 +1596,7 @@ function NoteEditor({
                 value={content}
                 contentFormat={contentFormat}
                 onChange={handleContentChange}
+                onReady={handleEditorReady}
                 readOnly={isHydrating}
                 distractionFreeMode
                 placeholder="Start writing..."
