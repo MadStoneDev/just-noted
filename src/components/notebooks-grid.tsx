@@ -4,7 +4,7 @@ import React, { useMemo, useState } from "react";
 import { useNotesStore } from "@/stores/notes-store";
 import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import { countWordsInContent } from "@/utils/word-count";
-import NotebookDetailModal from "@/components/notebook-detail-modal";
+import NotebookDetailDrawer from "@/components/notebook-detail-drawer";
 import { IconPlus, IconX, IconLock } from "@tabler/icons-react";
 
 interface NotebooksGridProps {
@@ -185,7 +185,7 @@ export default function NotebooksGrid({
         )}
       </div>
 
-      <NotebookDetailModal
+      <NotebookDetailDrawer
         notebookId={detailId}
         onClose={() => setDetailId(null)}
         onGoTo={(id) => { setDetailId(null); onOpenNotebook(id); }}
