@@ -116,6 +116,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
     setActiveNoteId,
     getFilteredNotes,
     notes,
+    isSaving,
     isAuthenticated,
     notebooks,
     setNotebooks,
@@ -1143,21 +1144,52 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                             {getPreview(note.content) || "Empty note"}
                           </p>
                           <div className="flex items-center gap-1.5 mt-1">
+                            {(() => {
+                              const saving = isSaving.has(note.id);
+                              const conflict = /conflicted copy/i.test(note.title || "");
+                              const local = note.source !== "supabase";
+                              const color = saving
+                                ? "var(--color-warning)"
+                                : conflict
+                                  ? "var(--color-danger-strong)"
+                                  : local
+                                    ? "var(--color-ink-6)"
+                                    : "#3DA35D";
+                              const title = saving
+                                ? "Saving…"
+                                : conflict
+                                  ? "Conflicted copy — review"
+                                  : local
+                                    ? "Saved on this device"
+                                    : "Saved to cloud";
+                              return (
+                                <span
+                                  title={title}
+                                  aria-label={title}
+                                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${saving ? "animate-pulse" : ""}`}
+                                  style={{ backgroundColor: color }}
+                                />
+                              );
+                            })()}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setMovePromptNoteId((prev) => (prev === note.id ? null : note.id));
                               }}
                               title="Change storage (Local / Cloud)"
-                              className="inline-flex items-center gap-1 px-1 -ml-1 rounded-[var(--radius-sm)] hover:bg-[var(--color-raised-soft)] transition-colors"
+                              className={`inline-flex items-center gap-1 px-1.5 py-px rounded-[var(--radius-sm)] transition-colors ${
+                                note.source === "supabase"
+                                  ? "hover:bg-[var(--color-raised-soft)]"
+                                  : "bg-[var(--color-warn-tint)] border border-[var(--color-warn-tint-border)] hover:brightness-95"
+                              }`}
                             >
                               {note.source === "supabase" ? (
                                 <IconCloud size={12} className="text-[var(--color-info)] flex-shrink-0" />
                               ) : (
                                 <IconDeviceDesktop size={12} className="text-[var(--color-warning)] flex-shrink-0" />
                               )}
-                              <span className="text-[11px] text-[var(--color-ink-5)]">
-                                {note.source === "supabase" ? "Cloud" : "Local"}
+                              <span className={`text-[11px] ${note.source === "supabase" ? "text-[var(--color-ink-5)]" : "text-[var(--color-warning)] font-medium"}`}>
+                                {note.source === "supabase" ? "Cloud" : "On this device"}
                               </span>
                             </button>
                             <p className="text-[12px] text-[var(--color-ink-5)]">
