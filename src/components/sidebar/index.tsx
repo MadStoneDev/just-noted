@@ -25,6 +25,7 @@ import NotebookMoveMenu from "@/components/notebook-move-menu";
 import AccountMenu from "@/components/account-menu";
 import NotificationsNavList from "@/components/notifications-nav-list";
 import NotebookTree from "@/components/sidebar/notebook-tree";
+import ToolboxIcon from "@/components/tools/toolbox-icon";
 import { useNotifications } from "@/hooks/use-notifications";
 import { SwipeableRow } from "@/components/mobile-chrome";
 import {
@@ -54,7 +55,6 @@ import {
   IconTag,
   IconShare,
   IconBell,
-  IconTool,
 } from "@tabler/icons-react";
 import { Dropdown, DropdownItem, DropdownSeparator, DropdownLabel } from "@/components/ds/dropdown";
 import { ConfirmModal, Modal } from "@/components/ds/modal";
@@ -191,6 +191,10 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
     pathname === "/the-what" ||
     pathname === "/tools" ||
     pathname.startsWith("/tools/");
+  // True only on the notes app itself (not a routed view or a notebook route) —
+  // so the Notes/Shared rail items don't show active alongside a routed view's
+  // own active item.
+  const onNotesApp = !isRoutedView && !onNotebooksRoute;
   const listOpen = sidebarOpen && !isRoutedView;
   // Filters live in a slide-up sheet, out of the list's way
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
@@ -703,7 +707,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
             {isAuthenticated && (
               <RailButton
                 label="Notes"
-                active={railView === "notes"}
+                active={onNotesApp && railView === "notes"}
                 onClick={() => {
                   if (sidebarOpen && railView === "notes") { setSidebarOpen(false); return; }
                   setActiveNotebookId(null); setRailView("notes"); setSidebarOpen(true);
@@ -724,7 +728,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
             {isAuthenticated && (
               <RailButton
                 label="Shared"
-                active={railView === "shared"}
+                active={onNotesApp && railView === "shared"}
                 onClick={() => {
                   if (sidebarOpen && railView === "shared") { setSidebarOpen(false); return; }
                   setRailView("shared"); setSidebarOpen(true);
@@ -745,7 +749,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
               active={pathname === "/tools" || pathname.startsWith("/tools/")}
               onClick={() => window.dispatchEvent(new Event("justnoted:open-tools"))}
             >
-              <IconTool size={20} />
+              <ToolboxIcon size={20} />
             </RailButton>
             <div className="flex-1" />
             {isAuthenticated && (

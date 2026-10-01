@@ -1484,7 +1484,11 @@ function NoteEditor({
                 {goalTarget > 0 ? `${Math.round(progressPercentage)}% of ${goalTarget} ${goalType}` : "set goal"}
               </button>
               {" "}·{" "}
-              {syncProblem ? (
+              {locked ? (
+                <span className="text-[var(--color-ink-4)]" title="Reconciling your notes with the server…">Syncing your notes…</span>
+              ) : timedOut ? (
+                <span className="text-[var(--color-warn)]" title="Sync is taking a while — you're editing your cached copy; changes will sync when it clears.">Sync problem</span>
+              ) : syncProblem ? (
                 <span className="text-[var(--color-warn)]" title="You're connected, but syncing is failing. Your changes are safe on this device and will sync once it clears.">Sync problem</span>
               ) : saveState === "error" ? (
                 <span className="text-[var(--color-warn)]" title="Your last edit hasn't been saved yet — it's queued and will retry">Not saved</span>
@@ -1579,19 +1583,9 @@ function NoteEditor({
               locked ? "pointer-events-none select-none" : ""
             } ${locked && showSyncingNotice ? "opacity-60" : "opacity-100"}`}
           >
-            {/* Lock status (c+d): a quiet line after 300ms, then a sync-problem
-                note if the 5s release fired before the sync finished. */}
-            {locked && showSyncingNotice && (
-              <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3 py-1.5 rounded-[var(--radius-8)] bg-[var(--color-panel-alt)] border border-[var(--color-hairline)] shadow-[var(--shadow-lg)] pointer-events-none">
-                <span className="size-3.5 rounded-full border-2 border-[var(--color-border-primary)] border-t-[var(--color-accent)] animate-spin" />
-                <span className="text-[12.5px] text-[var(--color-ink-3)]">Syncing your notes…</span>
-              </div>
-            )}
-            {timedOut && (
-              <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3 py-1.5 rounded-[var(--radius-8)] bg-[var(--color-warn-tint)] text-[var(--color-warn)] pointer-events-none">
-                <span className="text-[12.5px]">Sync problem — editing your cached copy. Changes will sync when it clears.</span>
-              </div>
-            )}
+            {/* Lock status (c+d) lives in the meta line under the title (above),
+                so it never covers the note text and uses no spinner. The editor
+                just fades to ~60% while locked. */}
             {isDraggingFile && (
               <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none rounded-[var(--radius-lg)] border-2 border-dashed border-[var(--color-accent)] bg-[var(--color-accent-subtle)]">
                 <div className="flex flex-col items-center gap-1.5 text-[var(--color-accent)]">
