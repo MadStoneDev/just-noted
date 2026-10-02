@@ -29,7 +29,7 @@ export const LIMITS = {
 };
 
 export const USER_AGENT =
-  "JustNotedBot/1.0 (+https://justnoted.app/tools/og-tester; link preview)";
+  "JustNotedOGTester/1.0 (+https://justnoted.app/tools/og-tester)";
 
 export type SsrfErrorCode =
   | "invalid-url"
