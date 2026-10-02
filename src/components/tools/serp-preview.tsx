@@ -88,15 +88,46 @@ export default function SerpPreview() {
   const descShortenBy = descOver ? overflowCharsWrapped(description, DESC_PX, DESC_LINES, m14) : 0;
   const descTail = descOver ? cutTail(descWrap.lines[descWrap.lines.length - 1] ?? "") : "";
 
-  // Preview card content (device-dependent).
-  const cardWidth = device === "mobile" ? 360 : 600;
-  const inner = cardWidth - 2 * (device === "mobile" ? 16 : 26);
+  // The preview content width equals the measurement width so the card and the
+  // status line can never disagree. Desktop renders a single-line title at
+  // 600px and a 2-line description at 600px — exactly the status computation;
+  // the card is then scaled down (below) if the column is narrower. Mobile is
+  // its own layout (360px card, 2-line title, 3-line description).
+  const CONTENT_W = device === "mobile" ? 328 : DESC_PX; // DESC_PX === TITLE_PX === 600
+  const H_PAD = device === "mobile" ? 16 : 26;
+  const V_PAD = device === "mobile" ? 20 : 24;
+  const CARD_W = CONTENT_W + H_PAD * 2;
+
   const titleFit = useMemo(() => {
-    if (device === "mobile") return wrapToLines(title, inner, 2, m18);
-    const one = fitSingleLine(title, inner, m20);
+    if (device === "mobile") return wrapToLines(title, CONTENT_W, 2, m18);
+    const one = fitSingleLine(title, CONTENT_W, m20); // == status fit (600px, 20px)
     return { lines: one.visible ? [one.visible] : [], truncated: one.truncated };
-  }, [device, title, inner, m18, m20]);
-  const descFit = wrapToLines(description, inner, device === "mobile" ? 3 : 2, m14);
+  }, [device, title, CONTENT_W, m18, m20]);
+  // Desktop description is the same computation as the status (DESC_PX, 2 lines).
+  const descFit = device === "mobile" ? wrapToLines(description, CONTENT_W, 3, m14) : descWrap;
+
+  // Scale the white card down to fit the column when it's narrower than the card
+  // (keeps the 600px measurement layout intact; the preview still matches the
+  // status line). transform-origin top-left; the wrapper takes the scaled height.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [scaledH, setScaledH] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    const wrap = wrapRef.current, card = cardRef.current;
+    if (!wrap || !card) return;
+    const update = () => {
+      const w = wrap.clientWidth;
+      const s = w >= CARD_W ? 1 : w / CARD_W;
+      setScale(s);
+      setScaledH(card.offsetHeight * s);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(wrap);
+    ro.observe(card);
+    return () => ro.disconnect();
+  }, [CARD_W, title, description, device]);
 
   const parsed = useMemo(() => parseUrl(url), [url]);
   const announced = useThrottledAnnounce(
@@ -190,45 +221,58 @@ export default function SerpPreview() {
           />
         </div>
 
-        {/* Always-white neutral result card (no engine branding). */}
-        <div
-          className="rounded-[12px]"
-          style={{ backgroundColor: "#FFFFFF", padding: device === "mobile" ? "20px 16px" : "24px 26px", width: device === "mobile" ? 360 : "100%", maxWidth: "100%", fontFamily: "Arial, sans-serif" }}
-        >
-          <div className="flex items-center gap-2.5">
-            <div
-              className="flex items-center justify-center shrink-0 rounded-full text-[12px]"
-              style={{ width: 28, height: 28, backgroundColor: "#F1F3F4", border: "1px solid #DADCE0", color: "#4D5156" }}
-            >
-              {parsed.initials}
-            </div>
-            <div className="min-w-0">
-              <div style={{ fontSize: 14, color: "#202124", lineHeight: 1.2 }}>{parsed.siteName}</div>
-              <div style={{ fontSize: 12, color: "#4D5156", lineHeight: 1.3 }} className="truncate">{parsed.breadcrumb}</div>
-            </div>
-          </div>
-
+        {/* Always-white neutral result card (no engine branding), rendered at
+            the 600px measurement width and scaled to fit the column. */}
+        <div ref={wrapRef} className="relative overflow-hidden" style={{ height: scaledH }}>
           <div
+            ref={cardRef}
+            className="rounded-[12px]"
             style={{
-              marginTop: 6,
-              fontSize: device === "mobile" ? 18 : 20,
-              lineHeight: 1.3,
-              color: "#1A0DAB",
+              backgroundColor: "#FFFFFF",
+              padding: `${V_PAD}px ${H_PAD}px`,
+              width: CARD_W,
+              transform: scale !== 1 ? `scale(${scale})` : undefined,
+              transformOrigin: "top left",
+              fontFamily: "Arial, sans-serif",
             }}
           >
-            {titleFit.lines.length > 0
-              ? titleFit.lines.map((l, i) => (
-                  <span key={i}>{l}{i === titleFit.lines.length - 1 && titleFit.truncated ? "…" : ""}{i < titleFit.lines.length - 1 ? " " : ""}</span>
-                ))
-              : <span style={{ color: "#9AA0A6" }}>Your page title</span>}
-          </div>
+            <div className="flex items-center gap-2.5">
+              <div
+                className="flex items-center justify-center shrink-0 rounded-full text-[12px]"
+                style={{ width: 28, height: 28, backgroundColor: "#F1F3F4", border: "1px solid #DADCE0", color: "#4D5156" }}
+              >
+                {parsed.initials}
+              </div>
+              <div className="min-w-0">
+                <div style={{ fontSize: 14, color: "#202124", lineHeight: 1.2 }}>{parsed.siteName}</div>
+                <div style={{ fontSize: 12, color: "#4D5156", lineHeight: 1.3 }} className="truncate">{parsed.breadcrumb}</div>
+              </div>
+            </div>
 
-          <div style={{ marginTop: 4, fontSize: 14, lineHeight: 1.58, color: "#4D5156" }}>
-            {descFit.lines.length > 0
-              ? descFit.lines.map((l, i) => (
-                  <React.Fragment key={i}>{l}{i === descFit.lines.length - 1 && descFit.truncated ? "…" : ""}{i < descFit.lines.length - 1 ? " " : ""}</React.Fragment>
-                ))
-              : <span style={{ color: "#9AA0A6" }}>Your meta description…</span>}
+            <div
+              style={{
+                marginTop: 6,
+                fontSize: device === "mobile" ? 18 : 20,
+                lineHeight: 1.3,
+                color: "#1A0DAB",
+                whiteSpace: device === "mobile" ? "normal" : "nowrap",
+                overflow: "hidden",
+              }}
+            >
+              {titleFit.lines.length > 0
+                ? titleFit.lines.map((l, i) => (
+                    <span key={i}>{l}{i === titleFit.lines.length - 1 && titleFit.truncated ? "…" : ""}{i < titleFit.lines.length - 1 ? " " : ""}</span>
+                  ))
+                : <span style={{ color: "#9AA0A6" }}>Your page title</span>}
+            </div>
+
+            <div style={{ marginTop: 4, fontSize: 14, lineHeight: 1.58, color: "#4D5156" }}>
+              {descFit.lines.length > 0
+                ? descFit.lines.map((l, i) => (
+                    <React.Fragment key={i}>{l}{i === descFit.lines.length - 1 && descFit.truncated ? "…" : ""}{i < descFit.lines.length - 1 ? " " : ""}</React.Fragment>
+                  ))
+                : <span style={{ color: "#9AA0A6" }}>Your meta description…</span>}
+            </div>
           </div>
         </div>
 
