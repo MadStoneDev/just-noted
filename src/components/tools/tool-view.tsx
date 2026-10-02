@@ -67,6 +67,7 @@ export default function ToolView({ slug }: { slug: string }) {
   }
 
   const fetchTool = tool.slug === "og-tester";
+  const canonicalUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://justnoted.app"}/tools/${tool.slug}`;
 
   // Structured data (spec §11): WebApplication, plus FAQPage when there's a FAQ.
   const webAppLd = {
@@ -74,8 +75,10 @@ export default function ToolView({ slug }: { slug: string }) {
     "@type": "WebApplication",
     name: tool.name,
     description: tool.description,
+    url: canonicalUrl,
     applicationCategory: "UtilitiesApplication",
-    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+    operatingSystem: "Any",
+    offers: { "@type": "Offer", price: "0", priceCurrency: "AUD" },
     isAccessibleForFree: true,
   };
   const faqLd = tool.faq && tool.faq.length > 0
