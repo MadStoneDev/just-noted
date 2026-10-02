@@ -52,12 +52,16 @@ export function Segmented<T extends string>({
   value,
   onChange,
   ariaLabel,
+  size = "sm",
 }: {
   options: { value: T; label: string }[];
   value: T;
   onChange: (v: T) => void;
   ariaLabel?: string;
+  // "lg" gives each segment a ≥44px touch target for mobile (spec §9 a11y).
+  size?: "sm" | "lg";
 }) {
+  const seg = size === "lg" ? "px-4 h-11 text-[13.5px]" : "px-3 h-7 text-[12.5px]";
   return (
     <div
       role="radiogroup"
@@ -73,7 +77,7 @@ export function Segmented<T extends string>({
             role="radio"
             aria-checked={selected}
             onClick={() => onChange(o.value)}
-            className={`px-3 h-7 rounded-[var(--radius-6)] text-[12.5px] font-medium transition-colors ${
+            className={`${seg} rounded-[var(--radius-6)] font-medium transition-colors ${
               selected
                 ? "bg-[var(--color-raised)] text-[var(--color-ink)]"
                 : "text-[var(--color-ink-3)] hover:text-[var(--color-ink-1)]"

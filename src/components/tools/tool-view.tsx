@@ -58,7 +58,7 @@ export default function ToolView({ slug }: { slug: string }) {
         <div className="mx-auto max-w-[760px] px-6 md:px-10 py-10">
           <button
             onClick={() => router.push("/tools")}
-            className="inline-flex items-center gap-1 text-[13px] text-[var(--color-ink-3)] hover:text-[var(--color-ink-1)] transition-colors"
+            className="inline-flex items-center gap-1 h-11 md:h-8 -ml-2 px-2 md:-ml-1 md:px-0 text-[13px] text-[var(--color-ink-3)] hover:text-[var(--color-ink-1)] transition-colors"
           >
             <IconChevronLeft size={16} /> Tools
           </button>
@@ -106,7 +106,7 @@ export default function ToolView({ slug }: { slug: string }) {
         {/* Back link */}
         <button
           onClick={() => router.push("/tools")}
-          className="inline-flex items-center gap-1 h-8 -ml-1 text-[13px] text-[var(--color-ink-3)] hover:text-[var(--color-ink-1)] transition-colors"
+          className="inline-flex items-center gap-1 h-11 md:h-8 -ml-2 px-2 md:-ml-1 md:px-0 text-[13px] text-[var(--color-ink-3)] hover:text-[var(--color-ink-1)] transition-colors"
         >
           <IconChevronLeft size={16} /> Tools
         </button>

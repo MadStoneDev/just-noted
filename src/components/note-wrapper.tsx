@@ -146,8 +146,14 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
     } else {
       setSidebarOpen(true);
     }
+    // Tab-bar highlight (spec §2.3). Signed-in users reach Tools via the You
+    // tab, so You is active on /tools/*. Other public routes aren't in the tab
+    // bar, so nothing highlights ("none").
+    const isTools = pathname === "/tools" || pathname.startsWith("/tools/");
     if (isSettings) setMobileTab("settings");
-    if (isNotebooks || nbViewId) setMobileTab("notebooks");
+    else if (isNotebooks || nbViewId) setMobileTab("notebooks");
+    else if (isTools) setMobileTab("you");
+    else if (publicRouted) setMobileTab("none");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 

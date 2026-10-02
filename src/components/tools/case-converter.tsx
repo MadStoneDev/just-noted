@@ -284,6 +284,7 @@ export default function CaseConverter() {
             scrolling 44px chip row. Only shown below 700px. */}
         <div className={`min-[700px]:hidden flex flex-col gap-3 ${disabled ? "opacity-[0.42] pointer-events-none" : ""}`}>
           <Segmented
+            size="lg"
             ariaLabel="Transformation group"
             value={mobileGroup}
             onChange={(v) => setMobileGroup(v)}
@@ -301,7 +302,7 @@ export default function CaseConverter() {
           </div>
         </div>
         {/* Spacer so the fixed mobile bar doesn't cover the end of the content. */}
-        <div className="min-[700px]:hidden h-16" aria-hidden />
+        <div className="min-[700px]:hidden h-[76px]" aria-hidden />
       </div>
 
       {/* Right: palette (desktop/tablet) */}
@@ -328,11 +329,13 @@ export default function CaseConverter() {
       </div>
     </div>
 
-    {/* Mobile sticky bottom bar (§9.5): counts · Undo · Copy, rising with the
-        on-screen keyboard. Only below 700px. */}
+    {/* Mobile sticky bottom bar (§9.5): counts · Undo · Copy. It sits directly
+        above the app's mobile tab bar (58px + safe area) so Copy is reachable,
+        and rises with the on-screen keyboard — the keyboard covers the tab bar,
+        so max() keeps the bar just above whichever is taller. Only below 700px. */}
     <div
       className="min-[700px]:hidden fixed left-0 right-0 z-40 flex items-center gap-3 px-4 border-t border-[var(--color-hairline)] bg-[var(--color-panel)]"
-      style={{ bottom: kbInset, height: "calc(68px + env(safe-area-inset-bottom))", paddingBottom: "env(safe-area-inset-bottom)" }}
+      style={{ bottom: `max(${kbInset}px, calc(58px + env(safe-area-inset-bottom)))`, height: "68px" }}
     >
       <div className="flex-1 min-w-0 overflow-x-auto"><CountsBar text={value} selected={selected} /></div>
       <button

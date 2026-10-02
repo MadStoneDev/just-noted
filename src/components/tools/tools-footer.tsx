@@ -23,13 +23,13 @@ export default function ToolsFooter({ allTools = true }: { allTools?: boolean })
     <div className="mt-14 border-t border-[var(--color-hairline-soft)] pt-[18px] flex flex-wrap items-center justify-between gap-4">
       <p className="text-[13.5px] text-[var(--color-ink-3)]">
         Write without distractions in{" "}
-        <Link href="/" className="text-[var(--color-accent-text)] hover:underline">
+        <Link href="/" className="inline-flex items-center min-h-[44px] align-middle text-[var(--color-accent-text)] hover:underline">
           JustNoted →
         </Link>
       </p>
       <div className="flex items-center gap-[18px]">
         {allTools && (
-          <Link href="/tools" className="text-[12.5px] text-[var(--color-ink-3)] hover:text-[var(--color-ink-1)] transition-colors">
+          <Link href="/tools" className="inline-flex items-center min-h-[44px] text-[12.5px] text-[var(--color-ink-3)] hover:text-[var(--color-ink-1)] transition-colors">
             All tools
           </Link>
         )}

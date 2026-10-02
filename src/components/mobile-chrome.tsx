@@ -15,7 +15,9 @@ import {
   IconPinnedOff,
 } from "@tabler/icons-react";
 
-export type MobileTab = "notes" | "notebooks" | "shared" | "settings" | "you";
+// "none" = a public route not represented in the tab bar (e.g. /pricing) — no
+// tab highlights. Tools routes map to "you" (signed-in users reach Tools there).
+export type MobileTab = "notes" | "notebooks" | "shared" | "settings" | "you" | "none";
 
 // Bottom tab bar — mobile primary navigation (design surface 08). Replaces the
 // desktop rail on small screens. 78px incl. safe area, labels always visible.
