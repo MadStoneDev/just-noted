@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import * as C from "@/lib/text-tools/case";
 import { useUndo } from "@/components/tools/ui/use-undo";
 import CopyButton from "@/components/tools/ui/copy-button";
 import CountsBar from "@/components/tools/ui/counts-bar";
 import Notice from "@/components/tools/ui/notice";
 import { Segmented } from "@/components/tools/ui/controls";
+import { ToolsBottomBarContext } from "@/components/tools/tools-chrome";
 import { IconArrowBackUp } from "@tabler/icons-react";
 import { usePlatformMod } from "@/lib/text-tools/platform";
 
@@ -108,6 +110,8 @@ export default function CaseConverter() {
   // Mobile (§9.5): one group shown at a time; sticky bar rises with the keyboard.
   const [mobileGroup, setMobileGroup] = useState<"Case" | "Developer" | "Cleanup">("Case");
   const [kbInset, setKbInset] = useState(0);
+  // The shell's in-flow slot below the scroll area; the mobile bar portals here.
+  const barNode = useContext(ToolsBottomBarContext);
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
@@ -301,8 +305,6 @@ export default function CaseConverter() {
             ))}
           </div>
         </div>
-        {/* Spacer so the fixed mobile bar doesn't cover the end of the content. */}
-        <div className="min-[700px]:hidden h-[76px]" aria-hidden />
       </div>
 
       {/* Right: palette (desktop/tablet) */}
@@ -329,26 +331,30 @@ export default function CaseConverter() {
       </div>
     </div>
 
-    {/* Mobile sticky bottom bar (§9.5): counts · Undo · Copy. It sits directly
-        above the app's mobile tab bar (58px + safe area) so Copy is reachable,
-        and rises with the on-screen keyboard — the keyboard covers the tab bar,
-        so max() keeps the bar just above whichever is taller. Only below 700px. */}
-    <div
-      className="min-[700px]:hidden fixed left-0 right-0 z-40 flex items-center gap-3 px-4 border-t border-[var(--color-hairline)] bg-[var(--color-panel)]"
-      style={{ bottom: `max(${kbInset}px, calc(58px + env(safe-area-inset-bottom)))`, height: "68px" }}
-    >
-      <div className="flex-1 min-w-0 overflow-x-auto"><CountsBar text={value} selected={selected} /></div>
-      <button
-        type="button"
-        onClick={doUndo}
-        disabled={!canUndo}
-        aria-label="Undo"
-        className="shrink-0 w-12 h-12 flex items-center justify-center rounded-[var(--radius-9)] border border-[var(--color-border-control-strong)] text-[var(--color-ink)] disabled:opacity-40"
+    {/* Mobile action bar (§9.5): counts · Undo · Copy. Portalled into the shell's
+        in-flow slot below the scroll area (so the footer/scrollbar never sit
+        behind it), directly above the app tab bar. When the on-screen keyboard
+        is up it covers the tab bar, so we translate the bar up by the overshoot
+        (keyboard inset beyond the tab bar) to keep it just above the keyboard. */}
+    {barNode && createPortal(
+      <div
+        className="min-[700px]:hidden flex items-center gap-3 px-4 h-[68px] border-t border-[var(--color-hairline)] bg-[var(--color-panel)]"
+        style={{ transform: `translateY(min(0px, calc(58px + env(safe-area-inset-bottom) - ${kbInset}px)))` }}
       >
-        <IconArrowBackUp size={18} />
-      </button>
-      <CopyButton text={value} disabled={disabled} label="Copy" heightClass="h-12" />
-    </div>
+        <div className="flex-1 min-w-0"><CountsBar compact text={value} selected={selected} /></div>
+        <button
+          type="button"
+          onClick={doUndo}
+          disabled={!canUndo}
+          aria-label="Undo"
+          className="shrink-0 w-12 h-12 flex items-center justify-center rounded-[var(--radius-9)] border border-[var(--color-border-control-strong)] text-[var(--color-ink)] disabled:opacity-40"
+        >
+          <IconArrowBackUp size={18} />
+        </button>
+        <CopyButton text={value} disabled={disabled} label="Copy" heightClass="h-12" />
+      </div>,
+      barNode,
+    )}
     </>
   );
 }
