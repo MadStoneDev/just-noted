@@ -33,20 +33,22 @@ describe("case transforms", () => {
     expect(toLowerCase("A😀B")).toBe("a😀b");
   });
 
-  it("Sentence case capitalises each sentence", () => {
+  it("Sentence case capitalises each sentence, line breaks, and standalone I", () => {
     expect(toSentenceCase("hello world. goodbye world")).toBe("Hello world. Goodbye world");
     expect(toSentenceCase("WHY SHOUT? be calm")).toBe("Why shout? Be calm");
+    expect(toSentenceCase("first line\nsecond line")).toBe("First line\nSecond line");
+    expect(toSentenceCase("today i went. i saw it")).toBe("Today I went. I saw it");
   });
 
-  it("Title Case lowercases small words except first/last", () => {
+  it("Title Case: small words lower except first/last or after a colon", () => {
     expect(toTitleCase("the lord of the rings")).toBe("The Lord of the Rings");
     expect(toTitleCase("a tale of two cities")).toBe("A Tale of Two Cities");
-    // small word as the last word is still capitalised
     expect(toTitleCase("what are you waiting for")).toBe("What Are You Waiting For");
+    expect(toTitleCase("the title: a new hope")).toBe("The Title: A New Hope");
   });
 
-  it("Capitalise Every Word", () => {
-    expect(toCapitalizeWords("hello there world")).toBe("Hello There World");
+  it("Capitalise Every Word (rest lowercased)", () => {
+    expect(toCapitalizeWords("hELLO there wORLD")).toBe("Hello There World");
   });
 
   it("camel / Pascal / snake / kebab / CONSTANT", () => {
@@ -57,9 +59,12 @@ describe("case transforms", () => {
     expect(toConstantCase("Hello World")).toBe("HELLO_WORLD");
   });
 
-  it("programmer cases split camelCase and punctuation", () => {
+  it("developer cases split camelCase/punctuation and keep accents, per line", () => {
     expect(toSnakeCase("helloWorld-foo bar")).toBe("hello_world_foo_bar");
     expect(toKebabCase("XMLHttpRequest")).toBe("xml-http-request");
+    expect(toSnakeCase("café crème")).toBe("café_crème");
+    // per line
+    expect(toSnakeCase("foo bar\nbaz qux")).toBe("foo_bar\nbaz_qux");
   });
 
   it("empty input stays empty", () => {
@@ -70,16 +75,18 @@ describe("case transforms", () => {
 });
 
 describe("cleanup transforms", () => {
-  it("trims and collapses extra spaces (keeping newlines)", () => {
+  it("trims per line and collapses extra spaces (keeping newlines)", () => {
     expect(trimText("  hi  ")).toBe("hi");
+    expect(trimText("  a  \n  b  ")).toBe("a\nb");
     expect(removeExtraSpaces("a    b\tc")).toBe("a b c");
     expect(removeExtraSpaces("a   b\n  c  d")).toBe("a b\n c d");
   });
 
-  it("removes line breaks / empty / duplicate lines", () => {
+  it("removes line breaks / empty / duplicate lines (dedupe after trim)", () => {
     expect(removeLineBreaks("a\nb\nc")).toBe("a b c");
     expect(removeEmptyLines("a\n\n\nb\n  \nc")).toBe("a\nb\nc");
     expect(removeDuplicateLines("a\nb\na\nc\nb")).toBe("a\nb\nc");
+    expect(removeDuplicateLines("hi\n hi \nbye")).toBe("hi\nbye");
   });
 
   it("sorts lines A–Z (case-insensitive)", () => {

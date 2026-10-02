@@ -1,138 +1,236 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { IconCopy, IconCheck, IconArrowBackUp } from "@tabler/icons-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as C from "@/lib/text-tools/case";
+import { useUndo } from "@/components/tools/ui/use-undo";
+import CopyButton from "@/components/tools/ui/copy-button";
+import CountsBar from "@/components/tools/ui/counts-bar";
+import Notice from "@/components/tools/ui/notice";
+import { IconArrowBackUp } from "@tabler/icons-react";
+import { usePlatformMod } from "@/lib/text-tools/platform";
 
 type Transform = (s: string) => string;
+interface Action {
+  label: string;
+  fn: Transform;
+  mono?: boolean;
+  /** Custom notice (dedupe/empty/sort report counts). */
+  count?: (before: string, after: string) => string;
+}
 
-const CASE_OPS: { label: string; fn: Transform }[] = [
+const lineN = (s: string) => s.split("\n").length;
+
+const CASE_OPS: Action[] = [
   { label: "UPPERCASE", fn: C.toUpperCase },
   { label: "lowercase", fn: C.toLowerCase },
   { label: "Sentence case", fn: C.toSentenceCase },
   { label: "Title Case", fn: C.toTitleCase },
-  { label: "Capitalise Each", fn: C.toCapitalizeWords },
-  { label: "camelCase", fn: C.toCamelCase },
-  { label: "PascalCase", fn: C.toPascalCase },
-  { label: "snake_case", fn: C.toSnakeCase },
-  { label: "kebab-case", fn: C.toKebabCase },
-  { label: "CONSTANT_CASE", fn: C.toConstantCase },
+  { label: "Capitalise Every Word", fn: C.toCapitalizeWords },
 ];
 
-const CLEANUP_OPS: { label: string; fn: Transform }[] = [
-  { label: "Trim", fn: C.trimText },
-  { label: "Collapse spaces", fn: C.removeExtraSpaces },
-  { label: "Remove line breaks", fn: C.removeLineBreaks },
-  { label: "Remove empty lines", fn: C.removeEmptyLines },
-  { label: "Remove duplicate lines", fn: C.removeDuplicateLines },
-  { label: "Sort A–Z", fn: C.sortLinesAZ },
-  { label: "Straight quotes", fn: C.toStraightQuotes },
-  { label: "Curly quotes", fn: C.toCurlyQuotes },
-  { label: "Strip HTML", fn: C.stripHtml },
-  { label: "Strip Markdown", fn: C.stripMarkdown },
+const DEV_OPS: Action[] = [
+  { label: "camelCase", fn: C.toCamelCase, mono: true },
+  { label: "PascalCase", fn: C.toPascalCase, mono: true },
+  { label: "snake_case", fn: C.toSnakeCase, mono: true },
+  { label: "kebab-case", fn: C.toKebabCase, mono: true },
+  { label: "CONSTANT_CASE", fn: C.toConstantCase, mono: true },
 ];
+
+const CLEANUP_GROUPS: { sub: string; ops: Action[] }[] = [
+  {
+    sub: "Spaces",
+    ops: [
+      { label: "Trim spaces", fn: C.trimText },
+      { label: "Remove extra spaces", fn: C.removeExtraSpaces },
+      { label: "Remove line breaks", fn: C.removeLineBreaks },
+      { label: "Remove empty lines", fn: C.removeEmptyLines, count: (b, a) => `Removed ${lineN(b) - lineN(a)} empty lines.` },
+    ],
+  },
+  {
+    sub: "Lines",
+    ops: [
+      { label: "Remove duplicate lines", fn: C.removeDuplicateLines, count: (b, a) => `Removed ${lineN(b) - lineN(a)} duplicate lines.` },
+      { label: "Sort A–Z", fn: C.sortLinesAZ, count: (_b, a) => `Sorted ${lineN(a)} lines A–Z.` },
+    ],
+  },
+  {
+    sub: "Characters",
+    ops: [
+      { label: "“Straight quotes”", fn: C.toStraightQuotes },
+      { label: "“Curly quotes”", fn: C.toCurlyQuotes },
+      { label: "Strip <HTML>", fn: C.stripHtml, mono: true },
+      { label: "Strip Markdown", fn: C.stripMarkdown, mono: true },
+    ],
+  },
+];
+
+function countChangedLines(before: string, after: string): number {
+  const b = before.split("\n");
+  const a = after.split("\n");
+  let n = 0;
+  const max = Math.max(a.length, b.length);
+  for (let i = 0; i < max; i++) if (a[i] !== b[i]) n++;
+  return n;
+}
 
 export default function CaseConverter() {
-  const [text, setText] = useState("");
-  const [history, setHistory] = useState<string[]>([]);
-  const [copied, setCopied] = useState(false);
+  const { value, type, apply, undo, redo, canUndo } = useUndo("");
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  const pendingSel = useRef<[number, number] | null>(null);
+  const [selected, setSelected] = useState("");
+  const [lastUsed, setLastUsed] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ text: string; undo: boolean } | null>(null);
+  const { undo: undoKey, redo: redoKey } = usePlatformMod();
 
-  const apply = (fn: Transform) => {
-    setText((cur) => {
-      const next = fn(cur);
-      if (next !== cur) setHistory((h) => [...h, cur]);
-      return next;
-    });
+  // Reselect the changed range after a transform re-renders the textarea.
+  useEffect(() => {
+    if (pendingSel.current && taRef.current) {
+      taRef.current.focus();
+      taRef.current.setSelectionRange(pendingSel.current[0], pendingSel.current[1]);
+      pendingSel.current = null;
+    }
+  });
+
+  const syncSelection = () => {
+    const ta = taRef.current;
+    if (!ta) return;
+    setSelected(ta.value.slice(ta.selectionStart, ta.selectionEnd));
   };
 
-  const undo = () => {
-    setHistory((h) => {
-      if (h.length === 0) return h;
-      const prev = h[h.length - 1];
-      setText(prev);
-      return h.slice(0, -1);
-    });
+  const runAction = (action: Action) => {
+    const ta = taRef.current;
+    if (!value || !ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const hasSel = start !== end;
+    setLastUsed(action.label);
+
+    let after: string;
+    let range: [number, number];
+    if (hasSel) {
+      const seg = value.slice(start, end);
+      const t = action.fn(seg);
+      after = value.slice(0, start) + t + value.slice(end);
+      range = [start, start + t.length];
+    } else {
+      after = action.fn(value);
+      range = [0, after.length];
+    }
+
+    if (after === value) {
+      setNotice({ text: "Nothing to change.", undo: false });
+      return;
+    }
+    apply(after);
+    pendingSel.current = range;
+    const msg = action.count
+      ? action.count(value, after)
+      : `${action.label} applied to ${hasSel ? "selection" : "all text"}, ${countChangedLines(value, after)} line${countChangedLines(value, after) !== 1 ? "s" : ""} changed.`;
+    setNotice({ text: msg, undo: true });
   };
 
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* no-op */
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && (e.key === "z" || e.key === "Z")) {
+      e.preventDefault();
+      if (e.shiftKey) redo(); else undo();
     }
   };
 
-  const counts = useMemo(() => {
-    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-    const chars = text.length;
-    const lines = text ? text.split(/\n/).length : 0;
-    return { words, chars, lines };
-  }, [text]);
+  const disabled = !value;
 
-  const Pill = ({ label, fn }: { label: string; fn: Transform }) => (
+  const Chip = ({ action }: { action: Action }) => (
     <button
-      onClick={() => apply(fn)}
-      disabled={!text}
-      className="h-8 px-2.5 rounded-[var(--radius-7)] text-[12.5px] font-medium text-[var(--color-ink-2)] border border-[var(--color-border-control)] hover:bg-[var(--color-raised-soft)] hover:text-[var(--color-ink-1)] transition-colors disabled:opacity-40"
+      type="button"
+      onClick={() => runAction(action)}
+      className={`h-8 px-2.5 rounded-[var(--radius-7)] text-[12.5px] border transition-colors ${
+        action.mono ? "font-[family-name:var(--font-meta)]" : ""
+      } ${
+        lastUsed === action.label
+          ? "bg-[var(--color-accent-tint)] border-[var(--color-accent-tint-border)] text-[var(--color-accent-text)]"
+          : "bg-[var(--color-raised-soft)] border-[var(--color-border-control)] text-[var(--color-ink-1)] hover:bg-[var(--color-raised)] hover:border-[var(--color-border-control-strong)]"
+      }`}
     >
-      {label}
+      {action.label}
     </button>
   );
 
+  const CleanupChip = ({ action }: { action: Action }) => (
+    <button
+      type="button"
+      onClick={() => runAction(action)}
+      className={`h-[30px] px-2.5 rounded-[var(--radius-7)] text-[12px] border transition-colors ${
+        action.mono ? "font-[family-name:var(--font-meta)]" : ""
+      } ${
+        lastUsed === action.label
+          ? "bg-[var(--color-accent-tint)] border-[var(--color-accent-tint-border)] text-[var(--color-accent-text)]"
+          : "border-[var(--color-border-control)] text-[var(--color-ink-2)] hover:bg-[var(--color-raised)] hover:border-[var(--color-border-control-strong)]"
+      }`}
+    >
+      {action.label}
+    </button>
+  );
+
+  const Label = ({ children }: { children: React.ReactNode }) => (
+    <div className="font-[family-name:var(--font-meta)] text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)] mb-2">
+      {children}
+    </div>
+  );
+
   return (
-    <div className="space-y-4">
-      <textarea
-        autoFocus
-        value={text}
-        onChange={(e) => {
-          // Direct typing is its own undo step so a transform after typing reverts to typed text.
-          setHistory((h) => (text ? [...h, text] : h));
-          setText(e.target.value);
-        }}
-        placeholder="Paste or type text…"
-        rows={8}
-        className="w-full px-3.5 py-2.5 text-[14px] leading-relaxed resize-y bg-[var(--color-bg-primary)] border border-[var(--color-border-primary)] rounded-[var(--radius-lg)] text-[var(--color-ink)] focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
-      />
-
-      {/* Counts + actions */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-[11.5px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
-          {counts.words.toLocaleString()} words · {counts.chars.toLocaleString()} chars · {counts.lines.toLocaleString()} line{counts.lines !== 1 ? "s" : ""}
-        </div>
-        <div className="flex items-center gap-2">
+    <div className="rounded-[var(--radius-14)] border border-[var(--color-hairline)] overflow-hidden grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_316px]">
+      {/* Left: editor */}
+      <div className="p-[18px] flex flex-col gap-3 lg:border-r border-[var(--color-hairline)]">
+        {notice && (
+          <Notice level="info" action={notice.undo ? { label: "Undo", onClick: undo } : undefined}>
+            {notice.text}
+          </Notice>
+        )}
+        <textarea
+          ref={taRef}
+          value={value}
+          onChange={(e) => { type(e.target.value); setNotice(null); syncSelection(); }}
+          onSelect={syncSelection}
+          onKeyUp={syncSelection}
+          onMouseUp={syncSelection}
+          onKeyDown={onKeyDown}
+          placeholder="Paste or type text to convert"
+          className="min-h-[370px] max-h-[60vh] resize-y rounded-[var(--radius-10)] bg-[var(--color-raised)] border border-[var(--color-border-control)] p-4 text-[16px] leading-[1.6] text-[var(--color-ink)] focus:border-[var(--color-accent-deep)] focus:outline-none"
+        />
+        <div className="flex items-center gap-2.5">
+          <div className="flex-1"><CountsBar text={value} selected={selected} /></div>
           <button
+            type="button"
             onClick={undo}
-            disabled={history.length === 0}
-            className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-[var(--radius-7)] text-[12.5px] font-medium text-[var(--color-ink-2)] border border-[var(--color-border-control)] hover:bg-[var(--color-raised-soft)] transition-colors disabled:opacity-40"
+            disabled={!canUndo}
+            title={`Undo (${undoKey})`}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-[var(--radius-7)] text-[13px] border border-[var(--color-border-control-strong)] text-[var(--color-ink)] hover:bg-[var(--color-raised-soft)] transition-colors disabled:opacity-40"
           >
-            <IconArrowBackUp size={14} /> Undo
+            <IconArrowBackUp size={13} /> Undo
           </button>
-          <button
-            onClick={copy}
-            disabled={!text}
-            className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-[var(--radius-7)] text-[12.5px] font-medium text-[var(--color-ink-2)] border border-[var(--color-border-control)] hover:bg-[var(--color-raised-soft)] transition-colors disabled:opacity-40"
-          >
-            {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
-            {copied ? "Copied" : "Copy"}
-          </button>
+          <CopyButton text={value} disabled={disabled} label="Copy" />
         </div>
       </div>
 
-      {/* Case */}
-      <div>
-        <div className="mb-1.5 text-[11px] font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)]">Case</div>
-        <div className="flex flex-wrap gap-2">
-          {CASE_OPS.map((op) => <Pill key={op.label} {...op} />)}
+      {/* Right: palette */}
+      <div className={`p-[18px] bg-[var(--color-panel)] flex flex-col gap-[18px] transition-opacity ${disabled ? "opacity-[0.42] pointer-events-none" : ""}`} aria-disabled={disabled} role="toolbar" aria-label="Transformations">
+        <div>
+          <Label>Case</Label>
+          <div className="flex flex-wrap gap-2">{CASE_OPS.map((a) => <Chip key={a.label} action={a} />)}</div>
         </div>
-      </div>
-
-      {/* Cleanup */}
-      <div>
-        <div className="mb-1.5 text-[11px] font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)]">Cleanup</div>
-        <div className="flex flex-wrap gap-2">
-          {CLEANUP_OPS.map((op) => <Pill key={op.label} {...op} />)}
+        <div>
+          <Label>Developer</Label>
+          <div className="flex flex-wrap gap-2">{DEV_OPS.map((a) => <Chip key={a.label} action={a} />)}</div>
+        </div>
+        <div>
+          <Label>Cleanup</Label>
+          <div className="flex flex-col gap-3">
+            {CLEANUP_GROUPS.map((g) => (
+              <div key={g.sub}>
+                <div className="text-[11px] text-[var(--color-ink-4)] mb-1.5">{g.sub}</div>
+                <div className="flex flex-wrap gap-2">{g.ops.map((a) => <CleanupChip key={a.label} action={a} />)}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

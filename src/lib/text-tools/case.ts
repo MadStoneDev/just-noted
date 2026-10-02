@@ -1,26 +1,28 @@
-// Pure text case + cleanup transforms. No DOM, no network — reusable by the
-// tools UI and, later, the editor's "transform selection".
+// Pure text case + cleanup transforms (spec §7.2). No DOM, no network.
 
-// Title Case small words (lowercased unless first/last word).
+// Title Case small words — kept lowercase unless first/last in the line or after
+// a colon (§7.2 exact list).
 const SMALL_WORDS = new Set([
-  "a", "an", "and", "as", "at", "but", "by", "for", "if", "in", "into", "nor",
-  "of", "off", "on", "onto", "or", "over", "per", "so", "the", "to", "up",
-  "via", "vs", "yet", "with", "from",
+  "a", "an", "and", "as", "at", "but", "by", "for", "in", "nor", "of", "on",
+  "or", "so", "the", "to", "up", "yet", "via",
 ]);
 
-// Split a string into word tokens, breaking on non-alphanumerics AND camelCase
-// humps, so "helloWorld-foo" -> ["hello","World","foo"].
+function perLine(s: string, fn: (line: string) => string): string {
+  return s.split("\n").map(fn).join("\n");
+}
+
+// Split into word tokens: break on anything that isn't a letter/digit AND on
+// camelCase humps. Accented letters are kept (\p{L}).
 function splitWords(s: string): string[] {
   return s
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
-    .split(/[^A-Za-z0-9]+/)
+    .replace(/(\p{Ll}|\p{N})(\p{Lu})/gu, "$1 $2")
+    .replace(/(\p{Lu}+)(\p{Lu}\p{Ll})/gu, "$1 $2")
+    .split(/[^\p{L}\p{N}]+/u)
     .filter(Boolean);
 }
 
-function capitalizeFirst(w: string): string {
-  // Uppercase the first letter only; leave the rest as given.
-  return w.replace(/[a-zA-Z]/, (c) => c.toUpperCase());
+function capFirst(w: string): string {
+  return w.replace(/\p{L}/u, (c) => c.toUpperCase());
 }
 
 // ===== Case =====
@@ -34,57 +36,65 @@ export function toLowerCase(s: string): string {
 }
 
 export function toSentenceCase(s: string): string {
-  return s
+  // Capitalise the first letter of each sentence (split on . ! ? + whitespace,
+  // and on line breaks), then restore the standalone pronoun "I".
+  const out = s
     .toLowerCase()
-    .replace(/(^\s*|[.!?]\s+)([a-z])/g, (_m, lead: string, c: string) => lead + c.toUpperCase());
+    .replace(/(^\s*|[.!?]\s+|\n\s*)(\p{Ll})/gu, (_m, lead: string, c: string) => lead + c.toUpperCase());
+  return out.replace(/\bi\b/g, "I");
 }
 
 export function toTitleCase(s: string): string {
-  const words = s.trim().split(/\s+/);
-  const last = words.length - 1;
-  return words
-    .map((w, i) => {
-      const lower = w.toLowerCase();
-      const bare = lower.replace(/[^a-z0-9]/g, "");
-      if (i !== 0 && i !== last && SMALL_WORDS.has(bare)) return lower;
-      return capitalizeFirst(lower);
-    })
-    .join(" ");
+  return perLine(s, (line) => {
+    const parts = line.split(/\s+/).filter(Boolean);
+    const last = parts.length - 1;
+    let afterColon = false;
+    return parts
+      .map((w, i) => {
+        const lower = w.toLowerCase();
+        const bare = lower.replace(/[^\p{L}\p{N}]/gu, "");
+        const forceCap = i === 0 || i === last || afterColon;
+        afterColon = w.endsWith(":");
+        if (!forceCap && SMALL_WORDS.has(bare)) return lower;
+        return capFirst(lower);
+      })
+      .join(" ");
+  });
 }
 
 export function toCapitalizeWords(s: string): string {
-  // First letter of each whitespace-separated token; rest untouched.
-  return s.replace(/(^|\s)(\S)/g, (_m, lead: string, c: string) => lead + c.toUpperCase());
+  // First letter of every word upper, the rest lower.
+  return s.toLowerCase().replace(/(^|\s)(\p{L})/gu, (_m, sp: string, c: string) => sp + c.toUpperCase());
 }
 
+// Developer cases apply PER LINE.
 export function toCamelCase(s: string): string {
-  return splitWords(s)
-    .map((w, i) => (i === 0 ? w.toLowerCase() : capitalizeFirst(w.toLowerCase())))
-    .join("");
+  return perLine(s, (line) =>
+    splitWords(line).map((w, i) => (i === 0 ? w.toLowerCase() : capFirst(w.toLowerCase()))).join(""),
+  );
 }
 
 export function toPascalCase(s: string): string {
-  return splitWords(s)
-    .map((w) => capitalizeFirst(w.toLowerCase()))
-    .join("");
+  return perLine(s, (line) => splitWords(line).map((w) => capFirst(w.toLowerCase())).join(""));
 }
 
 export function toSnakeCase(s: string): string {
-  return splitWords(s).map((w) => w.toLowerCase()).join("_");
+  return perLine(s, (line) => splitWords(line).map((w) => w.toLowerCase()).join("_"));
 }
 
 export function toKebabCase(s: string): string {
-  return splitWords(s).map((w) => w.toLowerCase()).join("-");
+  return perLine(s, (line) => splitWords(line).map((w) => w.toLowerCase()).join("-"));
 }
 
 export function toConstantCase(s: string): string {
-  return splitWords(s).map((w) => w.toUpperCase()).join("_");
+  return perLine(s, (line) => splitWords(line).map((w) => w.toUpperCase()).join("_"));
 }
 
 // ===== Cleanup =====
 
+/** Trim leading/trailing whitespace on every line. */
 export function trimText(s: string): string {
-  return s.trim();
+  return perLine(s, (l) => l.trim());
 }
 
 /** Collapse runs of spaces/tabs to a single space (newlines preserved). */
@@ -97,18 +107,17 @@ export function removeLineBreaks(s: string): string {
 }
 
 export function removeEmptyLines(s: string): string {
-  return s
-    .split(/\r?\n/)
-    .filter((l) => l.trim().length > 0)
-    .join("\n");
+  return s.split("\n").filter((l) => l.trim().length > 0).join("\n");
 }
 
+/** Keep the first occurrence of each line (exact match, after trimming). */
 export function removeDuplicateLines(s: string): string {
   const seen = new Set<string>();
   const out: string[] = [];
-  for (const line of s.split(/\r?\n/)) {
-    if (!seen.has(line)) {
-      seen.add(line);
+  for (const line of s.split("\n")) {
+    const key = line.trim();
+    if (!seen.has(key)) {
+      seen.add(key);
       out.push(line);
     }
   }
@@ -116,10 +125,8 @@ export function removeDuplicateLines(s: string): string {
 }
 
 export function sortLinesAZ(s: string): string {
-  return s
-    .split(/\r?\n/)
-    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
-    .join("\n");
+  const collator = new Intl.Collator(undefined, { sensitivity: "base" });
+  return s.split("\n").sort((a, b) => collator.compare(a, b)).join("\n");
 }
 
 export function toStraightQuotes(s: string): string {
@@ -145,21 +152,23 @@ function decodeEntities(s: string): string {
 }
 
 export function stripHtml(s: string): string {
-  return decodeEntities(s.replace(/<[^>]*>/g, ""));
+  // Block-level close tags become line breaks, then strip remaining tags.
+  const withBreaks = s.replace(/<\/(p|div|h[1-6]|li|br|tr)\s*>/gi, "\n").replace(/<br\s*\/?>/gi, "\n");
+  return decodeEntities(withBreaks.replace(/<[^>]*>/g, "")).replace(/\n{3,}/g, "\n\n").trim();
 }
 
 export function stripMarkdown(s: string): string {
   return s
-    .replace(/^\s{0,3}#{1,6}\s+/gm, "") // headings
-    .replace(/^\s{0,3}>\s?/gm, "") // blockquotes
-    .replace(/^\s*([-*+])\s+/gm, "") // unordered list markers
-    .replace(/^\s*\d+\.\s+/gm, "") // ordered list markers
-    .replace(/^\s*([-*_]\s*){3,}$/gm, "") // horizontal rules
-    .replace(/`{1,3}([^`]*)`{1,3}/g, "$1") // code
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1") // images -> alt
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // links -> text
-    .replace(/(\*\*|__)(.*?)\1/g, "$2") // bold
-    .replace(/(\*|_)(.*?)\1/g, "$2") // italic
-    .replace(/~~(.*?)~~/g, "$1") // strikethrough
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/^\s{0,3}>\s?/gm, "")
+    .replace(/^\s*([-*+])\s+/gm, "")
+    .replace(/^\s*\d+\.\s+/gm, "")
+    .replace(/^\s*([-*_]\s*){3,}$/gm, "")
+    .replace(/`{1,3}([^`]*)`{1,3}/g, "$1")
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/(\*\*|__)(.*?)\1/g, "$2")
+    .replace(/(\*|_)(.*?)\1/g, "$2")
+    .replace(/~~(.*?)~~/g, "$1")
     .trim();
 }
