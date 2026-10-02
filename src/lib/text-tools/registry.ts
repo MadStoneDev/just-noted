@@ -126,14 +126,32 @@ export const TOOLS: ToolMeta[] = [
   {
     slug: "serp-preview",
     name: "Search result preview",
-    phase: 2,
+    phase: 1,
     glyph: "…",
     glyphFont: "mono",
     title: "SERP Preview: Check Title & Description Length | JustNoted",
     description: "See how your page will look in search results, and where the title and description get cut off.",
     cardDescription: "See where your title and description get cut off.",
     mobileDescription: "Where your title and description get cut off.",
-    howItWorks: [],
+    howItWorks: [
+      "Type your page title, URL and meta description on the left and the result card on the right updates as you go. It's a neutral preview — not tied to any one search engine.",
+      "Search engines cut titles and descriptions by how wide they are in pixels, not how many characters they have, so a title full of wide letters is cut sooner than its character count suggests. This tool measures the real width in the same font search results use and tells you where the text would be cut and roughly how much to trim.",
+      "The counters still show characters against the usual guides — about 60 for the title and 160 for the description — so you have both the quick number and the accurate pixel check.",
+    ],
+    faq: [
+      {
+        q: "Why does my title get cut before 60 characters?",
+        a: "Because truncation is by pixel width, not character count. Wide letters like m and w take more room, so a title of wide words can be cut well before 60 characters, while a narrow one can run past it.",
+      },
+      {
+        q: "Will my title and description show exactly like this?",
+        a: "Not always. Search engines often rewrite titles and descriptions to match the search, and they vary the exact cut-off. Treat the card as a close approximation, not a guarantee.",
+      },
+      {
+        q: "Does my text get sent anywhere?",
+        a: "No. The preview is measured entirely in your browser — nothing you type is sent to a server.",
+      },
+    ],
   },
   {
     slug: "og-tester",
