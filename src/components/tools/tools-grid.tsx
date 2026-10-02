@@ -74,12 +74,15 @@ export default function ToolsGrid() {
                 <div
                   key={tool.slug}
                   aria-disabled="true"
-                  className="flex flex-col gap-4 px-[22px] py-5 rounded-[var(--radius-12)] border border-dashed border-[var(--color-border-control-strong)]"
+                  // Mobile (§9): name-only rows. Tablet/desktop: full dashed card.
+                  className="flex items-center gap-3 px-4 py-3 min-[700px]:flex-col min-[700px]:items-start min-[700px]:gap-4 min-[700px]:px-[22px] min-[700px]:py-5 rounded-[var(--radius-12)] border border-dashed border-[var(--color-border-control-strong)]"
                 >
-                  <Tile tool={tool} muted />
+                  <div className="hidden min-[700px]:block">
+                    <Tile tool={tool} muted />
+                  </div>
                   <div>
                     <div className="text-[15px] font-semibold text-[var(--color-ink-3)]">{tool.name}</div>
-                    <p className="mt-1.5 text-[13px] leading-[1.5] text-[var(--color-ink-4)]">{tool.cardDescription}</p>
+                    <p className="hidden min-[700px]:block mt-1.5 text-[13px] leading-[1.5] text-[var(--color-ink-4)]">{tool.cardDescription}</p>
                   </div>
                 </div>
               ))}

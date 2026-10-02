@@ -121,6 +121,13 @@ export default function CaseConverter() {
     return () => { vv.removeEventListener("resize", onResize); vv.removeEventListener("scroll", onResize); };
   }, []);
 
+  // Autofocus the textarea on desktop only (§4.3) — on mobile it would pop the
+  // on-screen keyboard over the tool before the user asks for it.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.matchMedia("(min-width: 700px)").matches) taRef.current?.focus();
+  }, []);
+
   // Wrap undo/redo so the "what changed" notice is cleared when the action it
   // described is reverted/reapplied (it would otherwise linger with a stale Undo).
   const doUndo = () => { undo(); setNotice(null); };
@@ -258,7 +265,11 @@ export default function CaseConverter() {
             {notice.text}
           </Notice>
         )}
+        <label htmlFor="case-input" className="font-[family-name:var(--font-meta)] text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">
+          Text
+        </label>
         <textarea
+          id="case-input"
           ref={taRef}
           value={value}
           onChange={(e) => { type(e.target.value); setNotice(null); syncSelection(); }}

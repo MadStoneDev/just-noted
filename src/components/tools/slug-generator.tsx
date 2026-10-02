@@ -50,6 +50,18 @@ export default function SlugGenerator() {
   // Synced scroll for the batch two-column layout.
   const inRef = useRef<HTMLTextAreaElement>(null);
   const outRef = useRef<HTMLDivElement>(null);
+  const singleRef = useRef<HTMLInputElement>(null);
+
+  // Autofocus the active field on desktop only (§4.3) — on mobile it would pop
+  // the on-screen keyboard unasked. Runs once; re-checks after options load
+  // from localStorage (which may switch to batch mode).
+  const didAutoFocus = useRef(false);
+  useEffect(() => {
+    if (didAutoFocus.current || typeof window === "undefined") return;
+    if (!window.matchMedia("(min-width: 700px)").matches) return;
+    const el = opts.batch ? inRef.current : singleRef.current;
+    if (el) { el.focus(); didAutoFocus.current = true; }
+  }, [opts.batch]);
   const syncScroll = (from: "in" | "out") => {
     const a = from === "in" ? inRef.current : outRef.current;
     const b = from === "in" ? outRef.current : inRef.current;
@@ -71,7 +83,7 @@ export default function SlugGenerator() {
             </div>
             <input
               id="slug-title"
-              autoFocus
+              ref={singleRef}
               value={single}
               onChange={(e) => setSingle(e.target.value)}
               onPaste={(e) => {
@@ -154,7 +166,6 @@ export default function SlugGenerator() {
           <div className="grid grid-cols-2 gap-3">
             <textarea
               ref={inRef}
-              autoFocus
               value={batch}
               onChange={(e) => setBatch(e.target.value)}
               onScroll={() => syncScroll("in")}

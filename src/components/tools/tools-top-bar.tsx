@@ -49,13 +49,13 @@ export default function ToolsTopBar() {
         <div className="flex items-center gap-2 flex-none">
           <Link
             href="/get-access"
-            className="inline-flex items-center h-8 px-3 rounded-[var(--radius-7)] text-[12.5px] text-[var(--color-ink-3)] hover:text-[var(--color-ink-1)] hover:bg-[var(--color-raised-soft)] transition-colors"
+            className="inline-flex items-center h-11 min-[700px]:h-8 px-3 rounded-[var(--radius-7)] text-[12.5px] text-[var(--color-ink-3)] hover:text-[var(--color-ink-1)] hover:bg-[var(--color-raised-soft)] transition-colors"
           >
             Sign in
           </Link>
           <Link
             href="/"
-            className="inline-flex items-center h-8 px-3 rounded-[var(--radius-7)] text-[12.5px] text-[var(--color-ink)] border border-[var(--color-border-control-strong)] hover:bg-[var(--color-raised-soft)] transition-colors"
+            className="inline-flex items-center h-11 min-[700px]:h-8 px-3 rounded-[var(--radius-7)] text-[12.5px] text-[var(--color-ink)] border border-[var(--color-border-control-strong)] hover:bg-[var(--color-raised-soft)] transition-colors"
           >
             Try JustNoted free
           </Link>
