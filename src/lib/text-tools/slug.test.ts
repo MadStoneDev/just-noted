@@ -87,6 +87,25 @@ describe("slugifyBatch", () => {
     expect(r.outputs[1].endsWith("-2")).toBe(true);
   });
 
+  it("first occurrence keeps its full slug when it exactly equals maxLength", () => {
+    // Slug is exactly 60 chars; at max 60 the FIRST occurrence must not be trimmed.
+    const title = "comprehensive guide choosing professional website developers";
+    expect(slugify(title, { maxLength: 60 }).length).toBe(60);
+    const r = slugifyBatch(`${title}\n${title}`, { maxLength: 60 });
+    expect(r.outputs[0]).toBe("comprehensive-guide-choosing-professional-website-developers");
+    expect(r.outputs[0].length).toBe(60);
+    // Only the renamed duplicate is trimmed to fit its suffix within 60.
+    expect(r.outputs[1].endsWith("-2")).toBe(true);
+    expect(r.outputs[1].length).toBeLessThanOrEqual(60);
+  });
+
+  it("handles a double-digit duplicate suffix (-13)", () => {
+    const r = slugifyBatch(Array.from({ length: 13 }, () => "Hello World").join("\n"));
+    expect(r.outputs[0]).toBe("hello-world");
+    expect(r.outputs[12]).toBe("hello-world-13");
+    expect(r.duplicateCount).toBe(12);
+  });
+
   it("caps at 1,000 lines", () => {
     const input = Array.from({ length: 1005 }, (_, i) => `Title ${i}`).join("\n");
     const r = slugifyBatch(input);
