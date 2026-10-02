@@ -47,6 +47,14 @@ describe("case transforms", () => {
     expect(toTitleCase("the title: a new hope")).toBe("The Title: A New Hope");
   });
 
+  it("case transforms preserve whitespace (only letters change)", () => {
+    const messy = "   extra   spaces   here  ";
+    expect(toTitleCase(messy)).toBe("   Extra   Spaces   Here  ");
+    expect(toUpperCase(messy)).toBe("   EXTRA   SPACES   HERE  ");
+    expect(toCapitalizeWords(messy)).toBe("   Extra   Spaces   Here  ");
+    expect(toSentenceCase("  hello.   world  ")).toBe("  Hello.   World  ");
+  });
+
   it("Capitalise Every Word (rest lowercased)", () => {
     expect(toCapitalizeWords("hELLO there wORLD")).toBe("Hello There World");
   });

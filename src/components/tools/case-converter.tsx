@@ -19,6 +19,7 @@ interface Action {
 }
 
 const lineN = (s: string) => s.split("\n").length;
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 const CASE_OPS: Action[] = [
   { label: "UPPERCASE", fn: C.toUpperCase },
@@ -43,14 +44,14 @@ const CLEANUP_GROUPS: { sub: string; ops: Action[] }[] = [
       { label: "Trim spaces", fn: C.trimText },
       { label: "Remove extra spaces", fn: C.removeExtraSpaces },
       { label: "Remove line breaks", fn: C.removeLineBreaks },
-      { label: "Remove empty lines", fn: C.removeEmptyLines, count: (b, a) => `Removed ${lineN(b) - lineN(a)} empty lines.` },
+      { label: "Remove empty lines", fn: C.removeEmptyLines, count: (b, a) => `Removed ${plural(lineN(b) - lineN(a), "empty line")}.` },
     ],
   },
   {
     sub: "Lines",
     ops: [
-      { label: "Remove duplicate lines", fn: C.removeDuplicateLines, count: (b, a) => `Removed ${lineN(b) - lineN(a)} duplicate lines.` },
-      { label: "Sort A–Z", fn: C.sortLinesAZ, count: (_b, a) => `Sorted ${lineN(a)} lines A–Z.` },
+      { label: "Remove duplicate lines", fn: C.removeDuplicateLines, count: (b, a) => `Removed ${plural(lineN(b) - lineN(a), "duplicate line")}.` },
+      { label: "Sort A–Z", fn: C.sortLinesAZ, count: (_b, a) => `Sorted ${plural(lineN(a), "line")} A–Z.` },
     ],
   },
   {
@@ -80,7 +81,12 @@ export default function CaseConverter() {
   const [selected, setSelected] = useState("");
   const [lastUsed, setLastUsed] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ text: string; undo: boolean } | null>(null);
-  const { undo: undoKey, redo: redoKey } = usePlatformMod();
+  const { undo: undoKey } = usePlatformMod();
+
+  // Wrap undo/redo so the "what changed" notice is cleared when the action it
+  // described is reverted/reapplied (it would otherwise linger with a stale Undo).
+  const doUndo = () => { undo(); setNotice(null); };
+  const doRedo = () => { redo(); setNotice(null); };
 
   // Reselect the changed range after a transform re-renders the textarea.
   useEffect(() => {
@@ -125,14 +131,14 @@ export default function CaseConverter() {
     pendingSel.current = range;
     const msg = action.count
       ? action.count(value, after)
-      : `${action.label} applied to ${hasSel ? "selection" : "all text"}, ${countChangedLines(value, after)} line${countChangedLines(value, after) !== 1 ? "s" : ""} changed.`;
+      : `${action.label} applied to ${hasSel ? "selection" : "all text"}, ${plural(countChangedLines(value, after), "line")} changed.`;
     setNotice({ text: msg, undo: true });
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && (e.key === "z" || e.key === "Z")) {
       e.preventDefault();
-      if (e.shiftKey) redo(); else undo();
+      if (e.shiftKey) doRedo(); else doUndo();
     }
   };
 
@@ -181,7 +187,7 @@ export default function CaseConverter() {
       {/* Left: editor */}
       <div className="p-[18px] flex flex-col gap-3 lg:border-r border-[var(--color-hairline)]">
         {notice && (
-          <Notice level="info" action={notice.undo ? { label: "Undo", onClick: undo } : undefined}>
+          <Notice level="info" action={notice.undo ? { label: "Undo", onClick: doUndo } : undefined}>
             {notice.text}
           </Notice>
         )}
@@ -196,11 +202,11 @@ export default function CaseConverter() {
           placeholder="Paste or type text to convert"
           className="min-h-[370px] max-h-[60vh] resize-y rounded-[var(--radius-10)] bg-[var(--color-raised)] border border-[var(--color-border-control)] p-4 text-[16px] leading-[1.6] text-[var(--color-ink)] focus:border-[var(--color-accent-deep)] focus:outline-none"
         />
-        <div className="flex items-center gap-2.5">
-          <div className="flex-1"><CountsBar text={value} selected={selected} /></div>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex-1 min-w-0 overflow-x-auto"><CountsBar text={value} selected={selected} /></div>
           <button
             type="button"
-            onClick={undo}
+            onClick={doUndo}
             disabled={!canUndo}
             title={`Undo (${undoKey})`}
             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-[var(--radius-7)] text-[13px] border border-[var(--color-border-control-strong)] text-[var(--color-ink)] hover:bg-[var(--color-raised-soft)] transition-colors disabled:opacity-40"

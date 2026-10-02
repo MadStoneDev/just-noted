@@ -49,6 +49,8 @@ function FaqList({ faq }: { faq: NonNullable<ToolMeta["faq"]> }) {
 export default function ToolView({ slug }: { slug: string }) {
   const router = useRouter();
   const tool = getTool(slug);
+  // Column width per spec §2.1: single-column tools 820, two-column tools 1040.
+  const colClass = slug === "slug-generator" ? "max-w-[820px]" : "max-w-[1040px]";
 
   if (!tool) {
     return (
@@ -100,7 +102,7 @@ export default function ToolView({ slug }: { slug: string }) {
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
       )}
 
-      <div className="mx-auto max-w-[760px] px-6 md:px-10 py-8">
+      <div className={`mx-auto ${colClass} px-6 md:px-10 py-8`}>
         {/* Back link */}
         <button
           onClick={() => router.push("/tools")}

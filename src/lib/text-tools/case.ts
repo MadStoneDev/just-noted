@@ -46,19 +46,25 @@ export function toSentenceCase(s: string): string {
 
 export function toTitleCase(s: string): string {
   return perLine(s, (line) => {
-    const parts = line.split(/\s+/).filter(Boolean);
-    const last = parts.length - 1;
+    // Split keeping the whitespace tokens so spacing is preserved exactly — only
+    // letters change.
+    const tokens = line.split(/(\s+)/);
+    const wordIdxs: number[] = [];
+    tokens.forEach((t, i) => { if (/\S/.test(t)) wordIdxs.push(i); });
+    const first = wordIdxs[0];
+    const last = wordIdxs[wordIdxs.length - 1];
     let afterColon = false;
-    return parts
-      .map((w, i) => {
-        const lower = w.toLowerCase();
+    return tokens
+      .map((t, i) => {
+        if (!/\S/.test(t)) return t; // whitespace unchanged
+        const lower = t.toLowerCase();
         const bare = lower.replace(/[^\p{L}\p{N}]/gu, "");
-        const forceCap = i === 0 || i === last || afterColon;
-        afterColon = w.endsWith(":");
+        const forceCap = i === first || i === last || afterColon;
+        afterColon = t.endsWith(":");
         if (!forceCap && SMALL_WORDS.has(bare)) return lower;
         return capFirst(lower);
       })
-      .join(" ");
+      .join("");
   });
 }
 
