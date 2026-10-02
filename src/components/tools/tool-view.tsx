@@ -33,7 +33,7 @@ function FaqList({ faq }: { faq: NonNullable<ToolMeta["faq"]> }) {
               </span>
               <IconChevronDown
                 size={14}
-                className={`shrink-0 text-[var(--color-ink-3)] transition-transform ${isOpen ? "rotate-180" : ""}`}
+                className={`shrink-0 text-[var(--color-ink-3)] transition-transform motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`}
               />
             </button>
             {isOpen && (

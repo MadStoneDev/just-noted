@@ -83,6 +83,27 @@ export default function CaseConverter() {
   const [notice, setNotice] = useState<{ text: string; undo: boolean } | null>(null);
   const { undo: undoKey } = usePlatformMod();
 
+  // Roving tabindex for the palette toolbar (§10): one chip is tabbable; arrow
+  // keys move focus across all chips.
+  const allActions = useMemo(
+    () => [...CASE_OPS, ...DEV_OPS, ...CLEANUP_GROUPS.flatMap((g) => g.ops)],
+    [],
+  );
+  const chipRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [focusIdx, setFocusIdx] = useState(0);
+  const onToolbarKeyDown = (e: React.KeyboardEvent) => {
+    const n = allActions.length;
+    let next = focusIdx;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (focusIdx + 1) % n;
+    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = (focusIdx - 1 + n) % n;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = n - 1;
+    else return;
+    e.preventDefault();
+    setFocusIdx(next);
+    chipRefs.current[next]?.focus();
+  };
+
   // Wrap undo/redo so the "what changed" notice is cleared when the action it
   // described is reverted/reapplied (it would otherwise linger with a stale Undo).
   const doUndo = () => { undo(); setNotice(null); };
@@ -144,9 +165,14 @@ export default function CaseConverter() {
 
   const disabled = !value;
 
-  const Chip = ({ action }: { action: Action }) => (
+  const Chip = ({ action }: { action: Action }) => {
+    const idx = allActions.indexOf(action);
+    return (
     <button
       type="button"
+      ref={(el) => { chipRefs.current[idx] = el; }}
+      tabIndex={focusIdx === idx ? 0 : -1}
+      onFocus={() => setFocusIdx(idx)}
       onClick={() => runAction(action)}
       className={`h-8 px-2.5 rounded-[var(--radius-7)] text-[12.5px] border transition-colors ${
         action.mono ? "font-[family-name:var(--font-meta)]" : ""
@@ -158,11 +184,17 @@ export default function CaseConverter() {
     >
       {action.label}
     </button>
-  );
+    );
+  };
 
-  const CleanupChip = ({ action }: { action: Action }) => (
+  const CleanupChip = ({ action }: { action: Action }) => {
+    const idx = allActions.indexOf(action);
+    return (
     <button
       type="button"
+      ref={(el) => { chipRefs.current[idx] = el; }}
+      tabIndex={focusIdx === idx ? 0 : -1}
+      onFocus={() => setFocusIdx(idx)}
       onClick={() => runAction(action)}
       className={`h-[30px] px-2.5 rounded-[var(--radius-7)] text-[12px] border transition-colors ${
         action.mono ? "font-[family-name:var(--font-meta)]" : ""
@@ -174,7 +206,8 @@ export default function CaseConverter() {
     >
       {action.label}
     </button>
-  );
+    );
+  };
 
   const Label = ({ children }: { children: React.ReactNode }) => (
     <div className="font-[family-name:var(--font-meta)] text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)] mb-2">
@@ -218,7 +251,7 @@ export default function CaseConverter() {
       </div>
 
       {/* Right: palette */}
-      <div className={`p-[18px] bg-[var(--color-panel)] flex flex-col gap-[18px] transition-opacity ${disabled ? "opacity-[0.42] pointer-events-none" : ""}`} aria-disabled={disabled} role="toolbar" aria-label="Transformations">
+      <div onKeyDown={onToolbarKeyDown} className={`p-[18px] bg-[var(--color-panel)] flex flex-col gap-[18px] transition-opacity ${disabled ? "opacity-[0.42] pointer-events-none" : ""}`} aria-disabled={disabled} role="toolbar" aria-label="Transformations">
         <div>
           <Label>Case</Label>
           <div className="flex flex-wrap gap-2">{CASE_OPS.map((a) => <Chip key={a.label} action={a} />)}</div>

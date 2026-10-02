@@ -5,6 +5,7 @@ import { slugifyDetailed, slugifyBatch } from "@/lib/text-tools/slug";
 import CopyButton from "@/components/tools/ui/copy-button";
 import Notice from "@/components/tools/ui/notice";
 import { Toggle, Stepper } from "@/components/tools/ui/controls";
+import { useThrottledAnnounce } from "@/components/tools/ui/use-throttled-announce";
 
 const OPTS_KEY = "jn.tools.slug-generator.options";
 
@@ -56,6 +57,7 @@ export default function SlugGenerator() {
   };
 
   const counter = opts.maxLength > 0 ? `${result.slug.length} / ${opts.maxLength}` : `${result.slug.length}`;
+  const announced = useThrottledAnnounce(result.slug);
 
   return (
     <div className="space-y-5">
@@ -103,14 +105,16 @@ export default function SlugGenerator() {
                 {counter}{result.trimmed ? " · trimmed" : ""}
               </span>
             </div>
-            <div className="flex items-stretch gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-stretch gap-2">
               <div className={`flex-1 flex items-center min-h-[54px] px-4 rounded-[var(--radius-10)] bg-[var(--color-canvas)] border ${result.slug ? "border-[#232828]" : "border-dashed border-[#232828]"} overflow-hidden`}>
-                <span className={`font-[family-name:var(--font-meta)] text-[16px] truncate ${result.slug ? "text-[var(--color-ink)]" : "text-[var(--color-ink-6)]"}`}>
+                <span className={`font-[family-name:var(--font-meta)] text-[16px] break-all sm:truncate ${result.slug ? "text-[var(--color-ink)]" : "text-[var(--color-ink-6)]"}`}>
                   {result.slug || "your-slug-appears-here"}
                 </span>
               </div>
-              <CopyButton text={result.slug} disabled={!result.slug} label="Copy" />
+              <CopyButton text={result.slug} disabled={!result.slug} label="Copy" className="w-full sm:w-auto" />
             </div>
+            {/* Throttled live region so typing doesn't flood screen readers (§10). */}
+            <span aria-live="polite" className="sr-only">{announced ? `Slug: ${announced}` : ""}</span>
             {result.removed.length > 0 && (
               <p className="mt-2 font-[family-name:var(--font-meta)] text-[11.5px] text-[var(--color-ink-4)]">
                 Removed: {result.removed.join(", ")}
