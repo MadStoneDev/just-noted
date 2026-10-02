@@ -69,11 +69,19 @@ export function slugifyDetailed(input: string, opts: SlugOptions = {}): SlugResu
   let trimmed = false;
   if (opts.maxLength && opts.maxLength > 0 && slug.length > opts.maxLength) {
     trimmed = true;
-    let cut = slug.slice(0, opts.maxLength);
-    const lastHyphen = cut.lastIndexOf("-");
-    // Never cut inside a word — unless the first word alone exceeds the limit.
-    if (lastHyphen > 0) cut = cut.slice(0, lastHyphen);
-    slug = cut;
+    const max = opts.maxLength;
+    if (slug[max] === "-") {
+      // slice(0, max) already ends exactly on a word boundary (the next char is
+      // the hyphen before the following word) — keep the whole prefix, don't
+      // back off and drop a word that actually fits.
+      slug = slug.slice(0, max);
+    } else {
+      let cut = slug.slice(0, max);
+      const lastHyphen = cut.lastIndexOf("-");
+      // Never cut inside a word — unless the first word alone exceeds the limit.
+      if (lastHyphen > 0) cut = cut.slice(0, lastHyphen);
+      slug = cut;
+    }
   }
 
   // 11. trim leading/trailing hyphens.

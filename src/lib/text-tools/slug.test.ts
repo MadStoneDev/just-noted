@@ -47,6 +47,15 @@ describe("slugify", () => {
     expect(slugify("the quick brown fox", { maxLength: 12 })).toBe("the-quick");
     expect(slugify("internationalisation", { maxLength: 6 })).toBe("intern");
   });
+
+  it("keeps a word that ends exactly at maxLength (boundary at the cut)", () => {
+    // Full slug is 80; the hyphen before "brisbane" sits exactly at index 60, so
+    // slice(0, 60) already ends on a boundary — "developers" must be kept.
+    const title = "Comprehensive Guide Choosing Professional Website Developers Brisbane Queensland";
+    const out = slugify(title, { maxLength: 60 });
+    expect(out).toBe("comprehensive-guide-choosing-professional-website-developers");
+    expect(out.length).toBe(60);
+  });
 });
 
 describe("slugifyDetailed", () => {
@@ -97,6 +106,14 @@ describe("slugifyBatch", () => {
     // Only the renamed duplicate is trimmed to fit its suffix within 60.
     expect(r.outputs[1].endsWith("-2")).toBe(true);
     expect(r.outputs[1].length).toBeLessThanOrEqual(60);
+  });
+
+  it("duplicate trim also keeps the boundary-at-max word (via the reduced max)", () => {
+    const title = "Comprehensive Guide Choosing Professional Website Developers Brisbane Queensland";
+    const r = slugifyBatch(`${title}\n${title}`, { maxLength: 60 });
+    expect(r.outputs[0]).toBe("comprehensive-guide-choosing-professional-website-developers");
+    expect(r.outputs[1].length).toBeLessThanOrEqual(60);
+    expect(r.outputs[1].endsWith("-2")).toBe(true);
   });
 
   it("handles a double-digit duplicate suffix (-13)", () => {
