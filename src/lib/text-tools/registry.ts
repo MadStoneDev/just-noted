@@ -156,14 +156,32 @@ export const TOOLS: ToolMeta[] = [
   {
     slug: "og-tester",
     name: "Open Graph tester",
-    phase: 2,
+    phase: 1,
     glyph: "og:",
     glyphFont: "mono",
     title: "Open Graph Tester: Preview How Links Share | JustNoted",
     description: "See how a link will look when it's shared, and which tags are missing.",
     cardDescription: "Preview a link on Facebook, LinkedIn, X, Slack and iMessage.",
     mobileDescription: "Preview how a link looks when shared.",
-    howItWorks: [],
+    howItWorks: [
+      "Paste a public URL and we fetch the page, read its Open Graph and Twitter Card tags, and show how the link would look when it's shared. Nothing is stored — no cache, no log of what you tested.",
+      "Open Graph is a set of <meta> tags (og:title, og:description, og:image and friends) that tell Facebook, LinkedIn, Slack and others what to show. Twitter Cards do the same for X. When they're missing, platforms guess from your title and the first image on the page, which rarely looks as good.",
+      "The checklist flags what's missing or off — a title that's too long, an image smaller than 1200×630 or the wrong shape, a missing card type — in the order worth fixing. The previews are neutral approximations: real platforms vary, but the proportions and cut-off points match.",
+    ],
+    faq: [
+      {
+        q: "Why does my image look stretched or cropped in the preview?",
+        a: "Most platforms crop to 1.91:1 (about 1200×630). If your og:image is a different shape it gets cropped to fit; if it's smaller than 1200×630 it can look soft on large cards. The checklist tells you the actual size it found.",
+      },
+      {
+        q: "It says no tags found, but I can see them in my code.",
+        a: "Some sites add Open Graph tags with JavaScript after the page loads, or behind a check that blocks automated fetches. We read the HTML the server sends, like the social platforms do, so tags added later won't be seen — add them to the server-rendered HTML.",
+      },
+      {
+        q: "Do you store the URLs I test?",
+        a: "No. We fetch the page to read its tags and return the result; nothing is cached or logged. We also only fetch public websites — private and internal addresses are refused.",
+      },
+    ],
   },
 ];
 
