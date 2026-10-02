@@ -19,9 +19,10 @@ const FORBIDDEN = ["Nothing written yet", "Skip to notes", "Your notes will appe
 const ROUTES = [
   { path: "/pricing", needs: ["Plans", "Scribe", "Draft"] },
   { path: "/roadmap", needs: ["Roadmap", "Vote on what matters"] },
-  { path: "/tools", needs: ["Tools", "Slug generator", "Case converter"] },
+  { path: "/tools", needs: ["Tools", "Slug generator", "Case converter", "Word counter"] },
   { path: "/tools/slug-generator", needs: ["Slug generator", "How it works"] },
   { path: "/tools/case-converter", needs: ["Case converter", "How it works"] },
+  { path: "/tools/word-counter", needs: ["Word counter", "How it works"] },
   { path: "/the-how", needs: ["How does JustNoted work"] },
   { path: "/the-what", needs: ["What is JustNoted"] },
 ];

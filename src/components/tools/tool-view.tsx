@@ -8,6 +8,7 @@ import ToolsChrome from "@/components/tools/tools-chrome";
 import ToolsFooter from "@/components/tools/tools-footer";
 import SlugGenerator from "@/components/tools/slug-generator";
 import CaseConverter from "@/components/tools/case-converter";
+import WordCounter from "@/components/tools/word-counter";
 
 // Tool page template (spec §4): back link · H1 · description · tool · privacy
 // line · How it works (+ FAQ) · footer. Rendered server-side (via the marker
@@ -122,6 +123,7 @@ export default function ToolView({ slug }: { slug: string }) {
         <div className="mt-6">
           {tool.slug === "slug-generator" && <SlugGenerator />}
           {tool.slug === "case-converter" && <CaseConverter />}
+          {tool.slug === "word-counter" && <WordCounter />}
         </div>
 
         {/* Privacy line (§4.5) */}

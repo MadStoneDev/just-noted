@@ -96,14 +96,32 @@ export const TOOLS: ToolMeta[] = [
   {
     slug: "word-counter",
     name: "Word counter",
-    phase: 2,
+    phase: 1,
     glyph: "123",
     glyphFont: "mono",
     title: "Word Counter: Count Words & Reading Time | JustNoted",
     description: "Count words, characters and sentences, and see reading time and your most-used words.",
     cardDescription: "Words, reading time and keyword frequency.",
     mobileDescription: "Words, reading time and keywords.",
-    howItWorks: [],
+    howItWorks: [
+      "Paste or type your text and the counts update as you go — words, characters (with and without spaces), sentences and paragraphs. A word is a run of letters or numbers, so don't and well-known each count as one.",
+      "Reading time assumes 238 words a minute and speaking time 130, the averages from reading-speed research. They're an estimate, not a stopwatch, but they're handy for sizing a post or a talk.",
+      "Keywords show your most-used words and phrases. Switch between single words and two- or three-word phrases, and turn off Exclude common words to include the, and, of and the like. Phrases never run across the end of a sentence.",
+    ],
+    faq: [
+      {
+        q: "How is a word counted?",
+        a: "A word is a run of letters or numbers, keeping internal apostrophes and hyphens — so don't and well-known are one word each. It's the same rule the live counts use across the tools.",
+      },
+      {
+        q: "How are sentences and paragraphs detected?",
+        a: "Sentences end at a full stop, question mark or exclamation mark followed by a space or the end of the text, ignoring abbreviations like Dr. and e.g. and decimals like 3.14. A paragraph is a block of text separated from the next by a blank line.",
+      },
+      {
+        q: "Why don't my keywords include words like “the”?",
+        a: "Common words are hidden by default so the list shows what your text is actually about. Turn off Exclude common words to count every word. Terms are lowercased and shown as-is, with no stemming.",
+      },
+    ],
   },
   {
     slug: "serp-preview",
