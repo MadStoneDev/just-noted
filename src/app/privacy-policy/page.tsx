@@ -82,7 +82,7 @@ export default async function PrivacyPolicyPage() {
             </span>
           </h1>
           <p className="mt-3 text-[var(--color-text-secondary)]">
-            <span className="font-medium">Last updated:</span> October 1, 2026
+            <span className="font-medium">Last updated:</span> October 3, 2026
           </p>
 
           {/* Who we are */}
@@ -288,6 +288,26 @@ export default async function PrivacyPolicyPage() {
             (shown as &ldquo;Deleted user&rdquo;) so the conversation still makes
             sense to everyone else, but the files they uploaded are deleted. Location
             (EXIF) data is stripped from photos when they&apos;re uploaded.
+          </p>
+
+          {/* Writing tools */}
+          <h2 className={H2}>Writing tools</h2>
+          <p className="mt-3">
+            Our free writing tools at{" "}
+            <a href="/tools" className={A}>justnoted.app/tools</a>{" "}
+            run entirely in your browser. The slug generator, case converter, word
+            counter and search-result preview never send the text you type
+            anywhere &mdash; it stays on your device.
+          </p>
+          <p className="mt-3">
+            The one exception is the{" "}
+            <a href="/tools/og-tester" className={A}>Open Graph tester</a>: to show
+            how a link will look when it&apos;s shared, our server fetches the{" "}
+            <span className="font-medium">public web address you enter</span> (and
+            its preview image) and reads the page&apos;s tags. We don&apos;t store
+            the address or the result, we don&apos;t keep a log of what was tested,
+            and we only fetch public websites &mdash; private and internal addresses
+            are refused. Requests are rate-limited by IP to prevent abuse.
           </p>
 
           {/* Cookies and analytics */}

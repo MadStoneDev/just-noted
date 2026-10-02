@@ -155,12 +155,14 @@ export default function OgTester() {
         </p>
       )}
 
-      {/* Loading steps (no spinner); previous results dim to 40%. */}
+      {/* Loading steps (no spinner); previous results dim to 40%. The dots
+          advance visually, but nothing shows a ✓ until the response arrives —
+          at which point we switch to results. */}
       {status === "loading" && (
         <div className="mt-6 flex flex-wrap gap-x-4 gap-y-1.5 font-[family-name:var(--font-meta)] text-[11.5px]">
-          <Step done={step > 0} active={step === 0} label="Fetched page" />
-          <Step done={step > 1} active={step === 1} label="Reading tags" />
-          <Step done={false} active={step === 2} label="Checking image" />
+          <Step active={step >= 0} label="Fetching page" />
+          <Step active={step >= 1} label="Reading tags" />
+          <Step active={step >= 2} label="Checking image" />
         </div>
       )}
 
@@ -219,10 +221,11 @@ export default function OgTester() {
   );
 }
 
-function Step({ done, active, label }: { done: boolean; active: boolean; label: string }) {
-  const glyph = done ? "✓" : active ? "●" : "○";
-  const color = done ? "text-[var(--color-accent-text)]" : active ? "text-[var(--color-ink)]" : "text-[var(--color-ink-5)]";
-  return <span className={color}>{glyph} {label}</span>;
+// During loading a step is either reached (● ink) or not yet (○ ink-5). We never
+// show a ✓ "done" tick while loading — completion is only known once the JSON
+// response returns, at which point the results replace these steps.
+function Step({ active, label }: { active: boolean; label: string }) {
+  return <span className={active ? "text-[var(--color-ink)]" : "text-[var(--color-ink-5)]"}>{active ? "●" : "○"} {label}</span>;
 }
 
 function ErrorNotice({ err, onRetry }: { err: ErrResult; onRetry: () => void }) {

@@ -44,15 +44,16 @@ export const metadata = {
   description:
     "Just Noted: Where ideas flow freely. No formatting distractions, just pure writing with offline/online saving and word tools.",
   openGraph: {
+    url: "/",
     title: "Just Noted - Distraction-Free Note Taking",
     description:
       "Just Noted: Where ideas flow freely. No formatting distractions, just pure writing with offline/online saving and word tools.",
     images: [
       {
-        url: "/JustNoted_OG.jpg",
+        url: "/og/justnoted.png",
         width: 1200,
         height: 630,
-        alt: "Just Noted - Distraction-Free Note Taking",
+        alt: "JustNoted — write without distractions",
       },
     ],
     locale: "en_US",
@@ -64,7 +65,7 @@ export const metadata = {
     title: "Just Noted - Distraction-Free Note Taking",
     description:
       "Just Noted: Where ideas flow freely. No formatting distractions, just pure writing with offline/online saving and word tools.",
-    images: ["/JustNoted_OG.jpg"],
+    images: ["/og/justnoted.png"],
     creator: "@justnoted",
   },
 };

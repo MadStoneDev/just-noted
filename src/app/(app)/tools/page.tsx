@@ -16,13 +16,13 @@ export const metadata: Metadata = {
     url: "/tools",
     type: "website",
     siteName: "JustNoted",
-    images: [{ url: "/JustNoted_OG.jpg", width: 1200, height: 630, alt: "JustNoted tools" }],
+    images: [{ url: "/og/justnoted.png", width: 1200, height: 630, alt: "JustNoted — free online writing tools" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Free Online Writing Tools | JustNoted",
     description: DESCRIPTION,
-    images: ["/JustNoted_OG.jpg"],
+    images: ["/og/justnoted.png"],
   },
 };
 
