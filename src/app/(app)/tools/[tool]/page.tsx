@@ -14,6 +14,7 @@ export async function generateMetadata(
     return { title: "Tool not found | JustNoted" };
   }
   const url = `/tools/${tool.slug}`;
+  const ogImage = tool.ogImage ?? `/og/tools-${tool.slug}.png`;
   return {
     title: tool.title,
     description: tool.description,
@@ -24,13 +25,13 @@ export async function generateMetadata(
       url,
       type: "website",
       siteName: "JustNoted",
-      images: [{ url: `/og/tools-${tool.slug}.png`, width: 1200, height: 630, alt: tool.name }],
+      images: [{ url: ogImage, width: 1200, height: 630, alt: tool.name }],
     },
     twitter: {
       card: "summary_large_image",
       title: tool.title,
       description: tool.description,
-      images: [`/og/tools-${tool.slug}.png`],
+      images: [ogImage],
     },
   };
 }

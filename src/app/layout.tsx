@@ -40,32 +40,32 @@ export const metadata = {
   // Resolves relative OG/Twitter image URLs against the real site instead of
   // localhost:3000 (the Next default when unset), so shared links show the card.
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://justnoted.app"),
-  title: "Just Noted - Distraction-Free Note Taking",
+  title: "Distraction-Free Note Taking App | JustNoted",
   description:
-    "Just Noted: Where ideas flow freely. No formatting distractions, just pure writing with offline/online saving and word tools.",
+    "A calm, distraction-free place to write and keep your notes. Works offline, syncs across your devices, and lets you share and collaborate. Free to start.",
   openGraph: {
     url: "/",
-    title: "Just Noted - Distraction-Free Note Taking",
+    title: "Distraction-Free Note Taking App | JustNoted",
     description:
-      "Just Noted: Where ideas flow freely. No formatting distractions, just pure writing with offline/online saving and word tools.",
+      "A calm, distraction-free place to write and keep your notes. Works offline, syncs across your devices, and lets you share and collaborate. Free to start.",
     images: [
       {
-        url: "/og/justnoted.png",
+        url: "/JustNoted_OG.jpg",
         width: 1200,
         height: 630,
-        alt: "JustNoted — write without distractions",
+        alt: "JustNoted — distraction-free note taking",
       },
     ],
     locale: "en_US",
     type: "website",
-    siteName: "Just Noted",
+    siteName: "JustNoted",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Just Noted - Distraction-Free Note Taking",
+    title: "Distraction-Free Note Taking App | JustNoted",
     description:
-      "Just Noted: Where ideas flow freely. No formatting distractions, just pure writing with offline/online saving and word tools.",
-    images: ["/og/justnoted.png"],
+      "A calm, distraction-free place to write and keep your notes. Works offline, syncs across your devices, and lets you share and collaborate. Free to start.",
+    images: ["/JustNoted_OG.jpg"],
     creator: "@justnoted",
   },
 };

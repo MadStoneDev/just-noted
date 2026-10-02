@@ -26,6 +26,9 @@ export interface ToolMeta {
   mobileDescription: string;
   /** <title> (approved, keyword-first, brand last, ≤60). */
   title: string;
+  /** og:image override (a designed 1200×630 card). Falls back to the generated
+   *  placeholder /og/tools-<slug>.png when unset. */
+  ogImage?: string;
   /** How-it-works paragraphs (§x.7) — live tools only. */
   howItWorks: string[];
   /** FAQ (first item open) — live tools only. */
@@ -40,6 +43,7 @@ export const TOOLS: ToolMeta[] = [
     glyph: "a-b",
     glyphFont: "mono",
     title: "Slug Generator: Turn Titles into URL Slugs | JustNoted",
+    ogImage: "/og/tools-slug-generator.jpg",
     description: "Turn any title into a clean, URL-safe slug. It updates as you type.",
     cardDescription: "Turn any title into a clean, URL-safe slug, one at a time or in bulk.",
     mobileDescription: "Titles into clean, URL-safe slugs.",
