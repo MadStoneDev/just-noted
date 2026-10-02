@@ -34,3 +34,27 @@ describe("countLines", () => {
     expect(countLines("a\n\nb")).toBe(3);
   });
 });
+
+describe("countWords — internal separators (Word/Docs parity)", () => {
+  it("keeps digit-group separators as one word", () => {
+    expect(countWords("3.50")).toBe(1);
+    expect(countWords("1,000")).toBe(1);
+    expect(countWords("12:30")).toBe(1);
+    expect(countWords("$3.50 for coffee")).toBe(3);
+    expect(countWords("version 3.5.2 shipped")).toBe(3);
+  });
+  it("keeps dotted abbreviations as one word, drops a trailing dot", () => {
+    expect(countWords("e.g.")).toBe(1);
+    expect(countWords("i.e.")).toBe(1);
+    expect(countWords("U.S.")).toBe(1);
+    expect(countWords("Dr. Smith")).toBe(2);
+  });
+  it("does not merge letters across a comma (missing space)", () => {
+    expect(countWords("Hello,world")).toBe(2);
+  });
+  it("matches the Word/Docs count on the sample paragraph (29)", () => {
+    const text =
+      "Dr. Smith paid $3.50 for coffee. It's well-known that e.g. cafés in Brisbane are great! Why don't we write more? SEO tips for small businesses help. SEO tips matter.";
+    expect(countWords(text)).toBe(29);
+  });
+});

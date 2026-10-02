@@ -94,4 +94,16 @@ describe("extractKeywords (spec §8.1)", () => {
   it("empty text yields no rows", () => {
     expect(extractKeywords("")).toEqual([]);
   });
+  it("excludes pure-number single tokens (even with exclude off)", () => {
+    const on = extractKeywords("I paid 3.50 and 3.50 again for coffee.", { phraseLen: 1, excludeCommon: true });
+    expect(on.find((r) => r.term === "3.50")).toBeUndefined();
+    const off = extractKeywords("3.50 3.50 coffee", { phraseLen: 1, excludeCommon: false });
+    expect(off.find((r) => r.term === "3.50")).toBeUndefined();
+    expect(off.find((r) => r.term === "coffee")).toBeDefined();
+  });
+  it("excludes phrases that start or end with a number when exclude is on", () => {
+    const rows = extractKeywords("buy 3 apples. apples cost 3.", { phraseLen: 2, excludeCommon: true });
+    expect(rows.find((r) => r.term === "3 apples")).toBeUndefined();
+    expect(rows.find((r) => r.term === "apples cost")).toBeDefined();
+  });
 });

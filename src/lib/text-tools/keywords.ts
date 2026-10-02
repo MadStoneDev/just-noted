@@ -40,11 +40,24 @@ function isStopword(token: string): boolean {
   return EN_STOPWORDS.has(token);
 }
 
-// A phrase passes the stopword filter unless it starts or ends with a stopword.
+// A pure-number token (no letters): "3", "50", "3.50", "1,000", "12:30". These
+// are never meaningful keywords. "3rd" and "COVID19" contain letters, so they
+// are kept.
+function isNumeric(token: string): boolean {
+  return !/\p{L}/u.test(token);
+}
+
+// Single words: pure numbers are always excluded; common words are excluded
+// only when the toggle is on. Phrases: excluded when they start or end with a
+// stopword or a number (toggle on) — otherwise kept.
 function phraseAllowed(tokens: string[], exclude: boolean): boolean {
+  if (tokens.length === 1) {
+    if (isNumeric(tokens[0])) return false;
+    return exclude ? !isStopword(tokens[0]) : true;
+  }
   if (!exclude) return true;
-  if (tokens.length === 1) return !isStopword(tokens[0]);
-  return !isStopword(tokens[0]) && !isStopword(tokens[tokens.length - 1]);
+  const bad = (t: string) => isStopword(t) || isNumeric(t);
+  return !bad(tokens[0]) && !bad(tokens[tokens.length - 1]);
 }
 
 export function extractKeywords(text: string, opts: KeywordOptions = {}): KeywordRow[] {

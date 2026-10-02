@@ -1,8 +1,13 @@
 // Text counting for the Tools counts bar (spec §5.3). Pure + reusable.
 
-// Word = a run of Unicode letters/digits, with internal apostrophes and hyphens
-// kept, so "don't" and "well-known" each count as one word.
-const WORD_RE = /[\p{L}\p{N}]+(?:['’\-][\p{L}\p{N}]+)*/gu;
+// Word = a run of Unicode letters/digits with internal connectors kept, to
+// match Word / Google Docs:
+//   - apostrophes, hyphens and dots between alphanumerics: don't, well-known,
+//     e.g., i.e., U.S., 3.50, 3.5.2 each count as one word;
+//   - commas and colons between digits: 1,000 and 12:30 each count as one word.
+// A trailing connector with nothing after it (the dot in "Dr." or "e.g.") is
+// not part of the word.
+const WORD_RE = /[\p{L}\p{N}]+(?:(?:['’.\-][\p{L}\p{N}]+)|(?:[,:]\p{Nd}+))*/gu;
 
 export function countWords(s: string): number {
   if (!s) return 0;
