@@ -6,6 +6,7 @@ import { useUndo } from "@/components/tools/ui/use-undo";
 import CopyButton from "@/components/tools/ui/copy-button";
 import CountsBar from "@/components/tools/ui/counts-bar";
 import Notice from "@/components/tools/ui/notice";
+import { Segmented } from "@/components/tools/ui/controls";
 import { IconArrowBackUp } from "@tabler/icons-react";
 import { usePlatformMod } from "@/lib/text-tools/platform";
 
@@ -103,6 +104,18 @@ export default function CaseConverter() {
     setFocusIdx(next);
     chipRefs.current[next]?.focus();
   };
+
+  // Mobile (§9.5): one group shown at a time; sticky bar rises with the keyboard.
+  const [mobileGroup, setMobileGroup] = useState<"Case" | "Developer" | "Cleanup">("Case");
+  const [kbInset, setKbInset] = useState(0);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onResize = () => setKbInset(Math.max(0, window.innerHeight - vv.height - vv.offsetTop));
+    vv.addEventListener("resize", onResize);
+    vv.addEventListener("scroll", onResize);
+    return () => { vv.removeEventListener("resize", onResize); vv.removeEventListener("scroll", onResize); };
+  }, []);
 
   // Wrap undo/redo so the "what changed" notice is cleared when the action it
   // described is reverted/reapplied (it would otherwise linger with a stale Undo).
@@ -215,10 +228,27 @@ export default function CaseConverter() {
     </div>
   );
 
+  const MobileChip = ({ action }: { action: Action }) => (
+    <button
+      type="button"
+      onClick={() => runAction(action)}
+      className={`shrink-0 h-11 px-3.5 rounded-[var(--radius-9)] text-[14px] border whitespace-nowrap ${
+        action.mono ? "font-[family-name:var(--font-meta)]" : ""
+      } ${
+        lastUsed === action.label
+          ? "bg-[var(--color-accent-tint)] border-[var(--color-accent-tint-border)] text-[var(--color-accent-text)]"
+          : "bg-[var(--color-raised-soft)] border-[var(--color-border-control)] text-[var(--color-ink-1)]"
+      }`}
+    >
+      {action.label}
+    </button>
+  );
+
   return (
-    <div className="rounded-[var(--radius-14)] border border-[var(--color-hairline)] overflow-hidden grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_316px]">
+    <>
+    <div className="rounded-[var(--radius-14)] border border-[var(--color-hairline)] overflow-hidden grid grid-cols-1 min-[1100px]:grid-cols-[minmax(0,1fr)_316px]">
       {/* Left: editor */}
-      <div className="p-[18px] flex flex-col gap-3 lg:border-r border-[var(--color-hairline)]">
+      <div className="p-[18px] flex flex-col gap-3 min-[1100px]:border-r border-[var(--color-hairline)]">
         {notice && (
           <Notice level="info" action={notice.undo ? { label: "Undo", onClick: doUndo } : undefined}>
             {notice.text}
@@ -235,7 +265,8 @@ export default function CaseConverter() {
           placeholder="Paste or type text to convert"
           className="min-h-[370px] max-h-[60vh] resize-y rounded-[var(--radius-10)] bg-[var(--color-raised)] border border-[var(--color-border-control)] p-4 text-[16px] leading-[1.6] text-[var(--color-ink)] focus:border-[var(--color-accent-deep)] focus:outline-none"
         />
-        <div className="flex flex-wrap items-center gap-2.5">
+        {/* Desktop/tablet action row — mobile uses the sticky bar below. */}
+        <div className="hidden min-[700px]:flex flex-wrap items-center gap-2.5">
           <div className="flex-1 min-w-0 overflow-x-auto"><CountsBar text={value} selected={selected} /></div>
           <button
             type="button"
@@ -248,10 +279,33 @@ export default function CaseConverter() {
           </button>
           <CopyButton text={value} disabled={disabled} label="Copy" />
         </div>
+
+        {/* Mobile palette (§9.5): group segmented control + one horizontally
+            scrolling 44px chip row. Only shown below 700px. */}
+        <div className={`min-[700px]:hidden flex flex-col gap-3 ${disabled ? "opacity-[0.42] pointer-events-none" : ""}`}>
+          <Segmented
+            ariaLabel="Transformation group"
+            value={mobileGroup}
+            onChange={(v) => setMobileGroup(v)}
+            options={[{ value: "Case", label: "Case" }, { value: "Developer", label: "Developer" }, { value: "Cleanup", label: "Cleanup" }]}
+          />
+          <div className="flex gap-2 overflow-x-auto -mr-4 pr-4 pb-1 scrollbar-thin">
+            {mobileGroup === "Case" && CASE_OPS.map((a) => <MobileChip key={a.label} action={a} />)}
+            {mobileGroup === "Developer" && DEV_OPS.map((a) => <MobileChip key={a.label} action={a} />)}
+            {mobileGroup === "Cleanup" && CLEANUP_GROUPS.map((g) => (
+              <React.Fragment key={g.sub}>
+                <span className="shrink-0 self-center text-[10px] font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)] px-1">{g.sub}</span>
+                {g.ops.map((a) => <MobileChip key={a.label} action={a} />)}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+        {/* Spacer so the fixed mobile bar doesn't cover the end of the content. */}
+        <div className="min-[700px]:hidden h-16" aria-hidden />
       </div>
 
-      {/* Right: palette */}
-      <div onKeyDown={onToolbarKeyDown} className={`p-[18px] bg-[var(--color-panel)] flex flex-col gap-[18px] transition-opacity ${disabled ? "opacity-[0.42] pointer-events-none" : ""}`} aria-disabled={disabled} role="toolbar" aria-label="Transformations">
+      {/* Right: palette (desktop/tablet) */}
+      <div onKeyDown={onToolbarKeyDown} className={`hidden min-[700px]:flex p-[18px] bg-[var(--color-panel)] flex-col gap-[18px] transition-opacity ${disabled ? "opacity-[0.42] pointer-events-none" : ""}`} aria-disabled={disabled} role="toolbar" aria-label="Transformations">
         <div>
           <Label>Case</Label>
           <div className="flex flex-wrap gap-2">{CASE_OPS.map((a) => <Chip key={a.label} action={a} />)}</div>
@@ -273,5 +327,25 @@ export default function CaseConverter() {
         </div>
       </div>
     </div>
+
+    {/* Mobile sticky bottom bar (§9.5): counts · Undo · Copy, rising with the
+        on-screen keyboard. Only below 700px. */}
+    <div
+      className="min-[700px]:hidden fixed left-0 right-0 z-40 flex items-center gap-3 px-4 border-t border-[var(--color-hairline)] bg-[var(--color-panel)]"
+      style={{ bottom: kbInset, height: "calc(68px + env(safe-area-inset-bottom))", paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
+      <div className="flex-1 min-w-0 overflow-x-auto"><CountsBar text={value} selected={selected} /></div>
+      <button
+        type="button"
+        onClick={doUndo}
+        disabled={!canUndo}
+        aria-label="Undo"
+        className="shrink-0 w-12 h-12 flex items-center justify-center rounded-[var(--radius-9)] border border-[var(--color-border-control-strong)] text-[var(--color-ink)] disabled:opacity-40"
+      >
+        <IconArrowBackUp size={18} />
+      </button>
+      <CopyButton text={value} disabled={disabled} label="Copy" heightClass="h-12" />
+    </div>
+    </>
   );
 }

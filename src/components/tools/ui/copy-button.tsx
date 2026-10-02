@@ -13,11 +13,13 @@ export default function CopyButton({
   label = "Copy",
   disabled = false,
   className = "",
+  heightClass = "h-10",
 }: {
   text: string;
   label?: string;
   disabled?: boolean;
   className?: string;
+  heightClass?: string;
 }) {
   const [state, setState] = useState<"idle" | "copied" | "fallback">("idle");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -55,7 +57,7 @@ export default function CopyButton({
         // Fixed min width covers the longest label so the button never resizes.
         style={{ minWidth: "7.5rem" }}
         className={[
-          "inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-[var(--radius-8)] text-[13.5px] font-semibold transition-colors",
+          `inline-flex items-center justify-center gap-1.5 ${heightClass} px-4 rounded-[var(--radius-8)] text-[13.5px] font-semibold transition-colors`,
           disabled
             ? "bg-[var(--color-raised-soft)] border border-[var(--color-hairline)] text-[var(--color-ink-6)] cursor-not-allowed"
             : state === "copied"
