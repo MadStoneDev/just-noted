@@ -2,6 +2,7 @@
 
 import { createClient, createServiceRoleClient } from "@/utils/supabase/server";
 import { ownerCanCollaborate } from "@/lib/subscription";
+import { noteIsTrashed } from "@/lib/note-trash";
 
 /**
  * Persistence for the collaborative Yjs document (design surface 05).
@@ -32,6 +33,10 @@ async function resolve(target: Target): Promise<{
     if (!userId) return { noteId: target.noteId, canRead: false, canWrite: false };
     const { data: note } = await svc.from("notes").select("author").eq("id", target.noteId).maybeSingle();
     const owns = (note as any)?.author === userId;
+    // A trashed note's collab doc is not loadable/persistable (A4).
+    if (owns && (await noteIsTrashed(svc, target.noteId))) {
+      return { noteId: target.noteId, canRead: false, canWrite: false };
+    }
     return { noteId: target.noteId, canRead: owns, canWrite: owns };
   }
 
@@ -66,6 +71,10 @@ async function resolve(target: Target): Promise<{
     // A lapsed Scribe's editors keep their rows but become view-only here.
     if (canWrite && !(await ownerCanCollaborate(svc, (share as any).note_id))) {
       canWrite = false;
+    }
+    // A trashed note is unreachable for collaborators too (A4).
+    if ((canRead || canWrite) && (await noteIsTrashed(svc, (share as any).note_id))) {
+      return { noteId: (share as any).note_id, canRead: false, canWrite: false };
     }
     return { noteId: (share as any).note_id, canRead, canWrite };
   }

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient, createServiceRoleClient } from "@/utils/supabase/server";
+import { noteIsTrashed } from "@/lib/note-trash";
 import { getCollabAllowance, ownerCanCollaborate } from "@/lib/subscription";
 import { wouldBlankNonEmpty } from "@/lib/collab-guard";
 import { notifyShareAdded, notifyNoteEdited } from "@/utils/notifications/create";
@@ -598,15 +599,8 @@ export async function sharingOperation(params: SharingOperationParams) {
         // A note in the owner's trash is not reachable via its share link. We
         // gate on the live deleted_at rather than tearing down the share, so
         // access comes back automatically if the owner restores the note (A4).
-        if ((shareData as any).storage !== "redis") {
-          const { data: noteRow } = await viewClient
-            .from("notes")
-            .select("deleted_at")
-            .eq("id", (shareData as any).note_id)
-            .maybeSingle();
-          if (!noteRow || (noteRow as any).deleted_at) {
-            return { success: false, error: "Shared note not found" };
-          }
+        if (await noteIsTrashed(viewClient, (shareData as any).note_id, (shareData as any).storage)) {
+          return { success: false, error: "Shared note not found" };
         }
 
         // Check expiration
@@ -786,6 +780,10 @@ export async function sharingOperation(params: SharingOperationParams) {
           .single();
 
         if (shareErr || !shareData) {
+          return { success: false, error: "Shared note not found" };
+        }
+        // A trashed note can't be edited through its share link (A4).
+        if (await noteIsTrashed(svc, (shareData as any).note_id, (shareData as any).storage)) {
           return { success: false, error: "Shared note not found" };
         }
         // Enforce edit access server-side: either the link allows editing, or
@@ -1039,7 +1037,9 @@ export async function getSharedWithMe(): Promise<{
 
     let title = "Untitled";
     if (s.storage !== "redis") {
-      const { data: n } = await svc.from("notes").select("title").eq("id", s.note_id).single();
+      const { data: n } = await svc.from("notes").select("title, deleted_at").eq("id", s.note_id).maybeSingle();
+      // A note the owner has trashed drops out of the recipient's list too (A4).
+      if (!n || (n as any).deleted_at) continue;
       title = (n as any)?.title || "Untitled";
     }
 

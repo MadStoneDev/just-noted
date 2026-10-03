@@ -5,6 +5,7 @@ import { ownerCanCollaborate } from "@/lib/subscription";
 import { checkRateLimit } from "@/utils/rate-limit";
 import { toMessageView, type ChatAuthor, type ChatMessageView, type ChatMessageRow } from "@/lib/chat";
 import { validateChatMedia, baseMime } from "@/lib/chat-media";
+import { noteIsTrashed } from "@/lib/note-trash";
 import { notifyChatMessage, markChatNotificationsRead } from "@/utils/notifications/create";
 import {
   CHAT_PREFIX,
@@ -34,6 +35,10 @@ async function isParticipant(
   noteId: string,
   uid: string,
 ): Promise<boolean> {
+  // A trashed note has no reachable chat — for the owner or any collaborator —
+  // until it's restored (A4). This is the single gate for every chat path:
+  // list, send, media upload/send and media URL all go through here.
+  if (await noteIsTrashed(svc, noteId)) return false;
   const { data: note } = await svc.from("notes").select("author").eq("id", noteId).maybeSingle();
   if ((note as any)?.author === uid) return true;
   const { data: shares } = await svc.from("shared_notes").select("id").eq("note_id", noteId);
