@@ -26,8 +26,8 @@ export interface ToolMeta {
   mobileDescription: string;
   /** <title> (approved, keyword-first, brand last, ≤60). */
   title: string;
-  /** og:image override (a designed 1200×630 card). Falls back to the generated
-   *  placeholder /og/tools-<slug>.png when unset. */
+  /** og:image override (a designed 1200×630 card, e.g. /og/tools-<slug>.jpg).
+   *  Falls back to the brand home image (/JustNoted_OG.jpg) when unset. */
   ogImage?: string;
   /** How-it-works paragraphs (§x.7) — live tools only. */
   howItWorks: string[];

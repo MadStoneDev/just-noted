@@ -14,7 +14,9 @@ export async function generateMetadata(
     return { title: "Tool not found | JustNoted" };
   }
   const url = `/tools/${tool.slug}`;
-  const ogImage = tool.ogImage ?? `/og/tools-${tool.slug}.png`;
+  // A tool uses its own designed card when set; otherwise it falls back to the
+  // brand home image (no generated placeholders).
+  const ogImage = tool.ogImage ?? "/JustNoted_OG.jpg";
   return {
     title: tool.title,
     description: tool.description,

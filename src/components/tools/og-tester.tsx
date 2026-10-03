@@ -117,11 +117,12 @@ export default function OgTester() {
 
   const onSubmit = (e: React.FormEvent) => { e.preventDefault(); run(); };
 
-  const wide = status === "done" && result; // 1040 on results, 820 otherwise
   const buttonLabel = status === "loading" ? "Testing…" : status === "done" ? "Test again" : "Test";
 
+  // Fixed width (fills the tool column) so the page doesn't shift when results
+  // appear after a test.
   return (
-    <div className={`mx-auto ${wide ? "max-w-[1040px]" : "max-w-[820px]"}`}>
+    <div className="w-full">
       {/* Input row */}
       <form onSubmit={onSubmit} className="flex flex-col min-[560px]:flex-row gap-2.5">
         <input

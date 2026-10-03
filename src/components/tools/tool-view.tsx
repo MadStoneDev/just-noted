@@ -53,7 +53,8 @@ export default function ToolView({ slug }: { slug: string }) {
   const router = useRouter();
   const tool = getTool(slug);
   // Column width per spec §2.1: single-column tools 820, two-column tools 1040.
-  const colClass = slug === "slug-generator" ? "max-w-[820px]" : "max-w-[1040px]";
+  // Every tool page uses the same column width for a consistent layout.
+  const colClass = "max-w-[1040px]";
 
   if (!tool) {
     return (
