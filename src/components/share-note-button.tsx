@@ -132,6 +132,12 @@ export default function ShareNoteButton({
     return () => window.removeEventListener("justnoted:open-share", openShare);
   }, []);
 
+  // Tell the open editor that this note's sharing changed, so it can switch into
+  // (or out of) live collaboration without a reload (A1).
+  const emitSharesChanged = useCallback(() => {
+    try { window.dispatchEvent(new CustomEvent("justnoted:shares-changed", { detail: { noteId } })); } catch {}
+  }, [noteId]);
+
   const save = useCallback(
     async (overrides?: Partial<{ linkPermission: LinkPermission; isAnonymous: boolean; usePassword: boolean; useExpiry: boolean }>) => {
       const perm = overrides?.linkPermission ?? linkPermission;
@@ -151,7 +157,7 @@ export default function ShareNoteButton({
           password: pw,
           expiresAt: exp,
         });
-        if (result.success) await loadShareInfo();
+        if (result.success) { await loadShareInfo(); emitSharesChanged(); }
         else if (!handleGateError((result as any).error, (result as any).limit)) toast.showError((result as any).error || "Couldn't update sharing");
       } finally {
         setSaving(false);
@@ -180,7 +186,7 @@ export default function ShareNoteButton({
         currentUserId: userId,
         storage: noteSource,
       });
-      if (result.success) { setNewUsername(""); await loadShareInfo(); }
+      if (result.success) { setNewUsername(""); await loadShareInfo(); emitSharesChanged(); }
       else if (!handleGateError((result as any).error, (result as any).limit)) toast.showError((result as any).error || "Couldn't add that person");
     } finally { setSaving(false); }
   }, [noteId, newUsername, addRole, userId, noteSource, linkPermission, toast, loadShareInfo]);
@@ -192,14 +198,14 @@ export default function ShareNoteButton({
         operation: "share", noteId, isPublic: linkPermission !== "off",
         username, role, currentUserId: userId, storage: noteSource,
       });
-      if (result.success) await loadShareInfo();
+      if (result.success) { await loadShareInfo(); emitSharesChanged(); }
       else if (!handleGateError((result as any).error, (result as any).limit)) toast.showError((result as any).error || "Couldn't change access");
     } finally { setSaving(false); }
   }, [noteId, linkPermission, userId, noteSource, toast, loadShareInfo]);
 
   const removePerson = useCallback(async (username: string) => {
     const result = await sharingOperation({ operation: "removeUser", noteId, username, currentUserId: userId });
-    if (result.success) await loadShareInfo();
+    if (result.success) { await loadShareInfo(); emitSharesChanged(); }
     else toast.showError("Couldn't remove that person");
   }, [noteId, userId, toast, loadShareInfo]);
 
@@ -207,6 +213,7 @@ export default function ShareNoteButton({
     const count = info.users.length;
     const result = await sharingOperation({ operation: "stopSharing", noteId, currentUserId: userId });
     if (result.success) {
+      emitSharesChanged();
       toast.showSuccess(count > 0 ? `Stopped sharing — ${count} ${count === 1 ? "person" : "people"} lost access` : "Stopped sharing");
       setOpen(false);
     }

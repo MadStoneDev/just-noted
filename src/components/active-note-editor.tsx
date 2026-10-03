@@ -435,21 +435,59 @@ function NoteEditor({
     load?: () => Promise<string | null>;
     save?: (state: string) => Promise<void>;
   } | null>(null);
+  // Read current collab state inside effects without making them re-run.
+  const collabConfigRef = useRef(collabConfig);
+  collabConfigRef.current = collabConfig;
+  // Bumped when this note's sharing changes (via the justnoted:shares-changed
+  // event) so the probe below re-runs and the editor switches into/out of live
+  // collaboration without a reload (A1).
+  const [shareEpoch, setShareEpoch] = useState(0);
+  const prevNoteIdRef = useRef<string | null>(null);
+  // Assigned once flushSave exists (below); lets the probe flush pending saves
+  // before switching a live note into/out of collab.
+  const flushSaveRef = useRef<() => void>(() => {});
+
   useEffect(() => {
     let cancelled = false;
-    setCollabConfig(null);
-    if (!isAuthenticated || note.source !== "supabase") return;
+    const noteChanged = prevNoteIdRef.current !== note.id;
+    prevNoteIdRef.current = note.id;
+    // A different note: reset synchronously so the editor key never pairs a new
+    // note id with the previous note's collab room.
+    if (noteChanged) setCollabConfig(null);
+
+    // Leave collab (unshare / access removed): persist the live content first so
+    // the plain editor that remounts shows the latest text.
+    const exitCollab = () => {
+      if (collabConfigRef.current && collabConfigRef.current.roomKey === note.id) {
+        if (!noteChanged) flushSaveRef.current();
+        setCollabConfig(null);
+      }
+    };
+
+    if (!isAuthenticated || note.source !== "supabase") {
+      exitCollab();
+      return;
+    }
+
     (async () => {
       try {
         const res = (await sharingOperation({ operation: "getUsers", noteId: note.id, currentUserId: userId })) as any;
+        if (cancelled || note.id !== prevNoteIdRef.current) return;
         // Collaboration is active when the link is "Can edit" OR at least one
         // person was granted edit — the owner must join the room in both cases,
         // otherwise their editor isn't on the CRDT channel and edits don't sync.
         const hasEditors = Array.isArray(res?.users) && res.users.some((u: any) => u?.role === "edit");
-        if (cancelled || !res?.success || (res.linkPermission !== "edit" && !hasEditors)) return;
+        const shouldCollab = !!res?.success && (res.linkPermission === "edit" || hasEditors);
+        if (!shouldCollab) { exitCollab(); return; }
+        // Already collaborating on this note — nothing to switch.
+        if (collabConfigRef.current && collabConfigRef.current.roomKey === note.id) return;
         const supabase = createClient();
         const { data: a } = await supabase.from("authors").select("username").eq("id", userId).single();
-        if (cancelled) return;
+        if (cancelled || note.id !== prevNoteIdRef.current) return;
+        // Flush pending local/cloud saves before switching a live note into
+        // collab, so the ydoc seeds from the latest content (the editor's
+        // single-seeder guard prevents an empty or duplicated doc).
+        if (!noteChanged) flushSaveRef.current();
         const nid = note.id;
         setCollabConfig({
           roomKey: nid,
@@ -460,7 +498,17 @@ function NoteEditor({
       } catch {}
     })();
     return () => { cancelled = true; };
-  }, [note.id, note.source, userId, isAuthenticated]);
+  }, [note.id, note.source, userId, isAuthenticated, shareEpoch]);
+
+  // Re-probe sharing when this note is shared/unshared while open (A1).
+  useEffect(() => {
+    const onSharesChanged = (e: Event) => {
+      const id = (e as CustomEvent)?.detail?.noteId;
+      if (!id || id === note.id) setShareEpoch((n) => n + 1);
+    };
+    window.addEventListener("justnoted:shares-changed", onSharesChanged);
+    return () => window.removeEventListener("justnoted:shares-changed", onSharesChanged);
+  }, [note.id]);
 
   const titleInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -640,6 +688,7 @@ function NoteEditor({
   );
 
   const { debouncedSave, flushSave } = useAutoSave(content, saveContent);
+  flushSaveRef.current = flushSave;
 
   useEffect(() => {
     registerNoteFlush(note.id, flushSave);
@@ -746,6 +795,12 @@ function NoteEditor({
   // when we have no unsaved local edits, so in-progress typing is never clobbered
   // (a genuine concurrent edit is handled by the conflict path instead).
   useEffect(() => {
+    // In live collaboration the Yjs doc is the source of truth, not the store's
+    // note.content. Adopting store content here would remount the editor and
+    // tear down/recreate the ydoc — the "refreshes on its own" bug (A2).
+    // Deletion/unshare are handled elsewhere (the note leaves the store, or the
+    // collab probe flips collabConfig back to null and re-enables this).
+    if (collabConfigRef.current) return;
     if (isHydrating) return;
     if (note.content === content) return; // nothing new
     if (content !== lastSavedContentRef.current) return; // we have unsaved edits — keep them

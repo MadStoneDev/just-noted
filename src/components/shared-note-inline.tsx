@@ -315,18 +315,24 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
                 <div className="mb-6">
                   <NoteStatsRow content={content} goal={note.goal} goalType={note.goal_type} />
                 </div>
-                <MilkdownEditor
-                  content={note.content || ""}
-                  contentFormat={(note.content_format as ContentFormat) || "markdown"}
-                  onChange={(markdown) => { setContent(markdown); scheduleSave(title, markdown); }}
-                  toolbarContainer={toolbarSlot}
-                  collab={me ? {
-                    roomKey: note.id,
-                    user: me,
-                    load: () => loadCollabDoc({ shortcode }).then((r) => r.state),
-                    save: (state) => saveCollabDoc({ shortcode, state }).then(() => {}),
-                  } : undefined}
-                />
+                {me ? (
+                  <MilkdownEditor
+                    content={note.content || ""}
+                    contentFormat={(note.content_format as ContentFormat) || "markdown"}
+                    onChange={(markdown) => { setContent(markdown); scheduleSave(title, markdown); }}
+                    toolbarContainer={toolbarSlot}
+                    collab={{
+                      roomKey: note.id,
+                      user: me,
+                      load: () => loadCollabDoc({ shortcode }).then((r) => r.state),
+                      save: (state) => saveCollabDoc({ shortcode, state }).then(() => {}),
+                    }}
+                  />
+                ) : (
+                  // Wait for identity before mounting the editor, so it always
+                  // mounts straight into live collab (never editable-but-not-live).
+                  <div className="py-10 text-[13px] text-[var(--color-ink-4)]">Connecting to the live document…</div>
+                )}
               </article>
             </div>
             <div ref={setToolbarSlot} className="shrink-0 empty:hidden" />
