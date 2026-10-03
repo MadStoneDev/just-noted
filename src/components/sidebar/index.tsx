@@ -709,7 +709,10 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 label="Notes"
                 active={onNotesApp && railView === "notes"}
                 onClick={() => {
-                  if (sidebarOpen && railView === "notes") { setSidebarOpen(false); return; }
+                  // Always leave any full-screen view (Settings/grid/Trash/shared
+                  // note/routed view) so Notes actually switches the view (B6).
+                  window.dispatchEvent(new Event("justnoted:exit-fullscreen"));
+                  if (sidebarOpen && railView === "notes" && onNotesApp) { setSidebarOpen(false); return; }
                   setActiveNotebookId(null); setRailView("notes"); setSidebarOpen(true);
                 }}
               >
@@ -730,7 +733,8 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 label="Shared"
                 active={onNotesApp && railView === "shared"}
                 onClick={() => {
-                  if (sidebarOpen && railView === "shared") { setSidebarOpen(false); return; }
+                  window.dispatchEvent(new Event("justnoted:exit-fullscreen"));
+                  if (sidebarOpen && railView === "shared" && onNotesApp) { setSidebarOpen(false); return; }
                   setRailView("shared"); setSidebarOpen(true);
                 }}
               >
@@ -758,7 +762,8 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 active={railView === "notifications"}
                 badge={notifUnread}
                 onClick={() => {
-                  if (sidebarOpen && railView === "notifications") { setSidebarOpen(false); return; }
+                  window.dispatchEvent(new Event("justnoted:exit-fullscreen"));
+                  if (sidebarOpen && railView === "notifications" && onNotesApp) { setSidebarOpen(false); return; }
                   setRailView("notifications"); setSidebarOpen(true);
                 }}
               >

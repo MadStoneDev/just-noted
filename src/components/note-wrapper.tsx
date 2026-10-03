@@ -250,6 +250,26 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
     });
   }, [noteFlushFunctions]);
 
+  // Close any full-screen view (Settings, notebooks grid/view, Trash, an open
+  // shared note, a routed public view) and return to the notes app. Fired by the
+  // rail's Notes/Shared/Notifications items so they always switch the view (B6).
+  // Idempotent: the state clears are no-ops when nothing is open, and we only
+  // navigate when not already on "/".
+  const exitFullscreen = useCallback(() => {
+    setShowAccountDrawer(false);
+    setShowTrash(false);
+    setShowNotebooksGrid(false);
+    setNotebookViewId(null);
+    setSharedShortcode(null);
+    useNotesStore.getState().setActiveNotebookId(null);
+    if (window.location.pathname !== "/") router.push("/");
+  }, [router]);
+  useEffect(() => {
+    const onExit = () => exitFullscreen();
+    window.addEventListener("justnoted:exit-fullscreen", onExit);
+    return () => window.removeEventListener("justnoted:exit-fullscreen", onExit);
+  }, [exitFullscreen]);
+
   // ===== Mobile bottom-tab navigation (design surface 08) =====
   const goNotes = useCallback(() => {
     // Toggle: tapping Notes while its list is already open collapses the sidebar

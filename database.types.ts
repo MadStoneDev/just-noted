@@ -963,6 +963,12 @@ export type Database = {
         }
         Returns: string
       }
+      can_access_note_live: {
+        Args: {
+          p_note_id: string
+        }
+        Returns: boolean
+      }
       create_author_with_random_username: {
         Args: {
           user_id: string
@@ -984,6 +990,12 @@ export type Database = {
           p_note_id: string
         }
         Returns: boolean
+      }
+      realtime_note_id: {
+        Args: {
+          p_prefix: string
+        }
+        Returns: string
       }
     }
     Enums: {
