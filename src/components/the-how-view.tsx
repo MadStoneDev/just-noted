@@ -130,7 +130,7 @@ export default function TheHowView() {
           <p>
             <span className="font-semibold text-[var(--color-ink-1)]">Cloud Notes</span> require a
             free account but let you reach your notes from any device or browser. Good for notes you
-            want to keep long-term or reach from more than one device. Your cloud notes are securely
+            want to keep long-term or need on more than one device. Your cloud notes are securely
             tied to your account and sync automatically.
           </p>
           <p>
