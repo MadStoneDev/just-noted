@@ -1542,7 +1542,10 @@ function NoteEditor({
               {locked ? (
                 <span className="text-[var(--color-ink-4)]" title="Reconciling your notes with the server…">Syncing your notes…</span>
               ) : timedOut ? (
-                <span className="text-[var(--color-warn)]" title="Sync is taking a while — you're editing your cached copy; changes will sync when it clears.">Sync problem</span>
+                // The 5s load-lock timed out: the editor is unlocked so you can
+                // type on your cached copy, but this is slowness, not a failure —
+                // keep "Syncing…" until it finishes or genuinely fails (F1).
+                <span className="text-[var(--color-ink-4)]" title="Still syncing — you can edit now; your changes save as soon as it finishes.">Syncing…</span>
               ) : syncProblem ? (
                 <span className="text-[var(--color-warn)]" title="You're connected, but syncing is failing. Your changes are safe on this device and will sync once it clears.">Sync problem</span>
               ) : saveState === "error" ? (
