@@ -30,7 +30,7 @@ export default function ToolsGrid() {
 
   return (
     <ToolsChrome>
-      <div className="mx-auto max-w-[960px] px-6 md:px-10 py-[52px] pb-16">
+      <div className="mx-auto max-w-[1040px] px-6 md:px-10 py-[52px] pb-16">
         {/* Header */}
         <h1 className="font-[family-name:var(--font-editor)] text-[42px] leading-[1.05] font-medium tracking-[-0.018em] text-[var(--color-ink)]">
           Tools
