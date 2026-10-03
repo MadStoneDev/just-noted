@@ -22,6 +22,10 @@ export function colorForUser(id: string): string {
 }
 const colorFor = colorForUser;
 
+// Feature flag for the private-channel rollout. Off by default so deploying the
+// client is safe before the realtime.messages RLS migration is applied.
+const PRIVATE_REALTIME = process.env.NEXT_PUBLIC_PRIVATE_REALTIME === "1";
+
 /**
  * Live presence for a note (design surface 05). Everyone with the note open on
  * the same key joins a Supabase Realtime presence channel. Each client
@@ -61,7 +65,17 @@ export function usePresence(key: string | null): PresenceUser[] {
       const handle = (a as any)?.username || "someone";
       const avatarUrl = (a as any)?.avatar_url || null;
 
-      channel = supabase.channel(`presence:${key}`, { config: { presence: { key: user.id } } });
+      // Private Realtime rollout (step 1): gated behind NEXT_PUBLIC_PRIVATE_REALTIME
+      // so this deploy is inert until the realtime.messages RLS migration is
+      // applied and the flag is turned on. When private, the socket must carry
+      // the user's JWT so the RLS policy can read auth.uid().
+      if (PRIVATE_REALTIME) {
+        const { data: { session } } = await supabase.auth.getSession();
+        await supabase.realtime.setAuth(session?.access_token ?? null);
+      }
+      channel = supabase.channel(`presence:${key}`, {
+        config: { presence: { key: user.id }, private: PRIVATE_REALTIME },
+      });
 
       const sync = () => {
         if (!channel) return;
