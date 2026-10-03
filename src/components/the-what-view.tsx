@@ -41,7 +41,7 @@ export default function TheWhatView() {
         <div className="flex flex-col gap-5 text-[14px] leading-[1.65] text-[var(--color-ink-2)]">
           <p>
             I could probably summarise everything below with this one sentence: <Brand /> is my
-            solution for distraction-free note taking.
+            solution for distraction-free note-taking.
           </p>
           <p>
             That's it 🤷‍♂️. That's why I made <Brand />, but if you're looking for a bit more detail
@@ -71,7 +71,7 @@ export default function TheWhatView() {
             .
           </p>
           <p>
-            <Brand /> came out of a genuine every day need. I couldn't access notepad on all my
+            <Brand /> came out of a genuine everyday need. I couldn't access notepad on all my
             devices, but I constantly needed somewhere to quickly type phone numbers, temporary
             passwords, or notes while on calls. I needed a space to brainstorm ideas or draft social
             media posts without committing them to permanent storage somewhere. I just wanted a
