@@ -1379,7 +1379,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
 
             {/* ===== SHARED VIEW ===== */}
             {railView === "shared" && isAuthenticated && (
-              <SharedNavList onOpen={(sc) => onOpenShared?.(sc)} />
+              <SharedNavList onOpen={(sc) => onOpenShared?.(sc)} onOpenOwned={handleNoteClick} />
             )}
 
             {/* ===== NOTIFICATIONS VIEW ===== */}

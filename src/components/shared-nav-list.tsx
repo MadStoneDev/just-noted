@@ -25,10 +25,15 @@ type Tab = "withme" | "byme" | "saved";
 
 interface SharedNavListProps {
   onOpen: (shortcode: string) => void;
+  /** Open an owned note in the owner's normal editor (by note id). */
+  onOpenOwned?: (noteId: string) => void;
 }
 
-function PermTag({ perm }: { perm?: string }) {
+function PermTag({ perm, asLink }: { perm?: string; asLink?: boolean }) {
   const canEdit = perm === "edit";
+  // asLink makes clear this is what the LINK grants, not the viewer's own role —
+  // an owned note shows "Owner", never "can view".
+  const label = asLink ? (canEdit ? "link: edit" : "link: view") : canEdit ? "can edit" : "can view";
   return (
     <span
       className={`shrink-0 text-[10px] font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)] ${
@@ -37,7 +42,15 @@ function PermTag({ perm }: { perm?: string }) {
           : "border border-[var(--color-border-control)] text-[var(--color-ink-4)]"
       }`}
     >
-      {canEdit ? "can edit" : "can view"}
+      {label}
+    </span>
+  );
+}
+
+function OwnerTag() {
+  return (
+    <span className="shrink-0 text-[10px] font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)] border border-[var(--color-accent-tint-border)]">
+      Owner
     </span>
   );
 }
@@ -51,7 +64,7 @@ function OwnerAvatar({ name, url }: { name?: string; url?: string | null }) {
  * Saved. Notes shared with you land here automatically. Below the list, a
  * "Paste a link" field adds notes shared from outside the app.
  */
-export default function SharedNavList({ onOpen }: SharedNavListProps) {
+export default function SharedNavList({ onOpen, onOpenOwned }: SharedNavListProps) {
   const [items, setItems] = useState<SharedListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("withme");
@@ -156,7 +169,13 @@ export default function SharedNavList({ onOpen }: SharedNavListProps) {
             byTab.map((n) => (
               <div key={n.source + n.shortcode} className="group/sh relative">
                 <button
-                  onClick={() => onOpen(n.shortcode)}
+                  onClick={() => {
+                    // An owned note opens in the owner's own editor — opening it
+                    // via the shared-link path would check access as a recipient
+                    // and (correctly) refuse (A3).
+                    if (n.source === "owned" && n.noteId && onOpenOwned) onOpenOwned(n.noteId);
+                    else onOpen(n.shortcode);
+                  }}
                   className="w-full text-left flex items-start gap-2 px-2 py-2 rounded-[var(--radius-md)] hover:bg-[var(--color-raised-soft)] transition-colors"
                 >
                   <span className="mt-[3px] flex-shrink-0">
@@ -169,7 +188,7 @@ export default function SharedNavList({ onOpen }: SharedNavListProps) {
                   <div className="flex-1 min-w-0 pr-4">
                     <div className="flex items-center gap-1.5">
                       <span className="flex-1 min-w-0 text-sm text-[var(--color-ink-1)] truncate">{n.title}</span>
-                      {tab !== "byme" && <PermTag perm={n.linkPermission} />}
+                      {tab === "byme" ? <OwnerTag /> : <PermTag perm={n.linkPermission} />}
                     </div>
                     <div className="text-[11px] text-[var(--color-ink-5)] mt-1 flex items-center gap-1.5">
                       {tab === "byme" ? (
@@ -179,7 +198,7 @@ export default function SharedNavList({ onOpen }: SharedNavListProps) {
                             <IconEye size={11} />
                             {n.viewCount}
                           </span>
-                          <PermTag perm={n.linkPermission} />
+                          {n.isPublic && <PermTag perm={n.linkPermission} asLink />}
                         </>
                       ) : (
                         <>
