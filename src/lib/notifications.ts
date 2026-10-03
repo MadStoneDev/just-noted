@@ -59,6 +59,12 @@ export function inAppEnabled(prefs: PrefsMap, type: NotificationType): boolean {
   return NOTIFICATION_TYPES[type] ? prefForType(prefs, type).inApp !== "off" : false;
 }
 
+/** Should an email be sent NOW for this type? Only "instantly" sends immediately;
+ *  "daily"/"weekly" are for digests (not built yet), so they don't send now. */
+export function emailInstant(prefs: PrefsMap, type: NotificationType): boolean {
+  return NOTIFICATION_TYPES[type] ? prefForType(prefs, type).email === "instantly" : false;
+}
+
 /** Keep only known types + valid frequencies — for validating user-written prefs. */
 export function sanitizeNotificationPrefs(input: unknown): Record<string, ChannelPref> {
   const out: Record<string, ChannelPref> = {};

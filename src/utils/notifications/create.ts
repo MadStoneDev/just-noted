@@ -1,8 +1,56 @@
 import "server-only";
 import { createServiceRoleClient } from "@/utils/supabase/server";
-import { inAppEnabled, type NotificationType } from "@/lib/notifications";
+import { inAppEnabled, emailInstant, type NotificationType } from "@/lib/notifications";
+import { sendEmail } from "@/utils/email/send";
 
 type Svc = ReturnType<typeof createServiceRoleClient>;
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://justnoted.app";
+
+// A plain, branded email for an instant notification. Only the types people are
+// likely to want by email are given tailored copy; others get a generic line.
+function buildNotificationEmail(type: NotificationType, data: any): { subject: string; html: string } | null {
+  const actor = escapeHtml(data?.actorName || "Someone");
+  const title = escapeHtml(data?.noteTitle || "a note");
+  const href = data?.shortcode ? `${APP_URL}/n/${data.shortcode}` : APP_URL;
+  let subject: string, lead: string, cta: string;
+  switch (type) {
+    case "shared_with_me":
+      subject = `${data?.actorName || "Someone"} shared a note with you`;
+      lead = `<strong>${actor}</strong> shared the note &ldquo;${title}&rdquo; with you on JustNoted.`;
+      cta = "Open the note";
+      break;
+    case "mention":
+      subject = `${data?.actorName || "Someone"} mentioned you`;
+      lead = `<strong>${actor}</strong> mentioned you in &ldquo;${title}&rdquo;.`;
+      cta = "Open the note";
+      break;
+    case "chat_message":
+      subject = `New message in &ldquo;${data?.noteTitle || "a note"}&rdquo;`;
+      lead = `<strong>${actor}</strong> sent a message in &ldquo;${title}&rdquo;.`;
+      cta = "Open the chat";
+      break;
+    case "edited_shared_note":
+      subject = `&ldquo;${data?.noteTitle || "A note"}&rdquo; was edited`;
+      lead = `<strong>${actor}</strong> edited &ldquo;${title}&rdquo;.`;
+      cta = "Open the note";
+      break;
+    default:
+      return null;
+  }
+  const html = `<!DOCTYPE html><html><body style="margin:0;background:#f4f6f5;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+    <div style="font-size:20px;font-weight:600;color:#131817;">Just<span style="color:#07736E;">Noted</span></div>
+    <p style="margin:24px 0 20px;font-size:15px;line-height:1.6;color:#333b39;">${lead}</p>
+    <a href="${href}" style="display:inline-block;background:#07736E;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 18px;border-radius:8px;">${cta}</a>
+    <p style="margin:28px 0 0;font-size:12px;line-height:1.5;color:#6b7573;">You're getting this because your JustNoted notification settings have email on for this. You can change that in Settings.</p>
+  </div></body></html>`;
+  return { subject, html };
+}
+
+function escapeHtml(s: string): string {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
 
 /** Participants of a note = its owner + everyone it's shared with. */
 export async function listNoteParticipants(svc: Svc, noteId: string): Promise<string[]> {
@@ -35,10 +83,13 @@ export async function createNotification(
 
   const { data: us } = await svc.from("user_settings").select("settings").eq("user_id", recipientId).maybeSingle();
   const prefs = ((us as any)?.settings?.notifications) ?? null;
-  if (!inAppEnabled(prefs, type)) return;
+  const wantInApp = inAppEnabled(prefs, type);
+  const wantEmail = emailInstant(prefs, type);
+  if (!wantInApp && !wantEmail) return;
 
   // For chatty types, keep only one unread per (recipient, note) so the bell
-  // nudges once until read rather than per message.
+  // nudges once until read rather than per message. Also suppresses duplicate
+  // emails for the same unread nudge.
   if (opts.dedupeUnreadByNote && opts.noteId) {
     const { data: existing } = await svc
       .from("notifications")
@@ -51,13 +102,28 @@ export async function createNotification(
     if (existing && (existing as any[]).length > 0) return;
   }
 
-  await svc.from("notifications").insert({
-    user_id: recipientId,
-    type,
-    actor_id: opts.actorId ?? null,
-    note_id: opts.noteId ?? null,
-    data: opts.data ?? null,
-  } as any);
+  if (wantInApp) {
+    await svc.from("notifications").insert({
+      user_id: recipientId,
+      type,
+      actor_id: opts.actorId ?? null,
+      note_id: opts.noteId ?? null,
+      data: opts.data ?? null,
+    } as any);
+  }
+
+  // Email (opt-in; default off for most types). Best-effort — a mail failure
+  // must never break the action that triggered it.
+  if (wantEmail) {
+    try {
+      const { data: u } = await (svc as any).auth.admin.getUserById(recipientId);
+      const to = u?.user?.email as string | undefined;
+      const mail = to ? buildNotificationEmail(type, opts.data) : null;
+      if (to && mail) await sendEmail({ to, subject: mail.subject, html: mail.html });
+    } catch (e) {
+      console.error("[notifications] email send failed:", e);
+    }
+  }
 }
 
 /** Notify every participant of a note except the actor. Best-effort. */
