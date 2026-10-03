@@ -18,7 +18,6 @@ import { CombinedNote } from "@/types/combined-notes";
 import { NotesOperations } from "@/hooks/use-notes-operations";
 import {
   IconPin,
-  IconLock,
   IconTrash,
   IconDots,
   IconSquareRoundedPlus,
@@ -1203,13 +1202,10 @@ function NoteEditor({
               icon: <IconPin size={16} />,
               perform: () => notesOperations.updatePinStatus(note.id, !note.isPinned),
             },
-            {
-              id: "privacy",
-              label: note.isPrivate ? "Make public" : "Make private",
-              keywords: "private public lock visibility",
-              icon: <IconLock size={16} />,
-              perform: () => notesOperations.updatePrivacyStatus(note.id, !note.isPrivate),
-            },
+            // "Make private/public" (the isPrivate flag) is hidden until the
+            // published-notes feature ships — today it only tints the note and
+            // doesn't control access (sharing does). The data + action are kept
+            // for when that feature lands. (F2)
             {
               id: "print",
               label: "Print / Save as PDF",
