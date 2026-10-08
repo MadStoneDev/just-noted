@@ -25,6 +25,23 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
     }
   }, [open]);
 
+  // Close on Escape regardless of focus, and before the sidebar/global
+  // listeners see it. A capture-phase window listener fires ahead of those
+  // bubble-phase listeners, so stopping propagation here means Escape closes
+  // only the search — not the sidebar underneath it.
+  useEffect(() => {
+    if (!open) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleEscape, true);
+    return () => window.removeEventListener("keydown", handleEscape, true);
+  }, [open, onClose]);
+
   const results = useMemo(() => {
     if (!query.trim()) return notes.slice(0, 8);
 
@@ -58,9 +75,8 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
       } else if (e.key === "Enter" && results[selectedIndex]) {
         e.preventDefault();
         handleSelect(results[selectedIndex].id);
-      } else if (e.key === "Escape") {
-        onClose();
       }
+      // Escape is handled by the capture-phase window listener above.
     },
     [results, selectedIndex, handleSelect, onClose],
   );
@@ -84,11 +100,8 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
   };
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[9999] flex items-start justify-center pt-[15vh]"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div className="absolute inset-0 bg-[var(--color-bg-overlay)]" />
+    <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[15vh]">
+      <div className="absolute inset-0 bg-[var(--color-bg-overlay)]" onClick={onClose} />
       <div className="relative w-full max-w-lg mx-4 bg-[var(--color-bg-elevated)] rounded-[var(--radius-xl)] shadow-[var(--shadow-modal)] border border-[var(--color-border-secondary)] overflow-hidden animate-scale-in">
         {/* Search input */}
         <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--color-border-secondary)]">
