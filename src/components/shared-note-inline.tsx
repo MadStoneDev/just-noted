@@ -12,6 +12,7 @@ import { SharedHistoryPanel } from "@/components/shared-history-panel";
 import NoteChatPanel from "@/components/note-chat-panel";
 import { useChatUnread } from "@/hooks/use-chat-unread";
 import { loadCollabDoc, saveCollabDoc } from "@/app/actions/collabActions";
+import { decideEditorChange } from "@/utils/editor-save-decision";
 import NoteStatsRow from "@/components/note-stats-row";
 import AutoGrowTitle from "@/components/auto-grow-title";
 import { Avatar } from "@/components/ui/avatar";
@@ -47,6 +48,20 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
   const [me, setMe] = useState<{ name: string; color: string } | null>(null);
   const saveTimer = useRef<number | null>(null);
   const dirtyRef = useRef(false);
+  // Opening a note must never save (see shared-note-page for the full rationale):
+  // Milkdown's load re-serialisation / Yjs seed emits once through onChange
+  // before anyone types, and saving it would rewrite the owner's note and spawn
+  // a conflicted copy on their side. Adopt that first emission as the baseline.
+  const lastSavedContentRef = useRef("");
+  const awaitingLoadEmission = useRef(false);
+  const editorMountedAt = useRef(0);
+  const handleEditorReady = useCallback(() => {
+    editorMountedAt.current = Date.now();
+    awaitingLoadEmission.current = (lastSavedContentRef.current ?? "").trim().length > 0;
+  }, []);
+  // Wide window because the collab load emission is async; only ever armed for a
+  // note that loaded with content, so it can't swallow a real keystroke.
+  const LOAD_EMISSION_WINDOW_MS = 8000;
 
   const supabase = createClient();
   const canEdit = !!note?.canEdit;
@@ -88,6 +103,7 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
         setNote(result.note);
         setTitle(result.note.title || "");
         setContent(result.note.content || "");
+        lastSavedContentRef.current = result.note.content || "";
         dirtyRef.current = false;
         setSaveStatus("idle");
         setRequiresPassword(false);
@@ -319,7 +335,24 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
                   <MilkdownEditor
                     content={note.content || ""}
                     contentFormat={(note.content_format as ContentFormat) || "markdown"}
-                    onChange={(markdown) => { setContent(markdown); scheduleSave(title, markdown); }}
+                    onReady={handleEditorReady}
+                    onChange={(markdown) => {
+                      const decision = decideEditorChange({
+                        value: markdown,
+                        baseline: lastSavedContentRef.current,
+                        awaitingLoadEmission: awaitingLoadEmission.current,
+                        msSinceMount: Date.now() - editorMountedAt.current,
+                        windowMs: LOAD_EMISSION_WINDOW_MS,
+                      });
+                      awaitingLoadEmission.current = false;
+                      setContent(markdown);
+                      if (decision.adoptBaseline) {
+                        // Opening the note, not editing it — never save.
+                        lastSavedContentRef.current = markdown;
+                        return;
+                      }
+                      if (decision.persist) scheduleSave(title, markdown);
+                    }}
                     toolbarContainer={toolbarSlot}
                     collab={{
                       roomKey: note.id,

@@ -19,6 +19,7 @@ import { usePresence, colorForUser } from "@/hooks/use-presence";
 import { PresenceStack } from "@/components/presence-stack";
 import { SharedHistoryPanel } from "@/components/shared-history-panel";
 import { loadCollabDoc, saveCollabDoc } from "@/app/actions/collabActions";
+import { decideEditorChange } from "@/utils/editor-save-decision";
 import NoteStatsRow from "@/components/note-stats-row";
 import AutoGrowTitle from "@/components/auto-grow-title";
 import { Avatar } from "@/components/ui/avatar";
@@ -72,6 +73,24 @@ export default function SharedNotePage({
   const [me, setMe] = useState<{ name: string; color: string } | null>(null);
   const contentRef = useRef("");
   const saveTimer = useRef<number | null>(null);
+  // Opening a note must never save. Milkdown re-serialises the stored content on
+  // load (and in collab mode the Yjs doc seeds in asynchronously), emitting it
+  // through onChange once before anyone could type. We adopt that first emission
+  // as the clean baseline instead of saving it — otherwise merely opening an
+  // editable share would rewrite the owner's note (bumping its version and often
+  // its format), which is exactly what spawned conflicted copies on their side.
+  const awaitingLoadEmission = useRef(false);
+  const editorMountedAt = useRef(0);
+  const handleEditorReady = useCallback(() => {
+    editorMountedAt.current = Date.now();
+    awaitingLoadEmission.current = (contentRef.current ?? "").trim().length > 0;
+  }, []);
+  // A generous window: the load emission is async in collab mode (Yjs load plus
+  // the 1s seed grace), so 1s (the standalone-editor default) is too tight here.
+  // It is only ever armed for a note that loaded WITH content, where the first
+  // emission is always the load re-serialisation, never a human keystroke — so a
+  // wide window can't swallow a real edit.
+  const LOAD_EMISSION_WINDOW_MS = 8000;
 
   const supabase = createClient();
   const canEdit = !!note?.canEdit;
@@ -325,7 +344,21 @@ export default function SharedNotePage({
           <MilkdownEditor
             content={note.content || ""}
             contentFormat={(note.content_format as ContentFormat) || "markdown"}
-            onChange={(markdown) => { contentRef.current = markdown; scheduleSave(title, markdown); }}
+            onReady={handleEditorReady}
+            onChange={(markdown) => {
+              const decision = decideEditorChange({
+                value: markdown,
+                baseline: contentRef.current,
+                awaitingLoadEmission: awaitingLoadEmission.current,
+                msSinceMount: Date.now() - editorMountedAt.current,
+                windowMs: LOAD_EMISSION_WINDOW_MS,
+              });
+              awaitingLoadEmission.current = false;
+              // Load re-serialisation (or no real change): adopt as baseline,
+              // never save.
+              contentRef.current = markdown;
+              if (decision.persist) scheduleSave(title, markdown);
+            }}
             collab={me ? {
               roomKey: note.id,
               user: me,

@@ -7,6 +7,7 @@ import { createClient } from "@/utils/supabase/client";
 import { uploadAvatar } from "@/app/actions/avatarActions";
 import { compressImage } from "@/utils/image/compress";
 import { useToast } from "@/components/ui/toast";
+import { Avatar } from "@/components/ui/avatar";
 import { useTheme } from "@/components/ds/theme-toggle";
 import {
   readEditorFont,
@@ -23,7 +24,6 @@ import {
   IconSun,
   IconMoon,
   IconDeviceDesktop,
-  IconUser,
   IconPlus,
   IconLogout,
   IconCheck,
@@ -159,13 +159,12 @@ function AccountSection() {
     <div className="space-y-6">
       {/* Avatar */}
       <div className="flex items-center gap-4">
-        <div className="w-16 h-16 rounded-full overflow-hidden bg-[var(--color-raised-soft)] flex items-center justify-center shrink-0 ring-1 ring-[var(--color-hairline)]">
-          {avatarPreview || avatarUrl ? (
-            <img src={avatarPreview || avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-          ) : (
-            <span className="text-[var(--color-ink-5)] text-xl">?</span>
-          )}
-        </div>
+        <Avatar
+          url={avatarPreview || avatarUrl}
+          name={username}
+          size={64}
+          className="ring-1 ring-[var(--color-hairline)]"
+        />
         <div>
           <label className="inline-flex items-center h-8 px-3 rounded-[var(--radius-7)] text-[12.5px] font-medium border border-[var(--color-border-control)] text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)] transition-colors cursor-pointer">
             <input type="file" accept="image/*" className="hidden" onChange={onAvatarChange} />
@@ -274,13 +273,12 @@ function DeviceAccountsSection() {
                   : "border-[var(--color-hairline)]"
               }`}
             >
-              <span className="w-8 h-8 rounded-full overflow-hidden bg-[var(--color-raised-soft)] ring-1 ring-[var(--color-hairline)] flex items-center justify-center text-[var(--color-ink-4)] shrink-0">
-                {a.avatarUrl ? (
-                  <img src={a.avatarUrl} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <IconUser size={17} />
-                )}
-              </span>
+              <Avatar
+                url={a.avatarUrl}
+                name={a.handle}
+                size={32}
+                className="ring-1 ring-[var(--color-hairline)]"
+              />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className={`text-[13px] truncate ${isCurrent ? "text-[var(--color-accent-text)]" : "text-[var(--color-ink-1)]"}`}>

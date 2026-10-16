@@ -75,6 +75,45 @@ describe("reconcileNotes — version-based (clock-independent)", () => {
     expect(toConflictCopy).toHaveLength(0);
   });
 
+  describe("opening a note never spawns a conflicted copy (semantic suppression)", () => {
+    it("server ahead, same words but stored as Markdown vs the owner's HTML → no copy", () => {
+      // A collaborator merely OPENING an editable share re-saves the owner's note
+      // as Markdown (version bumps). The owner's cached copy is still the original
+      // HTML. Bytes and format differ, but not a single word changed, so this must
+      // take the server copy and create NO "(conflicted copy)".
+      const server = [mk({ id: "o1", content: "Hello world", contentFormat: "markdown", version: 5 })];
+      const local = [mk({ id: "o1", content: "<p>Hello world</p>", contentFormat: "html", version: 3 })];
+      const { merged, toConflictCopy } = reconcileNotes(server, local, NOW);
+      expect(merged[0].content).toBe("Hello world");
+      expect(toConflictCopy).toHaveLength(0);
+    });
+
+    it("server ahead, Markdown re-serialised (bullet markers changed) → no copy", () => {
+      const server = [mk({ id: "o2", content: "- a\n- b", contentFormat: "markdown", version: 5 })];
+      const local = [mk({ id: "o2", content: "* a\n* b", contentFormat: "markdown", version: 3 })];
+      const { merged, toConflictCopy } = reconcileNotes(server, local, NOW);
+      expect(merged[0].content).toBe("- a\n- b");
+      expect(toConflictCopy).toHaveLength(0);
+    });
+
+    it("server ahead, SAME words but a word was newly bolded → copy still made", () => {
+      // A genuine formatting edit is real divergence: the plain text matches but
+      // the formatting fingerprint differs, so the owner's copy must be preserved.
+      const server = [mk({ id: "o3", content: "Hello **world**", contentFormat: "markdown", version: 5 })];
+      const local = [mk({ id: "o3", content: "Hello world", contentFormat: "markdown", version: 3 })];
+      const { merged, toConflictCopy } = reconcileNotes(server, local, NOW);
+      expect(merged[0].content).toBe("Hello **world**");
+      expect(toConflictCopy.map((n) => n.content)).toContain("Hello world");
+    });
+
+    it("server ahead with genuinely different words → copy still made", () => {
+      const server = [mk({ id: "o4", content: "a whole new paragraph", contentFormat: "markdown", version: 5 })];
+      const local = [mk({ id: "o4", content: "the original text", contentFormat: "markdown", version: 3 })];
+      const { toConflictCopy } = reconcileNotes(server, local, NOW);
+      expect(toConflictCopy.map((n) => n.content)).toContain("the original text");
+    });
+  });
+
   it("user typed during sync + server has a newer version → both preserved", () => {
     // The editor-lock change allows editing cached content during initial sync.
     // If that edit (local, still at the version it loaded from) meets a newer

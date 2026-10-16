@@ -14,7 +14,7 @@
 //   re-pushed. Empty/old local-only notes are dropped.
 
 import type { CombinedNote } from "@/types/combined-notes";
-import { sameNoteContent } from "@/utils/notes-utils";
+import { sameNoteContent, sameAuthoredContent } from "@/utils/notes-utils";
 
 const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
 
@@ -98,9 +98,23 @@ export function reconcileNotes(
       }
     } else {
       // Server advanced past our base. Take the server copy; if we also hold
-      // different un-pushed text, preserve it as a conflicted copy.
+      // different un-pushed text, preserve it as a conflicted copy — UNLESS the
+      // two bodies are the same authored content once serialisation/format noise
+      // is ignored (e.g. the server copy is our own note re-serialised, or an
+      // HTML original a collaborator's editor saved back as Markdown when they
+      // merely opened the share). Equal content is never worth a copy, whatever
+      // the versions say; only genuinely divergent text is preserved.
       merged.push(serverNote);
-      if (contentDiffers(localNote, serverNote) && hasText(localNote)) {
+      if (
+        contentDiffers(localNote, serverNote) &&
+        hasText(localNote) &&
+        !sameAuthoredContent(
+          localNote.content,
+          localNote.contentFormat,
+          serverNote.content,
+          serverNote.contentFormat,
+        )
+      ) {
         toConflictCopy.push(localNote);
       }
     }
