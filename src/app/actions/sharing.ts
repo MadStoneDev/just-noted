@@ -1,6 +1,7 @@
 ﻿"use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { createClient, createServiceRoleClient } from "@/utils/supabase/server";
 import { noteIsTrashed } from "@/lib/note-trash";
 import { getCollabAllowance, ownerCanCollaborate, resolvePlanTier, getLimits, type SubscriptionRow } from "@/lib/subscription";
@@ -675,12 +676,26 @@ export async function sharingOperation(params: SharingOperationParams) {
         }
 
         const storage = shareData.storage || "supabase";
-        // Use service role to bypass RLS — we've already verified access above
+        // Use service role to bypass RLS — we've already verified access above.
         const serviceClient = createServiceRoleClient();
-        const noteResult =
+
+        // Fetch the note body and the viewer's per-person role concurrently —
+        // they're independent. This also lets the owner-collab check below reuse
+        // the owner id from the fetched note instead of re-reading `notes` a
+        // third time, as the old ownerCanCollaborate(note_id) path did.
+        const [noteResult, viewerRoleRow] = await Promise.all([
           storage === "supabase"
-            ? await fetchSupabaseNote(serviceClient, shareData.note_id)
-            : await fetchRedisNote(shareData.note_id, shareData.note_owner_id);
+            ? fetchSupabaseNote(serviceClient, shareData.note_id)
+            : fetchRedisNote(shareData.note_id, shareData.note_owner_id),
+          authenticatedUserId
+            ? serviceClient
+                .from("shared_notes_readers")
+                .select("role")
+                .eq("shared_note", shareData.id)
+                .eq("reader_id", authenticatedUserId)
+                .maybeSingle()
+            : Promise.resolve({ data: null } as { data: { role?: string } | null }),
+        ]);
 
         if (!noteResult.success || !noteResult.note) {
           return { success: false, error: noteResult.error };
@@ -689,50 +704,50 @@ export async function sharingOperation(params: SharingOperationParams) {
         const isAnonymous = (shareData as any).is_anonymous || false;
         const linkPermission: string =
           (shareData as any).link_permission || (shareData.is_public ? "view" : "off");
+        // Owner id straight from the fetched note — same value the old
+        // ownerCanCollaborate(note_id) re-queried `notes` to derive.
+        const ownerId = (noteResult.note as any).author as string;
         // The viewer's own per-person role, if they were added as a reader.
-        let viewerRole: string | null = null;
-        if (authenticatedUserId) {
-          const { data: r } = await serviceClient
-            .from("shared_notes_readers")
-            .select("role")
-            .eq("shared_note", shareData.id)
-            .eq("reader_id", authenticatedUserId)
-            .maybeSingle();
-          viewerRole = (r as any)?.role ?? null;
-        }
+        const viewerRole: string | null = (viewerRoleRow as any)?.data?.role ?? null;
+
         // A signed-in visitor may edit a Supabase-backed note when the link is
         // set to "Can edit", or when they were added as an editor. Anonymous
         // editing is not supported and the Redis tier is view-only. Re-checked
-        // on save.
-        // Would this viewer edit if the owner's plan allowed it?
+        // on save. Would this viewer edit if the owner's plan allowed it?
         const wouldEdit =
           (linkPermission === "edit" || viewerRole === "edit") &&
           !!authenticatedUserId &&
           storage === "supabase";
-        // Enforce-at-read downgrade gate: editing is only live while the note's
-        // owner is on a collaboration plan. A lapsed Scribe's note goes view-only
-        // for everyone but the owner (their editor rows are kept).
-        const ownerCanCollab = wouldEdit
-          ? await ownerCanCollaborate(serviceClient, shareData.note_id)
-          : false;
+
+        // Two independent follow-ups, run concurrently and both keyed off the
+        // owner id we already have:
+        //  - the enforce-at-read downgrade gate (editing is only live while the
+        //    owner is on a collaboration plan — a lapsed Scribe's note goes
+        //    view-only for everyone but the owner), and
+        //  - the owner's display name/avatar.
+        const [ownerCanCollab, authorInfo] = await Promise.all([
+          wouldEdit
+            ? getCollabAllowance(serviceClient, ownerId).then((r) => r.canCollaborate)
+            : Promise.resolve(false),
+          isAnonymous
+            ? Promise.resolve({ username: "Anonymous", avatar_url: null as string | null })
+            : fetchAuthorInfo(serviceClient, ownerId),
+        ]);
         const canEdit = wouldEdit && ownerCanCollab;
         // True only when the viewer WOULD have edit access but the owner's plan
         // doesn't include shared editing — so the UI can explain the read-only.
         const editBlockedByOwnerPlan = wouldEdit && !ownerCanCollab;
 
-        let authorInfo: { username: string; avatar_url: string | null } = {
-          username: "Anonymous",
-          avatar_url: null,
-        };
-        if (!isAnonymous) {
-          authorInfo = await fetchAuthorInfo(serviceClient, noteResult.note.author);
-        }
-
-        // Fire-and-forget, but await so the promise can't reject unhandled and
-        // the increment actually persists before the response returns.
-        await viewClient
-          .rpc("increment_view_count", { shortcode_param: shortcode })
-          .then(undefined, (e: unknown) => console.error("increment_view_count failed:", e));
+        // Bump the view count off the critical path: a write round-trip here just
+        // delays handing the note back. after() still runs server-side once the
+        // response is sent, so the increment persists.
+        after(async () => {
+          try {
+            await viewClient.rpc("increment_view_count", { shortcode_param: shortcode });
+          } catch (e) {
+            console.error("increment_view_count failed:", e);
+          }
+        });
 
         // Never expose the note owner's id to viewers. For the anonymous (Redis)
         // tier this id IS the LocalStorage capability token — leaking it would let

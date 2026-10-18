@@ -80,22 +80,30 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
 
   const fetchNote = async (pw?: string | null) => {
     setLoading(true);
-    let username: string | null = null;
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (userData?.user) {
+
+    // Resolve the viewer's identity (for presence name + colour) in parallel
+    // with the note fetch. The note fetch doesn't depend on it — the server
+    // derives the viewer server-side and ignores any client-supplied username —
+    // so there's no reason to make the note wait behind two extra round-trips.
+    void (async () => {
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData?.user) return;
         const { data: a } = await supabase
           .from("authors")
           .select("username")
           .eq("id", userData.user.id)
           .single();
-        username = (a as any)?.username ?? null;
+        const username = (a as any)?.username ?? null;
         setMe({ name: username || "Someone", color: colorForUser(userData.user.id) });
-      }
+      } catch {}
+    })();
+
+    try {
       const result = (await sharingOperation({
         operation: "getByShortcode",
         shortcode,
-        currentUsername: username,
+        currentUsername: null,
         password: pw || null,
       })) as any;
 
