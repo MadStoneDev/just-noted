@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient, createServiceRoleClient } from "@/utils/supabase/server";
 import { noteIsTrashed } from "@/lib/note-trash";
-import { getCollabAllowance, ownerCanCollaborate } from "@/lib/subscription";
+import { getCollabAllowance, ownerCanCollaborate, resolvePlanTier, getLimits, type SubscriptionRow } from "@/lib/subscription";
 import { wouldBlankNonEmpty } from "@/lib/collab-guard";
 import { notifyShareAdded, notifyNoteEdited } from "@/utils/notifications/create";
 import { NOTES_KEY_PREFIX } from "@/constants/app";
@@ -1031,50 +1031,112 @@ export async function getSharedWithMe(): Promise<{
     .select("id, shortcode, note_id, note_owner_id, is_anonymous, storage, expires_at, created_at, link_permission")
     .in("shortcode", allShortcodes);
 
-  const notes: SharedListItem[] = [];
-  for (const s of (shares as any[]) || []) {
-    if (isExpired(s.expires_at)) continue;
+  // Batch the per-note lookups instead of querying one note at a time. The old
+  // loop issued up to 3 serial round-trips per share (title, author, owner
+  // subscription); here each is a single `.in(...)` query, deduped by id, so
+  // the cost is a small constant regardless of how many notes are shared.
+  const valid = ((shares as any[]) || []).filter((s) => !isExpired(s.expires_at));
 
+  // Titles (+ trashed/gone filter) for cloud-backed shares. Redis shares keep
+  // "Untitled" and are not looked up (matches the prior behaviour).
+  const noteIds = Array.from(
+    new Set(valid.filter((s) => s.storage !== "redis").map((s) => s.note_id)),
+  );
+  const noteById = new Map<string, { title: string | null; deleted_at: string | null }>();
+  if (noteIds.length > 0) {
+    const { data: ns } = await svc.from("notes").select("id, title, deleted_at").in("id", noteIds);
+    (ns || []).forEach((n: any) => noteById.set(n.id, { title: n.title, deleted_at: n.deleted_at }));
+  }
+
+  // Owner username/avatar for non-anonymous shares.
+  const ownerIds = Array.from(
+    new Set(valid.filter((s) => !s.is_anonymous).map((s) => s.note_owner_id)),
+  );
+  const authorById = new Map<string, { username: string | null; avatar_url: string | null }>();
+  if (ownerIds.length > 0) {
+    const { data: as_ } = await svc.from("authors").select("id, username, avatar_url").in("id", ownerIds);
+    (as_ || []).forEach((a: any) => authorById.set(a.id, { username: a.username, avatar_url: a.avatar_url }));
+  }
+
+  // First pass: resolve title/owner and the stored viewer permission (all
+  // in-memory). Notes the owner has trashed drop out of the recipient's list
+  // too (A4), exactly as before.
+  type Cand = {
+    s: any;
+    title: string;
+    owner: string;
+    ownerAvatar: string | null;
+    granted: boolean;
+    viewerPerm: string;
+  };
+  const cands: Cand[] = [];
+  for (const s of valid) {
     let title = "Untitled";
     if (s.storage !== "redis") {
-      const { data: n } = await svc.from("notes").select("title, deleted_at").eq("id", s.note_id).maybeSingle();
-      // A note the owner has trashed drops out of the recipient's list too (A4).
-      if (!n || (n as any).deleted_at) continue;
-      title = (n as any)?.title || "Untitled";
+      const n = noteById.get(s.note_id);
+      if (!n || n.deleted_at) continue;
+      title = n.title || "Untitled";
     }
 
     let owner = "Anonymous";
     let ownerAvatar: string | null = null;
     if (!s.is_anonymous) {
-      const { data: a } = await svc.from("authors").select("username, avatar_url").eq("id", s.note_owner_id).single();
-      owner = (a as any)?.username || "Unknown";
-      ownerAvatar = (a as any)?.avatar_url || null;
+      const a = authorById.get(s.note_owner_id);
+      owner = a?.username || "Unknown";
+      ownerAvatar = a?.avatar_url || null;
     }
 
     const granted = grantedSet.has(s.shortcode);
     const linkPerm = s.link_permission || (s.is_public ? "view" : "off");
     // For a granted note the reader cares about THEIR access: edit if the link
     // grants edit or they were personally made an editor, else view.
-    let viewerPerm = granted
+    const viewerPerm = granted
       ? (linkPerm === "edit" || roleByShareId.get(s.id) === "edit" ? "edit" : "view")
       : linkPerm;
-    // Effective, not just stored: editing needs the OWNER's plan to allow
-    // collaboration (enforce-at-read). If it doesn't, the note is view-only, so
-    // the list matches what the note view actually shows — no "can edit" label
-    // on a note that opens read-only.
-    if (viewerPerm === "edit" && s.storage !== "redis") {
-      const { canCollaborate } = await getCollabAllowance(svc, s.note_owner_id);
-      if (!canCollaborate) viewerPerm = "view";
+    cands.push({ s, title, owner, ownerAvatar, granted, viewerPerm });
+  }
+
+  // Effective, not just stored: editing needs the OWNER's plan to allow
+  // collaboration (enforce-at-read). If it doesn't, the note is view-only, so
+  // the list matches what the note view actually shows — no "can edit" label on
+  // a note that opens read-only. Batch the subscription rows (one query, deduped
+  // per owner) rather than re-querying the same owner once per edit-note.
+  const collabOwnerIds = Array.from(
+    new Set(
+      cands
+        .filter((c) => c.viewerPerm === "edit" && c.s.storage !== "redis")
+        .map((c) => c.s.note_owner_id),
+    ),
+  );
+  const canCollabByOwner = new Map<string, boolean>();
+  if (collabOwnerIds.length > 0) {
+    const { data: subs } = await svc
+      .from("subscriptions")
+      .select("user_id, tier, status, plan_source, comp_until")
+      .in("user_id", collabOwnerIds);
+    const subByUser = new Map<string, any>();
+    (subs || []).forEach((r: any) => subByUser.set(r.user_id, r));
+    for (const ownerId of collabOwnerIds) {
+      const tier = resolvePlanTier((subByUser.get(ownerId) ?? null) as SubscriptionRow | null);
+      canCollabByOwner.set(ownerId, getLimits(tier).canCollaborate);
+    }
+  }
+
+  const notes: SharedListItem[] = [];
+  for (const c of cands) {
+    let viewerPerm = c.viewerPerm;
+    if (viewerPerm === "edit" && c.s.storage !== "redis" && !canCollabByOwner.get(c.s.note_owner_id)) {
+      viewerPerm = "view";
     }
     notes.push({
-      shortcode: s.shortcode,
-      title,
-      owner,
-      ownerAvatar,
+      shortcode: c.s.shortcode,
+      title: c.title,
+      owner: c.owner,
+      ownerAvatar: c.ownerAvatar,
       linkPermission: viewerPerm,
-      createdAt: s.created_at,
-      source: granted ? "granted" : "saved",
-      saved: savedSet.has(s.shortcode) && !granted,
+      createdAt: c.s.created_at,
+      source: c.granted ? "granted" : "saved",
+      saved: savedSet.has(c.s.shortcode) && !c.granted,
     });
   }
   return { success: true, notes };
@@ -1098,21 +1160,42 @@ export async function getSharedByMe(): Promise<{
     .select("id, shortcode, note_id, is_public, view_count, storage, expires_at, link_permission")
     .eq("note_owner_id", user.id);
 
+  const all = (shares as any[]) || [];
+
+  // Titles (+ trashed/gone filter) for cloud-backed shares, in one query.
+  const noteIds = Array.from(
+    new Set(all.filter((s) => s.storage !== "redis").map((s) => s.note_id)),
+  );
+  const noteById = new Map<string, { title: string | null; deleted_at: string | null }>();
+  if (noteIds.length > 0) {
+    const { data: ns } = await svc.from("notes").select("id, title, deleted_at").in("id", noteIds);
+    (ns || []).forEach((n: any) => noteById.set(n.id, { title: n.title, deleted_at: n.deleted_at }));
+  }
+
+  // Reader counts for every share in one query, tallied in memory, instead of a
+  // COUNT round-trip per share.
+  const shareIds = all.map((s) => s.id);
+  const readerCountByShare = new Map<string, number>();
+  if (shareIds.length > 0) {
+    const { data: rdrs } = await svc
+      .from("shared_notes_readers")
+      .select("shared_note")
+      .in("shared_note", shareIds);
+    (rdrs || []).forEach((r: any) =>
+      readerCountByShare.set(r.shared_note, (readerCountByShare.get(r.shared_note) || 0) + 1),
+    );
+  }
+
   const notes: SharedListItem[] = [];
-  for (const s of (shares as any[]) || []) {
+  for (const s of all) {
     let title = "Untitled";
     if (s.storage !== "redis") {
-      const { data: n } = await svc.from("notes").select("title, deleted_at").eq("id", s.note_id).maybeSingle();
+      const n = noteById.get(s.note_id);
       // Skip notes that are in the trash or gone — a deleted note shouldn't
       // linger in "By me" (A4).
-      if (!n || (n as any).deleted_at) continue;
-      title = (n as any)?.title || "Untitled";
+      if (!n || n.deleted_at) continue;
+      title = n.title || "Untitled";
     }
-
-    const { count } = await svc
-      .from("shared_notes_readers")
-      .select("id", { count: "exact", head: true })
-      .eq("shared_note", s.id);
 
     notes.push({
       shortcode: s.shortcode,
@@ -1122,7 +1205,7 @@ export async function getSharedByMe(): Promise<{
       isPublic: s.is_public,
       linkPermission: s.link_permission || (s.is_public ? "view" : "off"),
       viewCount: s.view_count || 0,
-      readerCount: count || 0,
+      readerCount: readerCountByShare.get(s.id) || 0,
     });
   }
   return { success: true, notes };
