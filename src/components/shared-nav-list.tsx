@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getSharedWithMe,
   getSharedByMe,
@@ -84,6 +84,24 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // On first load, surface the sub-tab that actually contains the open note so
+  // its active highlight is visible — otherwise a restored shared note that
+  // lives under "By me" or "Saved" looks unselected on the default "With me"
+  // tab. Runs once; later manual tab changes are left alone.
+  const autoTabRef = useRef(false);
+  useEffect(() => {
+    if (loading || autoTabRef.current) return;
+    autoTabRef.current = true;
+    const active = items.find((i) =>
+      i.source === "owned"
+        ? !!activeNoteId && i.noteId === activeNoteId
+        : !!activeShortcode && i.shortcode === activeShortcode,
+    );
+    if (active) {
+      setTab(active.source === "owned" ? "byme" : active.source === "saved" ? "saved" : "withme");
+    }
+  }, [loading, items, activeShortcode, activeNoteId]);
 
   const byTab = useMemo(() => {
     const src = tab === "withme" ? "granted" : tab === "byme" ? "owned" : "saved";
