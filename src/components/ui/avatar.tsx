@@ -1,7 +1,12 @@
-import React from "react";
+"use client";
 
-// Shared avatar. When there's no image, fall back to the JustNoted teal with the
-// username's first letter in charcoal — consistent everywhere an avatar shows.
+import React, { useState } from "react";
+
+// Shared avatar. When there's no image — or the image fails to load (404,
+// deleted storage object, auth-gated URL) — fall back to the JustNoted teal
+// with the username's first letter in charcoal, consistent everywhere an
+// avatar shows. The failure is tracked per-URL so a different owner's avatar
+// is still attempted rather than inheriting a previous one's failure.
 export function Avatar({
   url,
   name,
@@ -13,15 +18,22 @@ export function Avatar({
   size?: number;
   className?: string;
 }) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const initial = (name?.trim()?.charAt(0) || "?").toUpperCase();
+  const showImg = !!url && failedUrl !== url;
   return (
     <span
       className={`rounded-full overflow-hidden shrink-0 inline-flex items-center justify-center ${className}`}
-      style={{ width: size, height: size, background: url ? undefined : "#0FB8B0" }}
+      style={{ width: size, height: size, background: showImg ? undefined : "#0FB8B0" }}
       aria-label={name ?? undefined}
     >
-      {url ? (
-        <img src={url} alt={name ?? ""} className="w-full h-full object-cover" />
+      {showImg ? (
+        <img
+          src={url ?? undefined}
+          alt={name ?? ""}
+          className="w-full h-full object-cover"
+          onError={() => setFailedUrl(url ?? null)}
+        />
       ) : (
         <span
           style={{

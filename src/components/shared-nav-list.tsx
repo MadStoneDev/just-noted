@@ -27,6 +27,10 @@ interface SharedNavListProps {
   onOpen: (shortcode: string) => void;
   /** Open an owned note in the owner's normal editor (by note id). */
   onOpenOwned?: (noteId: string) => void;
+  /** Shortcode of the shared note currently open, for the active highlight. */
+  activeShortcode?: string | null;
+  /** Id of the owned note currently open (By me tab active highlight). */
+  activeNoteId?: string | null;
 }
 
 function PermTag({ perm, asLink }: { perm?: string; asLink?: boolean }) {
@@ -64,7 +68,7 @@ function OwnerAvatar({ name, url }: { name?: string; url?: string | null }) {
  * Saved. Notes shared with you land here automatically. Below the list, a
  * "Paste a link" field adds notes shared from outside the app.
  */
-export default function SharedNavList({ onOpen, onOpenOwned }: SharedNavListProps) {
+export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, activeNoteId }: SharedNavListProps) {
   const [items, setItems] = useState<SharedListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("withme");
@@ -166,7 +170,15 @@ export default function SharedNavList({ onOpen, onOpenOwned }: SharedNavListProp
               </p>
             </div>
           ) : (
-            byTab.map((n) => (
+            byTab.map((n) => {
+              // Mirror the own-note list's active treatment: an owned note (By
+              // me tab) matches the open note id; a granted/saved note matches
+              // the open shared shortcode.
+              const isActive =
+                n.source === "owned"
+                  ? !!activeNoteId && n.noteId === activeNoteId
+                  : !!activeShortcode && n.shortcode === activeShortcode;
+              return (
               <div key={n.source + n.shortcode} className="group/sh relative">
                 <button
                   onClick={() => {
@@ -176,36 +188,47 @@ export default function SharedNavList({ onOpen, onOpenOwned }: SharedNavListProp
                     if (n.source === "owned" && n.noteId && onOpenOwned) onOpenOwned(n.noteId);
                     else onOpen(n.shortcode);
                   }}
-                  className="w-full text-left flex items-start gap-2 px-2 py-2 rounded-[var(--radius-md)] hover:bg-[var(--color-raised-soft)] transition-colors"
+                  className={`group/note relative w-full text-left px-2.5 py-3 md:px-2 md:py-2 rounded-[var(--radius-8)] border transition-colors duration-[var(--duration-fast)] ${
+                    isActive
+                      ? "bg-[var(--color-accent-tint)] border-[var(--color-accent-tint-border)]"
+                      : "border-transparent hover:bg-[var(--color-raised-soft)]"
+                  }`}
                 >
-                  <span className="mt-[3px] flex-shrink-0">
-                    {tab === "byme" ? (
-                      n.isPublic ? <IconWorld size={14} className="text-[var(--color-info)]" /> : <IconLock size={14} className="text-[var(--color-ink-5)]" />
-                    ) : (
-                      <IconUser size={14} className="text-[var(--color-ink-5)]" />
-                    )}
-                  </span>
-                  <div className="flex-1 min-w-0 pr-4">
-                    <div className="flex items-center gap-1.5">
-                      <span className="flex-1 min-w-0 text-sm text-[var(--color-ink-1)] truncate">{n.title}</span>
-                      {tab === "byme" ? <OwnerTag /> : <PermTag perm={n.linkPermission} />}
-                    </div>
-                    <div className="text-[11px] text-[var(--color-ink-5)] mt-1 flex items-center gap-1.5">
+                  <div className="flex items-start gap-1.5">
+                    <span className="mt-[3px] flex-shrink-0">
                       {tab === "byme" ? (
-                        <>
-                          <span>{n.isPublic ? "Public link" : `${n.readerCount} ${n.readerCount === 1 ? "person" : "people"}`}</span>
-                          <span className="inline-flex items-center gap-0.5">
-                            <IconEye size={11} />
-                            {n.viewCount}
-                          </span>
-                          {n.isPublic && <PermTag perm={n.linkPermission} asLink />}
-                        </>
+                        n.isPublic ? <IconWorld size={13} className="text-[var(--color-info)]" /> : <IconLock size={13} className="text-[var(--color-ink-5)]" />
                       ) : (
-                        <>
-                          <OwnerAvatar name={n.owner} url={n.ownerAvatar} />
-                          <span className="truncate">{n.owner}</span>
-                        </>
+                        <IconUser size={13} className="text-[var(--color-ink-5)]" />
                       )}
+                    </span>
+                    <div className={`flex-1 min-w-0 ${tab === "saved" ? "pr-5" : ""}`}>
+                      {/* Title wraps like the own-note cards instead of being
+                          truncated and squeezed by an inline badge. */}
+                      <h3 className="text-[16px] md:text-[13px] font-medium text-[var(--color-ink-1)] leading-snug whitespace-normal break-words">
+                        {n.title}
+                      </h3>
+                      <div className="flex items-center flex-wrap gap-1.5 mt-1">
+                        {tab === "byme" ? (
+                          <>
+                            <span className="text-[12px] text-[var(--color-ink-5)]">{n.isPublic ? "Public link" : `${n.readerCount} ${n.readerCount === 1 ? "person" : "people"}`}</span>
+                            <span className="inline-flex items-center gap-0.5 text-[12px] text-[var(--color-ink-5)]">
+                              <IconEye size={12} />
+                              {n.viewCount}
+                            </span>
+                            <OwnerTag />
+                            {n.isPublic && <PermTag perm={n.linkPermission} asLink />}
+                          </>
+                        ) : (
+                          <>
+                            <span className="inline-flex items-center gap-1 min-w-0">
+                              <OwnerAvatar name={n.owner} url={n.ownerAvatar} />
+                              <span className="truncate text-[12px] text-[var(--color-ink-5)]">{n.owner}</span>
+                            </span>
+                            <PermTag perm={n.linkPermission} />
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </button>
@@ -219,7 +242,8 @@ export default function SharedNavList({ onOpen, onOpenOwned }: SharedNavListProp
                   </button>
                 )}
               </div>
-            ))
+              );
+            })
           )}
         </div>
       )}

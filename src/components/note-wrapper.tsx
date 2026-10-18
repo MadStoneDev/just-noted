@@ -468,6 +468,7 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
               setSidebarOpen(false);
             }
           }}
+          activeShortcode={sharedShortcode}
         />
 
         {/* Main area: the editor, or a read-only shared note when one is open. */}

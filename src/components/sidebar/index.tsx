@@ -83,6 +83,8 @@ interface SidebarProps {
   onOpenShared?: (shortcode: string) => void;
   onTogglePin?: (noteId: string, isPinned: boolean) => void;
   onTransferNote?: (noteId: string, targetSource: "redis" | "supabase") => void;
+  /** Shortcode of the shared note currently open, for the active highlight. */
+  activeShortcode?: string | null;
 }
 
 const SORT_LABELS: Record<"manual" | "edited" | "created" | "title" | "notebook", string> = {
@@ -101,7 +103,7 @@ const SOURCE_LABELS: Record<"all" | "cloud" | "local", string> = {
 const RAIL_VIEW_KEY = "jn_sidebar_rail_view";
 const RAIL_VIEWS = ["notes", "notebooks", "tags", "shared"] as const;
 
-export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMoveNote, onOpenTrash, onNewNote, onOpenShared, onTogglePin, onTransferNote }: SidebarProps) {
+export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMoveNote, onOpenTrash, onNewNote, onOpenShared, onTogglePin, onTransferNote, activeShortcode }: SidebarProps) {
   const {
     sidebarOpen,
     setSidebarOpen,
@@ -1384,7 +1386,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
 
             {/* ===== SHARED VIEW ===== */}
             {railView === "shared" && isAuthenticated && (
-              <SharedNavList onOpen={(sc) => onOpenShared?.(sc)} onOpenOwned={handleNoteClick} />
+              <SharedNavList onOpen={(sc) => onOpenShared?.(sc)} onOpenOwned={handleNoteClick} activeShortcode={activeShortcode} activeNoteId={activeNoteId} />
             )}
 
             {/* ===== NOTIFICATIONS VIEW ===== */}
