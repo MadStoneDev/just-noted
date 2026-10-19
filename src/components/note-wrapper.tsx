@@ -260,7 +260,10 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
     setShowTrash(false);
     setShowNotebooksGrid(false);
     setNotebookViewId(null);
-    setSharedShortcode(null);
+    // Deliberately do NOT clear sharedShortcode here: using the rail to switch
+    // which list the sidebar shows must not close the note you're reading. Only
+    // an explicit note click (onNoteClick/onOpenShared), Escape, or the shared
+    // view's own Close changes the open document.
     useNotesStore.getState().setActiveNotebookId(null);
     if (window.location.pathname !== "/") router.push("/");
   }, [router]);
