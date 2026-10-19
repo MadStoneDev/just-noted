@@ -10,15 +10,19 @@ export function NoteSkeleton({ withTitle = false }: { withTitle?: boolean }) {
       className="mx-auto w-full max-w-[var(--content-width)] px-4 md:px-8 py-8"
       aria-hidden
     >
-      {withTitle && <div className="skeleton h-10 w-2/3 rounded-[var(--radius-6)] mb-6" />}
+      {/* animate-pulse rather than the global .skeleton shimmer: that gradient's
+          two stops are the same colour in dark mode, so it looks frozen. */}
+      {withTitle && (
+        <div className="h-10 w-2/3 rounded-[var(--radius-6)] mb-6 bg-[var(--color-raised-soft)] animate-pulse" />
+      )}
       <div className="space-y-3">
-        <div className="skeleton h-4 w-full rounded" />
-        <div className="skeleton h-4 w-11/12 rounded" />
-        <div className="skeleton h-4 w-4/5 rounded" />
-        <div className="skeleton h-4 w-full rounded" />
-        <div className="skeleton h-4 w-3/4 rounded" />
-        <div className="skeleton h-4 w-5/6 rounded" />
-        <div className="skeleton h-4 w-2/3 rounded" />
+        {["w-full", "w-11/12", "w-4/5", "w-full", "w-3/4", "w-5/6", "w-2/3"].map((w, i) => (
+          <div
+            key={i}
+            className={`h-4 ${w} rounded bg-[var(--color-raised-soft)] animate-pulse`}
+            style={{ animationDelay: `${i * 90}ms` }}
+          />
+        ))}
       </div>
     </div>
   );
