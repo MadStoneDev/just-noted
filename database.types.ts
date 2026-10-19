@@ -670,20 +670,62 @@ export type Database = {
           user_id: string
           shortcode: string
           created_at: string
+          pinned: boolean
+          sort_order: number
         }
         Insert: {
           id?: string
           user_id: string
           shortcode: string
           created_at?: string
+          pinned?: boolean
+          sort_order?: number
         }
         Update: {
           id?: string
           user_id?: string
           shortcode?: string
           created_at?: string
+          pinned?: boolean
+          sort_order?: number
         }
         Relationships: []
+      }
+      shared_note_tags: {
+        Row: {
+          user_id: string
+          shortcode: string
+          tag_id: string
+          created_at: string
+        }
+        Insert: {
+          user_id: string
+          shortcode: string
+          tag_id: string
+          created_at?: string
+        }
+        Update: {
+          user_id?: string
+          shortcode?: string
+          tag_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_note_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_note_tags_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       shared_notes: {
         Row: {
@@ -776,6 +818,9 @@ export type Database = {
           last_viewed_at: string | null
           created_at: string | null
           role: string
+          pinned: boolean
+          sort_order: number
+          hidden: boolean
         }
         Insert: {
           id?: string
@@ -787,6 +832,9 @@ export type Database = {
           last_viewed_at?: string | null
           created_at?: string | null
           role?: string
+          pinned?: boolean
+          sort_order?: number
+          hidden?: boolean
         }
         Update: {
           id?: string
@@ -798,6 +846,9 @@ export type Database = {
           last_viewed_at?: string | null
           created_at?: string | null
           role?: string
+          pinned?: boolean
+          sort_order?: number
+          hidden?: boolean
         }
         Relationships: [
           {
