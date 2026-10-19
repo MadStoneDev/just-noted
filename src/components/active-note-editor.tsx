@@ -1406,9 +1406,12 @@ function NoteEditor({
         destructive
       />
 
-      {/* Content region below the bar — relative so the chat drawer + handle
-          span from here to the bottom. */}
-      <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
+      {/* Content region below the bar — a ROW so chat shares space with the note
+          on desktop (the note part shrinks); relative so the chat handle spans
+          from here to the bottom. */}
+      <div className="relative flex-1 flex min-h-0 overflow-hidden">
+      {/* Note part — shrinks when the chat column opens beside it on desktop. */}
+      <div className="flex-1 flex flex-col min-w-0">
       {/* Editor area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin">
         <div className={`mx-auto px-4 md:px-8 py-6 min-h-full flex flex-col transition-[max-width] duration-[var(--duration-slow)] ${isWide ? "max-w-none" : "max-w-[var(--content-width)]"}`}>
@@ -1636,6 +1639,7 @@ function NoteEditor({
       {/* Full-width formatting bar, docked below the scroll area (never overlaps
           the note text). The Milkdown editor portals its toolbar in here. */}
       <div ref={setToolbarSlot} className="shrink-0 empty:hidden" />
+      </div>{/* /note part */}
 
       {isAuthenticated && chatAvailable && <ChatDrawer noteId={note.id} enabled />}
       </div>{/* /content region */}

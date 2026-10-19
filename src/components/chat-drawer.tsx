@@ -6,21 +6,19 @@ import NoteChatPanel from "@/components/note-chat-panel";
 import { useChatUnread } from "@/hooks/use-chat-unread";
 
 /**
- * Chat as a right-edge sliding drawer with a circular toggle handle, instead of
- * a docked side column. Render it inside a `relative` container that spans the
- * note's content region (below the action bar): the drawer fills that height and
- * the handle vertically centres within it.
+ * Chat that SHARES screen space with the note on desktop — the note column
+ * shrinks and the chat sits beside it, both open and interactive at once — and
+ * is a full-width overlay only on mobile. A circular handle rides the note|chat
+ * boundary and toggles it.
  *
- * Geometry: the handle is centred on the drawer's LEFT edge and rides it — when
- * open it straddles the edge (half over the pane, half over the note); when
- * closed the drawer is off-screen right and the handle peeks at the right edge.
- * On phones the open drawer is full-width and is closed via the panel's own X,
- * so the handle hides while open.
+ * Render it as the last child of the note's content region, which must be a
+ * `relative flex ... overflow-hidden` ROW whose note part is `flex-1` (so the
+ * note shrinks when the chat column takes its width).
  */
 export default function ChatDrawer({ noteId, enabled }: { noteId: string; enabled: boolean }) {
   const [open, setOpen] = useState(false);
-  // Keep the panel mounted briefly after close so the slide-out can animate
-  // (NoteChatPanel renders null when open=false).
+  // Keep the panel mounted briefly after close so the collapse/slide-out can
+  // animate (NoteChatPanel renders null when its open is false).
   const [mounted, setMounted] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { unread } = useChatUnread(enabled ? noteId : null, enabled && !open);
@@ -41,22 +39,30 @@ export default function ChatDrawer({ noteId, enabled }: { noteId: string; enable
   if (!enabled) return null;
 
   return (
-    <div
-      className={`absolute top-0 right-0 bottom-0 z-10 w-full lg:w-[340px] transition-transform duration-[var(--duration-slow)] ${
-        open ? "translate-x-0" : "translate-x-full"
-      }`}
-    >
-      {mounted && <NoteChatPanel noteId={noteId} open={open} onClose={() => setOpen(false)} />}
+    <>
+      {/* Chat column. Mobile: full-width overlay (z above the toolbar), slides in.
+          Desktop: in-flow (lg:static) with width animating 0↔340, so the note
+          column's flex-1 shrinks/grows beside it. overflow-hidden clips the
+          panel's own fixed-width aside while the column collapses. */}
+      <div
+        className={`shrink-0 overflow-hidden transition-all duration-[var(--duration-slow)] absolute inset-y-0 right-0 z-30 w-full lg:static lg:z-auto lg:translate-x-0 ${
+          open ? "translate-x-0 lg:w-[340px]" : "translate-x-full lg:w-0"
+        }`}
+      >
+        {mounted && <NoteChatPanel noteId={noteId} open={mounted} onClose={() => setOpen(false)} />}
+      </div>
 
-      {/* Circular handle — centred on the drawer's left edge so it rides the
-          edge as the drawer slides. Hidden on phones while open (the full-width
-          panel covers it; close via the panel's X). */}
+      {/* Circular handle — rides the note|chat boundary. Closed: peeks at the
+          region's right edge. Open (desktop): centred on the 340px boundary.
+          Hidden on phones while open (full-width panel covers it; close via its X). */}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? "Close chat" : "Open chat"}
         title="Chat"
-        className={`absolute top-1/2 left-0 -translate-x-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full items-center justify-center shadow-[var(--shadow-md)] border transition-colors ${
+        className={`absolute top-1/2 -translate-y-1/2 translate-x-1/2 z-40 w-10 h-10 rounded-full items-center justify-center shadow-[var(--shadow-md)] border transition-[right,background-color,color] duration-[var(--duration-slow)] ${
+          open ? "right-0 lg:right-[340px]" : "right-0"
+        } ${
           open
             ? "hidden lg:flex bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] border-[var(--color-accent-fill)]"
             : "flex bg-[var(--color-raised)] text-[var(--color-ink-3)] border-[var(--color-hairline)] hover:text-[var(--color-ink-1)]"
@@ -69,6 +75,6 @@ export default function ChatDrawer({ noteId, enabled }: { noteId: string; enable
           </span>
         )}
       </button>
-    </div>
+    </>
   );
 }
