@@ -100,12 +100,18 @@ export default function SharedNoteInline({ shortcode, onClose, onToggleSplit }: 
     })();
 
     try {
+      const t0 = performance.now();
       const result = (await sharingOperation({
         operation: "getByShortcode",
         shortcode,
         currentUsername: null,
         password: pw || null,
       })) as any;
+      // Diagnostic: time the note fetch + its content size.
+      console.log(
+        `[shared-note] getByShortcode: ${Math.round(performance.now() - t0)}ms · ` +
+          `content ${(result?.note?.content?.length ?? 0)} chars`,
+      );
 
       if (result.success && result.note) {
         setNote(result.note);
