@@ -1,22 +1,14 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
-import {
-  IconHelp,
-  IconMessageCircle,
-  IconHistory,
-  IconLink,
-  IconViewportWide,
-  IconMarkdown,
-  IconDots,
-  IconX,
-} from "@tabler/icons-react";
+import { IconDots } from "@tabler/icons-react";
 import MilkdownEditor from "@/components/editor/milkdown-editor";
 import NoteStatsRow from "@/components/note-stats-row";
 import AutoGrowTitle from "@/components/auto-grow-title";
 import { Modal } from "@/components/ds/modal";
 import { Dropdown, DropdownItem } from "@/components/ds/dropdown";
 import { PresenceStack } from "@/components/presence-stack";
+import NoteActionBar from "@/components/note-view/note-action-bar";
 import type { PresenceUser } from "@/hooks/use-presence";
 import {
   readWideDefault,
@@ -149,9 +141,6 @@ export default function NoteView({
   }, [content, model.contentFormat, onContentChange]);
 
   const isShared = caps.isShared;
-  const btnCls = isShared
-    ? "w-8 h-8 flex items-center justify-center rounded-[var(--radius-6)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)] transition-colors"
-    : "w-8 h-8 flex items-center justify-center rounded-[var(--radius-6)] text-[var(--color-ink-5)] hover:bg-[var(--color-raised-soft)] transition-colors";
 
   // With live collab the editor seeds from the canonical content and the Yjs doc
   // drives thereafter; without it, remounting from the live content keeps source
@@ -164,84 +153,41 @@ export default function NoteView({
         isShared ? "border border-[var(--color-accent-tint-border)]" : ""
       }`}
     >
-      {/* Action bar */}
-      <div
-        className={`flex items-center justify-between gap-3 px-4 md:px-8 min-h-[44px] py-1.5 flex-none border-b ${
-          isShared
-            ? "bg-[var(--color-accent-tint)] border-[var(--color-accent-tint-border)]"
-            : "bg-[var(--color-canvas)] border-[var(--color-hairline)]"
-        }`}
-      >
-        <div className="min-w-0">
-          {contextLabel && (
-            <div
-              className={`inline-flex items-center gap-1.5 min-w-0 text-[13px] ${
-                isShared ? "text-[var(--color-accent-text)]" : "text-[var(--color-ink-3)]"
-              }`}
-            >
-              {contextLabel}
-            </div>
-          )}
-          {contextSubLabel && (
-            <div className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-accent-deep)] leading-tight">
-              {contextSubLabel}
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1.5 shrink-0">
-          {isShared && presence && presence.length > 0 && <PresenceStack users={presence} />}
-
-          <button onClick={() => setShowHelp(true)} title="Formatting help" className={btnCls}>
-            <IconHelp size={16} />
-          </button>
-
-          {caps.hasChat && ops.onChat && (
-            <button onClick={ops.onChat} title="Chat" className={`relative ${btnCls}`}>
-              <IconMessageCircle size={16} />
-              {chatUnread > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] px-0.5 rounded-full bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] text-[9px] font-semibold flex items-center justify-center">
-                  {chatUnread > 9 ? "9+" : chatUnread}
-                </span>
-              )}
-            </button>
-          )}
-
-          {caps.hasVersions && ops.onHistory && (
-            <button onClick={ops.onHistory} title="Version history" className={btnCls}>
-              <IconHistory size={16} />
-            </button>
-          )}
-
-          {isShared && ops.onCopyLink && (
-            <button onClick={ops.onCopyLink} title="Copy link" className={btnCls}>
-              <IconLink size={16} />
-            </button>
-          )}
-
-          <button
-            onClick={cycleWide}
-            title={wideTooltip}
-            className={`hidden md:flex ${btnCls} ${isWide && !isShared ? "text-[var(--color-accent)]" : ""}`}
-          >
-            <IconViewportWide size={16} />
-          </button>
-
-          <button
-            onClick={toggleViewMode}
-            title={viewMode === "rendered" ? "View markdown source" : "View formatted"}
-            className={`${btnCls} ${viewMode === "source" && !isShared ? "text-[var(--color-accent)]" : ""}`}
-          >
-            <IconMarkdown size={16} />
-          </button>
-
-          {/* Share is owner-only; recipients have canShare=false (wired in phase 2). */}
-
-          {isShared && (ops.onCopyLink || ops.onClose) && (
+      {/* Action bar (shared with the owner editor via NoteActionBar). */}
+      <NoteActionBar
+        isShared={isShared}
+        left={
+          <>
+            {contextLabel && (
+              <div
+                className={`inline-flex items-center gap-1.5 min-w-0 text-[13px] ${
+                  isShared ? "text-[var(--color-accent-text)]" : "text-[var(--color-ink-3)]"
+                }`}
+              >
+                {contextLabel}
+              </div>
+            )}
+            {contextSubLabel && (
+              <div className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-accent-deep)] leading-tight">
+                {contextSubLabel}
+              </div>
+            )}
+          </>
+        }
+        presence={isShared && presence && presence.length > 0 ? <PresenceStack users={presence} /> : undefined}
+        onHelp={() => setShowHelp(true)}
+        chat={caps.hasChat && ops.onChat ? { onOpen: ops.onChat, unread: chatUnread } : undefined}
+        onHistory={caps.hasVersions && ops.onHistory ? ops.onHistory : undefined}
+        onCopyLink={isShared && ops.onCopyLink ? ops.onCopyLink : undefined}
+        wide={{ isWide, tooltip: wideTooltip, onCycle: cycleWide }}
+        markdown={{ viewMode, onToggle: toggleViewMode }}
+        onClose={ops.onClose}
+        overflow={
+          isShared && (ops.onCopyLink || ops.onClose) ? (
             <Dropdown
               placement="bottom-end"
               trigger={
-                <button title="More" className={btnCls}>
+                <button title="More" className={`w-8 ${isShared ? "text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)]" : "text-[var(--color-ink-5)] hover:bg-[var(--color-raised-soft)]"} h-8 flex items-center justify-center rounded-[var(--radius-6)] transition-colors`}>
                   <IconDots size={16} />
                 </button>
               }
@@ -254,15 +200,9 @@ export default function NoteView({
               )}
               {ops.onClose && <DropdownItem onClick={ops.onClose}>Close</DropdownItem>}
             </Dropdown>
-          )}
-
-          {ops.onClose && (
-            <button onClick={ops.onClose} title="Close" className={btnCls}>
-              <IconX size={16} />
-            </button>
-          )}
-        </div>
-      </div>
+          ) : undefined
+        }
+      />
 
       {overlay}
 

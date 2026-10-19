@@ -21,12 +21,9 @@ import {
   IconTrash,
   IconDots,
   IconSquareRoundedPlus,
-  IconViewportWide,
   IconLayoutColumns,
-  IconShare,
   IconHelp,
   IconHistory,
-  IconMessageCircle,
   IconNotebook,
   IconPrinter,
   IconSelector,
@@ -63,7 +60,7 @@ import { subscribeProblem } from "@/utils/offline-queue";
 import GoalSuggestionsModal from "@/components/goal-suggestions-modal";
 import SplitToolbar, { SplitToolbarMobile } from "@/components/editor/split-toolbar";
 import { saveVersion } from "@/app/actions/versionActions";
-import { IconButton } from "@/components/ds/icon-button";
+import NoteActionBar, { barButtonClass } from "@/components/note-view/note-action-bar";
 import ShareNoteButton from "@/components/share-note-button";
 import NotePicker from "@/components/notes/note-picker";
 
@@ -417,6 +414,10 @@ function NoteEditor({
   // Read current collab state inside effects without making them re-run.
   const collabConfigRef = useRef(collabConfig);
   collabConfigRef.current = collabConfig;
+  // Whether this owned note currently has an active share (link on, or people
+  // granted access) — drives the subtle teal "shared" tell on the owner's own
+  // view. Derived from the same getUsers probe below, so no extra fetch.
+  const [noteIsShared, setNoteIsShared] = useState(false);
   // Bumped when this note's sharing changes (via the justnoted:shares-changed
   // event) so the probe below re-runs and the editor switches into/out of live
   // collaboration without a reload (A1).
@@ -432,7 +433,7 @@ function NoteEditor({
     prevNoteIdRef.current = note.id;
     // A different note: reset synchronously so the editor key never pairs a new
     // note id with the previous note's collab room.
-    if (noteChanged) setCollabConfig(null);
+    if (noteChanged) { setCollabConfig(null); setNoteIsShared(false); }
 
     // Leave collab (unshare / access removed): persist the live content first so
     // the plain editor that remounts shows the latest text.
@@ -444,6 +445,7 @@ function NoteEditor({
     };
 
     if (!isAuthenticated || note.source !== "supabase") {
+      setNoteIsShared(false);
       exitCollab();
       return;
     }
@@ -452,6 +454,14 @@ function NoteEditor({
       try {
         const res = (await sharingOperation({ operation: "getUsers", noteId: note.id, currentUserId: userId })) as any;
         if (cancelled || note.id !== prevNoteIdRef.current) return;
+        // A note counts as "shared" when its link is on (view/edit) or anyone
+        // has been granted access — this drives the teal tell, independent of
+        // whether live collab (edit) is active.
+        setNoteIsShared(
+          !!res?.success &&
+            (((res.linkPermission ?? "off") !== "off") ||
+              (Array.isArray(res?.users) && res.users.length > 0)),
+        );
         // Collaboration is active when the link is "Can edit" OR at least one
         // person was granted edit — the owner must join the room in both cases,
         // otherwise their editor isn't on the CRDT channel and edits don't sync.
@@ -1299,152 +1309,86 @@ function NoteEditor({
 
   return (
     <div className="flex-1 flex h-full overflow-hidden">
-     <div className={`flex-1 flex-col overflow-hidden min-w-0 ${showChat ? "hidden lg:flex" : "flex"}`}>
-      {/* Editor top bar */}
-      <div className="print:hidden hidden md:flex items-center justify-between px-4 md:px-8 py-2 border-b border-[var(--color-hairline)] bg-[var(--color-canvas)]">
-        <div className="flex items-center gap-2">
-          <span className="px-1.5 py-0.5 rounded-[var(--radius-5)] bg-[var(--color-raised-soft)] text-[11px] text-[var(--color-ink-4)]">
-            {noteSource === "supabase" ? "Cloud" : "Local"}
-          </span>
-          {isSaving && (
-            <span className="text-[11px] text-[var(--color-ink-4)] animate-pulse-subtle">
-              Saving…
+     <div className={`flex-1 flex-col overflow-hidden min-w-0 ${showChat ? "hidden lg:flex" : "flex"} ${noteIsShared ? "border border-[var(--color-accent-tint-border)]" : ""}`}>
+      {/* Editor top bar — shared chrome via NoteActionBar (owner context). */}
+      <NoteActionBar
+        isShared={noteIsShared}
+        className="print:hidden hidden md:flex"
+        left={
+          <div className="flex items-center gap-2">
+            <span className="px-1.5 py-0.5 rounded-[var(--radius-5)] bg-[var(--color-raised-soft)] text-[11px] text-[var(--color-ink-4)]">
+              {noteSource === "supabase" ? "Cloud" : "Local"}
             </span>
-          )}
-        </div>
-
-        <div className="flex items-center">
-          <IconButton
-            label="Formatting help"
-            size="sm"
-            onClick={() => setShowHelp(true)}
-          >
-            <IconHelp size={14} />
-          </IconButton>
-
-          {isAuthenticated && chatAvailable && (
-            <span className="relative inline-flex">
-              <IconButton
-                label="Chat"
-                size="sm"
-                onClick={() => setShowChat(true)}
-              >
-                <IconMessageCircle size={14} />
-              </IconButton>
-              {chatUnread > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-0.5 rounded-full bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] text-[9px] font-semibold flex items-center justify-center pointer-events-none">
-                  {chatUnread > 9 ? "9+" : chatUnread}
-                </span>
-              )}
-            </span>
-          )}
-
-          {isAuthenticated && (
-            <IconButton
-              label="Version history"
-              size="sm"
-              onClick={() => setShowVersions(true)}
-            >
-              <IconHistory size={14} />
-            </IconButton>
-          )}
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={IMPORT_ACCEPT}
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              if (e.target.files?.length) handleImportFiles(e.target.files);
-              e.target.value = "";
-            }}
-          />
-          <IconButton
-            label="Open a .txt or .md file"
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <IconFileImport size={14} />
-          </IconButton>
-
-          <div className="w-px h-3 bg-[var(--color-hairline)] mx-0.5" />
-
-          <span className="hidden md:inline-flex">
-            <button
-              type="button"
-              onClick={cycleWide}
-              title={wideTooltip}
-              aria-label={wideTooltip}
-              className={`inline-flex items-center justify-center gap-1 h-8 rounded-[var(--radius-md)] transition-colors duration-[var(--duration-fast)] outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-border-focus)] cursor-pointer hover:bg-[var(--color-hover)] [&_svg]:size-4 ${
-                isWide
-                  ? "text-[var(--color-accent)]"
-                  : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
-              } ${wideLevel === "all" ? "px-2" : "w-8"}`}
-            >
-              <IconViewportWide size={14} />
-              {wideLevel === "all" && (
-                <span className="text-[11px] font-medium leading-none">All</span>
-              )}
-            </button>
-          </span>
-
-          {onChangeSplitNote && (
-            <span className="hidden md:inline-flex">
-              <IconButton
-                label="Change note"
-                size="sm"
-                onClick={onChangeSplitNote}
-              >
-                <IconSelector size={14} />
-              </IconButton>
-            </span>
-          )}
-
-          {onToggleSplit && (
-            <span className="hidden md:inline-flex">
-              <IconButton
-                label="Split view"
-                size="sm"
-                onClick={onToggleSplit}
-              >
-                <IconLayoutColumns size={14} />
-              </IconButton>
-            </span>
-          )}
-
-          <IconButton
-            label={viewMode === "rendered" ? "View markdown source" : "View formatted"}
-            size="sm"
-            onClick={toggleViewMode}
-            className={viewMode === "source" ? "text-[var(--color-accent)]" : undefined}
-          >
-            <IconMarkdown size={14} />
-          </IconButton>
-
-          <div className="w-px h-3 bg-[var(--color-hairline)] mx-0.5" />
-
-          {isAuthenticated && (
-            <ShareNoteButton
-              noteId={note.id}
-              noteTitle={title}
-              noteSource={noteSource}
-              isPrivate={note.isPrivate}
-              isAuthenticated={isAuthenticated}
-              userId={userId}
+            {isSaving && (
+              <span className="text-[11px] text-[var(--color-ink-4)] animate-pulse-subtle">Saving…</span>
+            )}
+          </div>
+        }
+        onHelp={() => setShowHelp(true)}
+        chat={isAuthenticated && chatAvailable ? { onOpen: () => setShowChat(true), unread: chatUnread } : undefined}
+        onHistory={isAuthenticated ? () => setShowVersions(true) : undefined}
+        wide={{ isWide, tooltip: wideTooltip, onCycle: cycleWide, label: wideLevel === "all" ? "All" : undefined }}
+        markdown={{ viewMode, onToggle: toggleViewMode }}
+        extras={
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={IMPORT_ACCEPT}
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files?.length) handleImportFiles(e.target.files);
+                e.target.value = "";
+              }}
             />
-          )}
-
-          {/* Pin, privacy, print, move and delete now live in the command menu */}
-          <IconButton
-            label="Actions (Ctrl+Shift+M)"
-            size="sm"
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              title="Open a .txt or .md file"
+              className={`flex w-8 ${barButtonClass(noteIsShared)}`}
+            >
+              <IconFileImport size={16} />
+            </button>
+            {onChangeSplitNote && (
+              <button
+                onClick={onChangeSplitNote}
+                title="Change note"
+                className={`flex w-8 ${barButtonClass(noteIsShared)}`}
+              >
+                <IconSelector size={16} />
+              </button>
+            )}
+            {onToggleSplit && (
+              <button
+                onClick={onToggleSplit}
+                title="Split view"
+                className={`flex w-8 ${barButtonClass(noteIsShared)}`}
+              >
+                <IconLayoutColumns size={16} />
+              </button>
+            )}
+            {isAuthenticated && (
+              <ShareNoteButton
+                noteId={note.id}
+                noteTitle={title}
+                noteSource={noteSource}
+                isPrivate={note.isPrivate}
+                isAuthenticated={isAuthenticated}
+                userId={userId}
+              />
+            )}
+          </>
+        }
+        overflow={
+          <button
             onClick={() => setCommandOpen(true)}
+            title="Actions (Ctrl+Shift+M)"
+            className={`flex w-8 ${barButtonClass(noteIsShared)}`}
           >
-            <IconDots size={14} />
-          </IconButton>
-        </div>
-      </div>
+            <IconDots size={16} />
+          </button>
+        }
+      />
 
       <CommandPalette
         open={commandOpen}
