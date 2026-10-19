@@ -1,23 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { IconX, IconLock, IconEye, IconShare, IconHistory, IconLink, IconDots, IconMessageCircle } from "@tabler/icons-react";
+import { IconX, IconLock, IconEye, IconShare } from "@tabler/icons-react";
 import { sharingOperation } from "@/app/actions/sharing";
 import { createClient } from "@/utils/supabase/client";
-import MilkdownEditor from "@/components/editor/milkdown-editor";
 import type { ContentFormat } from "@/types/combined-notes";
 import { usePresence, colorForUser } from "@/hooks/use-presence";
-import { PresenceStack } from "@/components/presence-stack";
 import { SharedHistoryPanel } from "@/components/shared-history-panel";
 import NoteChatPanel from "@/components/note-chat-panel";
 import { useChatUnread } from "@/hooks/use-chat-unread";
 import { loadCollabDoc, saveCollabDoc } from "@/app/actions/collabActions";
 import { decideEditorChange } from "@/utils/editor-save-decision";
-import NoteStatsRow from "@/components/note-stats-row";
-import AutoGrowTitle from "@/components/auto-grow-title";
 import { Avatar } from "@/components/ui/avatar";
-import { Dropdown, DropdownItem } from "@/components/ds/dropdown";
 import { useToast } from "@/components/ui/toast";
+import NoteView from "@/components/note-view/note-view";
+import type { NoteViewModel, NoteCaps, NoteOps } from "@/components/note-view/types";
 
 interface SharedNoteInlineProps {
   shortcode: string;
@@ -30,7 +27,8 @@ type SaveStatus = "idle" | "saving" | "saved" | "error";
  * Viewer for a shared note, rendered inside JustNoted's main area. Read-only by
  * default. When the link grants "Can edit" and the visitor is signed in, it
  * becomes an editable surface that autosaves back to the owner's note (edits are
- * enforced server-side). Realtime presence/carets are a later surface.
+ * enforced server-side). Chrome is the shared <NoteView> (phase 1 of the merge);
+ * this component owns the fetch, access gating, presence, collab and autosave.
  */
 export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlineProps) {
   const [note, setNote] = useState<any>(null);
@@ -69,14 +67,9 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
   const [showHistory, setShowHistory] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const { unread: chatUnread } = useChatUnread(note?.id ?? null, !!note?.id && !showChat);
-  // Bottom slot the formatting toolbar portals into, so it docks to the bottom
-  // of the editor column even when the note is too short to fill it (matching
-  // the standard editor).
-  const [toolbarSlot, setToolbarSlot] = useState<HTMLDivElement | null>(null);
   const toast = useToast();
   const shareLink = typeof window !== "undefined" ? `${window.location.origin}/n/${shortcode}` : "";
   const copyLink = () => { navigator.clipboard.writeText(shareLink); toast.showSuccess("Link copied"); };
-
 
   const fetchNote = async (pw?: string | null) => {
     setLoading(true);
@@ -175,6 +168,27 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
     };
   }, []);
 
+  const handleEditorChange = useCallback(
+    (markdown: string) => {
+      const decision = decideEditorChange({
+        value: markdown,
+        baseline: lastSavedContentRef.current,
+        awaitingLoadEmission: awaitingLoadEmission.current,
+        msSinceMount: Date.now() - editorMountedAt.current,
+        windowMs: LOAD_EMISSION_WINDOW_MS,
+      });
+      awaitingLoadEmission.current = false;
+      setContent(markdown);
+      if (decision.adoptBaseline) {
+        // Opening the note, not editing it — never save.
+        lastSavedContentRef.current = markdown;
+        return;
+      }
+      if (decision.persist) scheduleSave(title, markdown);
+    },
+    [scheduleSave, title],
+  );
+
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -263,162 +277,143 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
     );
   }
 
-  const isAnonymous = note.shareInfo?.isAnonymous;
-  const saveLabel =
-    saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved" : saveStatus === "error" ? "Save failed" : "";
+  const isAnonymous = !!note.shareInfo?.isAnonymous;
+
+  const model: NoteViewModel = {
+    id: note.id,
+    title,
+    content: note.content || "",
+    contentFormat: (note.content_format as ContentFormat) || "markdown",
+    goal: note.goal,
+    goalType: note.goal_type,
+    updatedAt: note.updated_at,
+    authorUsername: note.authorUsername,
+    authorAvatar: note.authorAvatar,
+    isAnonymous,
+  };
+
+  const ownerLabel = isAnonymous ? (
+    "Shared note"
+  ) : (
+    <>Shared by <strong className="font-semibold">@{note.authorUsername}</strong></>
+  );
 
   // ===== Editable (Can edit) =====
   if (canEdit) {
+    const caps: NoteCaps = {
+      isShared: true,
+      isOwner: false,
+      canEditContent: true,
+      canShare: false,
+      canPin: false,
+      canOpenFile: false,
+      canMoveNotebook: false,
+      canMoveSource: false,
+      canDelete: false,
+      hasVersions: true,
+      hasChat: true,
+      showGoalPicker: false,
+      showPagePicker: false,
+    };
+    const ops: NoteOps = {
+      onEditorReady: handleEditorReady,
+      onClose,
+      onCopyLink: copyLink,
+      onChat: () => setShowChat(true),
+      onHistory: () => setShowHistory(true),
+      collab: me
+        ? {
+            roomKey: note.id,
+            user: me,
+            load: () => loadCollabDoc({ shortcode }).then((r) => r.state),
+            save: (state) => saveCollabDoc({ shortcode, state }).then(() => {}),
+          }
+        : undefined,
+    };
+    const saveLabel =
+      saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved" : saveStatus === "error" ? "Save failed" : "";
+
     return (
-      <div className="flex-1 flex flex-col min-h-0">
-        {/* Collab banner (minimal — presence/carets arrive with surface 05) */}
-        <div className="flex items-center justify-between gap-3 px-4 md:px-8 min-h-[44px] py-1.5 flex-none bg-[var(--color-accent-tint)] border-b border-[var(--color-accent-tint-border)]">
-          <div className="min-w-0">
-            <span className="inline-flex items-center gap-1.5 min-w-0 text-[13px] text-[var(--color-accent-text)]">
-              <IconShare size={14} className="shrink-0" />
-              <span className="truncate">
-                {isAnonymous ? "Shared note" : <>Shared by <strong className="font-semibold">@{note.authorUsername}</strong></>} · you can edit
-              </span>
-            </span>
-            <div className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-accent-deep)] leading-tight">
-              owner keeps control of access
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <PresenceStack users={presence} />
-            {saveLabel && (
-              <span className={`text-[11px] font-[family-name:var(--font-meta)] mr-1 ${saveStatus === "error" ? "text-[var(--color-danger)]" : "text-[var(--color-accent-text)]"}`}>
-                {saveLabel}
-              </span>
-            )}
-            <button onClick={() => setShowChat(true)} title="Chat"
-              className="relative w-8 h-8 flex items-center justify-center rounded-[var(--radius-6)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)] transition-colors">
-              <IconMessageCircle size={16} />
-              {chatUnread > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] px-0.5 rounded-full bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] text-[9px] font-semibold flex items-center justify-center">
-                  {chatUnread > 9 ? "9+" : chatUnread}
-                </span>
-              )}
-            </button>
-            <button onClick={() => setShowHistory(true)} title="Version history"
-              className="w-8 h-8 flex items-center justify-center rounded-[var(--radius-6)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)] transition-colors">
-              <IconHistory size={16} />
-            </button>
-            <button onClick={copyLink} title="Copy link"
-              className="w-8 h-8 flex items-center justify-center rounded-[var(--radius-6)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)] transition-colors">
-              <IconLink size={16} />
-            </button>
-            <Dropdown
-              placement="bottom-end"
-              trigger={
-                <button title="More" className="w-8 h-8 flex items-center justify-center rounded-[var(--radius-6)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)] transition-colors">
-                  <IconDots size={16} />
-                </button>
-              }
-            >
-              <DropdownItem onClick={copyLink}>Copy link</DropdownItem>
-              <DropdownItem onClick={() => window.open(shareLink, "_blank")}>Open in new tab</DropdownItem>
-              <DropdownItem onClick={onClose}>Close</DropdownItem>
-            </Dropdown>
-            <button onClick={onClose} title="Close"
-              className="w-8 h-8 flex items-center justify-center rounded-[var(--radius-6)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)] transition-colors">
-              <IconX size={16} />
-            </button>
-          </div>
-        </div>
-        {showHistory && <SharedHistoryPanel shortcode={shortcode} onClose={() => setShowHistory(false)} />}
-        <div className="flex-1 flex min-h-0">
-          <div className={`flex-1 flex-col min-w-0 ${showChat ? "hidden lg:flex" : "flex"}`}>
-            <div className="flex-1 overflow-y-auto scrollbar-thin">
-              <article className="max-w-[var(--content-width)] mx-auto px-4 md:px-8 py-8">
-                <AutoGrowTitle
-                  value={title}
-                  onChange={(v) => { setTitle(v); scheduleSave(v, content); }}
-                  className="mb-1"
-                />
-                <div className="mb-6">
-                  <NoteStatsRow content={content} goal={note.goal} goalType={note.goal_type} />
-                </div>
-                {me ? (
-                  <MilkdownEditor
-                    content={note.content || ""}
-                    contentFormat={(note.content_format as ContentFormat) || "markdown"}
-                    onReady={handleEditorReady}
-                    onChange={(markdown) => {
-                      const decision = decideEditorChange({
-                        value: markdown,
-                        baseline: lastSavedContentRef.current,
-                        awaitingLoadEmission: awaitingLoadEmission.current,
-                        msSinceMount: Date.now() - editorMountedAt.current,
-                        windowMs: LOAD_EMISSION_WINDOW_MS,
-                      });
-                      awaitingLoadEmission.current = false;
-                      setContent(markdown);
-                      if (decision.adoptBaseline) {
-                        // Opening the note, not editing it — never save.
-                        lastSavedContentRef.current = markdown;
-                        return;
-                      }
-                      if (decision.persist) scheduleSave(title, markdown);
-                    }}
-                    toolbarContainer={toolbarSlot}
-                    collab={{
-                      roomKey: note.id,
-                      user: me,
-                      load: () => loadCollabDoc({ shortcode }).then((r) => r.state),
-                      save: (state) => saveCollabDoc({ shortcode, state }).then(() => {}),
-                    }}
-                  />
-                ) : (
-                  // Wait for identity before mounting the editor, so it always
-                  // mounts straight into live collab (never editable-but-not-live).
-                  <div className="py-10 text-[13px] text-[var(--color-ink-4)]">Connecting to the live document…</div>
-                )}
-              </article>
-            </div>
-            <div ref={setToolbarSlot} className="shrink-0 empty:hidden" />
-          </div>
-          {note?.id && (
-            <NoteChatPanel noteId={note.id} open={showChat} onClose={() => setShowChat(false)} />
-          )}
-        </div>
-      </div>
+      <NoteView
+        model={model}
+        caps={caps}
+        ops={ops}
+        title={title}
+        onTitleChange={(v) => { setTitle(v); scheduleSave(v, content); }}
+        content={content}
+        onContentChange={handleEditorChange}
+        contextLabel={
+          <>
+            <IconShare size={14} className="shrink-0" />
+            <span className="truncate">{ownerLabel} · you can edit</span>
+          </>
+        }
+        contextSubLabel="owner keeps control of access"
+        statusLabel={saveLabel}
+        statusTone={saveStatus === "error" ? "error" : "normal"}
+        presence={presence}
+        chatUnread={chatUnread}
+        shareLink={shareLink}
+        collabPending={!me}
+        overlay={showHistory ? <SharedHistoryPanel shortcode={shortcode} onClose={() => setShowHistory(false)} /> : undefined}
+        sidePanel={note?.id ? <NoteChatPanel noteId={note.id} open={showChat} onClose={() => setShowChat(false)} /> : undefined}
+        sidePanelOpen={showChat}
+      />
     );
   }
 
   // ===== Read-only =====
+  const caps: NoteCaps = {
+    isShared: true,
+    isOwner: false,
+    canEditContent: false,
+    canShare: false,
+    canPin: false,
+    canOpenFile: false,
+    canMoveNotebook: false,
+    canMoveSource: false,
+    canDelete: false,
+    hasVersions: false,
+    hasChat: false,
+    showGoalPicker: false,
+    showPagePicker: false,
+  };
+  const ops: NoteOps = { onClose, onCopyLink: copyLink };
+
   return (
-    <div className="flex-1 flex flex-col min-h-0">
-      {readOnlyHeader}
-      <div className="flex-1 overflow-y-auto scrollbar-thin">
-        <article className="max-w-[var(--content-width)] mx-auto px-4 md:px-8 py-8">
-          <h1 className="font-[family-name:var(--font-editor)] text-[32px] md:text-[46px] leading-[1.1] font-medium tracking-[-0.015em] text-[var(--color-ink)] mb-2">{note.title || "Untitled"}</h1>
-          <div className="flex items-center gap-3 text-[11px] text-[var(--color-ink-5)] mb-2">
-            {!isAnonymous && (
-              <span className="flex items-center gap-1.5">
-                <Avatar url={note.authorAvatar} name={note.authorUsername} size={16} />
-                {note.authorUsername}
-              </span>
-            )}
-            {!isAnonymous && <span>·</span>}
-            <span>{formatDate(note.updated_at)}</span>
-          </div>
-          <div className="mb-8">
-            <NoteStatsRow content={note.content} goal={note.goal} goalType={note.goal_type} />
-          </div>
-          {note.editBlockedByOwnerPlan && (
-            <div className="mb-6 flex items-center gap-2 px-3 py-2 rounded-[var(--radius-8)] bg-[var(--color-raised-soft)] text-[12px] text-[var(--color-ink-4)]">
-              <IconLock size={13} className="shrink-0" />
-              The owner’s plan doesn’t include shared editing.
-            </div>
+    <NoteView
+      model={model}
+      caps={caps}
+      ops={ops}
+      title={title}
+      content={content}
+      contextLabel={
+        <>
+          <IconEye size={13} className="shrink-0" />
+          <span className="truncate">{ownerLabel} · read-only</span>
+        </>
+      }
+      shareLink={shareLink}
+      byline={
+        <div className="flex items-center gap-3 text-[11px] text-[var(--color-ink-5)] mb-2">
+          {!isAnonymous && (
+            <span className="flex items-center gap-1.5">
+              <Avatar url={note.authorAvatar} name={note.authorUsername} size={16} />
+              {note.authorUsername}
+            </span>
           )}
-          <MilkdownEditor
-            content={note.content || ""}
-            contentFormat={(note.content_format as ContentFormat) || "markdown"}
-            readOnly
-          />
-        </article>
-      </div>
-    </div>
+          {!isAnonymous && <span>·</span>}
+          <span>{formatDate(note.updated_at)}</span>
+        </div>
+      }
+      notice={
+        note.editBlockedByOwnerPlan ? (
+          <div className="mb-6 flex items-center gap-2 px-3 py-2 rounded-[var(--radius-8)] bg-[var(--color-raised-soft)] text-[12px] text-[var(--color-ink-4)]">
+            <IconLock size={13} className="shrink-0" />
+            The owner’s plan doesn’t include shared editing.
+          </div>
+        ) : undefined
+      }
+    />
   );
 }
