@@ -95,12 +95,16 @@ async function resolve(
   return { noteId: null, canRead: false, canWrite: false };
 }
 
-export async function loadCollabDoc(target: Target): Promise<{ state: string | null }> {
+export async function loadCollabDoc(
+  target: Target,
+): Promise<{ state: string | null; serverMs?: number; resolveMs?: number }> {
+  const t0 = Date.now();
   const { noteId, canRead } = await resolve(target, false);
-  if (!noteId || !canRead) return { state: null };
+  const resolveMs = Date.now() - t0;
+  if (!noteId || !canRead) return { state: null, serverMs: Date.now() - t0, resolveMs };
   const svc = createServiceRoleClient();
   const { data } = await svc.from("note_ydoc").select("state").eq("note_id", noteId).maybeSingle();
-  return { state: (data as any)?.state ?? null };
+  return { state: (data as any)?.state ?? null, serverMs: Date.now() - t0, resolveMs };
 }
 
 export async function saveCollabDoc(target: Target & { state: string }): Promise<{ ok: boolean }> {

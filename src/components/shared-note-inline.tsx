@@ -377,7 +377,13 @@ export default function SharedNoteInline({ shortcode, onClose, onToggleSplit }: 
         ? {
             roomKey: note.id,
             user: me,
-            load: () => loadCollabDoc({ shortcode }).then((r) => r.state),
+            load: () =>
+              loadCollabDoc({ shortcode }).then((r) => {
+                console.log(
+                  `[shared-note] loadCollabDoc SERVER: ${r.serverMs}ms (resolve ${r.resolveMs}ms)`,
+                );
+                return r.state;
+              }),
             save: (state) => saveCollabDoc({ shortcode, state }).then(() => {}),
           }
         : undefined,
