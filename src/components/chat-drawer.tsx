@@ -60,12 +60,10 @@ export default function ChatDrawer({ noteId, enabled }: { noteId: string; enable
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? "Close chat" : "Open chat"}
         title="Chat"
-        className={`absolute top-1/2 -translate-y-1/2 translate-x-1/2 z-40 w-10 h-10 rounded-full items-center justify-center shadow-[var(--shadow-md)] border transition-[right,background-color,color] duration-[var(--duration-slow)] ${
-          open ? "right-0 lg:right-[340px]" : "right-0"
-        } ${
+        className={`absolute top-1/2 -translate-y-1/2 z-40 w-10 h-10 rounded-full items-center justify-center shadow-[var(--shadow-md)] border transition-[right,transform,background-color,color] duration-[var(--duration-slow)] ${
           open
-            ? "hidden lg:flex bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] border-[var(--color-accent-fill)]"
-            : "flex bg-[var(--color-raised)] text-[var(--color-ink-3)] border-[var(--color-hairline)] hover:text-[var(--color-ink-1)]"
+            ? "right-0 lg:right-[340px] translate-x-1/2 hidden lg:flex bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] border-[var(--color-accent-fill)]"
+            : "right-[10px] translate-x-0 flex bg-[var(--color-raised)] text-[var(--color-ink-3)] border-[var(--color-hairline)] hover:text-[var(--color-ink-1)]"
         }`}
       >
         <IconMessageCircle size={18} />
