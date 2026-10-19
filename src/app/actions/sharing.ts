@@ -683,18 +683,28 @@ export async function sharingOperation(params: SharingOperationParams) {
         // they're independent. This also lets the owner-collab check below reuse
         // the owner id from the fetched note instead of re-reading `notes` a
         // third time, as the old ownerCanCollaborate(note_id) path did.
-        const [noteResult, viewerRoleRow] = await Promise.all([
+        const [noteResult, viewerRoleRow, savedRow] = await Promise.all([
           storage === "supabase"
             ? fetchSupabaseNote(serviceClient, shareData.note_id)
             : fetchRedisNote(shareData.note_id, shareData.note_owner_id),
           authenticatedUserId
             ? serviceClient
                 .from("shared_notes_readers")
-                .select("role")
+                .select("role, pinned, hidden")
                 .eq("shared_note", shareData.id)
                 .eq("reader_id", authenticatedUserId)
                 .maybeSingle()
-            : Promise.resolve({ data: null } as { data: { role?: string } | null }),
+            : Promise.resolve(
+                { data: null } as { data: { role?: string; pinned?: boolean; hidden?: boolean } | null },
+              ),
+          authenticatedUserId
+            ? serviceClient
+                .from("saved_shared_notes")
+                .select("pinned")
+                .eq("user_id", authenticatedUserId)
+                .eq("shortcode", shortcode)
+                .maybeSingle()
+            : Promise.resolve({ data: null } as { data: { pinned?: boolean } | null }),
         ]);
 
         if (!noteResult.success || !noteResult.note) {
@@ -708,7 +718,18 @@ export async function sharingOperation(params: SharingOperationParams) {
         // ownerCanCollaborate(note_id) re-queried `notes` to derive.
         const ownerId = (noteResult.note as any).author as string;
         // The viewer's own per-person role, if they were added as a reader.
-        const viewerRole: string | null = (viewerRoleRow as any)?.data?.role ?? null;
+        const readerRow = (viewerRoleRow as any)?.data ?? null;
+        const viewerRole: string | null = readerRow?.role ?? null;
+        // Per-recipient organization state for THIS viewer, so the open note can
+        // offer pin/hide/remove like the sidebar. Granted (reader row) → pin+hide;
+        // saved-by-link → pin + remove; otherwise null (owner/anonymous/public).
+        const savedData = (savedRow as any)?.data ?? null;
+        const recipientOrg: { source: "granted" | "saved"; pinned: boolean; hidden: boolean } | null =
+          readerRow
+            ? { source: "granted", pinned: !!readerRow.pinned, hidden: !!readerRow.hidden }
+            : savedData
+              ? { source: "saved", pinned: !!savedData.pinned, hidden: false }
+              : null;
 
         // A signed-in visitor may edit a Supabase-backed note when the link is
         // set to "Can edit", or when they were added as an editor. Anonymous
@@ -765,6 +786,7 @@ export async function sharingOperation(params: SharingOperationParams) {
             content_format: (noteResult.note as any).content_format,
             canEdit,
             editBlockedByOwnerPlan,
+            recipientOrg,
             shareInfo: {
               shortcode: shareData.shortcode,
               isPublic: shareData.is_public,

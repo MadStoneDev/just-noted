@@ -195,6 +195,32 @@ export default function NoteView({
         overflowItems={
           isShared
             ? [
+                // Per-recipient actions first (mirror the sidebar row).
+                ...(ops.recipientActions
+                  ? [
+                      {
+                        label: ops.recipientActions.pinned ? "Unpin" : "Pin",
+                        onClick: ops.recipientActions.onTogglePin,
+                      },
+                      ...(ops.recipientActions.source === "granted" && ops.recipientActions.onToggleHide
+                        ? [
+                            {
+                              label: ops.recipientActions.hidden ? "Unhide" : "Hide",
+                              onClick: ops.recipientActions.onToggleHide,
+                            },
+                          ]
+                        : []),
+                      ...(ops.recipientActions.source === "saved" && ops.recipientActions.onRemove
+                        ? [
+                            {
+                              label: "Remove from my shared notes",
+                              onClick: ops.recipientActions.onRemove,
+                              danger: true,
+                            },
+                          ]
+                        : []),
+                    ]
+                  : []),
                 { label: "Print / Save as PDF", onClick: () => window.print() },
                 {
                   label: "Export Markdown (.md)",

@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { IconX, IconLock, IconEye, IconShare } from "@tabler/icons-react";
-import { sharingOperation } from "@/app/actions/sharing";
+import {
+  sharingOperation,
+  setSharedNotePinned,
+  setSharedNoteHidden,
+  unsaveSharedNote,
+} from "@/app/actions/sharing";
 import { createClient } from "@/utils/supabase/client";
 import type { ContentFormat } from "@/types/combined-notes";
 import { usePresence, colorForUser } from "@/hooks/use-presence";
@@ -65,6 +70,10 @@ export default function SharedNoteInline({ shortcode, onClose, onToggleSplit }: 
   const canEdit = !!note?.canEdit;
   const presence = usePresence(note?.id ?? null);
   const [showHistory, setShowHistory] = useState(false);
+  // Per-recipient org state for the open note (pin/hide), kept locally so the
+  // overflow labels update on click. Initialized from note.recipientOrg on load.
+  const [recipPinned, setRecipPinned] = useState(false);
+  const [recipHidden, setRecipHidden] = useState(false);
   const toast = useToast();
   const shareLink = typeof window !== "undefined" ? `${window.location.origin}/n/${shortcode}` : "";
   const copyLink = () => { navigator.clipboard.writeText(shareLink); toast.showSuccess("Link copied"); };
@@ -102,6 +111,9 @@ export default function SharedNoteInline({ shortcode, onClose, onToggleSplit }: 
         setNote(result.note);
         setTitle(result.note.title || "");
         setContent(result.note.content || "");
+        const ro = (result.note as any).recipientOrg;
+        setRecipPinned(!!ro?.pinned);
+        setRecipHidden(!!ro?.hidden);
         lastSavedContentRef.current = result.note.content || "";
         dirtyRef.current = false;
         setSaveStatus("idle");
@@ -296,6 +308,41 @@ export default function SharedNoteInline({ shortcode, onClose, onToggleSplit }: 
     <>Shared by <strong className="font-semibold">@{note.authorUsername}</strong></>
   );
 
+  // Per-recipient actions for the overflow menu — present only when this viewer
+  // is a recipient (granted reader row, or saved-by-link). Null for the owner /
+  // anonymous / public-not-saved, so no recipient items show.
+  const recipOrg = note.recipientOrg as
+    | { source: "granted" | "saved"; pinned: boolean; hidden: boolean }
+    | null
+    | undefined;
+  const recipientActions: NoteOps["recipientActions"] = recipOrg
+    ? {
+        source: recipOrg.source,
+        pinned: recipPinned,
+        hidden: recipHidden,
+        onTogglePin: () => {
+          const next = !recipPinned;
+          setRecipPinned(next);
+          void setSharedNotePinned(shortcode, recipOrg.source, next);
+        },
+        onToggleHide:
+          recipOrg.source === "granted"
+            ? () => {
+                const next = !recipHidden;
+                setRecipHidden(next);
+                void setSharedNoteHidden(shortcode, next);
+              }
+            : undefined,
+        onRemove:
+          recipOrg.source === "saved"
+            ? async () => {
+                await unsaveSharedNote(shortcode);
+                onClose();
+              }
+            : undefined,
+      }
+    : undefined;
+
   // ===== Editable (Can edit) =====
   if (canEdit) {
     const caps: NoteCaps = {
@@ -319,6 +366,7 @@ export default function SharedNoteInline({ shortcode, onClose, onToggleSplit }: 
       onCopyLink: copyLink,
       onHistory: () => setShowHistory(true),
       onToggleSplit,
+      recipientActions,
       collab: me
         ? {
             roomKey: note.id,
@@ -373,7 +421,7 @@ export default function SharedNoteInline({ shortcode, onClose, onToggleSplit }: 
     showGoalPicker: false,
     showPagePicker: false,
   };
-  const ops: NoteOps = { onClose, onCopyLink: copyLink, onHistory: () => setShowHistory(true), onToggleSplit };
+  const ops: NoteOps = { onClose, onCopyLink: copyLink, onHistory: () => setShowHistory(true), onToggleSplit, recipientActions };
 
   return (
     <NoteView

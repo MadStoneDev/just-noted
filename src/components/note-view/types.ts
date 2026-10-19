@@ -79,6 +79,18 @@ export interface NoteOps {
   onHistory?: () => void;
   /** Toggle split view (compare beside one of the viewer's own notes). */
   onToggleSplit?: () => void;
+  /** Per-recipient organization actions for an open shared note (pin/hide/remove),
+   *  mirroring the sidebar row. Absent for the owner / anonymous / public views. */
+  recipientActions?: {
+    source: "granted" | "saved";
+    pinned: boolean;
+    hidden: boolean;
+    onTogglePin: () => void;
+    /** Granted notes only. */
+    onToggleHide?: () => void;
+    /** Saved-by-link notes only. */
+    onRemove?: () => void;
+  };
   /** Live collaboration config — when set, the editor mounts into collab. */
   collab?: NoteViewCollab;
 }
