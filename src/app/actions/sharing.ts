@@ -974,6 +974,8 @@ export interface SharedListItem {
   viewCount?: number;
   readerCount?: number;
   createdAt?: string | null;
+  /** The underlying note's last-edited time (for the "Last edited" sort). */
+  updatedAt?: string | null;
   /** Per-recipient organization (granted/saved only; never leaked to the owner). */
   pinned?: boolean;
   hidden?: boolean;
@@ -1017,93 +1019,107 @@ export async function getSharedWithMe(): Promise<{
   // Service role — the reader can't read the owner's shared_notes/notes under RLS.
   const svc = createServiceRoleClient();
 
-  // (a) owner-granted shares (via reader rows) — keep each grant's role so the
-  // list can show the viewer's OWN access, not the link's.
-  const { data: readerRows } = await svc
-    .from("shared_notes_readers")
-    .select("shared_note, role, pinned, sort_order, hidden")
-    .eq("reader_id", user.id);
-  const readerShareIds = (readerRows || []).map((r: any) => r.shared_note);
+  // (a) owner-granted reader rows and (b) saved-by-link bookmarks are
+  // independent — fetch them in parallel.
+  const [readerRes, savedRes] = await Promise.all([
+    svc
+      .from("shared_notes_readers")
+      .select("shared_note, role, pinned, sort_order, hidden")
+      .eq("reader_id", user.id),
+    svc
+      .from("saved_shared_notes")
+      .select("shortcode, pinned, sort_order")
+      .eq("user_id", user.id),
+  ]);
+  const readerRows = (readerRes.data as any[]) || [];
+  const savedRows = (savedRes.data as any[]) || [];
+
+  const readerShareIds = readerRows.map((r) => r.shared_note);
   const roleByShareId = new Map<string, string>(
-    (readerRows || []).map((r: any) => [r.shared_note, r.role || "view"]),
+    readerRows.map((r) => [r.shared_note, r.role || "view"]),
   );
   // Per-recipient organization for granted notes, keyed by shared_note id.
   const grantMetaByShareId = new Map<string, { pinned: boolean; sortOrder: number; hidden: boolean }>(
-    (readerRows || []).map((r: any) => [
+    readerRows.map((r) => [
       r.shared_note,
       { pinned: !!r.pinned, sortOrder: r.sort_order ?? 0, hidden: !!r.hidden },
     ]),
   );
-
-  const grantedSet = new Set<string>();
-  if (readerShareIds.length > 0) {
-    const { data } = await svc
-      .from("shared_notes")
-      .select("shortcode")
-      .in("id", readerShareIds);
-    (data || []).forEach((s: any) => grantedSet.add(s.shortcode));
-  }
-
-  // (b) saved-by-link bookmarks
-  const { data: savedRows } = await svc
-    .from("saved_shared_notes")
-    .select("shortcode, pinned, sort_order")
-    .eq("user_id", user.id);
-  const savedSet = new Set<string>((savedRows || []).map((r: any) => r.shortcode));
+  const savedShortcodes = savedRows.map((r) => r.shortcode);
+  const savedSet = new Set<string>(savedShortcodes);
   // Per-recipient organization for saved notes, keyed by shortcode.
   const savedMetaByShortcode = new Map<string, { pinned: boolean; sortOrder: number }>(
-    (savedRows || []).map((r: any) => [r.shortcode, { pinned: !!r.pinned, sortOrder: r.sort_order ?? 0 }]),
+    savedRows.map((r) => [r.shortcode, { pinned: !!r.pinned, sortOrder: r.sort_order ?? 0 }]),
   );
 
-  const allShortcodes = Array.from(new Set<string>([...grantedSet, ...savedSet]));
-  if (allShortcodes.length === 0) return { success: true, notes: [] };
-
-  // Per-recipient tags for these shares (one query), keyed by shortcode.
-  const tagsByShortcode = new Map<string, string[]>();
-  {
-    const { data: tagRows } = await svc
-      .from("shared_note_tags")
-      .select("shortcode, tag_id")
-      .eq("user_id", user.id)
-      .in("shortcode", allShortcodes);
-    (tagRows || []).forEach((r: any) => {
-      const arr = tagsByShortcode.get(r.shortcode) || [];
-      arr.push(r.tag_id);
-      tagsByShortcode.set(r.shortcode, arr);
-    });
+  if (readerShareIds.length === 0 && savedShortcodes.length === 0) {
+    return { success: true, notes: [] };
   }
 
-  const { data: shares } = await svc
-    .from("shared_notes")
-    .select("id, shortcode, note_id, note_owner_id, is_anonymous, storage, expires_at, created_at, link_permission")
-    .in("shortcode", allShortcodes);
+  // Full share rows for granted (by id) + saved (by shortcode) in parallel, then
+  // merge/dedupe — avoids the old separate shortcode round-trip and second
+  // shared_notes read.
+  const SHARE_COLS =
+    "id, shortcode, note_id, note_owner_id, is_anonymous, storage, expires_at, created_at, link_permission";
+  const [grantedSharesRes, savedSharesRes] = await Promise.all([
+    readerShareIds.length
+      ? svc.from("shared_notes").select(SHARE_COLS).in("id", readerShareIds)
+      : Promise.resolve({ data: [] as any[] }),
+    savedShortcodes.length
+      ? svc.from("shared_notes").select(SHARE_COLS).in("shortcode", savedShortcodes)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
+  const grantedSharesData = (grantedSharesRes.data as any[]) || [];
+  const sharesById = new Map<string, any>();
+  grantedSharesData.forEach((s) => sharesById.set(s.id, s));
+  ((savedSharesRes.data as any[]) || []).forEach((s) => {
+    if (!sharesById.has(s.id)) sharesById.set(s.id, s);
+  });
+  const grantedSet = new Set<string>(grantedSharesData.map((s) => s.shortcode));
 
-  // Batch the per-note lookups instead of querying one note at a time. The old
-  // loop issued up to 3 serial round-trips per share (title, author, owner
-  // subscription); here each is a single `.in(...)` query, deduped by id, so
-  // the cost is a small constant regardless of how many notes are shared.
-  const valid = ((shares as any[]) || []).filter((s) => !isExpired(s.expires_at));
+  const valid = [...sharesById.values()].filter((s) => !isExpired(s.expires_at));
+  const allShortcodes = valid.map((s) => s.shortcode);
+  if (allShortcodes.length === 0) return { success: true, notes: [] };
 
-  // Titles (+ trashed/gone filter) for cloud-backed shares. Redis shares keep
-  // "Untitled" and are not looked up (matches the prior behaviour).
   const noteIds = Array.from(
     new Set(valid.filter((s) => s.storage !== "redis").map((s) => s.note_id)),
   );
-  const noteById = new Map<string, { title: string | null; deleted_at: string | null }>();
-  if (noteIds.length > 0) {
-    const { data: ns } = await svc.from("notes").select("id, title, deleted_at").in("id", noteIds);
-    (ns || []).forEach((n: any) => noteById.set(n.id, { title: n.title, deleted_at: n.deleted_at }));
-  }
-
-  // Owner username/avatar for non-anonymous shares.
   const ownerIds = Array.from(
     new Set(valid.filter((s) => !s.is_anonymous).map((s) => s.note_owner_id)),
   );
+
+  // Notes (title/updated_at + trashed filter), owner identities, and the
+  // recipient's tags are all independent — fetch them in one parallel wave.
+  const [notesRes, authorsRes, tagRowsRes] = await Promise.all([
+    noteIds.length
+      ? svc.from("notes").select("id, title, deleted_at, updated_at").in("id", noteIds)
+      : Promise.resolve({ data: [] as any[] }),
+    ownerIds.length
+      ? svc.from("authors").select("id, username, avatar_url").in("id", ownerIds)
+      : Promise.resolve({ data: [] as any[] }),
+    svc
+      .from("shared_note_tags")
+      .select("shortcode, tag_id")
+      .eq("user_id", user.id)
+      .in("shortcode", allShortcodes),
+  ]);
+  const noteById = new Map<
+    string,
+    { title: string | null; deleted_at: string | null; updated_at: string | null }
+  >();
+  ((notesRes.data as any[]) || []).forEach((n) =>
+    noteById.set(n.id, { title: n.title, deleted_at: n.deleted_at, updated_at: n.updated_at }),
+  );
   const authorById = new Map<string, { username: string | null; avatar_url: string | null }>();
-  if (ownerIds.length > 0) {
-    const { data: as_ } = await svc.from("authors").select("id, username, avatar_url").in("id", ownerIds);
-    (as_ || []).forEach((a: any) => authorById.set(a.id, { username: a.username, avatar_url: a.avatar_url }));
-  }
+  ((authorsRes.data as any[]) || []).forEach((a) =>
+    authorById.set(a.id, { username: a.username, avatar_url: a.avatar_url }),
+  );
+  const tagsByShortcode = new Map<string, string[]>();
+  ((tagRowsRes.data as any[]) || []).forEach((r) => {
+    const arr = tagsByShortcode.get(r.shortcode) || [];
+    arr.push(r.tag_id);
+    tagsByShortcode.set(r.shortcode, arr);
+  });
 
   // First pass: resolve title/owner and the stored viewer permission (all
   // in-memory). Notes the owner has trashed drop out of the recipient's list
@@ -1191,6 +1207,7 @@ export async function getSharedWithMe(): Promise<{
       ownerAvatar: c.ownerAvatar,
       linkPermission: viewerPerm,
       createdAt: c.s.created_at,
+      updatedAt: noteById.get(c.s.note_id)?.updated_at ?? null,
       source: c.granted ? "granted" : "saved",
       saved: savedSet.has(c.s.shortcode) && !c.granted,
       pinned,
@@ -1217,34 +1234,36 @@ export async function getSharedByMe(): Promise<{
   const svc = createServiceRoleClient();
   const { data: shares } = await svc
     .from("shared_notes")
-    .select("id, shortcode, note_id, is_public, view_count, storage, expires_at, link_permission")
+    .select("id, shortcode, note_id, is_public, view_count, storage, expires_at, link_permission, created_at")
     .eq("note_owner_id", user.id);
 
   const all = (shares as any[]) || [];
 
-  // Titles (+ trashed/gone filter) for cloud-backed shares, in one query.
+  // Titles/updated_at (+ trashed filter) and reader counts are independent —
+  // fetch them in parallel.
   const noteIds = Array.from(
     new Set(all.filter((s) => s.storage !== "redis").map((s) => s.note_id)),
   );
-  const noteById = new Map<string, { title: string | null; deleted_at: string | null }>();
-  if (noteIds.length > 0) {
-    const { data: ns } = await svc.from("notes").select("id, title, deleted_at").in("id", noteIds);
-    (ns || []).forEach((n: any) => noteById.set(n.id, { title: n.title, deleted_at: n.deleted_at }));
-  }
-
-  // Reader counts for every share in one query, tallied in memory, instead of a
-  // COUNT round-trip per share.
   const shareIds = all.map((s) => s.id);
+  const [notesRes, readersRes] = await Promise.all([
+    noteIds.length
+      ? svc.from("notes").select("id, title, deleted_at, updated_at").in("id", noteIds)
+      : Promise.resolve({ data: [] as any[] }),
+    shareIds.length
+      ? svc.from("shared_notes_readers").select("shared_note").in("shared_note", shareIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
+  const noteById = new Map<
+    string,
+    { title: string | null; deleted_at: string | null; updated_at: string | null }
+  >();
+  ((notesRes.data as any[]) || []).forEach((n) =>
+    noteById.set(n.id, { title: n.title, deleted_at: n.deleted_at, updated_at: n.updated_at }),
+  );
   const readerCountByShare = new Map<string, number>();
-  if (shareIds.length > 0) {
-    const { data: rdrs } = await svc
-      .from("shared_notes_readers")
-      .select("shared_note")
-      .in("shared_note", shareIds);
-    (rdrs || []).forEach((r: any) =>
-      readerCountByShare.set(r.shared_note, (readerCountByShare.get(r.shared_note) || 0) + 1),
-    );
-  }
+  ((readersRes.data as any[]) || []).forEach((r) =>
+    readerCountByShare.set(r.shared_note, (readerCountByShare.get(r.shared_note) || 0) + 1),
+  );
 
   const notes: SharedListItem[] = [];
   for (const s of all) {
@@ -1266,6 +1285,8 @@ export async function getSharedByMe(): Promise<{
       linkPermission: s.link_permission || (s.is_public ? "view" : "off"),
       viewCount: s.view_count || 0,
       readerCount: readerCountByShare.get(s.id) || 0,
+      createdAt: s.created_at ?? null,
+      updatedAt: noteById.get(s.note_id)?.updated_at ?? null,
     });
   }
   return { success: true, notes };

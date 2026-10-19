@@ -27,7 +27,18 @@ import {
   IconChevronDown,
 } from "@tabler/icons-react";
 
-type SharedSort = "recent" | "title";
+type SharedSort = "manual" | "edited" | "added" | "title" | "owner";
+
+// Mirrors the main notes sidebar's sort vocabulary (Manual / Last edited / …),
+// adapted for shared notes: "Last added" = when it entered your shared list,
+// "By owner" replaces the notes sidebar's "Notebook".
+const SHARED_SORT_LABELS: Record<SharedSort, string> = {
+  manual: "Manual",
+  edited: "Last edited",
+  added: "Last added",
+  title: "Title A–Z",
+  owner: "By owner",
+};
 
 type Tab = "withme" | "byme" | "saved";
 
@@ -82,7 +93,7 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
   const [tab, setTab] = useState<Tab>("withme");
   const [linkInput, setLinkInput] = useState("");
   const [adding, setAdding] = useState(false);
-  const [sortBy, setSortBy] = useState<SharedSort>("recent");
+  const [sortBy, setSortBy] = useState<SharedSort>("edited");
   const [showHidden, setShowHidden] = useState(false);
   const toast = useToast();
 
@@ -119,13 +130,24 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
     // Granted notes can be hidden by the recipient; keep them out unless the
     // "Show hidden" toggle is on. (Saved notes are removed, never hidden.)
     if (src === "granted" && !showHidden) arr = arr.filter((i) => !i.hidden);
+    const added = (x: SharedListItem) => (x.createdAt ? Date.parse(x.createdAt) : 0);
+    const edited = (x: SharedListItem) => (x.updatedAt ? Date.parse(x.updatedAt) : 0);
     return [...arr].sort((a, b) => {
       // Pinned always first (recipient org — no-op on the owner's "By me" tab).
       if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+      if (sortBy === "manual") {
+        const oa = a.sortOrder ?? 0;
+        const ob = b.sortOrder ?? 0;
+        return oa - ob || added(b) - added(a);
+      }
       if (sortBy === "title") return a.title.localeCompare(b.title);
-      const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
-      const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
-      return tb - ta || a.title.localeCompare(b.title);
+      if (sortBy === "owner") {
+        const cmp = (a.owner || "").localeCompare(b.owner || "");
+        return cmp || edited(b) - edited(a);
+      }
+      if (sortBy === "added") return added(b) - added(a) || a.title.localeCompare(b.title);
+      // "edited" (default)
+      return edited(b) - edited(a) || a.title.localeCompare(b.title);
     });
   }, [items, tab, sortBy, showHidden]);
 
@@ -216,18 +238,22 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
           placement="bottom-start"
           trigger={
             <button className="flex items-center gap-1 px-2 h-7 rounded-[var(--radius-6)] text-[12px] border border-[var(--color-border-control)] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)] transition-colors">
-              {sortBy === "title" ? "Title" : "Recent"}
+              {SHARED_SORT_LABELS[sortBy]}
               <IconChevronDown size={12} className="opacity-60" />
             </button>
           }
         >
-          <DropdownItem onClick={() => setSortBy("recent")}>Recent</DropdownItem>
-          <DropdownItem onClick={() => setSortBy("title")}>Title</DropdownItem>
+          {(Object.keys(SHARED_SORT_LABELS) as SharedSort[]).map((v) => (
+            <DropdownItem key={v} onClick={() => setSortBy(v)}>
+              {SHARED_SORT_LABELS[v]}
+            </DropdownItem>
+          ))}
         </Dropdown>
 
-        {tab === "withme" && hiddenGrantedCount > 0 && (
+        {tab === "withme" && (
           <button
             onClick={() => setShowHidden((s) => !s)}
+            title={hiddenGrantedCount === 0 ? "Nothing hidden yet" : undefined}
             className={`flex items-center gap-1 px-2 h-7 rounded-[var(--radius-6)] text-[12px] border transition-colors ${
               showHidden
                 ? "border-[var(--color-accent-tint-border)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]"
@@ -235,7 +261,7 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
             }`}
           >
             {showHidden ? <IconEye size={13} /> : <IconEyeOff size={13} />}
-            {showHidden ? "Hide hidden" : `Show hidden (${hiddenGrantedCount})`}
+            {showHidden ? "Showing hidden" : hiddenGrantedCount > 0 ? `Show hidden (${hiddenGrantedCount})` : "Show hidden"}
           </button>
         )}
       </div>
