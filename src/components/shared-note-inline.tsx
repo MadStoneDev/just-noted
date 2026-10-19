@@ -373,12 +373,12 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
     canMoveNotebook: false,
     canMoveSource: false,
     canDelete: false,
-    hasVersions: false,
+    hasVersions: true,
     hasChat: false,
     showGoalPicker: false,
     showPagePicker: false,
   };
-  const ops: NoteOps = { onClose, onCopyLink: copyLink };
+  const ops: NoteOps = { onClose, onCopyLink: copyLink, onHistory: () => setShowHistory(true) };
 
   return (
     <NoteView
@@ -387,6 +387,7 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
       ops={ops}
       title={title}
       content={content}
+      overlay={showHistory ? <SharedHistoryPanel shortcode={shortcode} onClose={() => setShowHistory(false)} /> : undefined}
       contextLabel={
         <>
           <IconEye size={13} className="shrink-0" />
