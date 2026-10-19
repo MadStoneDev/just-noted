@@ -1,11 +1,22 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { IconLayoutColumns } from "@tabler/icons-react";
+import {
+  IconLayoutColumns,
+  IconDots,
+  IconPrinter,
+  IconDownload,
+  IconExternalLink,
+  IconPin,
+  IconEye,
+  IconEyeOff,
+  IconTrash,
+} from "@tabler/icons-react";
 import MilkdownEditor from "@/components/editor/milkdown-editor";
 import NoteStatsRow from "@/components/note-stats-row";
 import AutoGrowTitle from "@/components/auto-grow-title";
 import { Modal } from "@/components/ds/modal";
+import { CommandPalette, type CommandPage } from "@/components/ds/command-palette";
 import { PresenceStack } from "@/components/presence-stack";
 import NoteActionBar, { barButtonClass } from "@/components/note-view/note-action-bar";
 import ChatDrawer from "@/components/chat-drawer";
@@ -95,6 +106,9 @@ export default function NoteView({
   useEffect(() => {
     setEditorReady(false);
   }, [model.id]);
+  // The "…" opens a command-palette modal (same as the standard editor), not an
+  // inline dropdown.
+  const [commandOpen, setCommandOpen] = useState(false);
 
   // Wide view — per-note override on top of a global default, keyed by note id.
   const [wideDefault, setWideDefault] = useState(() => readWideDefault());
@@ -148,6 +162,87 @@ export default function NoteView({
   // edits.
   const editorSeed = ops.collab ? model.content : content;
 
+  // The "…" command palette for a shared note: the recipient's own actions
+  // (pin/hide/remove) plus the content-only actions (print/export/open).
+  const ra = ops.recipientActions;
+  const commandPage: CommandPage = {
+    title: "Note actions",
+    placeholder: "Search actions…",
+    groups: [
+      ...(ra
+        ? [
+            {
+              id: "recipient",
+              heading: "This note",
+              items: [
+                {
+                  id: "pin",
+                  label: ra.pinned ? "Unpin" : "Pin",
+                  icon: <IconPin size={16} />,
+                  perform: ra.onTogglePin,
+                },
+                ...(ra.source === "granted" && ra.onToggleHide
+                  ? [
+                      {
+                        id: "hide",
+                        label: ra.hidden ? "Unhide" : "Hide",
+                        icon: ra.hidden ? <IconEye size={16} /> : <IconEyeOff size={16} />,
+                        perform: ra.onToggleHide,
+                      },
+                    ]
+                  : []),
+                ...(ra.source === "saved" && ra.onRemove
+                  ? [
+                      {
+                        id: "remove",
+                        label: "Remove from my shared notes",
+                        icon: <IconTrash size={16} />,
+                        destructive: true,
+                        perform: ra.onRemove,
+                      },
+                    ]
+                  : []),
+              ],
+            },
+          ]
+        : []),
+      {
+        id: "export",
+        heading: "Export",
+        items: [
+          {
+            id: "print",
+            label: "Print / Save as PDF",
+            icon: <IconPrinter size={16} />,
+            perform: () => window.print(),
+          },
+          {
+            id: "export-md",
+            label: "Export Markdown (.md)",
+            icon: <IconDownload size={16} />,
+            perform: () => exportNote({ title, content, contentFormat: model.contentFormat }, "md"),
+          },
+          {
+            id: "export-txt",
+            label: "Export plain text (.txt)",
+            icon: <IconDownload size={16} />,
+            perform: () => exportNote({ title, content, contentFormat: model.contentFormat }, "txt"),
+          },
+          ...(shareLink
+            ? [
+                {
+                  id: "newtab",
+                  label: "Open in new tab",
+                  icon: <IconExternalLink size={16} />,
+                  perform: () => window.open(shareLink, "_blank"),
+                },
+              ]
+            : []),
+        ],
+      },
+    ],
+  };
+
   return (
     <div
       className={`flex-1 flex flex-col min-h-0 ${
@@ -192,51 +287,16 @@ export default function NoteView({
             </button>
           ) : undefined
         }
-        overflowItems={
-          isShared
-            ? [
-                // Per-recipient actions first (mirror the sidebar row).
-                ...(ops.recipientActions
-                  ? [
-                      {
-                        label: ops.recipientActions.pinned ? "Unpin" : "Pin",
-                        onClick: ops.recipientActions.onTogglePin,
-                      },
-                      ...(ops.recipientActions.source === "granted" && ops.recipientActions.onToggleHide
-                        ? [
-                            {
-                              label: ops.recipientActions.hidden ? "Unhide" : "Hide",
-                              onClick: ops.recipientActions.onToggleHide,
-                            },
-                          ]
-                        : []),
-                      ...(ops.recipientActions.source === "saved" && ops.recipientActions.onRemove
-                        ? [
-                            {
-                              label: "Remove from my shared notes",
-                              onClick: ops.recipientActions.onRemove,
-                              danger: true,
-                            },
-                          ]
-                        : []),
-                    ]
-                  : []),
-                { label: "Print / Save as PDF", onClick: () => window.print() },
-                {
-                  label: "Export Markdown (.md)",
-                  onClick: () =>
-                    exportNote({ title, content, contentFormat: model.contentFormat }, "md"),
-                },
-                {
-                  label: "Export plain text (.txt)",
-                  onClick: () =>
-                    exportNote({ title, content, contentFormat: model.contentFormat }, "txt"),
-                },
-                ...(shareLink
-                  ? [{ label: "Open in new tab", onClick: () => window.open(shareLink, "_blank") }]
-                  : []),
-              ]
-            : undefined
+        overflow={
+          isShared ? (
+            <button
+              onClick={() => setCommandOpen(true)}
+              title="Actions"
+              className={`flex w-8 ${barButtonClass(isShared)}`}
+            >
+              <IconDots size={16} />
+            </button>
+          ) : undefined
         }
       />
 
@@ -364,6 +424,9 @@ export default function NoteView({
           </p>
         </div>
       </Modal>
+
+      {/* "…" command palette (modal), matching the standard editor. */}
+      <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} page={commandPage} />
     </div>
   );
 }
