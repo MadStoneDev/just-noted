@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { IconLayoutColumns } from "@tabler/icons-react";
 import MilkdownEditor from "@/components/editor/milkdown-editor";
 import NoteStatsRow from "@/components/note-stats-row";
@@ -9,6 +9,7 @@ import { Modal } from "@/components/ds/modal";
 import { PresenceStack } from "@/components/presence-stack";
 import NoteActionBar, { barButtonClass } from "@/components/note-view/note-action-bar";
 import ChatDrawer from "@/components/chat-drawer";
+import { NoteSkeleton } from "@/components/note-view/note-skeleton";
 import type { PresenceUser } from "@/hooks/use-presence";
 import {
   readWideDefault,
@@ -87,6 +88,13 @@ export default function NoteView({
   const [showHelp, setShowHelp] = useState(false);
   const [viewMode, setViewMode] = useState<"rendered" | "source">("rendered");
   const [editorRemountKey, setEditorRemountKey] = useState(0);
+  // Keep a skeleton over the body until the editor has actually mounted/loaded,
+  // so we never flash "Connecting…" or an empty "Start writing…" placeholder
+  // while a shared note is still loading. Reset when switching notes.
+  const [editorReady, setEditorReady] = useState(false);
+  useEffect(() => {
+    setEditorReady(false);
+  }, [model.id]);
 
   // Wide view — per-note override on top of a global default, keyed by note id.
   const [wideDefault, setWideDefault] = useState(() => readWideDefault());
@@ -246,9 +254,9 @@ export default function NoteView({
               {notice}
 
               {collabPending ? (
-                <div className="py-10 text-[13px] text-[var(--color-ink-4)]">
-                  Connecting to the live document…
-                </div>
+                // Identity for live collab is still resolving — show a skeleton,
+                // never a "Connecting…" line or an empty editor.
+                <NoteSkeleton />
               ) : viewMode === "source" ? (
                 <textarea
                   value={content}
@@ -259,16 +267,28 @@ export default function NoteView({
                   className="flex-1 w-full resize-none bg-transparent border-none outline-none font-mono text-sm leading-relaxed text-[var(--color-ink-1)] placeholder:text-[var(--color-ink-5)]"
                 />
               ) : (
-                <MilkdownEditor
-                  key={`${model.id}-${editorRemountKey}-${ops.collab ? "c" : "n"}`}
-                  content={editorSeed || ""}
-                  contentFormat={model.contentFormat || "markdown"}
-                  onReady={ops.onEditorReady}
-                  onChange={caps.canEditContent ? onContentChange : undefined}
-                  readOnly={!caps.canEditContent}
-                  toolbarContainer={caps.canEditContent ? toolbarSlot : undefined}
-                  collab={ops.collab}
-                />
+                <div className="relative flex-1 flex flex-col">
+                  <MilkdownEditor
+                    key={`${model.id}-${editorRemountKey}-${ops.collab ? "c" : "n"}`}
+                    content={editorSeed || ""}
+                    contentFormat={model.contentFormat || "markdown"}
+                    onReady={() => {
+                      setEditorReady(true);
+                      ops.onEditorReady?.();
+                    }}
+                    onChange={caps.canEditContent ? onContentChange : undefined}
+                    readOnly={!caps.canEditContent}
+                    toolbarContainer={caps.canEditContent ? toolbarSlot : undefined}
+                    collab={ops.collab}
+                  />
+                  {/* Cover the editor until it has mounted/loaded so no empty
+                      "Start writing…" placeholder shows while the note loads. */}
+                  {!editorReady && (
+                    <div className="absolute inset-0 bg-[var(--color-canvas)]">
+                      <NoteSkeleton />
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
