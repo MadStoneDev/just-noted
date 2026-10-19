@@ -103,8 +103,14 @@ export default function NoteView({
   // so we never flash "Connecting…" or an empty "Start writing…" placeholder
   // while a shared note is still loading. Reset when switching notes.
   const [editorReady, setEditorReady] = useState(false);
+  // For a live-collab note the editor mounts (onReady) before its content
+  // arrives via the async collab load(), so we also track when that load has
+  // resolved+painted before dropping the skeleton. Non-collab notes have their
+  // content at mount, so editorReady alone is enough.
+  const [collabLoaded, setCollabLoaded] = useState(false);
   useEffect(() => {
     setEditorReady(false);
+    setCollabLoaded(false);
   }, [model.id]);
   // The "…" opens a command-palette modal (same as the standard editor), not an
   // inline dropdown.
@@ -161,6 +167,38 @@ export default function NoteView({
   // drives thereafter; without it, remounting from the live content keeps source
   // edits.
   const editorSeed = ops.collab ? model.content : content;
+  // Wrap the collab load so the skeleton lifts only once the initial document
+  // state has resolved AND the editor has painted it (two frames), instead of
+  // on editor mount (which would flash an empty "Start writing…").
+  const baseCollab = ops.collab;
+  const baseLoad = baseCollab?.load;
+  const collabForEditor = baseCollab
+    ? {
+        ...baseCollab,
+        load: baseLoad
+          ? async () => {
+              try {
+                const state = await baseLoad();
+                requestAnimationFrame(() => requestAnimationFrame(() => setCollabLoaded(true)));
+                return state;
+              } catch (e) {
+                // Never strand the skeleton on a failed load — reveal the editor.
+                setCollabLoaded(true);
+                throw e;
+              }
+            }
+          : undefined,
+      }
+    : undefined;
+  const hasCollab = !!ops.collab;
+  const contentLoading = !editorReady || (hasCollab && !collabLoaded);
+  // Safety net: if collab load never resolves, reveal the editor after a few
+  // seconds rather than showing the skeleton forever.
+  useEffect(() => {
+    if (!hasCollab || collabLoaded || !editorReady) return;
+    const t = setTimeout(() => setCollabLoaded(true), 8000);
+    return () => clearTimeout(t);
+  }, [hasCollab, collabLoaded, editorReady]);
 
   // The "…" command palette for a shared note: the recipient's own actions
   // (pin/hide/remove) plus the content-only actions (print/export/open).
@@ -365,11 +403,12 @@ export default function NoteView({
                     onChange={caps.canEditContent ? onContentChange : undefined}
                     readOnly={!caps.canEditContent}
                     toolbarContainer={caps.canEditContent ? toolbarSlot : undefined}
-                    collab={ops.collab}
+                    collab={collabForEditor}
                   />
-                  {/* Cover the editor until it has mounted/loaded so no empty
-                      "Start writing…" placeholder shows while the note loads. */}
-                  {!editorReady && (
+                  {/* Cover the editor until its content has actually loaded (for
+                      collab notes, until load() resolves), so no empty
+                      "Start writing…" placeholder flashes while the note loads. */}
+                  {contentLoading && (
                     <div className="absolute inset-0 bg-[var(--color-canvas)]">
                       <NoteSkeleton />
                     </div>
