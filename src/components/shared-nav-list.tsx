@@ -8,6 +8,7 @@ import {
   saveSharedNoteByLink,
   setSharedNotePinned,
   setSharedNoteHidden,
+  reorderSharedNotes,
   type SharedListItem,
 } from "@/app/actions/sharing";
 import { useToast } from "@/components/ui/toast";
@@ -95,6 +96,8 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
   const [adding, setAdding] = useState(false);
   const [sortBy, setSortBy] = useState<SharedSort>("edited");
   const [showHidden, setShowHidden] = useState(false);
+  const [dragShortcode, setDragShortcode] = useState<string | null>(null);
+  const [dragOverShortcode, setDragOverShortcode] = useState<string | null>(null);
   const toast = useToast();
 
   const load = useCallback(async () => {
@@ -153,6 +156,36 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
 
   const withMeCount = items.filter((i) => i.source === "granted").length;
   const hiddenGrantedCount = items.filter((i) => i.source === "granted" && i.hidden).length;
+
+  // Drag-reorder is only meaningful in "Manual" sort, and only for the
+  // recipient-owned rows (granted / saved) — not the owner's "By me" list.
+  const manualDrag = sortBy === "manual" && tab !== "byme";
+
+  const handleReorderDrop = async (targetShortcode: string) => {
+    const dragged = dragShortcode;
+    setDragShortcode(null);
+    setDragOverShortcode(null);
+    if (!dragged || dragged === targetShortcode) return;
+    const ordered = byTab.map((i) => i.shortcode);
+    const from = ordered.indexOf(dragged);
+    const to = ordered.indexOf(targetShortcode);
+    if (from === -1 || to === -1) return;
+    const next = [...ordered];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    const source: "granted" | "saved" = tab === "withme" ? "granted" : "saved";
+    const orderMap = new Map(next.map((sc, idx) => [sc, idx]));
+    // Optimistic: set sortOrder by the new index for this source.
+    setItems((prev) =>
+      prev.map((i) =>
+        i.source === source && orderMap.has(i.shortcode)
+          ? { ...i, sortOrder: orderMap.get(i.shortcode)! }
+          : i,
+      ),
+    );
+    const res = await reorderSharedNotes(source, next);
+    if (!res.success) load();
+  };
 
   const handleRemove = async (shortcode: string) => {
     setItems((prev) => prev.filter((i) => !(i.source === "saved" && i.shortcode === shortcode)));
@@ -293,7 +326,27 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
                   ? !!activeNoteId && n.noteId === activeNoteId
                   : !!activeShortcode && n.shortcode === activeShortcode;
               return (
-              <div key={n.source + n.shortcode} className="group/sh relative">
+              <div
+                key={n.source + n.shortcode}
+                draggable={manualDrag}
+                onDragStart={manualDrag ? () => setDragShortcode(n.shortcode) : undefined}
+                onDragOver={
+                  manualDrag
+                    ? (e) => {
+                        e.preventDefault();
+                        if (dragShortcode && dragShortcode !== n.shortcode) setDragOverShortcode(n.shortcode);
+                      }
+                    : undefined
+                }
+                onDragLeave={
+                  manualDrag ? () => setDragOverShortcode((s) => (s === n.shortcode ? null : s)) : undefined
+                }
+                onDrop={manualDrag ? (e) => { e.preventDefault(); handleReorderDrop(n.shortcode); } : undefined}
+                onDragEnd={manualDrag ? () => { setDragShortcode(null); setDragOverShortcode(null); } : undefined}
+                className={`group/sh relative ${manualDrag ? "cursor-grab active:cursor-grabbing" : ""} ${
+                  dragOverShortcode === n.shortcode ? "border-t-2 border-[var(--color-accent-fill)]" : ""
+                } ${dragShortcode === n.shortcode ? "opacity-40" : ""}`}
+              >
                 <button
                   onClick={() => {
                     // An owned note opens in the owner's own editor — opening it
