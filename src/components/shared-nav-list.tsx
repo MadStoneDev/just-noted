@@ -9,11 +9,15 @@ import {
   setSharedNotePinned,
   setSharedNoteHidden,
   reorderSharedNotes,
+  addSharedNoteTag,
+  removeSharedNoteTag,
   type SharedListItem,
 } from "@/app/actions/sharing";
 import { useToast } from "@/components/ui/toast";
 import { Avatar } from "@/components/ui/avatar";
 import { Dropdown, DropdownItem } from "@/components/ds/dropdown";
+import { useNotesStore } from "@/stores/notes-store";
+import TagPicker from "@/components/tag-picker";
 import {
   IconLoader2,
   IconWorld,
@@ -26,6 +30,7 @@ import {
   IconDots,
   IconPinnedFilled,
   IconChevronDown,
+  IconCheck,
 } from "@tabler/icons-react";
 
 type SharedSort = "manual" | "edited" | "added" | "title" | "owner";
@@ -98,7 +103,12 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
   const [showHidden, setShowHidden] = useState(false);
   const [dragShortcode, setDragShortcode] = useState<string | null>(null);
   const [dragOverShortcode, setDragOverShortcode] = useState<string | null>(null);
+  const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
   const toast = useToast();
+
+  // The recipient's own tag vocabulary (shared with the notes sidebar).
+  const tags = useNotesStore((s) => s.tags);
+  const tagById = useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -133,6 +143,10 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
     // Granted notes can be hidden by the recipient; keep them out unless the
     // "Show hidden" toggle is on. (Saved notes are removed, never hidden.)
     if (src === "granted" && !showHidden) arr = arr.filter((i) => !i.hidden);
+    // Tag filter (recipient's own tags) — ANY-match, like the notes sidebar.
+    if (filterTagIds.length > 0) {
+      arr = arr.filter((i) => (i.tagIds || []).some((id) => filterTagIds.includes(id)));
+    }
     const added = (x: SharedListItem) => (x.createdAt ? Date.parse(x.createdAt) : 0);
     const edited = (x: SharedListItem) => (x.updatedAt ? Date.parse(x.updatedAt) : 0);
     return [...arr].sort((a, b) => {
@@ -152,7 +166,7 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
       // "edited" (default)
       return edited(b) - edited(a) || a.title.localeCompare(b.title);
     });
-  }, [items, tab, sortBy, showHidden]);
+  }, [items, tab, sortBy, showHidden, filterTagIds]);
 
   const withMeCount = items.filter((i) => i.source === "granted").length;
   const hiddenGrantedCount = items.filter((i) => i.source === "granted" && i.hidden).length;
@@ -217,6 +231,32 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
     if (!res.success) load();
   };
 
+  // Apply/remove one of the recipient's own tags to a shared note (their view
+  // only), optimistically.
+  const handleAddTag = async (shortcode: string, tagId: string) => {
+    setItems((prev) =>
+      prev.map((i) =>
+        i.shortcode === shortcode
+          ? { ...i, tagIds: Array.from(new Set([...(i.tagIds || []), tagId])) }
+          : i,
+      ),
+    );
+    const res = await addSharedNoteTag(shortcode, tagId);
+    if (!res.success) load();
+  };
+
+  const handleRemoveTag = async (shortcode: string, tagId: string) => {
+    setItems((prev) =>
+      prev.map((i) =>
+        i.shortcode === shortcode
+          ? { ...i, tagIds: (i.tagIds || []).filter((id) => id !== tagId) }
+          : i,
+      ),
+    );
+    const res = await removeSharedNoteTag(shortcode, tagId);
+    if (!res.success) load();
+  };
+
   const handleAddLink = async () => {
     const input = linkInput.trim();
     if (!input) return;
@@ -265,23 +305,64 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
         })}
       </div>
 
-      {/* Sort + show-hidden toolbar */}
+      {/* Sort + tag filter + show-hidden toolbar */}
       <div className="flex-none flex items-center justify-between gap-2 px-2 py-1.5">
-        <Dropdown
-          placement="bottom-start"
-          trigger={
-            <button className="flex items-center gap-1 px-2 h-7 rounded-[var(--radius-6)] text-[12px] border border-[var(--color-border-control)] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)] transition-colors">
-              {SHARED_SORT_LABELS[sortBy]}
-              <IconChevronDown size={12} className="opacity-60" />
-            </button>
-          }
-        >
-          {(Object.keys(SHARED_SORT_LABELS) as SharedSort[]).map((v) => (
-            <DropdownItem key={v} onClick={() => setSortBy(v)}>
-              {SHARED_SORT_LABELS[v]}
-            </DropdownItem>
-          ))}
-        </Dropdown>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Dropdown
+            placement="bottom-start"
+            trigger={
+              <button className="flex items-center gap-1 px-2 h-7 rounded-[var(--radius-6)] text-[12px] border border-[var(--color-border-control)] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)] transition-colors">
+                {SHARED_SORT_LABELS[sortBy]}
+                <IconChevronDown size={12} className="opacity-60" />
+              </button>
+            }
+          >
+            {(Object.keys(SHARED_SORT_LABELS) as SharedSort[]).map((v) => (
+              <DropdownItem key={v} onClick={() => setSortBy(v)}>
+                {SHARED_SORT_LABELS[v]}
+              </DropdownItem>
+            ))}
+          </Dropdown>
+
+          {tags.length > 0 && (
+            <Dropdown
+              placement="bottom-start"
+              trigger={
+                <button
+                  className={`flex items-center gap-1 px-2 h-7 rounded-[var(--radius-6)] text-[12px] border transition-colors ${
+                    filterTagIds.length > 0
+                      ? "border-[var(--color-accent-tint-border)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]"
+                      : "border-[var(--color-border-control)] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)]"
+                  }`}
+                >
+                  Tags{filterTagIds.length > 0 ? ` (${filterTagIds.length})` : ""}
+                  <IconChevronDown size={12} className="opacity-60" />
+                </button>
+              }
+            >
+              {tags.map((t) => {
+                const active = filterTagIds.includes(t.id);
+                return (
+                  <DropdownItem
+                    key={t.id}
+                    onClick={() =>
+                      setFilterTagIds((prev) =>
+                        active ? prev.filter((id) => id !== t.id) : [...prev, t.id],
+                      )
+                    }
+                  >
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: t.color }}
+                    />
+                    <span className="flex-1 truncate">{t.name}</span>
+                    {active && <IconCheck size={14} className="shrink-0 text-[var(--color-accent-text)]" />}
+                  </DropdownItem>
+                );
+              })}
+            </Dropdown>
+          )}
+        </div>
 
         {tab === "withme" && (
           <button
@@ -369,7 +450,7 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
                         <IconUser size={13} className="text-[var(--color-ink-5)]" />
                       )}
                     </span>
-                    <div className={`flex-1 min-w-0 ${tab !== "byme" ? "pr-5" : ""}`}>
+                    <div className={`flex-1 min-w-0 ${tab !== "byme" ? "pr-14" : ""}`}>
                       {/* Title wraps like the own-note cards instead of being
                           truncated and squeezed by an inline badge. */}
                       <h3 className="text-[16px] md:text-[13px] font-medium text-[var(--color-ink-1)] leading-snug whitespace-normal break-words">
@@ -399,6 +480,19 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
                               <span className="truncate text-[12px] text-[var(--color-ink-5)]">{n.owner}</span>
                             </span>
                             <PermTag perm={n.linkPermission} />
+                            {(n.tagIds || []).map((id) => {
+                              const t = tagById.get(id);
+                              if (!t) return null;
+                              return (
+                                <span
+                                  key={id}
+                                  className="px-1.5 py-px text-[11px] rounded-full"
+                                  style={{ backgroundColor: t.color + "20", color: t.color }}
+                                >
+                                  {t.name}
+                                </span>
+                              );
+                            })}
                           </>
                         )}
                       </div>
@@ -406,7 +500,13 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
                   </div>
                 </button>
                 {tab !== "byme" && (
-                  <div className="absolute top-2 right-1 opacity-0 group-hover/sh:opacity-100 transition-opacity">
+                  <div className="absolute top-2 right-1 flex items-center gap-0.5 opacity-0 group-hover/sh:opacity-100 transition-opacity">
+                    <TagPicker
+                      noteId={n.shortcode}
+                      assignedTagIds={n.tagIds || []}
+                      onAssign={(id) => handleAddTag(n.shortcode, id)}
+                      onRemove={(id) => handleRemoveTag(n.shortcode, id)}
+                    />
                     <Dropdown
                       placement="bottom-end"
                       trigger={

@@ -12,9 +12,16 @@ import { IconTag, IconPlus, IconCheck, IconX } from "@tabler/icons-react";
 
 interface TagPickerProps {
   noteId: string;
+  /** Override the assigned tag ids (e.g. shared notes, which aren't in the
+   *  note store). Falls back to the store's noteTagMap for own notes. */
+  assignedTagIds?: string[];
+  /** Override the assign/remove writes (e.g. shared-note tag actions). When
+   *  provided, the store + own-note tag actions are bypassed. */
+  onAssign?: (tagId: string) => void;
+  onRemove?: (tagId: string) => void;
 }
 
-export default function TagPicker({ noteId }: TagPickerProps) {
+export default function TagPicker({ noteId, assignedTagIds, onAssign, onRemove }: TagPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState("");
@@ -30,7 +37,7 @@ export default function TagPicker({ noteId }: TagPickerProps) {
   const assignInStore = useNotesStore((s) => s.assignTagToNoteInStore);
   const removeInStore = useNotesStore((s) => s.removeTagFromNoteInStore);
 
-  const assignedTagIds = noteTagMap[noteId] || [];
+  const assigned = assignedTagIds ?? (noteTagMap[noteId] || []);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -48,11 +55,13 @@ export default function TagPicker({ noteId }: TagPickerProps) {
   }, [isCreating]);
 
   const handleToggleTag = async (tagId: string) => {
-    const isAssigned = assignedTagIds.includes(tagId);
+    const isAssigned = assigned.includes(tagId);
     if (isAssigned) {
+      if (onRemove) { onRemove(tagId); return; }
       removeInStore(noteId, tagId);
       await removeTagFromNote(noteId, tagId);
     } else {
+      if (onAssign) { onAssign(tagId); return; }
       assignInStore(noteId, tagId);
       await assignTagToNote(noteId, tagId);
     }
@@ -64,8 +73,12 @@ export default function TagPicker({ noteId }: TagPickerProps) {
     const result = await createTag({ name, color: newColor });
     if (result.success && result.tag) {
       addTagToStore(result.tag);
-      assignInStore(noteId, result.tag.id);
-      await assignTagToNote(noteId, result.tag.id);
+      if (onAssign) {
+        onAssign(result.tag.id);
+      } else {
+        assignInStore(noteId, result.tag.id);
+        await assignTagToNote(noteId, result.tag.id);
+      }
       setNewName("");
       setIsCreating(false);
     }
@@ -79,8 +92,8 @@ export default function TagPicker({ noteId }: TagPickerProps) {
         title="Tags"
       >
         <IconTag size={16} />
-        {assignedTagIds.length > 0 && (
-          <span className="text-[10px] font-medium">{assignedTagIds.length}</span>
+        {assigned.length > 0 && (
+          <span className="text-[10px] font-medium">{assigned.length}</span>
         )}
       </button>
 
@@ -94,7 +107,7 @@ export default function TagPicker({ noteId }: TagPickerProps) {
             )}
 
             {tags.map((tag) => {
-              const isAssigned = assignedTagIds.includes(tag.id);
+              const isAssigned = assigned.includes(tag.id);
               return (
                 <button
                   key={tag.id}
