@@ -6,20 +6,28 @@ import {
   getSharedByMe,
   unsaveSharedNote,
   saveSharedNoteByLink,
+  setSharedNotePinned,
+  setSharedNoteHidden,
   type SharedListItem,
 } from "@/app/actions/sharing";
 import { useToast } from "@/components/ui/toast";
 import { Avatar } from "@/components/ui/avatar";
+import { Dropdown, DropdownItem } from "@/components/ds/dropdown";
 import {
   IconLoader2,
   IconWorld,
   IconLock,
   IconEye,
+  IconEyeOff,
   IconUser,
   IconShare,
   IconPlus,
-  IconX,
+  IconDots,
+  IconPinnedFilled,
+  IconChevronDown,
 } from "@tabler/icons-react";
+
+type SharedSort = "recent" | "title";
 
 type Tab = "withme" | "byme" | "saved";
 
@@ -74,6 +82,8 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
   const [tab, setTab] = useState<Tab>("withme");
   const [linkInput, setLinkInput] = useState("");
   const [adding, setAdding] = useState(false);
+  const [sortBy, setSortBy] = useState<SharedSort>("recent");
+  const [showHidden, setShowHidden] = useState(false);
   const toast = useToast();
 
   const load = useCallback(async () => {
@@ -105,21 +115,51 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
 
   const byTab = useMemo(() => {
     const src = tab === "withme" ? "granted" : tab === "byme" ? "owned" : "saved";
-    const arr = items.filter((i) => i.source === src);
-    arr.sort((a, b) => {
+    let arr = items.filter((i) => i.source === src);
+    // Granted notes can be hidden by the recipient; keep them out unless the
+    // "Show hidden" toggle is on. (Saved notes are removed, never hidden.)
+    if (src === "granted" && !showHidden) arr = arr.filter((i) => !i.hidden);
+    return [...arr].sort((a, b) => {
+      // Pinned always first (recipient org — no-op on the owner's "By me" tab).
+      if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+      if (sortBy === "title") return a.title.localeCompare(b.title);
       const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
       const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
       return tb - ta || a.title.localeCompare(b.title);
     });
-    return arr;
-  }, [items, tab]);
+  }, [items, tab, sortBy, showHidden]);
 
   const withMeCount = items.filter((i) => i.source === "granted").length;
+  const hiddenGrantedCount = items.filter((i) => i.source === "granted" && i.hidden).length;
 
   const handleRemove = async (shortcode: string) => {
     setItems((prev) => prev.filter((i) => !(i.source === "saved" && i.shortcode === shortcode)));
     await unsaveSharedNote(shortcode);
     load();
+  };
+
+  // Optimistically flip pin, then persist (reload to resync on failure).
+  const handleTogglePin = async (n: SharedListItem) => {
+    const source = n.source === "saved" ? "saved" : "granted";
+    const next = !n.pinned;
+    setItems((prev) =>
+      prev.map((i) =>
+        i.source === n.source && i.shortcode === n.shortcode ? { ...i, pinned: next } : i,
+      ),
+    );
+    const res = await setSharedNotePinned(n.shortcode, source, next);
+    if (!res.success) load();
+  };
+
+  // Hide/unhide a granted note (recipient's view only).
+  const handleHide = async (shortcode: string, hidden: boolean) => {
+    setItems((prev) =>
+      prev.map((i) =>
+        i.source === "granted" && i.shortcode === shortcode ? { ...i, hidden } : i,
+      ),
+    );
+    const res = await setSharedNoteHidden(shortcode, hidden);
+    if (!res.success) load();
   };
 
   const handleAddLink = async () => {
@@ -170,6 +210,36 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
         })}
       </div>
 
+      {/* Sort + show-hidden toolbar */}
+      <div className="flex-none flex items-center justify-between gap-2 px-2 py-1.5">
+        <Dropdown
+          placement="bottom-start"
+          trigger={
+            <button className="flex items-center gap-1 px-2 h-7 rounded-[var(--radius-6)] text-[12px] border border-[var(--color-border-control)] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)] transition-colors">
+              {sortBy === "title" ? "Title" : "Recent"}
+              <IconChevronDown size={12} className="opacity-60" />
+            </button>
+          }
+        >
+          <DropdownItem onClick={() => setSortBy("recent")}>Recent</DropdownItem>
+          <DropdownItem onClick={() => setSortBy("title")}>Title</DropdownItem>
+        </Dropdown>
+
+        {tab === "withme" && hiddenGrantedCount > 0 && (
+          <button
+            onClick={() => setShowHidden((s) => !s)}
+            className={`flex items-center gap-1 px-2 h-7 rounded-[var(--radius-6)] text-[12px] border transition-colors ${
+              showHidden
+                ? "border-[var(--color-accent-tint-border)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]"
+                : "border-[var(--color-border-control)] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)]"
+            }`}
+          >
+            {showHidden ? <IconEye size={13} /> : <IconEyeOff size={13} />}
+            {showHidden ? "Hide hidden" : `Show hidden (${hiddenGrantedCount})`}
+          </button>
+        )}
+      </div>
+
       {/* List */}
       {loading ? (
         <div className="flex-1 flex items-center justify-center text-[var(--color-ink-5)]">
@@ -210,7 +280,7 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
                     isActive
                       ? "bg-[var(--color-accent-tint)] border-[var(--color-accent-tint-border)]"
                       : "border-transparent hover:bg-[var(--color-raised-soft)]"
-                  }`}
+                  } ${n.hidden ? "opacity-50" : ""}`}
                 >
                   <div className="flex items-start gap-1.5">
                     <span className="mt-[3px] flex-shrink-0">
@@ -220,10 +290,16 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
                         <IconUser size={13} className="text-[var(--color-ink-5)]" />
                       )}
                     </span>
-                    <div className={`flex-1 min-w-0 ${tab === "saved" ? "pr-5" : ""}`}>
+                    <div className={`flex-1 min-w-0 ${tab !== "byme" ? "pr-5" : ""}`}>
                       {/* Title wraps like the own-note cards instead of being
                           truncated and squeezed by an inline badge. */}
                       <h3 className="text-[16px] md:text-[13px] font-medium text-[var(--color-ink-1)] leading-snug whitespace-normal break-words">
+                        {n.pinned && (
+                          <IconPinnedFilled
+                            size={12}
+                            className="inline-block mr-1 align-[-1px] text-[var(--color-accent-text)]"
+                          />
+                        )}
                         {n.title}
                       </h3>
                       <div className="flex items-center flex-wrap gap-1.5 mt-1">
@@ -250,14 +326,34 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
                     </div>
                   </div>
                 </button>
-                {tab === "saved" && (
-                  <button
-                    onClick={() => handleRemove(n.shortcode)}
-                    title="Remove from your list"
-                    className="absolute top-2 right-1 p-1 rounded text-[var(--color-ink-5)] opacity-0 group-hover/sh:opacity-100 hover:text-[var(--color-danger)] hover:bg-[var(--color-raised-soft)] transition-opacity"
-                  >
-                    <IconX size={14} />
-                  </button>
+                {tab !== "byme" && (
+                  <div className="absolute top-2 right-1 opacity-0 group-hover/sh:opacity-100 transition-opacity">
+                    <Dropdown
+                      placement="bottom-end"
+                      trigger={
+                        <button
+                          title="More"
+                          className="p-1 rounded text-[var(--color-ink-5)] hover:text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)] transition-colors"
+                        >
+                          <IconDots size={14} />
+                        </button>
+                      }
+                    >
+                      <DropdownItem onClick={() => handleTogglePin(n)}>
+                        {n.pinned ? "Unpin" : "Pin"}
+                      </DropdownItem>
+                      {tab === "withme" && (
+                        <DropdownItem onClick={() => handleHide(n.shortcode, !n.hidden)}>
+                          {n.hidden ? "Unhide" : "Hide"}
+                        </DropdownItem>
+                      )}
+                      {tab === "saved" && (
+                        <DropdownItem destructive onClick={() => handleRemove(n.shortcode)}>
+                          Remove from my shared notes
+                        </DropdownItem>
+                      )}
+                    </Dropdown>
+                  </div>
                 )}
               </div>
               );
