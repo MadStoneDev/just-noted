@@ -53,9 +53,8 @@ import { CommandPalette, type CommandPage } from "@/components/ds/command-palett
 import { getSortedNotebookTree } from "@/utils/notebook-tree";
 import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import VersionHistoryPanel from "@/components/version-history-panel";
-import NoteChatPanel from "@/components/note-chat-panel";
+import ChatDrawer from "@/components/chat-drawer";
 import { noteChatAvailable } from "@/app/actions/chatActions";
-import { useChatUnread } from "@/hooks/use-chat-unread";
 import { subscribeProblem } from "@/utils/offline-queue";
 import GoalSuggestionsModal from "@/components/goal-suggestions-modal";
 import SplitToolbar, { SplitToolbarMobile } from "@/components/editor/split-toolbar";
@@ -382,18 +381,16 @@ function NoteEditor({
   // scroll area) so it spans the pane and never overlaps the note text.
   const [toolbarSlot, setToolbarSlot] = useState<HTMLDivElement | null>(null);
   const [showVersions, setShowVersions] = useState(false);
-  // Chat — only surfaced once the note is actually shared with someone.
-  const [showChat, setShowChat] = useState(false);
+  // Chat — only surfaced once the note is actually shared with someone. The
+  // panel itself (open state + unread) lives in ChatDrawer.
   const [chatAvailable, setChatAvailable] = useState(false);
   useEffect(() => {
-    setShowChat(false);
     setChatAvailable(false);
     if (!isAuthenticated || note.source !== "supabase") return;
     let alive = true;
     noteChatAvailable(note.id).then((ok) => { if (alive) setChatAvailable(ok); });
     return () => { alive = false; };
   }, [note.id, note.source, isAuthenticated]);
-  const { unread: chatUnread } = useChatUnread(note.id, chatAvailable && !showChat);
   const [showGoalSuggestions, setShowGoalSuggestions] = useState(false);
   const lastVersionRef = useRef<number>(0);
   const [goalInput, setGoalInput] = useState(String(note.goal || ""));
@@ -1309,7 +1306,7 @@ function NoteEditor({
 
   return (
     <div className="flex-1 flex h-full overflow-hidden">
-     <div className={`flex-1 flex-col overflow-hidden min-w-0 ${showChat ? "hidden lg:flex" : "flex"} ${noteIsShared ? "border border-[var(--color-accent-fill)]" : ""}`}>
+     <div className={`flex-1 flex flex-col overflow-hidden min-w-0 ${noteIsShared ? "border border-[var(--color-accent-fill)]" : ""}`}>
       {/* Editor top bar — shared chrome via NoteActionBar (owner context). */}
       <NoteActionBar
         isShared={noteIsShared}
@@ -1325,7 +1322,6 @@ function NoteEditor({
           </div>
         }
         onHelp={() => setShowHelp(true)}
-        chat={isAuthenticated && chatAvailable ? { onOpen: () => setShowChat(true), unread: chatUnread } : undefined}
         onHistory={isAuthenticated ? () => setShowVersions(true) : undefined}
         wide={{ isWide, tooltip: wideTooltip, onCycle: cycleWide, label: wideLevel === "all" ? "All" : undefined }}
         markdown={{ viewMode, onToggle: toggleViewMode }}
@@ -1410,6 +1406,9 @@ function NoteEditor({
         destructive
       />
 
+      {/* Content region below the bar — relative so the chat drawer + handle
+          span from here to the bottom. */}
+      <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* Editor area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin">
         <div className={`mx-auto px-4 md:px-8 py-6 min-h-full flex flex-col transition-[max-width] duration-[var(--duration-slow)] ${isWide ? "max-w-none" : "max-w-[var(--content-width)]"}`}>
@@ -1638,6 +1637,9 @@ function NoteEditor({
           the note text). The Milkdown editor portals its toolbar in here. */}
       <div ref={setToolbarSlot} className="shrink-0 empty:hidden" />
 
+      {isAuthenticated && chatAvailable && <ChatDrawer noteId={note.id} enabled />}
+      </div>{/* /content region */}
+
       {/* Formatting help modal */}
       <Modal open={showHelp} onClose={() => setShowHelp(false)} title="Formatting" size="sm">
         <div className="space-y-0.5 text-xs">
@@ -1702,11 +1704,6 @@ function NoteEditor({
         }}
       />
      </div>
-
-      {/* Chat — a docked column so the note stays editable beside it. */}
-      {chatAvailable && (
-        <NoteChatPanel noteId={note.id} open={showChat} onClose={() => setShowChat(false)} />
-      )}
     </div>
   );
 }

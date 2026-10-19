@@ -7,8 +7,6 @@ import { createClient } from "@/utils/supabase/client";
 import type { ContentFormat } from "@/types/combined-notes";
 import { usePresence, colorForUser } from "@/hooks/use-presence";
 import { SharedHistoryPanel } from "@/components/shared-history-panel";
-import NoteChatPanel from "@/components/note-chat-panel";
-import { useChatUnread } from "@/hooks/use-chat-unread";
 import { loadCollabDoc, saveCollabDoc } from "@/app/actions/collabActions";
 import { decideEditorChange } from "@/utils/editor-save-decision";
 import { Avatar } from "@/components/ui/avatar";
@@ -65,8 +63,6 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
   const canEdit = !!note?.canEdit;
   const presence = usePresence(note?.id ?? null);
   const [showHistory, setShowHistory] = useState(false);
-  const [showChat, setShowChat] = useState(false);
-  const { unread: chatUnread } = useChatUnread(note?.id ?? null, !!note?.id && !showChat);
   const toast = useToast();
   const shareLink = typeof window !== "undefined" ? `${window.location.origin}/n/${shortcode}` : "";
   const copyLink = () => { navigator.clipboard.writeText(shareLink); toast.showSuccess("Link copied"); };
@@ -319,7 +315,6 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
       onEditorReady: handleEditorReady,
       onClose,
       onCopyLink: copyLink,
-      onChat: () => setShowChat(true),
       onHistory: () => setShowHistory(true),
       collab: me
         ? {
@@ -352,12 +347,9 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
         statusLabel={saveLabel}
         statusTone={saveStatus === "error" ? "error" : "normal"}
         presence={presence}
-        chatUnread={chatUnread}
         shareLink={shareLink}
         collabPending={!me}
         overlay={showHistory ? <SharedHistoryPanel shortcode={shortcode} onClose={() => setShowHistory(false)} /> : undefined}
-        sidePanel={note?.id ? <NoteChatPanel noteId={note.id} open={showChat} onClose={() => setShowChat(false)} /> : undefined}
-        sidePanelOpen={showChat}
       />
     );
   }

@@ -3,7 +3,6 @@
 import React from "react";
 import {
   IconHelp,
-  IconMessageCircle,
   IconHistory,
   IconLink,
   IconViewportWide,
@@ -40,7 +39,6 @@ interface NoteActionBarProps {
   /** Presence avatars (shared). */
   presence?: React.ReactNode;
   onHelp: () => void;
-  chat?: { onOpen: () => void; unread: number };
   onHistory?: () => void;
   onCopyLink?: () => void;
   wide?: { isWide: boolean; tooltip: string; onCycle: () => void; label?: string };
@@ -62,7 +60,6 @@ export default function NoteActionBar({
   left,
   presence,
   onHelp,
-  chat,
   onHistory,
   onCopyLink,
   wide,
@@ -89,17 +86,6 @@ export default function NoteActionBar({
         <button onClick={onHelp} title="Formatting help" className={`flex w-8 ${btn}`}>
           <IconHelp size={16} />
         </button>
-
-        {chat && (
-          <button onClick={chat.onOpen} title="Chat" className={`relative flex w-8 ${btn}`}>
-            <IconMessageCircle size={16} />
-            {chat.unread > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] px-0.5 rounded-full bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] text-[9px] font-semibold flex items-center justify-center">
-                {chat.unread > 9 ? "9+" : chat.unread}
-              </span>
-            )}
-          </button>
-        )}
 
         {onHistory && (
           <button onClick={onHistory} title="Version history" className={`flex w-8 ${btn}`}>

@@ -7,6 +7,7 @@ import AutoGrowTitle from "@/components/auto-grow-title";
 import { Modal } from "@/components/ds/modal";
 import { PresenceStack } from "@/components/presence-stack";
 import NoteActionBar from "@/components/note-view/note-action-bar";
+import ChatDrawer from "@/components/chat-drawer";
 import type { PresenceUser } from "@/hooks/use-presence";
 import {
   readWideDefault,
@@ -39,7 +40,6 @@ interface NoteViewProps {
 
   /** Presence avatars (shared notes). */
   presence?: PresenceUser[];
-  chatUnread?: number;
 
   /** For the "…" menu's "Open in new tab" (shared notes). */
   shareLink?: string;
@@ -54,10 +54,6 @@ interface NoteViewProps {
 
   /** Rendered full-width directly under the action bar (e.g. history panel). */
   overlay?: React.ReactNode;
-  /** Rendered beside the editor column (e.g. chat panel). */
-  sidePanel?: React.ReactNode;
-  /** When true the editor column hides on small screens (chat open). */
-  sidePanelOpen?: boolean;
 }
 
 /**
@@ -79,14 +75,11 @@ export default function NoteView({
   statusLabel,
   statusTone = "normal",
   presence,
-  chatUnread = 0,
   shareLink,
   byline,
   notice,
   collabPending,
   overlay,
-  sidePanel,
-  sidePanelOpen,
 }: NoteViewProps) {
   const [toolbarSlot, setToolbarSlot] = useState<HTMLDivElement | null>(null);
   const [showHelp, setShowHelp] = useState(false);
@@ -174,7 +167,6 @@ export default function NoteView({
         }
         presence={isShared && presence && presence.length > 0 ? <PresenceStack users={presence} /> : undefined}
         onHelp={() => setShowHelp(true)}
-        chat={caps.hasChat && ops.onChat ? { onOpen: ops.onChat, unread: chatUnread } : undefined}
         onHistory={caps.hasVersions && ops.onHistory ? ops.onHistory : undefined}
         onCopyLink={isShared && ops.onCopyLink ? ops.onCopyLink : undefined}
         wide={{ isWide, tooltip: wideTooltip, onCycle: cycleWide }}
@@ -193,8 +185,8 @@ export default function NoteView({
 
       {overlay}
 
-      <div className="flex-1 flex min-h-0">
-        <div className={`flex-1 flex-col min-w-0 ${sidePanelOpen ? "hidden lg:flex" : "flex"}`}>
+      <div className="relative flex-1 flex min-h-0 overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0">
           <div className="flex-1 overflow-y-auto scrollbar-thin">
             <div
               className={`mx-auto px-4 md:px-8 py-8 min-h-full flex flex-col transition-[max-width] duration-[var(--duration-slow)] ${
@@ -259,7 +251,7 @@ export default function NoteView({
           </div>
           <div ref={setToolbarSlot} className="shrink-0 empty:hidden" />
         </div>
-        {sidePanel}
+        {caps.hasChat && <ChatDrawer noteId={model.id} enabled />}
       </div>
 
       {/* Formatting help modal */}

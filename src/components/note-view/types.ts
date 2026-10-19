@@ -75,8 +75,6 @@ export interface NoteOps {
   onClose?: () => void;
   /** Copy the share link (shared view). */
   onCopyLink?: () => void;
-  /** Open chat. */
-  onChat?: () => void;
   /** Open version history. */
   onHistory?: () => void;
   /** Live collaboration config — when set, the editor mounts into collab. */
