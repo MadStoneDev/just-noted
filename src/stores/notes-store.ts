@@ -5,7 +5,7 @@ import { CombinedNote, NoteSource } from "@/types/combined-notes";
 import { Notebook } from "@/types/notebook";
 import { Tag } from "@/types/tag";
 import { TocHeading } from "@/lib/toc-parser";
-import { sortNotes } from "@/utils/notes-utils";
+import { filterAndSortNotes } from "@/lib/filter-notes";
 
 // Deleted note with timestamp for undo functionality
 interface DeletedNote {
@@ -609,120 +609,20 @@ export const useNotesStore = create<NotesStore>()(
 
     // ========== Computed/Selectors ==========
     getFilteredNotes: () => {
-      const { notes, searchQuery, filterSource, filterPinned, activeNotebookId, filterTagIds, noteTagMap, notebooks } = get();
-
-      // Exclude trashed notes from main view
-      let filtered = notes.filter((n) => !n.deletedAt);
-
-      // Filter by notebook (only applies to Supabase notes)
-      if (activeNotebookId === "loose") {
-        filtered = filtered.filter(
-          (note) => note.source === "supabase" && !note.notebookId
-        );
-      } else if (activeNotebookId) {
-        const activeNb = notebooks.find((nb) => nb.id === activeNotebookId);
-        const descendantIds = getDescendantNotebookIds(activeNotebookId, notebooks);
-        let visibleDescendantIds = descendantIds;
-        if (activeNb && !activeNb.showHiddenChildren) {
-          visibleDescendantIds = descendantIds.filter((cid) => {
-            const child = notebooks.find((nb) => nb.id === cid);
-            return child && !child.isHidden;
-          });
-        }
-        const allIds = new Set([activeNotebookId, ...visibleDescendantIds]);
-        filtered = filtered.filter((note) => note.notebookId && allIds.has(note.notebookId));
-      } else {
-        // "All Notes" view — exclude notes from hidden notebooks (and children of hidden parents)
-        const hiddenNotebookIds = getEffectivelyHiddenNotebookIds(notebooks);
-        if (hiddenNotebookIds.size > 0) {
-          filtered = filtered.filter(
-            (note) => !note.notebookId || !hiddenNotebookIds.has(note.notebookId)
-          );
-        }
-      }
-
-      // Filter by source
-      if (filterSource === "local") {
-        filtered = filtered.filter((note) => note.source === "redis");
-      } else if (filterSource === "cloud") {
-        filtered = filtered.filter((note) => note.source === "supabase");
-      }
-
-      // Filter by pinned status
-      if (filterPinned === "pinned") {
-        filtered = filtered.filter((note) => note.isPinned);
-      } else if (filterPinned === "unpinned") {
-        filtered = filtered.filter((note) => !note.isPinned);
-      }
-
-      // Filter by tags
-      if (filterTagIds.length > 0) {
-        filtered = filtered.filter((note) => {
-          const noteTags = noteTagMap[note.id] || [];
-          return filterTagIds.some((tagId) => noteTags.includes(tagId));
-        });
-      }
-
-      // Filter by search query
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        filtered = filtered.filter(
-          (note) =>
-            note.title.toLowerCase().includes(query) ||
-            note.content.toLowerCase().includes(query)
-        );
-      }
-
-      const { sortBy } = get();
-
-      if (sortBy === "edited") {
-        filtered.sort((a, b) => b.updatedAt - a.updatedAt);
-      } else if (sortBy === "created") {
-        filtered.sort((a, b) => b.createdAt - a.createdAt);
-      } else if (sortBy === "title") {
-        filtered.sort((a, b) => a.title.localeCompare(b.title));
-      } else if (sortBy === "notebook") {
-        // Group by notebook, pinned notes at the top of each group
-        filtered.sort((a, b) => {
-          const aName = a.notebookId || "zzz";
-          const bName = b.notebookId || "zzz";
-          const groupCmp = aName.localeCompare(bName);
-          if (groupCmp !== 0) return groupCmp;
-          // Within same notebook: pinned first, then by updatedAt
-          if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
-          return b.updatedAt - a.updatedAt;
-        });
-        return filtered;
-      } else {
-        return sortNotes(filtered, null);
-      }
-
-      // Keep pinned at top for non-notebook sorts
-      const pinned = filtered.filter((n) => n.isPinned);
-      const unpinned = filtered.filter((n) => !n.isPinned);
-      return [...pinned, ...unpinned];
+      const { notes, searchQuery, filterSource, filterPinned, activeNotebookId, filterTagIds, noteTagMap, notebooks, sortBy } = get();
+      // Logic lives in the shared helper so the sidebar list, the split-view
+      // picker, and anything else apply identical filtering/sorting.
+      return filterAndSortNotes(notes, notebooks, noteTagMap, {
+        searchQuery,
+        filterSource,
+        filterPinned,
+        activeNotebookId,
+        filterTagIds,
+        sortBy,
+      });
     },
   }))
 );
-
-function getDescendantNotebookIds(notebookId: string, notebooks: Notebook[]): string[] {
-  return notebooks
-    .filter((nb) => nb.parentId === notebookId)
-    .map((nb) => nb.id);
-}
-
-function getEffectivelyHiddenNotebookIds(notebooks: Notebook[]): Set<string> {
-  const hidden = new Set<string>();
-  for (const nb of notebooks) {
-    if (nb.isHidden) {
-      hidden.add(nb.id);
-      for (const child of notebooks) {
-        if (child.parentId === nb.id) hidden.add(child.id);
-      }
-    }
-  }
-  return hidden;
-}
 
 // Memoized filtered notes cache
 let _filteredNotesCache: CombinedNote[] = [];

@@ -28,7 +28,6 @@ import {
   IconHistory,
   IconMessageCircle,
   IconNotebook,
-  IconX,
   IconPrinter,
   IconSelector,
   IconFileImport,
@@ -66,6 +65,7 @@ import SplitToolbar, { SplitToolbarMobile } from "@/components/editor/split-tool
 import { saveVersion } from "@/app/actions/versionActions";
 import { IconButton } from "@/components/ds/icon-button";
 import ShareNoteButton from "@/components/share-note-button";
+import NotePicker from "@/components/notes/note-picker";
 
 interface ActiveNoteEditorProps {
   userId: string;
@@ -271,31 +271,11 @@ export default function ActiveNoteEditor({
               scrollRef={rightScrollRef}
             />
           ) : (
-            /* Note picker */
-            <div className="flex-1 overflow-y-auto scrollbar-thin p-3">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs text-[var(--color-text-tertiary)]">Choose a note</p>
-                <button
-                  onClick={() => setSplitNoteId(null)}
-                  className="p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
-                >
-                  <IconX size={14} />
-                </button>
-              </div>
-              <div className="flex flex-col gap-0.5">
-                {notes
-                  .filter((n) => n.id !== note.id && !n.deletedAt)
-                  .map((n) => (
-                    <button
-                      key={n.id}
-                      onClick={() => setSplitNoteId(n.id)}
-                      className="w-full text-left px-3 py-2 rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors"
-                    >
-                      <p className="text-[13px] font-medium text-[var(--color-text-primary)] truncate">{n.title}</p>
-                    </button>
-                  ))}
-              </div>
-            </div>
+            <NotePicker
+              currentNoteId={note.id}
+              onPick={(id) => setSplitNoteId(id)}
+              onClose={() => setSplitNoteId(null)}
+            />
           )}
         </div>
       )}

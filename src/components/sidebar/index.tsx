@@ -15,12 +15,13 @@ import {
 import { uploadNotebookCover } from "@/utils/storage/cover-upload";
 import NotebookNavList from "@/components/notebook-nav-list";
 import SharedNavList from "@/components/shared-nav-list";
+import NoteCard from "@/components/notes/note-card";
+import { SORT_LABELS, SOURCE_LABELS } from "@/lib/filter-notes";
 import NotebookModal from "@/components/notebook-modal";
 import TagFilter from "@/components/tag-filter";
 import { getTags, bulkGetNoteTags } from "@/app/actions/tagActions";
 import BulkActionBar from "@/components/bulk-action-bar";
 import { getCoverPreviewStyle } from "@/lib/notebook-covers";
-import { getPlainTextPreview as getPlainTextPreviewUtil } from "@/utils/html-utils";
 import NotebookMoveMenu from "@/components/notebook-move-menu";
 import AccountMenu from "@/components/account-menu";
 import NotificationsNavList from "@/components/notifications-nav-list";
@@ -59,20 +60,6 @@ import {
 import { Dropdown, DropdownItem, DropdownSeparator, DropdownLabel } from "@/components/ds/dropdown";
 import { ConfirmModal, Modal } from "@/components/ds/modal";
 
-function relativeTime(timestamp: number): string {
-  const now = Date.now();
-  const diff = now - timestamp;
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  if (days < 30) return `${Math.floor(days / 7)}w ago`;
-  return new Date(timestamp).toLocaleDateString("en-AU", { month: "short", day: "numeric" });
-}
-
 interface SidebarProps {
   onNoteClick?: (noteId: string) => void;
   onBulkDelete?: (noteIds: string[]) => void;
@@ -86,19 +73,6 @@ interface SidebarProps {
   /** Shortcode of the shared note currently open, for the active highlight. */
   activeShortcode?: string | null;
 }
-
-const SORT_LABELS: Record<"manual" | "edited" | "created" | "title" | "notebook", string> = {
-  manual: "Manual",
-  edited: "Last edited",
-  created: "Created",
-  title: "Title A–Z",
-  notebook: "Notebook",
-};
-const SOURCE_LABELS: Record<"all" | "cloud" | "local", string> = {
-  all: "All sources",
-  cloud: "Cloud",
-  local: "Local",
-};
 
 const RAIL_VIEW_KEY = "jn_sidebar_rail_view";
 const RAIL_VIEWS = ["notes", "notebooks", "tags", "shared"] as const;
@@ -664,11 +638,6 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
     }
   }, [editingNotebook, removeNotebook, recalculateNotebookCounts]);
 
-  const getPreview = (content: string, maxLength = 60) => {
-    const isHtml = /<[a-z][\s\S]*>/i.test(content);
-    return getPlainTextPreviewUtil(content, maxLength, isHtml ? "html" : "markdown");
-  };
-
   return (
     <>
       {/* Overlay for mobile — tap to close */}
@@ -1168,133 +1137,25 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                             )}
                           </div>
                         )}
-                        <div
-                          className="flex-1 min-w-0"
-                          onClick={() => {
+                        <NoteCard
+                          note={note}
+                          notebooks={notebooks}
+                          tags={tags}
+                          noteTagMap={noteTagMap}
+                          isSaving={isSaving.has(note.id)}
+                          onOpen={() => {
                             if (selectMode && canSelect) {
                               handleToggleNoteSelection(note.id);
                             } else {
                               handleNoteClick(note.id);
                             }
                           }}
-                        >
-                          <div className="flex items-start gap-1.5">
-                            {note.isPinned ? (
-                              <IconPinFilled size={13} className="mt-[3px] text-[var(--color-accent-text)] flex-shrink-0" />
-                            ) : (
-                              <IconNote size={13} className="mt-[3px] text-[var(--color-ink-5)] flex-shrink-0" />
-                            )}
-                            <h3 className="flex-1 min-w-0 text-[16px] md:text-[13px] font-medium text-[var(--color-ink-1)] leading-snug whitespace-normal break-words">
-                              {note.title}
-                            </h3>
-                          </div>
-                          {note.notebookId && (() => {
-                            const notebook = notebooks.find((nb) => nb.id === note.notebookId);
-                            if (notebook) {
-                              return (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveNotebookId(notebook.id);
-                                    setRailView("notes");
-                                  }}
-                                  title={`Go to ${notebook.name}`}
-                                  className="inline-flex items-center gap-0.5 mt-1 px-1.5 py-px text-[11px] font-medium rounded-[var(--radius-sm)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)] truncate max-w-[150px] transition-colors"
-                                >
-                                  <IconNotebook size={10} className="shrink-0" />
-                                  {notebook.name}
-                                </button>
-                              );
-                            }
-                            return null;
-                          })()}
-                          <p className="text-[13.5px] md:text-[11px] text-[var(--color-ink-5)] truncate mt-0.5 leading-relaxed">
-                            {getPreview(note.content) || "Empty note"}
-                          </p>
-                          <div className="flex items-center gap-1.5 mt-1">
-                            {(() => {
-                              const saving = isSaving.has(note.id);
-                              const conflict = /conflicted copy/i.test(note.title || "");
-                              const local = note.source !== "supabase";
-                              const color = saving
-                                ? "var(--color-warning)"
-                                : conflict
-                                  ? "var(--color-danger-strong)"
-                                  : local
-                                    ? "var(--color-ink-6)"
-                                    : "#3DA35D";
-                              const title = saving
-                                ? "Saving…"
-                                : conflict
-                                  ? "Conflicted copy — review"
-                                  : local
-                                    ? "Saved on this device"
-                                    : "Saved to cloud";
-                              return (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setStorageInfoNoteId(note.id); }}
-                                  title={title}
-                                  aria-label={`${title}. What does this mean?`}
-                                  className="flex items-center justify-center -m-1 p-1 rounded-full hover:bg-[var(--color-raised-soft)] transition-colors shrink-0"
-                                >
-                                  <span
-                                    className={`w-1.5 h-1.5 rounded-full ${saving ? "animate-pulse" : ""}`}
-                                    style={{ backgroundColor: color }}
-                                  />
-                                </button>
-                              );
-                            })()}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setStorageInfoNoteId(note.id);
-                              }}
-                              title="What does this mean?"
-                              className={`inline-flex items-center gap-1 px-1.5 py-px rounded-[var(--radius-sm)] transition-colors ${
-                                note.source === "supabase"
-                                  ? "hover:bg-[var(--color-raised-soft)]"
-                                  : "bg-[var(--color-warn-tint)] border border-[var(--color-warn-tint-border)] hover:brightness-95"
-                              }`}
-                            >
-                              {note.source === "supabase" ? (
-                                <IconCloud size={12} className="text-[var(--color-info)] flex-shrink-0" />
-                              ) : (
-                                <IconDeviceDesktop size={12} className="text-[var(--color-warning)] flex-shrink-0" />
-                              )}
-                              <span className={`text-[11px] ${note.source === "supabase" ? "text-[var(--color-ink-5)]" : "text-[var(--color-warning)] font-medium"}`}>
-                                {note.source === "supabase" ? "Cloud" : "On this device"}
-                              </span>
-                            </button>
-                            <p className="text-[12px] text-[var(--color-ink-5)]">
-                              {relativeTime(note.updatedAt)}
-                            </p>
-                          </div>
-                          {noteTagMap[note.id]?.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {noteTagMap[note.id].slice(0, 3).map((tagId) => {
-                                const tag = tags.find((t) => t.id === tagId);
-                                if (!tag) return null;
-                                return (
-                                  <span
-                                    key={tagId}
-                                    className="px-1.5 py-px text-[11px] rounded-full"
-                                    style={{
-                                      backgroundColor: tag.color + "20",
-                                      color: tag.color,
-                                    }}
-                                  >
-                                    {tag.name}
-                                  </span>
-                                );
-                              })}
-                              {noteTagMap[note.id].length > 3 && (
-                                <span className="text-[11px] text-[var(--color-ink-5)]">
-                                  +{noteTagMap[note.id].length - 3}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                          onStorageInfo={(id) => setStorageInfoNoteId(id)}
+                          onNotebookClick={(nbId) => {
+                            setActiveNotebookId(nbId);
+                            setRailView("notes");
+                          }}
+                        />
                         {/* Delete — appears on hover (desktop); swipe on mobile is the follow-up */}
                         {!selectMode && (
                           <button
