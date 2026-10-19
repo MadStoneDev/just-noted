@@ -329,7 +329,7 @@ function EmptyState({ onNewNote }: { onNewNote: () => void }) {
   );
 }
 
-function NoteEditor({
+export function NoteEditor({
   note,
   userId,
   isAuthenticated,

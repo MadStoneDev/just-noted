@@ -17,6 +17,8 @@ import type { NoteViewModel, NoteCaps, NoteOps } from "@/components/note-view/ty
 interface SharedNoteInlineProps {
   shortcode: string;
   onClose: () => void;
+  /** Toggle split view (compare beside one of the viewer's own notes). */
+  onToggleSplit?: () => void;
 }
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -28,7 +30,7 @@ type SaveStatus = "idle" | "saving" | "saved" | "error";
  * enforced server-side). Chrome is the shared <NoteView> (phase 1 of the merge);
  * this component owns the fetch, access gating, presence, collab and autosave.
  */
-export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlineProps) {
+export default function SharedNoteInline({ shortcode, onClose, onToggleSplit }: SharedNoteInlineProps) {
   const [note, setNote] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -316,6 +318,7 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
       onClose,
       onCopyLink: copyLink,
       onHistory: () => setShowHistory(true),
+      onToggleSplit,
       collab: me
         ? {
             roomKey: note.id,
@@ -370,7 +373,7 @@ export default function SharedNoteInline({ shortcode, onClose }: SharedNoteInlin
     showGoalPicker: false,
     showPagePicker: false,
   };
-  const ops: NoteOps = { onClose, onCopyLink: copyLink, onHistory: () => setShowHistory(true) };
+  const ops: NoteOps = { onClose, onCopyLink: copyLink, onHistory: () => setShowHistory(true), onToggleSplit };
 
   return (
     <NoteView

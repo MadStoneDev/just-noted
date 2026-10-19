@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
+import { IconLayoutColumns } from "@tabler/icons-react";
 import MilkdownEditor from "@/components/editor/milkdown-editor";
 import NoteStatsRow from "@/components/note-stats-row";
 import AutoGrowTitle from "@/components/auto-grow-title";
 import { Modal } from "@/components/ds/modal";
 import { PresenceStack } from "@/components/presence-stack";
-import NoteActionBar from "@/components/note-view/note-action-bar";
+import NoteActionBar, { barButtonClass } from "@/components/note-view/note-action-bar";
 import ChatDrawer from "@/components/chat-drawer";
 import type { PresenceUser } from "@/hooks/use-presence";
 import {
@@ -172,6 +173,17 @@ export default function NoteView({
         onCopyLink={isShared && ops.onCopyLink ? ops.onCopyLink : undefined}
         wide={{ isWide, tooltip: wideTooltip, onCycle: cycleWide }}
         markdown={{ viewMode, onToggle: toggleViewMode }}
+        extras={
+          ops.onToggleSplit ? (
+            <button
+              onClick={ops.onToggleSplit}
+              title="Split view"
+              className={`hidden md:inline-flex w-8 ${barButtonClass(isShared)}`}
+            >
+              <IconLayoutColumns size={16} />
+            </button>
+          ) : undefined
+        }
         overflowItems={
           isShared
             ? [

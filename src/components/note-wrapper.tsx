@@ -4,7 +4,8 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { usePathname, useRouter } from "next/navigation";
 
 import Sidebar from "@/components/sidebar";
-import ActiveNoteEditor from "@/components/active-note-editor";
+import ActiveNoteEditor, { NoteEditor } from "@/components/active-note-editor";
+import NotePicker from "@/components/notes/note-picker";
 import { MobileTabBar, MobileEditorNav, MobileFab, type MobileTab } from "@/components/mobile-chrome";
 import { MobileAccountDrawer } from "@/components/mobile-account-drawer";
 import HelpModal from "@/components/help-modal";
@@ -73,6 +74,9 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
   const [showTrash, setShowTrash] = useState(false);
   // Read-only shared note open in the main area (by shortcode)
   const [sharedShortcode, setSharedShortcode] = useState<string | null>(null);
+  // Split view beside a shared note: one of the viewer's OWN notes (store id),
+  // "pick" to choose, or null. Desktop only.
+  const [sharedSplitNoteId, setSharedSplitNoteId] = useState<string | null>(null);
   // Notebooks cover grid (Level 1, /notebooks) open in the main area
   const [showNotebooksGrid, setShowNotebooksGrid] = useState(false);
   // Single notebook view (Level 2, /notebooks/:id) — the id, or null.
@@ -180,6 +184,10 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
       if (sharedShortcode) localStorage.setItem("justnoted_last_shared", sharedShortcode);
       else localStorage.removeItem("justnoted_last_shared");
     } catch {}
+  }, [sharedShortcode]);
+  // Close any shared-note split when the shared note itself closes.
+  useEffect(() => {
+    if (!sharedShortcode) setSharedSplitNoteId(null);
   }, [sharedShortcode]);
 
   // Record the current account (fresh tokens) into the device store so it's
@@ -526,13 +534,48 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
               }}
             />
           ) : sharedShortcode ? (
-            <SharedNoteInline
-              shortcode={sharedShortcode}
-              onClose={() => {
-                setSharedShortcode(null);
-                if (pathname.startsWith("/n/")) router.replace("/");
-              }}
-            />
+            <div className="flex-1 flex h-full overflow-hidden">
+              <div
+                className={`flex-1 min-w-0 flex flex-col ${
+                  sharedSplitNoteId ? "md:border-r md:border-[var(--color-hairline)]" : ""
+                }`}
+              >
+                <SharedNoteInline
+                  shortcode={sharedShortcode}
+                  onClose={() => {
+                    setSharedShortcode(null);
+                    if (pathname.startsWith("/n/")) router.replace("/");
+                  }}
+                  onToggleSplit={() => setSharedSplitNoteId((v) => (v ? null : "pick"))}
+                />
+              </div>
+              {sharedSplitNoteId && (
+                <div className="hidden md:flex flex-1 min-w-0 flex-col overflow-y-auto bg-[var(--color-canvas)]">
+                  {(() => {
+                    const splitNote = notes.find((n) => n.id === sharedSplitNoteId) || null;
+                    return splitNote ? (
+                      <NoteEditor
+                        key={splitNote.id}
+                        note={splitNote}
+                        userId={userId || ""}
+                        isAuthenticated={isAuthenticated}
+                        notesOperations={notesOperations}
+                        registerNoteFlush={registerNoteFlush}
+                        unregisterNoteFlush={unregisterNoteFlush}
+                        onToggleSplit={() => setSharedSplitNoteId(null)}
+                        onChangeSplitNote={() => setSharedSplitNoteId("pick")}
+                      />
+                    ) : (
+                      <NotePicker
+                        currentNoteId=""
+                        onPick={(id) => setSharedSplitNoteId(id)}
+                        onClose={() => setSharedSplitNoteId(null)}
+                      />
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
           ) : (
             <>
               {/* Mobile editor nav (design surface 08) — desktop uses its own toolbar. */}

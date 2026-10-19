@@ -77,6 +77,8 @@ export interface NoteOps {
   onCopyLink?: () => void;
   /** Open version history. */
   onHistory?: () => void;
+  /** Toggle split view (compare beside one of the viewer's own notes). */
+  onToggleSplit?: () => void;
   /** Live collaboration config — when set, the editor mounts into collab. */
   collab?: NoteViewCollab;
 }
