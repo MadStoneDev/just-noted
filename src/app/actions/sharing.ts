@@ -974,6 +974,12 @@ export interface SharedListItem {
   viewCount?: number;
   readerCount?: number;
   createdAt?: string | null;
+  /** Per-recipient organization (granted/saved only; never leaked to the owner). */
+  pinned?: boolean;
+  hidden?: boolean;
+  sortOrder?: number;
+  /** Ids of the recipient's own tags applied to this shared note. */
+  tagIds?: string[];
 }
 
 const isExpired = (expiresAt: string | null | undefined) =>
@@ -1015,11 +1021,18 @@ export async function getSharedWithMe(): Promise<{
   // list can show the viewer's OWN access, not the link's.
   const { data: readerRows } = await svc
     .from("shared_notes_readers")
-    .select("shared_note, role")
+    .select("shared_note, role, pinned, sort_order, hidden")
     .eq("reader_id", user.id);
   const readerShareIds = (readerRows || []).map((r: any) => r.shared_note);
   const roleByShareId = new Map<string, string>(
     (readerRows || []).map((r: any) => [r.shared_note, r.role || "view"]),
+  );
+  // Per-recipient organization for granted notes, keyed by shared_note id.
+  const grantMetaByShareId = new Map<string, { pinned: boolean; sortOrder: number; hidden: boolean }>(
+    (readerRows || []).map((r: any) => [
+      r.shared_note,
+      { pinned: !!r.pinned, sortOrder: r.sort_order ?? 0, hidden: !!r.hidden },
+    ]),
   );
 
   const grantedSet = new Set<string>();
@@ -1034,12 +1047,31 @@ export async function getSharedWithMe(): Promise<{
   // (b) saved-by-link bookmarks
   const { data: savedRows } = await svc
     .from("saved_shared_notes")
-    .select("shortcode")
+    .select("shortcode, pinned, sort_order")
     .eq("user_id", user.id);
   const savedSet = new Set<string>((savedRows || []).map((r: any) => r.shortcode));
+  // Per-recipient organization for saved notes, keyed by shortcode.
+  const savedMetaByShortcode = new Map<string, { pinned: boolean; sortOrder: number }>(
+    (savedRows || []).map((r: any) => [r.shortcode, { pinned: !!r.pinned, sortOrder: r.sort_order ?? 0 }]),
+  );
 
   const allShortcodes = Array.from(new Set<string>([...grantedSet, ...savedSet]));
   if (allShortcodes.length === 0) return { success: true, notes: [] };
+
+  // Per-recipient tags for these shares (one query), keyed by shortcode.
+  const tagsByShortcode = new Map<string, string[]>();
+  {
+    const { data: tagRows } = await svc
+      .from("shared_note_tags")
+      .select("shortcode, tag_id")
+      .eq("user_id", user.id)
+      .in("shortcode", allShortcodes);
+    (tagRows || []).forEach((r: any) => {
+      const arr = tagsByShortcode.get(r.shortcode) || [];
+      arr.push(r.tag_id);
+      tagsByShortcode.set(r.shortcode, arr);
+    });
+  }
 
   const { data: shares } = await svc
     .from("shared_notes")
@@ -1143,6 +1175,15 @@ export async function getSharedWithMe(): Promise<{
     if (viewerPerm === "edit" && c.s.storage !== "redis" && !canCollabByOwner.get(c.s.note_owner_id)) {
       viewerPerm = "view";
     }
+    // Per-recipient org: granted notes read from the reader row (by share id);
+    // saved notes from the saved row (by shortcode). Saved notes are never
+    // hidden — they use Remove instead.
+    const grantMeta = grantMetaByShareId.get(c.s.id);
+    const savedMeta = savedMetaByShortcode.get(c.s.shortcode);
+    const pinned = c.granted ? !!grantMeta?.pinned : !!savedMeta?.pinned;
+    const sortOrder = c.granted ? grantMeta?.sortOrder ?? 0 : savedMeta?.sortOrder ?? 0;
+    const hidden = c.granted ? !!grantMeta?.hidden : false;
+
     notes.push({
       shortcode: c.s.shortcode,
       title: c.title,
@@ -1152,6 +1193,10 @@ export async function getSharedWithMe(): Promise<{
       createdAt: c.s.created_at,
       source: c.granted ? "granted" : "saved",
       saved: savedSet.has(c.s.shortcode) && !c.granted,
+      pinned,
+      hidden,
+      sortOrder,
+      tagIds: tagsByShortcode.get(c.s.shortcode) || [],
     });
   }
   return { success: true, notes };
@@ -1352,4 +1397,219 @@ export async function unsaveSharedNote(
 
   revalidatePath("/");
   return { success: true };
+}
+
+// ===========================
+// RECIPIENT-SIDE ORGANIZATION
+// ===========================
+// A recipient pins / reorders / hides / tags shared notes in THEIR view only.
+// Granted-note state lives on the reader's own shared_notes_readers row and is
+// written via the service role scoped by `.eq("reader_id", user.id)` (readers
+// have no non-SELECT RLS policy on that table). Saved-note state and tags live
+// on rows the recipient owns (user_id = auth.uid()), so they use the regular
+// client under RLS. None of this touches the owner's note or other recipients.
+
+/** Pin/unpin a shared note in the recipient's own view. */
+export async function setSharedNotePinned(
+  shortcode: string,
+  source: "granted" | "saved",
+  pinned: boolean,
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not signed in" };
+  try {
+    if (source === "saved") {
+      const { error } = await supabase
+        .from("saved_shared_notes")
+        .update({ pinned })
+        .eq("user_id", user.id)
+        .eq("shortcode", shortcode);
+      if (error) return { success: false, error: "Couldn't update." };
+    } else {
+      const svc = createServiceRoleClient();
+      const { data: share } = await svc
+        .from("shared_notes")
+        .select("id")
+        .eq("shortcode", shortcode)
+        .single();
+      if (!share) return { success: false, error: "Shared note not found" };
+      const { error } = await svc
+        .from("shared_notes_readers")
+        .update({ pinned })
+        .eq("shared_note", (share as any).id)
+        .eq("reader_id", user.id);
+      if (error) return { success: false, error: "Couldn't update." };
+    }
+    revalidatePath("/");
+    return { success: true };
+  } catch {
+    return { success: false, error: "Couldn't update." };
+  }
+}
+
+/** Hide/unhide a shared note (granted notes only — saved notes use Remove). */
+export async function setSharedNoteHidden(
+  shortcode: string,
+  hidden: boolean,
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not signed in" };
+  try {
+    const svc = createServiceRoleClient();
+    const { data: share } = await svc
+      .from("shared_notes")
+      .select("id")
+      .eq("shortcode", shortcode)
+      .single();
+    if (!share) return { success: false, error: "Shared note not found" };
+    const { error } = await svc
+      .from("shared_notes_readers")
+      .update({ hidden })
+      .eq("shared_note", (share as any).id)
+      .eq("reader_id", user.id);
+    if (error) return { success: false, error: "Couldn't update." };
+    revalidatePath("/");
+    return { success: true };
+  } catch {
+    return { success: false, error: "Couldn't update." };
+  }
+}
+
+/** Persist the recipient's manual order for one source (sort_order = index). */
+export async function reorderSharedNotes(
+  source: "granted" | "saved",
+  orderedShortcodes: string[],
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not signed in" };
+  try {
+    if (source === "saved") {
+      await Promise.all(
+        orderedShortcodes.map((sc, i) =>
+          supabase
+            .from("saved_shared_notes")
+            .update({ sort_order: i })
+            .eq("user_id", user.id)
+            .eq("shortcode", sc),
+        ),
+      );
+    } else {
+      const svc = createServiceRoleClient();
+      const { data: shares } = await svc
+        .from("shared_notes")
+        .select("id, shortcode")
+        .in("shortcode", orderedShortcodes);
+      const idByShortcode = new Map<string, string>(
+        ((shares as any[]) || []).map((s) => [s.shortcode, s.id]),
+      );
+      await Promise.all(
+        orderedShortcodes.map((sc, i) => {
+          const id = idByShortcode.get(sc);
+          if (!id) return Promise.resolve();
+          return svc
+            .from("shared_notes_readers")
+            .update({ sort_order: i })
+            .eq("shared_note", id)
+            .eq("reader_id", user.id);
+        }),
+      );
+    }
+    revalidatePath("/");
+    return { success: true };
+  } catch {
+    return { success: false, error: "Couldn't reorder." };
+  }
+}
+
+/** Apply one of the recipient's own tags to a shared note. */
+export async function addSharedNoteTag(
+  shortcode: string,
+  tagId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not signed in" };
+  try {
+    // IDOR guard: the tag must belong to this user.
+    const { data: tag } = await supabase
+      .from("tags")
+      .select("id")
+      .eq("id", tagId)
+      .eq("owner", user.id)
+      .single();
+    if (!tag) return { success: false, error: "Tag not found" };
+    const { error } = await supabase
+      .from("shared_note_tags")
+      .upsert(
+        { user_id: user.id, shortcode, tag_id: tagId },
+        { onConflict: "user_id,shortcode,tag_id", ignoreDuplicates: true },
+      );
+    if (error) return { success: false, error: "Couldn't add tag." };
+    revalidatePath("/");
+    return { success: true };
+  } catch {
+    return { success: false, error: "Couldn't add tag." };
+  }
+}
+
+/** Remove one of the recipient's tags from a shared note. */
+export async function removeSharedNoteTag(
+  shortcode: string,
+  tagId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not signed in" };
+  try {
+    const { error } = await supabase
+      .from("shared_note_tags")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("shortcode", shortcode)
+      .eq("tag_id", tagId);
+    if (error) return { success: false, error: "Couldn't remove tag." };
+    revalidatePath("/");
+    return { success: true };
+  } catch {
+    return { success: false, error: "Couldn't remove tag." };
+  }
+}
+
+/** Map of shortcode -> recipient's tag ids, for a set of shares. */
+export async function bulkGetSharedNoteTags(
+  shortcodes: string[],
+): Promise<{ success: boolean; tags?: Record<string, string[]>; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not signed in" };
+  if (shortcodes.length === 0) return { success: true, tags: {} };
+  try {
+    const { data } = await supabase
+      .from("shared_note_tags")
+      .select("shortcode, tag_id")
+      .eq("user_id", user.id)
+      .in("shortcode", shortcodes);
+    const tags: Record<string, string[]> = {};
+    ((data as any[]) || []).forEach((r) => {
+      (tags[r.shortcode] ||= []).push(r.tag_id);
+    });
+    return { success: true, tags };
+  } catch {
+    return { success: false, error: "Couldn't load tags." };
+  }
 }
