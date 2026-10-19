@@ -1,12 +1,10 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
-import { IconDots } from "@tabler/icons-react";
 import MilkdownEditor from "@/components/editor/milkdown-editor";
 import NoteStatsRow from "@/components/note-stats-row";
 import AutoGrowTitle from "@/components/auto-grow-title";
 import { Modal } from "@/components/ds/modal";
-import { Dropdown, DropdownItem } from "@/components/ds/dropdown";
 import { PresenceStack } from "@/components/presence-stack";
 import NoteActionBar from "@/components/note-view/note-action-bar";
 import type { PresenceUser } from "@/hooks/use-presence";
@@ -150,7 +148,7 @@ export default function NoteView({
   return (
     <div
       className={`flex-1 flex flex-col min-h-0 ${
-        isShared ? "border border-[var(--color-accent-tint-border)]" : ""
+        isShared ? "border border-[var(--color-accent-fill)]" : ""
       }`}
     >
       {/* Action bar (shared with the owner editor via NoteActionBar). */}
@@ -181,26 +179,15 @@ export default function NoteView({
         onCopyLink={isShared && ops.onCopyLink ? ops.onCopyLink : undefined}
         wide={{ isWide, tooltip: wideTooltip, onCycle: cycleWide }}
         markdown={{ viewMode, onToggle: toggleViewMode }}
-        onClose={ops.onClose}
-        overflow={
-          isShared && (ops.onCopyLink || ops.onClose) ? (
-            <Dropdown
-              placement="bottom-end"
-              trigger={
-                <button title="More" className={`w-8 ${isShared ? "text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)]" : "text-[var(--color-ink-5)] hover:bg-[var(--color-raised-soft)]"} h-8 flex items-center justify-center rounded-[var(--radius-6)] transition-colors`}>
-                  <IconDots size={16} />
-                </button>
-              }
-            >
-              {ops.onCopyLink && <DropdownItem onClick={ops.onCopyLink}>Copy link</DropdownItem>}
-              {shareLink && (
-                <DropdownItem onClick={() => window.open(shareLink, "_blank")}>
-                  Open in new tab
-                </DropdownItem>
-              )}
-              {ops.onClose && <DropdownItem onClick={ops.onClose}>Close</DropdownItem>}
-            </Dropdown>
-          ) : undefined
+        overflowItems={
+          isShared
+            ? [
+                ...(shareLink
+                  ? [{ label: "Open in new tab", onClick: () => window.open(shareLink, "_blank") }]
+                  : []),
+                ...(ops.onClose ? [{ label: "Close", onClick: ops.onClose }] : []),
+              ]
+            : undefined
         }
       />
 

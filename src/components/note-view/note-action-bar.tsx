@@ -8,8 +8,10 @@ import {
   IconLink,
   IconViewportWide,
   IconMarkdown,
+  IconDots,
   IconX,
 } from "@tabler/icons-react";
+import { Dropdown, DropdownItem } from "@/components/ds/dropdown";
 
 // Shared, context-conditioned note action bar used by both the shared-note
 // surface (NoteView) and the owner editor (NoteEditor). `isShared` drives the
@@ -46,8 +48,12 @@ interface NoteActionBarProps {
   onClose?: () => void;
   /** Surface-specific right-cluster controls, before the overflow. */
   extras?: React.ReactNode;
-  /** The "…" control/menu (surface-specific). */
+  /** The "…" control/menu (surface-specific) — a custom node (e.g. the owner's command palette trigger). */
   overflow?: React.ReactNode;
+  /** The "…" menu as items — rendered as a Dropdown directly inside the bar
+   *  (matches the sidebar's pattern). Use this instead of `overflow` for a
+   *  simple menu; if both are set, `overflow` wins. */
+  overflowItems?: { label: string; onClick: () => void; danger?: boolean }[];
 }
 
 export default function NoteActionBar({
@@ -64,6 +70,7 @@ export default function NoteActionBar({
   onClose,
   extras,
   overflow,
+  overflowItems,
 }: NoteActionBarProps) {
   const btn = barButtonClass(isShared);
   return (
@@ -130,7 +137,24 @@ export default function NoteActionBar({
         )}
 
         {extras}
-        {overflow}
+        {overflow
+          ? overflow
+          : overflowItems && overflowItems.length > 0 && (
+              <Dropdown
+                placement="bottom-end"
+                trigger={
+                  <button title="More" className={`flex w-8 ${btn}`}>
+                    <IconDots size={16} />
+                  </button>
+                }
+              >
+                {overflowItems.map((item) => (
+                  <DropdownItem key={item.label} onClick={item.onClick} destructive={item.danger}>
+                    {item.label}
+                  </DropdownItem>
+                ))}
+              </Dropdown>
+            )}
 
         {onClose && (
           <button onClick={onClose} title="Close" className={`flex w-8 ${btn}`}>

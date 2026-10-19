@@ -1309,7 +1309,7 @@ function NoteEditor({
 
   return (
     <div className="flex-1 flex h-full overflow-hidden">
-     <div className={`flex-1 flex-col overflow-hidden min-w-0 ${showChat ? "hidden lg:flex" : "flex"} ${noteIsShared ? "border border-[var(--color-accent-tint-border)]" : ""}`}>
+     <div className={`flex-1 flex-col overflow-hidden min-w-0 ${showChat ? "hidden lg:flex" : "flex"} ${noteIsShared ? "border border-[var(--color-accent-fill)]" : ""}`}>
       {/* Editor top bar — shared chrome via NoteActionBar (owner context). */}
       <NoteActionBar
         isShared={noteIsShared}
