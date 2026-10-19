@@ -17,6 +17,7 @@ import {
   type WideLevel,
 } from "@/utils/wide-view";
 import { htmlToMarkdown } from "@/utils/html-to-markdown";
+import { exportNote } from "@/utils/export-note";
 import type { NoteViewModel, NoteCaps, NoteOps } from "./types";
 
 interface NoteViewProps {
@@ -174,10 +175,20 @@ export default function NoteView({
         overflowItems={
           isShared
             ? [
+                { label: "Print / Save as PDF", onClick: () => window.print() },
+                {
+                  label: "Export Markdown (.md)",
+                  onClick: () =>
+                    exportNote({ title, content, contentFormat: model.contentFormat }, "md"),
+                },
+                {
+                  label: "Export plain text (.txt)",
+                  onClick: () =>
+                    exportNote({ title, content, contentFormat: model.contentFormat }, "txt"),
+                },
                 ...(shareLink
                   ? [{ label: "Open in new tab", onClick: () => window.open(shareLink, "_blank") }]
                   : []),
-                ...(ops.onClose ? [{ label: "Close", onClick: ops.onClose }] : []),
               ]
             : undefined
         }
