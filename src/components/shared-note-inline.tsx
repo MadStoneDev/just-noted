@@ -8,11 +8,12 @@ import {
   setSharedNoteHidden,
   unsaveSharedNote,
 } from "@/app/actions/sharing";
+import { fetchCollabState } from "@/lib/collab-client";
 import { createClient } from "@/utils/supabase/client";
 import type { ContentFormat } from "@/types/combined-notes";
 import { usePresence, colorForUser } from "@/hooks/use-presence";
 import { SharedHistoryPanel } from "@/components/shared-history-panel";
-import { loadCollabDoc, saveCollabDoc } from "@/app/actions/collabActions";
+import { saveCollabDoc } from "@/app/actions/collabActions";
 import { decideEditorChange } from "@/utils/editor-save-decision";
 import { Avatar } from "@/components/ui/avatar";
 import { useToast } from "@/components/ui/toast";
@@ -100,18 +101,12 @@ export default function SharedNoteInline({ shortcode, onClose, onToggleSplit }: 
     })();
 
     try {
-      const t0 = performance.now();
       const result = (await sharingOperation({
         operation: "getByShortcode",
         shortcode,
         currentUsername: null,
         password: pw || null,
       })) as any;
-      // Diagnostic: time the note fetch + its content size.
-      console.log(
-        `[shared-note] getByShortcode: ${Math.round(performance.now() - t0)}ms · ` +
-          `content ${(result?.note?.content?.length ?? 0)} chars`,
-      );
 
       if (result.success && result.note) {
         setNote(result.note);
@@ -377,13 +372,7 @@ export default function SharedNoteInline({ shortcode, onClose, onToggleSplit }: 
         ? {
             roomKey: note.id,
             user: me,
-            load: () =>
-              loadCollabDoc({ shortcode }).then((r) => {
-                console.log(
-                  `[shared-note] loadCollabDoc SERVER: ${r.serverMs}ms (resolve ${r.resolveMs}ms)`,
-                );
-                return r.state;
-              }),
+            load: () => fetchCollabState({ shortcode }),
             save: (state) => saveCollabDoc({ shortcode, state }).then(() => {}),
           }
         : undefined,

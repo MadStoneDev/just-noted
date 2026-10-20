@@ -441,16 +441,13 @@ function MilkdownEditorInner({
       } catch {}
     };
 
-    let bindT0 = 0;
     const bind = async () => {
       if (cancelled) return;
-      if (!bindT0) bindT0 = performance.now();
       const editor = get();
       if (!editor) {
         requestAnimationFrame(() => { bind(); });
         return;
       }
-      console.log(`[collab] editor ready after ${Math.round(performance.now() - bindT0)}ms`);
       doc = new Y.Doc();
       const awareness = new Awareness(doc);
       awareness.setLocalStateField("user", {
@@ -458,25 +455,19 @@ function MilkdownEditorInner({
         color: collabConfig.user.color,
       });
       provider = new SupabaseYjsProvider(collabConfig.roomKey, doc, awareness);
-      const tConnect = performance.now();
       editor.action((ctx: any) => {
         service = ctx.get(collabServiceCtx);
         service.bindDoc(doc).setAwareness(awareness).connect();
       });
-      console.log(`[collab] provider+connect ${Math.round(performance.now() - tConnect)}ms`);
 
       // Load the note's CANONICAL persisted Yjs state — every client loads the
       // same doc, so there's no re-seeding (which is what duplicated content).
       let persisted: string | null = null;
-      const tLoad = performance.now();
       try { persisted = (await collabConfig.load?.()) ?? null; } catch {}
-      console.log(`[collab] load() awaited ${Math.round(performance.now() - tLoad)}ms`);
       if (cancelled) return;
-      const tApply = performance.now();
       if (persisted) {
         try { Y.applyUpdate(doc, b64ToBytes(persisted), "load"); } catch {}
       }
-      console.log(`[collab] applyUpdate ${Math.round(performance.now() - tApply)}ms`);
 
       // Blank = no visible text (an empty paragraph counts as blank). Using the
       // fragment's child count instead left a once-blank-persisted doc stuck

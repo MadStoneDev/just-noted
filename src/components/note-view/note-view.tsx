@@ -177,14 +177,8 @@ export default function NoteView({
         ...baseCollab,
         load: baseLoad
           ? async () => {
-              const t0 = performance.now();
               try {
                 const state = await baseLoad();
-                // Diagnostic: time the collab doc load + its blob size.
-                console.log(
-                  `[shared-note] loadCollabDoc: ${Math.round(performance.now() - t0)}ms · ` +
-                    `state ${state ? `${state.length} chars` : "null"}`,
-                );
                 requestAnimationFrame(() => requestAnimationFrame(() => setCollabLoaded(true)));
                 return state;
               } catch (e) {

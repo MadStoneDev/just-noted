@@ -6,7 +6,8 @@ const LAST_NOTE_KEY = "justnoted_last_note";
 import LazyTextBlock from "@/components/lazy-text-block";
 import { createClient } from "@/utils/supabase/client";
 import { sharingOperation } from "@/app/actions/sharing";
-import { loadCollabDoc, saveCollabDoc } from "@/app/actions/collabActions";
+import { saveCollabDoc } from "@/app/actions/collabActions";
+import { fetchCollabState } from "@/lib/collab-client";
 import { colorForUser } from "@/hooks/use-presence";
 import { exportNote, EXPORT_FORMATS } from "@/utils/export-note";
 import { useNotesStore, useNotebooks } from "@/stores/notes-store";
@@ -478,7 +479,7 @@ export function NoteEditor({
         setCollabConfig({
           roomKey: nid,
           user: { name: (a as any)?.username || "Someone", color: colorForUser(userId) },
-          load: () => loadCollabDoc({ noteId: nid }).then((r) => r.state),
+          load: () => fetchCollabState({ noteId: nid }),
           save: (state) => saveCollabDoc({ noteId: nid, state }).then(() => {}),
         });
       } catch {}
