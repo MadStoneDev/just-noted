@@ -5,7 +5,7 @@ import { ownerCanCollaborate } from "@/lib/subscription";
 import { checkRateLimit } from "@/utils/rate-limit";
 import { toMessageView, type ChatAuthor, type ChatMessageView, type ChatMessageRow } from "@/lib/chat";
 import { validateChatMedia, baseMime } from "@/lib/chat-media";
-import { noteIsTrashed } from "@/lib/note-trash";
+import { isParticipant, getChatUnreadFor } from "@/lib/chat-access";
 import { notifyChatMessage, markChatNotificationsRead } from "@/utils/notifications/create";
 import {
   CHAT_PREFIX,
@@ -29,29 +29,8 @@ async function sessionUserId(): Promise<string | null> {
   return user?.id ?? null;
 }
 
-// Participants = the note's owner, or anyone it's shared with.
-async function isParticipant(
-  svc: ReturnType<typeof createServiceRoleClient>,
-  noteId: string,
-  uid: string,
-): Promise<boolean> {
-  // A trashed note has no reachable chat — for the owner or any collaborator —
-  // until it's restored (A4). This is the single gate for every chat path:
-  // list, send, media upload/send and media URL all go through here.
-  if (await noteIsTrashed(svc, noteId)) return false;
-  const { data: note } = await svc.from("notes").select("author").eq("id", noteId).maybeSingle();
-  if ((note as any)?.author === uid) return true;
-  const { data: shares } = await svc.from("shared_notes").select("id").eq("note_id", noteId);
-  const shareIds = ((shares as any[]) || []).map((s) => s.id);
-  if (shareIds.length === 0) return false;
-  const { data: reader } = await svc
-    .from("shared_notes_readers")
-    .select("id")
-    .in("shared_note", shareIds)
-    .eq("reader_id", uid)
-    .limit(1);
-  return !!(reader && (reader as any[]).length > 0);
-}
+// isParticipant lives in @/lib/chat-access (shared with the chat-unread route
+// handler); imported above.
 
 async function resolveAuthors(
   svc: ReturnType<typeof createServiceRoleClient>,
@@ -326,26 +305,7 @@ export async function noteChatAvailable(noteId: string): Promise<boolean> {
 export async function getChatUnread(noteId: string): Promise<number> {
   const uid = await sessionUserId();
   if (!uid) return 0;
-  const svc = createServiceRoleClient();
-  if (!(await isParticipant(svc, noteId, uid))) return 0;
-
-  const { data: read } = await svc
-    .from("note_chat_reads")
-    .select("last_read_at")
-    .eq("note_id", noteId)
-    .eq("user_id", uid)
-    .maybeSingle();
-  const lastRead = (read as any)?.last_read_at as string | undefined;
-
-  let q = svc
-    .from("note_chat_messages")
-    .select("id", { count: "exact", head: true })
-    .eq("note_id", noteId)
-    .is("deleted_at", null)
-    .neq("author_id", uid);
-  if (lastRead) q = q.gt("created_at", lastRead);
-  const { count } = await q;
-  return count ?? 0;
+  return getChatUnreadFor(noteId, uid);
 }
 
 /** Mark the note's chat read up to now (drives unread badges). */

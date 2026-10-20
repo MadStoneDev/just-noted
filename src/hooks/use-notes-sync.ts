@@ -6,7 +6,8 @@ import { useNotesStore } from "@/stores/notes-store";
 import { createClient } from "@/utils/supabase/client";
 import { getUserId } from "@/utils/general/notes";
 import { sortNotes, normaliseOrdering } from "@/utils/notes-utils";
-import { noteOperation, fetchNotesRevision } from "@/app/actions/notes";
+import { noteOperation } from "@/app/actions/notes";
+import { fetchNotesRevision } from "@/lib/notes-revision-client";
 import {
   getNotesByUserId as getSupabaseNotesByUserId,
   updateNote as updateSupabaseNote,

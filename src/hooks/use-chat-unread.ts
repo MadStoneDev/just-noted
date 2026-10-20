@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { getChatUnread } from "@/app/actions/chatActions";
+import { fetchChatUnread } from "@/lib/chat-unread-client";
 
 // Unread chat count for the Chat button badge. Enabled only while the panel is
 // CLOSED (when it's open the panel marks messages read); it refetches on any
@@ -13,7 +13,7 @@ export function useChatUnread(noteId: string | null, enabled: boolean) {
   const refresh = useCallback(async () => {
     if (!noteId || !enabled) { setUnread(0); return; }
     try {
-      setUnread(await getChatUnread(noteId));
+      setUnread(await fetchChatUnread(noteId));
     } catch {
       /* leave the last value */
     }

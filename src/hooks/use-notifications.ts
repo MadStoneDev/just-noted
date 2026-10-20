@@ -3,12 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import {
-  getNotifications,
-  getUnreadNotificationCount,
   markNotificationRead,
   markAllNotificationsRead,
   clearAllNotifications,
 } from "@/app/actions/notificationActions";
+import { fetchNotifications } from "@/lib/notifications-client";
 import type { NotificationView } from "@/lib/notifications";
 
 export function useNotifications(enabled: boolean) {
@@ -18,9 +17,9 @@ export function useNotifications(enabled: boolean) {
   const load = useCallback(async () => {
     if (!enabled) { setItems([]); setUnread(0); return; }
     try {
-      const [list, count] = await Promise.all([getNotifications(), getUnreadNotificationCount()]);
-      setItems(list);
-      setUnread(count);
+      const { items, unread } = await fetchNotifications();
+      setItems(items);
+      setUnread(unread);
     } catch {
       /* keep last */
     }

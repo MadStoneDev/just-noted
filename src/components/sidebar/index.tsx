@@ -6,12 +6,12 @@ import { useNotesStore } from "@/stores/notes-store";
 import { amIAdmin } from "@/app/actions/adminActions";
 import { Notebook, CoverType } from "@/types/notebook";
 import {
-  getNotebooks,
   createNotebook,
   updateNotebook,
   deleteNotebook,
   getNotebookNoteCounts,
 } from "@/app/actions/notebookActions";
+import { fetchSidebar } from "@/lib/sidebar-client";
 import { uploadNotebookCover } from "@/utils/storage/cover-upload";
 import NotebookNavList from "@/components/notebook-nav-list";
 import SharedNavList from "@/components/shared-nav-list";
@@ -19,7 +19,7 @@ import NoteCard from "@/components/notes/note-card";
 import { SORT_LABELS, SOURCE_LABELS } from "@/lib/filter-notes";
 import NotebookModal from "@/components/notebook-modal";
 import TagFilter from "@/components/tag-filter";
-import { getTags, bulkGetNoteTags } from "@/app/actions/tagActions";
+import { bulkGetNoteTags } from "@/app/actions/tagActions";
 import BulkActionBar from "@/components/bulk-action-bar";
 import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import NotebookMoveMenu from "@/components/notebook-move-menu";
@@ -283,8 +283,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
   useEffect(() => {
     if (isAuthenticated && !hasLoadedNotebooks.current && !notebooksLoading) {
       hasLoadedNotebooks.current = true;
-      loadNotebooks();
-      loadTags();
+      loadSidebarData();
     }
     if (!isAuthenticated) {
       hasLoadedNotebooks.current = false;
@@ -305,30 +304,20 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
     }
   }, [isAuthenticated, notesLength, supabaseNotesFingerprint, recalculateNotebookCounts]);
 
-  const loadNotebooks = async () => {
+  // Batched sidebar load (notebooks + tags + counts) in one round-trip via the
+  // /api/sidebar route handler — off the server-action queue, one getUser().
+  const loadSidebarData = async () => {
     setNotebooksLoading(true);
-    try {
-      const result = await getNotebooks();
-      if (result.success && result.notebooks) {
-        setNotebooks(result.notebooks);
-      }
-    } catch (error) {
-      console.error("Failed to load notebooks:", error);
-    } finally {
-      setNotebooksLoading(false);
-    }
-  };
-
-  const loadTags = async () => {
     setTagsLoading(true);
     try {
-      const result = await getTags();
-      if (result.success && result.tags) {
-        setTags(result.tags);
-      }
+      const { notebooks, tags, counts, looseCount } = await fetchSidebar();
+      setNotebooks(notebooks);
+      setTags(tags);
+      updateNotebookCounts(counts, looseCount);
     } catch (error) {
-      console.error("Failed to load tags:", error);
+      console.error("Failed to load sidebar data:", error);
     } finally {
+      setNotebooksLoading(false);
       setTagsLoading(false);
     }
   };
