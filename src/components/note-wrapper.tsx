@@ -426,9 +426,23 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
     }
   }, [activeNotebook, removeNotebook, recalculateNotebookCounts]);
 
+  // Creating a note must also BRING YOU TO IT. Done naively (just addNote), a
+  // Ctrl+J / "New note" fired while a read-only shared note is open creates the
+  // note behind the still-visible shared view, and the sidebar may still be on
+  // the Shared list — so the new note is nowhere in sight. Leave the shared view
+  // (and its /n/ URL), force the sidebar back to the Notes list, then create.
+  const handleNewNote = useCallback(() => {
+    if (sharedShortcode) {
+      setSharedShortcode(null);
+      if (window.location.pathname.startsWith("/n/")) router.replace("/");
+    }
+    window.dispatchEvent(new Event("justnoted:show-notes"));
+    notesOperations.addNote();
+  }, [sharedShortcode, router, notesOperations]);
+
   // Keyboard shortcuts
   useKeyboardShortcuts({
-    onNewNote: notesOperations.addNote,
+    onNewNote: handleNewNote,
     onSave: handleForceSave,
     onToggleSplitView: undefined,
     onSearch: () => setShowSearch(true),
@@ -470,7 +484,7 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
             });
           }}
           onOpenTrash={() => setShowTrash(true)}
-          onNewNote={() => notesOperations.addNote()}
+          onNewNote={handleNewNote}
           onTogglePin={(noteId, isPinned) => notesOperations.updatePinStatus(noteId, isPinned)}
           onTransferNote={(noteId, targetSource) => notesOperations.transferNote(noteId, targetSource)}
           onOpenShared={(shortcode) => {

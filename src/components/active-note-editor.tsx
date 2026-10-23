@@ -791,6 +791,21 @@ export function NoteEditor({
     if (isHydrating) return;
     if (note.content === content) return; // nothing new
     if (content !== lastSavedContentRef.current) return; // we have unsaved edits — keep them
+    // Only adopt a genuinely NEWER server version. A background refresh (the 12s
+    // visible poll, realtime, BroadcastChannel) routinely returns the server's own
+    // re-serialised echo of the note WE just saved: same version, but the markdown
+    // round-trip collapses the blank lines between blocks. note.content then
+    // differs textually while being the same edit, so without this guard we remount
+    // Milkdown for nothing — stealing focus mid-type, dropping the last word or two,
+    // and visibly erasing empty lines. baseVersionRef is the version this editor is
+    // based on (advanced on every save and clean adopt); anything <= it is our own
+    // echo or older, never a new external edit worth adopting.
+    if (
+      typeof note.version === "number" &&
+      typeof baseVersionRef.current === "number" &&
+      note.version <= baseVersionRef.current
+    )
+      return;
     setContent(note.content);
     setContentFormat(note.contentFormat || "markdown");
     lastSavedContentRef.current = note.content;
