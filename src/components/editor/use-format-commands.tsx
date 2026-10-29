@@ -40,12 +40,13 @@ export interface ActiveState {
   task: boolean;
   blockquote: boolean;
   codeBlock: boolean;
+  highlight: string | null;
 }
 
 export const EMPTY_ACTIVE: ActiveState = {
   strong: false, emphasis: false, strike: false, code: false, link: false,
   heading: null, paragraph: false, bulletList: false, orderedList: false,
-  task: false, blockquote: false, codeBlock: false,
+  task: false, blockquote: false, codeBlock: false, highlight: null,
 };
 
 function isMarkActive(state: EditorState, markName: string): boolean {
@@ -54,6 +55,25 @@ function isMarkActive(state: EditorState, markName: string): boolean {
   const { from, $from, to, empty } = state.selection;
   if (empty) return !!markType.isInSet(state.storedMarks || $from.marks());
   return state.doc.rangeHasMark(from, to, markType);
+}
+
+// The highlight colour under the caret/selection (first one found), or null.
+function activeHighlightColor(state: EditorState): string | null {
+  const markType = state.schema.marks.highlight;
+  if (!markType) return null;
+  const { from, $from, to, empty } = state.selection;
+  if (empty) {
+    const mark = markType.isInSet(state.storedMarks || $from.marks());
+    return mark ? (mark.attrs.color as string) : null;
+  }
+  let color: string | null = null;
+  state.doc.nodesBetween(from, to, (node) => {
+    if (color) return false;
+    const mark = node.marks.find((m) => m.type === markType);
+    if (mark) color = mark.attrs.color as string;
+    return true;
+  });
+  return color;
 }
 
 export function computeActive(state: EditorState): ActiveState {
@@ -65,6 +85,7 @@ export function computeActive(state: EditorState): ActiveState {
   active.strike = isMarkActive(state, "strike_through");
   active.code = isMarkActive(state, "inlineCode");
   active.link = isMarkActive(state, "link");
+  active.highlight = activeHighlightColor(state);
 
   const parent = $from.parent;
   if (parent.type.name === "heading") active.heading = parent.attrs.level as number;
@@ -96,6 +117,8 @@ export interface FormatActions {
   outdent: () => void;
   blockquote: () => void;
   codeBlock: () => void;
+  highlight: (color: string) => void;
+  clearHighlight: () => void;
   table: () => void;
   image: () => void;
   hr: () => void;
@@ -256,6 +279,51 @@ export function useFormatCommands(
     [withView, run],
   );
 
+  // Toggle the selected block(s) between a code block and body text.
+  // `setBlockType` (what both commands use under the hood) applies across the
+  // whole selection, so every paragraph the selection touches is converted;
+  // the caret's own block decides the direction.
+  const codeBlock = useCallback(() => {
+    withView((_view, state) => {
+      const { $from } = state.selection;
+      let inCodeBlock = false;
+      for (let d = $from.depth; d > 0; d--) {
+        if ($from.node(d).type.name === "code_block") {
+          inCodeBlock = true;
+          break;
+        }
+      }
+      run(inCodeBlock ? turnIntoTextCommand.key : createCodeBlockCommand.key);
+    });
+  }, [withView, run]);
+
+  // Apply a highlight colour to the selection, replacing any existing one.
+  // Needs a non-empty selection (nothing to paint on an empty caret).
+  const setHighlight = useCallback(
+    (color: string) => {
+      withView((view, state) => {
+        const type = state.schema.marks.highlight;
+        if (!type) return;
+        const { from, to } = state.selection;
+        if (from === to) return;
+        view.dispatch(
+          state.tr.removeMark(from, to, type).addMark(from, to, type.create({ color })),
+        );
+      });
+    },
+    [withView],
+  );
+
+  const clearHighlight = useCallback(() => {
+    withView((view, state) => {
+      const type = state.schema.marks.highlight;
+      if (!type) return;
+      const { from, to } = state.selection;
+      if (from === to) return;
+      view.dispatch(state.tr.removeMark(from, to, type));
+    });
+  }, [withView]);
+
   const toggleLink = useCallback(() => {
     withView((view, state) => {
       const { from, to } = state.selection;
@@ -286,7 +354,9 @@ export function useFormatCommands(
     indent,
     outdent,
     blockquote: () => toggleBlock("blockquote", wrapInBlockquoteCommand.key),
-    codeBlock: () => toggleBlock("code_block", createCodeBlockCommand.key),
+    codeBlock,
+    highlight: setHighlight,
+    clearHighlight,
     table: () => run(insertTableCommand.key),
     image,
     hr: () => run(insertHrCommand.key),

@@ -1167,3 +1167,32 @@ summary {
   animation: anchor-flash 1.6s ease-out;
   border-radius: 3px;
 }
+
+/* ─── Text highlight palette ──────────────────────────────────────────────
+   Fixed palette (see highlight-plugin.ts). The rendered highlight is a
+   translucent wash of the swatch hue, so the page background shows through and
+   the same values read correctly in both light and dark themes without being
+   duplicated per theme. The `.jn-hl-swatch` variant paints the hue solid for
+   the toolbar picker. */
+.jn-hl-yellow { --jn-hl-color: #facc15; }
+.jn-hl-orange { --jn-hl-color: #fb923c; }
+.jn-hl-green  { --jn-hl-color: #4ade80; }
+.jn-hl-blue   { --jn-hl-color: #38bdf8; }
+.jn-hl-pink   { --jn-hl-color: #f472b6; }
+.jn-hl-purple { --jn-hl-color: #a78bfa; }
+
+mark.jn-hl {
+  background-color: color-mix(in srgb, var(--jn-hl-color) 38%, transparent);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.jn-hl-swatch {
+  background-color: var(--jn-hl-color);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}

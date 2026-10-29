@@ -27,6 +27,7 @@ import {
   relativePositionToAbsolutePosition,
 } from "y-prosemirror";
 import { registerAnchorApi, type NoteAnchor } from "@/lib/note-anchor-bridge";
+import { highlight } from "./highlight-plugin";
 import DockedToolbar from "./docked-toolbar";
 import SlashMenu from "./slash-menu";
 import LinkPopover from "./link-popover";
@@ -376,6 +377,7 @@ function MilkdownEditorInner({
       })
       .use(commonmark)
       .use(gfm)
+      .use(highlight)
       .use(listener)
       .use(history)
       .use(markdownPaste)

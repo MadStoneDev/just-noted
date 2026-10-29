@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { Editor } from "@milkdown/core";
 import {
   IconBold,
@@ -22,8 +22,11 @@ import {
   IconTable,
   IconPhoto,
   IconLink,
+  IconHighlight,
+  IconX,
 } from "@tabler/icons-react";
 import { useFormatCommands } from "./use-format-commands";
+import { HIGHLIGHT_COLORS } from "./highlight-plugin";
 
 interface DockedToolbarProps {
   getEditor: () => Editor | undefined;
@@ -36,6 +39,18 @@ interface DockedToolbarProps {
  */
 export default function DockedToolbar({ getEditor, containerRef }: DockedToolbarProps) {
   const { active, actions } = useFormatCommands(getEditor, containerRef);
+  const [hlOpen, setHlOpen] = useState(false);
+  const hlRef = useRef<HTMLDivElement>(null);
+
+  // Close the highlight swatch popover when clicking elsewhere.
+  useEffect(() => {
+    if (!hlOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (hlRef.current && !hlRef.current.contains(e.target as Node)) setHlOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [hlOpen]);
 
   const base =
     "flex items-center justify-center size-9 shrink-0 rounded-[var(--radius-sm)] transition-colors cursor-pointer [&_svg]:size-[18px] md:[&_svg]:size-4 md:size-8";
@@ -66,6 +81,45 @@ export default function DockedToolbar({ getEditor, containerRef }: DockedToolbar
         <button className={cls(active.link)} onClick={actions.toggleLink} title="Toggle link" aria-label="Toggle link" aria-pressed={active.link}>
           <IconLink />
         </button>
+
+        <div ref={hlRef} className="relative shrink-0">
+          <button
+            className={cls(!!active.highlight)}
+            onClick={() => setHlOpen((o) => !o)}
+            title="Highlight"
+            aria-label="Highlight"
+            aria-haspopup="true"
+            aria-expanded={hlOpen}
+            aria-pressed={!!active.highlight}
+          >
+            <IconHighlight />
+          </button>
+          {hlOpen && (
+            <div
+              className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 flex items-center gap-1 p-1.5 rounded-[var(--radius-md)] border border-[var(--color-border-secondary)] bg-[var(--color-bg-secondary)] shadow-lg"
+              role="menu"
+            >
+              {HIGHLIGHT_COLORS.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => { actions.highlight(c); setHlOpen(false); }}
+                  title={`Highlight ${c}`}
+                  aria-label={`Highlight ${c}`}
+                  className={`jn-hl-swatch jn-hl-${c} size-6 rounded-full transition-transform hover:scale-110 ${active.highlight === c ? "ring-2 ring-offset-1 ring-[var(--color-accent)] ring-offset-[var(--color-bg-secondary)]" : ""}`}
+                />
+              ))}
+              <div className="w-px self-stretch bg-[var(--color-border-secondary)] mx-0.5" />
+              <button
+                onClick={() => { actions.clearHighlight(); setHlOpen(false); }}
+                title="Remove highlight"
+                aria-label="Remove highlight"
+                className="flex items-center justify-center size-6 rounded-full text-[var(--color-text-secondary)] hover:bg-[var(--color-hover)] hover:text-[var(--color-text-primary)]"
+              >
+                <IconX size={15} />
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className={sep} />
 
