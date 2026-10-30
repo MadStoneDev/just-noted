@@ -175,7 +175,7 @@ export default function OgTester() {
         <div className={status === "loading" ? "opacity-40 pointer-events-none mt-6" : "mt-6"}>
           {result.noOgTags && (
             <div className="mb-5 rounded-[var(--radius-10)] border border-[var(--color-warn-tint-border)] bg-[var(--color-warn-tint)] px-4 py-3.5">
-              <div className="text-[13px] font-semibold text-[var(--color-ink)]">No OpenGraph tags found</div>
+              <div className="text-[13px] font-semibold text-[var(--color-ink)]">No Open Graph tags found</div>
               <p className="mt-1 text-[13px] leading-[1.5] text-[var(--color-ink-3)]">
                 The page loaded but has no og: tags. Platforms will guess from the &lt;title&gt; and the first image. The checklist below shows what to add.
               </p>

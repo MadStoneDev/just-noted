@@ -108,14 +108,14 @@ export const TOOLS: ToolMeta[] = [
     cardDescription: "Words, reading time and keyword frequency.",
     mobileDescription: "Words, reading time and keywords.",
     howItWorks: [
-      "Paste or type your text and the counts update as you go — words, characters (with and without spaces), sentences and paragraphs. A word is a run of letters or numbers, so don't and well-known each count as one.",
+      "Paste or type your text and the counts update as you go: words, characters (with and without spaces), sentences and paragraphs. A word is a run of letters or numbers, so don't and well-known each count as one.",
       "Reading time assumes 238 words a minute and speaking time 130, the averages from reading-speed research. They're an estimate, not a stopwatch, but they're handy for sizing a post or a talk.",
       "Keywords show your most-used words and phrases. Switch between single words and two- or three-word phrases, and turn off Exclude common words to include the, and, of and the like. Phrases never run across the end of a sentence.",
     ],
     faq: [
       {
         q: "How is a word counted?",
-        a: "A word is a run of letters or numbers, keeping internal apostrophes and hyphens — so don't and well-known are one word each. It's the same rule the live counts use across the tools.",
+        a: "A word is a run of letters or numbers, keeping internal apostrophes and hyphens, so don't and well-known are one word each. It's the same rule the live counts use across the tools.",
       },
       {
         q: "How are sentences and paragraphs detected?",
@@ -138,9 +138,9 @@ export const TOOLS: ToolMeta[] = [
     cardDescription: "See where your title and description get cut off.",
     mobileDescription: "Where your title and description get cut off.",
     howItWorks: [
-      "Type your page title, URL and meta description on the left and the result card on the right updates as you go. It's a neutral preview — not tied to any one search engine.",
+      "Type your page title, URL and meta description on the left and the result card on the right updates as you go. It's a neutral preview, not tied to any one search engine.",
       "Search engines cut titles and descriptions by how wide they are in pixels, not how many characters they have, so a title full of wide letters is cut sooner than its character count suggests. This tool measures the real width in the same font search results use and tells you where the text would be cut and roughly how much to trim.",
-      "The counters still show characters against the usual guides — about 60 for the title and 160 for the description — so you have both the quick number and the accurate pixel check.",
+      "The counters still show characters against the usual guides (about 60 for the title, 160 for the description), so you get both the quick number and the accurate pixel check.",
     ],
     faq: [
       {
@@ -153,7 +153,7 @@ export const TOOLS: ToolMeta[] = [
       },
       {
         q: "Does my text get sent anywhere?",
-        a: "No. The preview is measured entirely in your browser — nothing you type is sent to a server.",
+        a: "No. It's all measured in your browser, so nothing you type is sent to a server.",
       },
     ],
   },
@@ -170,7 +170,7 @@ export const TOOLS: ToolMeta[] = [
     howItWorks: [
       "Paste a public URL and we fetch the page, read its Open Graph and Twitter Card tags, and show how the link would look when it's shared. Nothing is stored — no cache, no log of what you tested.",
       "Open Graph is a set of <meta> tags (og:title, og:description, og:image and friends) that tell Facebook, LinkedIn, Slack and others what to show. Twitter Cards do the same for X. When they're missing, platforms guess from your title and the first image on the page, which rarely looks as good.",
-      "The checklist flags what's missing or off — a title that's too long, an image smaller than 1200×630 or the wrong shape, a missing card type — in the order worth fixing. The previews are neutral approximations: real platforms vary, but the proportions and cut-off points match.",
+      "The checklist flags what's missing or off, in the order worth fixing: a title that's too long, an image smaller than 1200×630 or the wrong shape, a missing card type. The previews are neutral approximations: real platforms vary, but the proportions and cut-off points match.",
     ],
     faq: [
       {
@@ -179,11 +179,11 @@ export const TOOLS: ToolMeta[] = [
       },
       {
         q: "It says no tags found, but I can see them in my code.",
-        a: "Some sites add Open Graph tags with JavaScript after the page loads, or behind a check that blocks automated fetches. We read the HTML the server sends, like the social platforms do, so tags added later won't be seen — add them to the server-rendered HTML.",
+        a: "Some sites add Open Graph tags with JavaScript after the page loads, or behind a check that blocks automated fetches. We read the HTML the server sends, like the social platforms do, so tags added later won't be seen. Add them to the server-rendered HTML.",
       },
       {
         q: "Do you store the URLs I test?",
-        a: "No. We fetch the page to read its tags and return the result; nothing is cached or logged. We also only fetch public websites — private and internal addresses are refused.",
+        a: "No. We fetch the page to read its tags and return the result; nothing is cached or logged. We also only fetch public websites. Private and internal addresses are refused.",
       },
     ],
   },
