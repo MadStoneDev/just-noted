@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Editor } from "@milkdown/core";
 import {
   IconBold,
@@ -39,18 +40,36 @@ interface DockedToolbarProps {
  */
 export default function DockedToolbar({ getEditor, containerRef }: DockedToolbarProps) {
   const { active, actions } = useFormatCommands(getEditor, containerRef);
-  const [hlOpen, setHlOpen] = useState(false);
-  const hlRef = useRef<HTMLDivElement>(null);
+  // The swatch popover is rendered in a portal (the toolbar's own overflow-x
+  // scroll container would otherwise clip it), positioned above the button.
+  const [hlPos, setHlPos] = useState<{ left: number; bottom: number } | null>(null);
+  const hlBtnRef = useRef<HTMLButtonElement>(null);
+  const hlPopRef = useRef<HTMLDivElement>(null);
 
-  // Close the highlight swatch popover when clicking elsewhere.
+  const openHighlight = () => {
+    const r = hlBtnRef.current?.getBoundingClientRect();
+    if (!r) return;
+    setHlPos({ left: r.left + r.width / 2, bottom: window.innerHeight - r.top + 8 });
+  };
+
+  // Close the swatch popover on outside click, scroll or resize.
   useEffect(() => {
-    if (!hlOpen) return;
+    if (!hlPos) return;
     const onDown = (e: MouseEvent) => {
-      if (hlRef.current && !hlRef.current.contains(e.target as Node)) setHlOpen(false);
+      const t = e.target as Node;
+      if (hlBtnRef.current?.contains(t) || hlPopRef.current?.contains(t)) return;
+      setHlPos(null);
     };
+    const close = () => setHlPos(null);
     document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [hlOpen]);
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [hlPos]);
 
   const base =
     "flex items-center justify-center size-9 shrink-0 rounded-[var(--radius-sm)] transition-colors cursor-pointer [&_svg]:size-[18px] md:[&_svg]:size-4 md:size-8";
@@ -60,6 +79,7 @@ export default function DockedToolbar({ getEditor, containerRef }: DockedToolbar
   const sep = "w-px self-center h-5 bg-[var(--color-border-secondary)] mx-0.5 shrink-0";
 
   return (
+    <>
     <div
       className="sticky bottom-0 z-20 shrink-0 border-t border-[var(--color-border-secondary)] bg-[var(--color-bg-secondary)]"
       // Keep the editor selection when tapping a button.
@@ -82,44 +102,18 @@ export default function DockedToolbar({ getEditor, containerRef }: DockedToolbar
           <IconLink />
         </button>
 
-        <div ref={hlRef} className="relative shrink-0">
-          <button
-            className={cls(!!active.highlight)}
-            onClick={() => setHlOpen((o) => !o)}
-            title="Highlight"
-            aria-label="Highlight"
-            aria-haspopup="true"
-            aria-expanded={hlOpen}
-            aria-pressed={!!active.highlight}
-          >
-            <IconHighlight />
-          </button>
-          {hlOpen && (
-            <div
-              className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 flex items-center gap-1 p-1.5 rounded-[var(--radius-md)] border border-[var(--color-border-secondary)] bg-[var(--color-bg-secondary)] shadow-lg"
-              role="menu"
-            >
-              {HIGHLIGHT_COLORS.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => { actions.highlight(c); setHlOpen(false); }}
-                  title={`Highlight ${c}`}
-                  aria-label={`Highlight ${c}`}
-                  className={`jn-hl-swatch jn-hl-${c} size-6 rounded-full transition-transform hover:scale-110 ${active.highlight === c ? "ring-2 ring-offset-1 ring-[var(--color-accent)] ring-offset-[var(--color-bg-secondary)]" : ""}`}
-                />
-              ))}
-              <div className="w-px self-stretch bg-[var(--color-border-secondary)] mx-0.5" />
-              <button
-                onClick={() => { actions.clearHighlight(); setHlOpen(false); }}
-                title="Remove highlight"
-                aria-label="Remove highlight"
-                className="flex items-center justify-center size-6 rounded-full text-[var(--color-text-secondary)] hover:bg-[var(--color-hover)] hover:text-[var(--color-text-primary)]"
-              >
-                <IconX size={15} />
-              </button>
-            </div>
-          )}
-        </div>
+        <button
+          ref={hlBtnRef}
+          className={cls(!!active.highlight)}
+          onClick={() => (hlPos ? setHlPos(null) : openHighlight())}
+          title="Highlight"
+          aria-label="Highlight"
+          aria-haspopup="true"
+          aria-expanded={!!hlPos}
+          aria-pressed={!!active.highlight}
+        >
+          <IconHighlight />
+        </button>
 
         <div className={sep} />
 
@@ -173,5 +167,38 @@ export default function DockedToolbar({ getEditor, containerRef }: DockedToolbar
         </button>
       </div>
     </div>
+
+    {hlPos &&
+      createPortal(
+        <div
+          ref={hlPopRef}
+          role="menu"
+          // preventDefault keeps the editor selection while picking a swatch.
+          onMouseDown={(e) => e.preventDefault()}
+          style={{ position: "fixed", left: hlPos.left, bottom: hlPos.bottom, transform: "translateX(-50%)" }}
+          className="z-[60] flex items-center gap-1 p-1.5 rounded-[var(--radius-md)] border border-[var(--color-border-secondary)] bg-[var(--color-bg-secondary)] shadow-lg"
+        >
+          {HIGHLIGHT_COLORS.map((c) => (
+            <button
+              key={c}
+              onClick={() => { actions.highlight(c); setHlPos(null); }}
+              title={`Highlight ${c}`}
+              aria-label={`Highlight ${c}`}
+              className={`jn-hl-swatch jn-hl-${c} size-6 rounded-full transition-transform hover:scale-110 ${active.highlight === c ? "ring-2 ring-offset-1 ring-[var(--color-accent)] ring-offset-[var(--color-bg-secondary)]" : ""}`}
+            />
+          ))}
+          <div className="w-px self-stretch bg-[var(--color-border-secondary)] mx-0.5" />
+          <button
+            onClick={() => { actions.clearHighlight(); setHlPos(null); }}
+            title="Remove highlight"
+            aria-label="Remove highlight"
+            className="flex items-center justify-center size-6 rounded-full text-[var(--color-text-secondary)] hover:bg-[var(--color-hover)] hover:text-[var(--color-text-primary)]"
+          >
+            <IconX size={15} />
+          </button>
+        </div>,
+        document.body,
+      )}
+    </>
   );
 }
