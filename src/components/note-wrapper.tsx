@@ -11,6 +11,7 @@ import { MobileAccountDrawer } from "@/components/mobile-account-drawer";
 import HelpModal from "@/components/help-modal";
 import SearchModal from "@/components/search-modal";
 import TrashView from "@/components/trash-view";
+import NotificationsView from "@/components/notifications-view";
 import NotebookBreadcrumb from "@/components/notebook-breadcrumb";
 import SharedNoteInline from "@/components/shared-note-inline";
 import NotebooksGrid from "@/components/notebooks-grid";
@@ -34,6 +35,7 @@ import { useNotesSync } from "@/hooks/use-notes-sync";
 import { useNotesOperations } from "@/hooks/use-notes-operations";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { useNotesStore } from "@/stores/notes-store";
+import { useNotifications } from "@/hooks/use-notifications";
 import { SkipLinks } from "@/hooks/use-accessibility";
 
 export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }) {
@@ -90,6 +92,11 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
   const [showAccountDrawer, setShowAccountDrawer] = useState(false);
   // In-shell settings view open in the main area
   const [showSettings, setShowSettings] = useState(false);
+  // Notifications open as a main-area view (not a sidebar panel). A single
+  // useNotifications() instance feeds both this view and the rail's unread
+  // badge (passed down to the sidebar).
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notif = useNotifications(isAuthenticated);
   // Deep-link target section for Settings (e.g. from an upgrade upsell).
   const [settingsSection, setSettingsSection] = useState<string | undefined>(undefined);
   // Which bottom-tab is highlighted on mobile (design surface 08).
@@ -128,6 +135,8 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
         ? new URLSearchParams(window.location.search).get("section") ?? undefined
         : undefined,
     );
+    // Any routed/notebook/shared navigation leaves the notifications view.
+    if (pathname !== "/") setShowNotifications(false);
     if (isSettings || isAdmin || publicRouted) {
       setShowTrash(false);
       setSharedShortcode(null);
@@ -252,6 +261,23 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
     };
   }, []);
 
+  // Rail "Notifications" — open the notifications main-area view (toggle off if
+  // already showing). Opening leaves any other full-screen view and returns to
+  // "/", but never collapses the rail; the sidebar list is hidden by passing
+  // notificationsActive to <Sidebar/> (not by closing a note).
+  const toggleNotifications = useCallback(() => {
+    setShowNotifications((prev) => {
+      if (prev) return false;
+      setShowTrash(false);
+      setShowAccountDrawer(false);
+      setShowNotebooksGrid(false);
+      setNotebookViewId(null);
+      setSharedShortcode(null);
+      if (window.location.pathname !== "/") router.push("/");
+      return true;
+    });
+  }, [router]);
+
   const handleForceSave = useCallback(() => {
     noteFlushFunctions.current.forEach((flushFn) => {
       try { flushFn(); } catch {}
@@ -266,6 +292,7 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
   const exitFullscreen = useCallback(() => {
     setShowAccountDrawer(false);
     setShowTrash(false);
+    setShowNotifications(false);
     setShowNotebooksGrid(false);
     setNotebookViewId(null);
     // Deliberately do NOT clear sharedShortcode here: using the rail to switch
@@ -292,6 +319,7 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
     router.push("/");
     setShowAccountDrawer(false);
     setShowTrash(false);
+    setShowNotifications(false);
     setShowNotebooksGrid(false);
     setSharedShortcode(null);
     useNotesStore.getState().setActiveNotebookId(null);
@@ -322,6 +350,7 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
     router.push("/");
     setShowAccountDrawer(false);
     setShowTrash(false);
+    setShowNotifications(false);
     setShowNotebooksGrid(false);
     setSharedShortcode(null);
     window.dispatchEvent(new Event("justnoted:show-shared"));
@@ -356,6 +385,7 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
 
   const mobileNewNote = useCallback(() => {
     notesOperations.addNote();
+    setShowNotifications(false);
     setSidebarOpen(false);
     setMobileTab("notes");
   }, [notesOperations, setSidebarOpen]);
@@ -436,6 +466,7 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
       setSharedShortcode(null);
       if (window.location.pathname.startsWith("/n/")) router.replace("/");
     }
+    setShowNotifications(false);
     window.dispatchEvent(new Event("justnoted:show-notes"));
     notesOperations.addNote();
   }, [sharedShortcode, router, notesOperations]);
@@ -453,6 +484,7 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
       if (publicRouted || showAdmin || showSettings) { router.push("/"); return true; }
       if (notebookViewId) { router.push("/notebooks"); return true; } // Level 2 → Level 1
       if (showNotebooksGrid) { router.push("/"); return true; }       // Level 1 → notes
+      if (showNotifications) { setShowNotifications(false); return true; }
       if (showTrash) { setShowTrash(false); setSidebarOpen(true); return true; }
       if (sharedShortcode) { setSharedShortcode(null); setSidebarOpen(true); return true; }
       return false;
@@ -470,7 +502,10 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
       <div className="flex flex-1 min-h-0">
         {/* Sidebar (its own icon rail owns primary navigation) */}
         <Sidebar
-          onNoteClick={() => setSharedShortcode(null)}
+          onNoteClick={() => { setSharedShortcode(null); setShowNotifications(false); }}
+          notificationsActive={showNotifications}
+          notifUnread={notif.unread}
+          onOpenNotifications={toggleNotifications}
           onBulkDelete={(noteIds) => {
             noteIds.forEach((id) => notesOperations.deleteNote(id));
           }}
@@ -517,6 +552,15 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
             />
           ) : showTrash ? (
             <TrashView onClose={() => setShowTrash(false)} />
+          ) : showNotifications ? (
+            <NotificationsView
+              items={notif.items}
+              unread={notif.unread}
+              onRead={(id) => notif.markRead(id)}
+              onMarkAll={() => notif.markAll()}
+              onClearAll={() => notif.clearAll()}
+              onClose={() => setShowNotifications(false)}
+            />
           ) : notebookViewId ? (
             <NotebookView
               notebookId={notebookViewId}
@@ -625,7 +669,7 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
 
       {/* Mobile FAB — new note, shown on the notes list only (not the Shared
           list, where a new note makes no sense and it covers the rows). */}
-      {sidebarOpen && mobileTab !== "shared" && !publicRouted && !showAdmin && !showSettings && !showTrash && !showNotebooksGrid && !notebookViewId && !sharedShortcode && (
+      {sidebarOpen && mobileTab !== "shared" && !publicRouted && !showAdmin && !showSettings && !showTrash && !showNotifications && !showNotebooksGrid && !notebookViewId && !sharedShortcode && (
         <MobileFab onClick={mobileNewNote} />
       )}
 
