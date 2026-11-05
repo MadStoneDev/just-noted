@@ -62,6 +62,7 @@ import SplitToolbar, { SplitToolbarMobile } from "@/components/editor/split-tool
 import { saveVersion } from "@/app/actions/versionActions";
 import NoteActionBar, { barButtonClass } from "@/components/note-view/note-action-bar";
 import ShareNoteButton from "@/components/share-note-button";
+import TagPicker from "@/components/tag-picker";
 import NotePicker from "@/components/notes/note-picker";
 
 interface ActiveNoteEditorProps {
@@ -614,6 +615,18 @@ export function NoteEditor({
   const notebook = note.notebookId
     ? notebooks.find((nb) => nb.id === note.notebookId)
     : null;
+
+  // Tags (own notes) — the vocabulary + this note's assignments live in the
+  // store; the sidebar loads them. Chips mirror the sidebar card styling.
+  const allTags = useNotesStore((s) => s.tags);
+  const noteTagMap = useNotesStore((s) => s.noteTagMap);
+  const assignedTags = useMemo(
+    () =>
+      (noteTagMap[note.id] || [])
+        .map((id) => allTags.find((t) => t.id === id))
+        .filter((t): t is NonNullable<typeof t> => Boolean(t)),
+    [noteTagMap, note.id, allTags],
+  );
 
   const [pageFormat, setPageFormat] = useState("novel");
   const [goalTarget, setGoalTarget] = useState(note.goal || 0);
@@ -1379,6 +1392,9 @@ export function NoteEditor({
                 <IconLayoutColumns size={16} />
               </button>
             )}
+            {isAuthenticated && noteSource === "supabase" && (
+              <TagPicker noteId={note.id} />
+            )}
             {isAuthenticated && (
               <ShareNoteButton
                 noteId={note.id}
@@ -1461,6 +1477,15 @@ export function NoteEditor({
                 {notebook.name}
               </button>
             )}
+            {assignedTags.map((tag) => (
+              <span
+                key={tag.id}
+                className="inline-flex items-center px-1.5 py-px text-[11px] rounded-full"
+                style={{ backgroundColor: tag.color + "20", color: tag.color }}
+              >
+                {tag.name}
+              </span>
+            ))}
             <span className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
               <span title={`${wordCount} words`}>{wordCount}w</span> · <span title={`${charCount} characters`}>{charCount}c</span> · <span title="Estimated reading time">{readingTime}</span> ·{" "}
               <button

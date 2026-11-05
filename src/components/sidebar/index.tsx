@@ -16,6 +16,7 @@ import { uploadNotebookCover } from "@/utils/storage/cover-upload";
 import NotebookNavList from "@/components/notebook-nav-list";
 import SharedNavList from "@/components/shared-nav-list";
 import NoteCard from "@/components/notes/note-card";
+import TagPicker from "@/components/tag-picker";
 import { SORT_LABELS, SOURCE_LABELS } from "@/lib/filter-notes";
 import NotebookModal from "@/components/notebook-modal";
 import TagFilter from "@/components/tag-filter";
@@ -1121,6 +1122,17 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                             setRailView("notes");
                           }}
                         />
+                        {/* Tags — cloud notes only (tags attach to a server note id).
+                            Hover-reveal on desktop like Delete; always visible on
+                            mobile since there's no hover and no swipe gesture for it. */}
+                        {!selectMode && note.source === "supabase" && (
+                          <div
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex-shrink-0 text-[var(--color-ink-5)] opacity-100 md:opacity-0 md:group-hover/note:opacity-100 transition-opacity"
+                          >
+                            <TagPicker noteId={note.id} />
+                          </div>
+                        )}
                         {/* Delete — appears on hover (desktop); swipe on mobile is the follow-up */}
                         {!selectMode && (
                           <button
