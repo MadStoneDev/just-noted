@@ -1,7 +1,7 @@
 ﻿// src/components/profile-block.tsx
 "use client";
 
-import { useEffect, useReducer, useCallback, memo } from "react";
+import { useEffect, useReducer, useCallback, useState, memo } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -141,6 +141,9 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
   };
 
   const [state, dispatch] = useReducer(profileReducer, initialState);
+  // Tracks a preview-card avatar URL that failed to load, so it falls back to
+  // the teal initial rather than a broken image (matches the shared Avatar).
+  const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
   const { showSuccess, showError } = useToast();
   const supabase = createClient();
   const router = useRouter();
@@ -493,11 +496,15 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
                 </label>
                 <div className="flex items-center space-x-4 p-5 bg-[var(--color-panel)] rounded-[var(--radius-md)] border-2 border-dashed border-[var(--color-hairline)] hover:border-[var(--color-accent-tint-border)]/50 transition-colors">
                   <div className="shrink-0 w-24 h-24 rounded-[var(--radius-lg)] overflow-hidden flex items-center justify-center shadow-sm ring-1 ring-[var(--color-hairline)]">
-                    {state.avatarPreview || state.avatarUrl ? (
+                    {(() => {
+                      const src = state.avatarPreview || state.avatarUrl || "";
+                      return src && failedAvatarUrl !== src;
+                    })() ? (
                       <img
                         src={state.avatarPreview || state.avatarUrl || ""}
                         alt="Avatar preview"
                         className="w-full h-full object-cover"
+                        onError={() => setFailedAvatarUrl(state.avatarPreview || state.avatarUrl || "")}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center" style={{ background: "#0FB8B0" }}>

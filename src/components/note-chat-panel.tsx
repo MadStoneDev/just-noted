@@ -28,6 +28,7 @@ import { baseMime } from "@/lib/chat-media";
 import { compressImage } from "@/utils/image/compress";
 import { ConfirmModal } from "@/components/ds/modal";
 import { useToast } from "@/components/ui/toast";
+import { Avatar } from "@/components/ui/avatar";
 import type { ChatMessageView } from "@/lib/chat";
 
 // Fetches a short-lived presigned URL for a message's media and refreshes it
@@ -78,18 +79,6 @@ function relativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString("en-AU", { month: "short", day: "numeric" });
 }
 
-function Avatar({ name, url }: { name: string; url: string | null }) {
-  if (url) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />;
-  }
-  return (
-    <div className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-[11px] font-semibold bg-[var(--color-raised-soft)] text-[var(--color-ink-4)]">
-      {(name[0] || "?").toUpperCase()}
-    </div>
-  );
-}
-
 function MessageRow({
   m,
   onEdit,
@@ -110,7 +99,7 @@ function MessageRow({
   }
   return (
     <li className="group/msg px-4 py-2 flex gap-2.5 hover:bg-[var(--color-raised-soft)]/40">
-      <Avatar name={m.authorName} url={m.authorAvatar} />
+      <Avatar name={m.authorName} url={m.authorAvatar} size={28} />
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-1.5">
           <span className="text-[12.5px] font-medium text-[var(--color-ink-1)] truncate">{m.authorName}</span>

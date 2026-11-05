@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import type { PresenceUser } from "@/hooks/use-presence";
 
 function idleLabel(u: PresenceUser): string {
@@ -8,6 +8,27 @@ function idleLabel(u: PresenceUser): string {
   if (ms < 30000) return "editing now";
   const m = Math.max(1, Math.round(ms / 60000));
   return `idle ${m}m`;
+}
+
+// Image contents of a presence avatar. Keeps the per-user colour + initial as
+// the fallback when there's no avatar OR the image fails to load (404, deleted
+// object, auth-gated URL), so a broken image never shows. Failure is tracked
+// per-URL so a later avatar change is still attempted.
+function PresenceAvatarImage({ url, handle }: { url?: string | null; handle: string }) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const showImg = !!url && failedUrl !== url;
+  if (showImg) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return (
+      <img
+        src={url}
+        alt=""
+        className="w-full h-full object-cover"
+        onError={() => setFailedUrl(url)}
+      />
+    );
+  }
+  return <>{(handle || "?").charAt(0).toUpperCase()}</>;
 }
 
 /**
@@ -46,11 +67,7 @@ export function PresenceStack({
                 opacity: idle ? 0.45 : 1,
               }}
             >
-              {u.avatarUrl ? (
-                <img src={u.avatarUrl} alt="" className="w-full h-full object-cover" />
-              ) : (
-                (u.handle || "?").charAt(0).toUpperCase()
-              )}
+              <PresenceAvatarImage url={u.avatarUrl} handle={u.handle} />
             </span>
           );
         })}
