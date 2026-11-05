@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
+import { Avatar } from "@/components/ui/avatar";
 import type { PresenceUser } from "@/hooks/use-presence";
 
 function idleLabel(u: PresenceUser): string {
@@ -10,31 +11,12 @@ function idleLabel(u: PresenceUser): string {
   return `idle ${m}m`;
 }
 
-// Image contents of a presence avatar. Keeps the per-user colour + initial as
-// the fallback when there's no avatar OR the image fails to load (404, deleted
-// object, auth-gated URL), so a broken image never shows. Failure is tracked
-// per-URL so a later avatar change is still attempted.
-function PresenceAvatarImage({ url, handle }: { url?: string | null; handle: string }) {
-  const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  const showImg = !!url && failedUrl !== url;
-  if (showImg) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return (
-      <img
-        src={url}
-        alt=""
-        className="w-full h-full object-cover"
-        onError={() => setFailedUrl(url)}
-      />
-    );
-  }
-  return <>{(handle || "?").charAt(0).toUpperCase()}</>;
-}
-
 /**
  * Overlapping presence avatars (design surface 05): up to three 26px avatars,
  * then a +n chip. Idle members (no heartbeat in 30s) fade rather than vanish.
- * The ring colour matches the banner it sits in.
+ * The ring colour matches the banner it sits in. Avatars render through the
+ * shared Avatar so missing/failed images fall back to the JustNoted teal +
+ * first-letter initial, consistent with every other avatar in the app.
  */
 export function PresenceStack({
   users,
@@ -58,16 +40,15 @@ export function PresenceStack({
             <span
               key={u.userId}
               title={`@${u.handle} · ${idleLabel(u)}${u.self ? " (you)" : ""}`}
-              className="relative w-[26px] h-[26px] rounded-full overflow-hidden flex items-center justify-center text-[10px] font-semibold text-white transition-opacity"
+              className="relative rounded-full transition-opacity"
               style={{
                 marginLeft: i === 0 ? 0 : -8,
                 zIndex: max - i,
-                backgroundColor: u.color,
                 boxShadow: `0 0 0 2px ${ringColor}`,
                 opacity: idle ? 0.45 : 1,
               }}
             >
-              <PresenceAvatarImage url={u.avatarUrl} handle={u.handle} />
+              <Avatar url={u.avatarUrl} name={u.handle} size={26} />
             </span>
           );
         })}
