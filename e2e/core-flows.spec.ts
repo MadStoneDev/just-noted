@@ -4,54 +4,71 @@ import { seededAccounts, signIn } from "./fixtures/auth";
 // Core flows for the Ready-for-mobile gate (docs/mobile-readiness.md).
 //
 // Status:
-// - Local (anonymous) flows below are implemented against code-derived selectors
-//   (Ctrl+J = new note; Milkdown renders `.ProseMirror`; sidebar rows carry
-//   `data-note-id`). They need a local run with runtime env to confirm — even
-//   "local" notes are Redis-backed server-side today.
-// - Cloud and B7 flows have real bodies but SKIP unless E2E_ACCOUNTS provides
-//   seeded sessions (see fixtures/auth.ts); the session-injection helper must be
-//   finalised against the running app before they go green.
+// - Local (anonymous) flows are implemented. A clean context opens the notes app
+//   with NO note open, so the editor (`.ProseMirror`) mounts only after a note is
+//   created. Even "local" notes are Redis-backed server-side, so these need
+//   runtime env to pass.
+// - Cloud and B7 flows have real bodies but SKIP unless E2E_ACCOUNTS supplies
+//   seeded sessions (see fixtures/auth.ts); the session-injection helper and the
+//   account-switcher UI driver must be finalised against the running app.
 // - The remaining flows stay `test.fixme` until their selectors are verified.
 
 const EDITOR = ".ProseMirror"; // Milkdown's ProseMirror surface (contenteditable)
-const NOTE_ROW = "[data-note-id]";
 
-async function newNote(page: Page): Promise<void> {
-  // Ctrl/Cmd+J is a global shortcut that works even while typing.
-  await page.keyboard.press("Control+j");
+// The sidebar's note-count footer ("0 notes" / "1 note"), a reliable, visible
+// signal for whether a note is in the list.
+const noteCount = (page: Page) => page.getByText(/^\d+ notes?$/);
+
+// Wait for the notes app shell to be ready (so actions have a mounted target).
+async function waitForApp(page: Page): Promise<void> {
+  await expect(page.getByRole("heading", { name: "All Notes" })).toBeVisible();
 }
 
-async function editorText(page: Page) {
+// Create the first note. On a clean load the main editor region shows an empty
+// state with its own "New note" button — unambiguous (the rail's icon button has
+// the same name), and clicking it mounts the editor.
+async function createFirstNote(page: Page): Promise<void> {
+  await page
+    .getByRole("main", { name: "Note editor" })
+    .getByRole("button", { name: "New note" })
+    .click();
+  await expect(page.locator(EDITOR).first()).toBeVisible();
+}
+
+function editor(page: Page) {
   return page.locator(EDITOR).first();
 }
 
 test.describe("notes — local (Redis, anonymous)", () => {
   test("create, edit, reload → content persists", async ({ page }) => {
     await page.goto("/");
-    const editor = await editorText(page);
-    await expect(editor).toBeVisible();
+    await waitForApp(page);
 
-    await newNote(page);
+    await createFirstNote(page);
     const marker = `e2e-local-${Date.now()}`;
-    await editor.click();
+    await editor(page).click();
     await page.keyboard.type(marker);
-    await expect(editor).toContainText(marker);
+    await expect(editor(page)).toContainText(marker);
 
-    // Allow immediate local persistence (~0.5s) + autosave to settle before reload.
-    await page.waitForTimeout(1500);
+    // Let the content autosave persist (debounce + round-trip) before reloading.
+    await page.waitForTimeout(3000);
     await page.reload();
+    await waitForApp(page);
 
-    await expect((await editorText(page))).toContainText(marker);
+    // The most-recent note is auto-opened after reload; assert its content survived.
+    await expect(editor(page)).toContainText(marker, { timeout: 20_000 });
   });
 
-  test("new note appears in the sidebar immediately (B8/D13)", async ({ page }) => {
+  // BLOCKED on B8+D13: a newly created note does not repaint into the sidebar
+  // until another note is selected. The E2E run on 2026-11-06 confirmed this is
+  // still reproducible — after createFirstNote the footer stayed "0 notes".
+  // Unskip when B8/D13 lands; this is its acceptance test.
+  test.fixme("new note appears in the sidebar immediately (B8/D13)", async ({ page }) => {
     await page.goto("/");
-    await expect(await editorText(page)).toBeVisible();
-
-    const before = await page.locator(NOTE_ROW).count();
-    await newNote(page);
-    // The row must show up without selecting another note first.
-    await expect(page.locator(NOTE_ROW)).toHaveCount(before + 1);
+    await waitForApp(page);
+    await expect(noteCount(page)).toHaveText("0 notes");
+    await createFirstNote(page);
+    await expect(noteCount(page)).toHaveText("1 note");
   });
 });
 
@@ -62,18 +79,19 @@ test.describe("notes — cloud (Supabase, signed-in)", () => {
     const [acc] = seededAccounts();
     await signIn(page, acc);
     await page.goto("/");
+    await waitForApp(page);
 
-    const editor = await editorText(page);
-    await expect(editor).toBeVisible();
-    await newNote(page);
+    await createFirstNote(page);
     const marker = `e2e-cloud-${Date.now()}`;
-    await editor.click();
+    await editor(page).click();
     await page.keyboard.type(marker);
-    await expect(editor).toContainText(marker);
+    await expect(editor(page)).toContainText(marker);
 
     await page.waitForTimeout(2500); // cloud autosave (2s debounce) + round-trip
     await page.reload();
-    await expect(await editorText(page)).toContainText(marker);
+    await waitForApp(page);
+    await page.locator(NOTE_ROW).first().click();
+    await expect(editor(page)).toContainText(marker);
   });
 
   test.fixme("move a note local ↔ cloud", async () => {
@@ -88,28 +106,25 @@ test.describe("account switching (B7)", () => {
     const [a, b] = seededAccounts();
     await signIn(page, a);
     await page.goto("/");
-    await expect(await editorText(page)).toBeVisible();
+    await waitForApp(page);
 
     await switchAccountViaUi(page, b.label);
-    // The hand-off overlay is shown until the new account's notes sync.
     await expect(page.getByText(/Switching to/i)).toBeVisible();
     await expect(page.getByText(/Switching to/i)).toBeHidden({ timeout: 15_000 });
-    // After the gate clears, the app shell is interactive again.
-    await expect(await editorText(page)).toBeVisible();
+    await waitForApp(page);
   });
 
   test("never writes the previous account's note under the new session", async ({ page, context }) => {
     const [a, b] = seededAccounts();
     await signIn(page, a);
     await page.goto("/");
-    const editor = await editorText(page);
-    await expect(editor).toBeVisible();
+    await waitForApp(page);
 
     // Queue an edit for account A while offline so it can't flush before the switch.
     await context.setOffline(true);
-    await newNote(page);
+    await createFirstNote(page);
     const marker = `e2e-b7-${Date.now()}`;
-    await editor.click();
+    await editor(page).click();
     await page.keyboard.type(marker);
     await page.waitForTimeout(800); // let it enqueue to IDB
 

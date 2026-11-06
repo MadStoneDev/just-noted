@@ -1,32 +1,35 @@
 import { test, expect } from "@playwright/test";
 
-// Smoke: the app shell boots for an anonymous visitor and renders the editor
-// region. Grounded only in selectors that exist in the app today, so it runs
-// green without a seeded account. Expand real flows in core-flows.spec.ts.
+// Smoke: the app shell boots for an ANONYMOUS visitor and renders the notes app.
+// A clean context is a signed-out visitor: there is NO account button (a "Log in"
+// link instead), and no note is open yet (so no editor surface until one is
+// created). Assertions below reflect that, and are specific enough to fail if the
+// page is anything other than the notes app (e.g. a redirect or error page).
 test.describe("app shell", () => {
-  test("loads and shows the note editor region", async ({ page }) => {
+  test("loads the notes app for an anonymous visitor", async ({ page }) => {
     await page.goto("/");
 
-    // The main area is labelled "Note editor" for a signed-out visitor (it only
-    // becomes "Shared note" when a shared note is open).
-    const editorRegion = page.locator('main[aria-label="Note editor"]');
-    await expect(editorRegion).toBeVisible();
+    // Notes-app markers (rail + main editor region).
+    await expect(page.getByRole("heading", { name: "All Notes" })).toBeVisible();
+    await expect(page.locator('main[aria-label="Note editor"]')).toBeVisible();
 
-    // The account control is always mounted in the rail.
-    await expect(page.locator('button[aria-label="Account"]')).toBeVisible();
+    // Signed-out: a Log in link, not an Account button.
+    await expect(page.getByRole("link", { name: "Log in" })).toBeVisible();
+    await expect(page.locator('button[aria-label="Account"]')).toHaveCount(0);
 
-    // No unhandled client error boundary fallback.
+    // Not an error boundary.
     await expect(page.getByText(/something went wrong/i)).toHaveCount(0);
   });
 
-  test("has no console errors on first paint", async ({ page }) => {
+  test("has no fatal console errors on first paint", async ({ page }) => {
     const errors: string[] = [];
     page.on("console", (msg) => {
       if (msg.type() === "error") errors.push(msg.text());
     });
     await page.goto("/");
-    await page.locator('main[aria-label="Note editor"]').waitFor();
-    // Allow network/analytics noise but fail on React/runtime errors.
+    // Fail if this isn't actually the notes app (so the error check isn't vacuous).
+    await expect(page.getByRole("heading", { name: "All Notes" })).toBeVisible();
+    // Allow network/analytics noise; fail on React/runtime errors.
     const fatal = errors.filter((e) => /(hydration|is not a function|cannot read|uncaught)/i.test(e));
     expect(fatal, fatal.join("\n")).toHaveLength(0);
   });
