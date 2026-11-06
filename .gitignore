@@ -44,3 +44,9 @@ next-env.d.ts
 
 # SupaTypes config (contains server credentials)
 .supatypes.json
+
+# playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/blob-report/
