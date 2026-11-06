@@ -20,7 +20,8 @@ import SettingsView from "@/components/settings-view";
 import AccountDeletionGate from "@/components/account-deletion-gate";
 import AdminView from "@/components/admin-view";
 import { readEditorFont, applyEditorFont, readEditorFontSize, applyEditorFontSize } from "@/utils/editor-font";
-import { captureCurrentAccount } from "@/utils/accounts";
+import { captureCurrentAccount, SWITCH_MARKER_KEY, type SwitchMarker } from "@/utils/accounts";
+import { AccountSwitchTransition } from "@/components/account-switch-modal";
 import { createClient } from "@/utils/supabase/client";
 import NotebookModal from "@/components/notebook-modal";
 import UndoDeleteToast from "@/components/ui/undo-toast";
@@ -47,6 +48,31 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
     unregisterNoteFlush,
     noteFlushFunctions,
   } = useNotesSync();
+
+  // B7: account-switch hand-off gate. switchToAccount leaves a marker in
+  // sessionStorage before the reload; keep the full-screen "Switching…" screen up
+  // until the new account's notes have synced (hasServerSynced), so the user never
+  // sees the previous account's notes flash or an empty shell mid-load.
+  const hasServerSynced = useNotesStore((s) => s.hasServerSynced);
+  const [switchMarker, setSwitchMarker] = useState<SwitchMarker | null>(null);
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(SWITCH_MARKER_KEY);
+      if (raw) setSwitchMarker(JSON.parse(raw) as SwitchMarker);
+    } catch {}
+  }, []);
+  useEffect(() => {
+    if (!switchMarker) return;
+    const clear = () => {
+      try { sessionStorage.removeItem(SWITCH_MARKER_KEY); } catch {}
+      setSwitchMarker(null);
+    };
+    if (hasServerSynced) { clear(); return; }
+    // Safety net: the hydration lock itself resolves within ~5s even offline, but
+    // never hold the gate indefinitely if that signal is missed.
+    const t = setTimeout(clear, 8000);
+    return () => clearTimeout(t);
+  }, [switchMarker, hasServerSynced]);
 
   const notesOperations = useNotesOperations(
     userId,
@@ -493,6 +519,7 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
 
   return (
     <NotesErrorBoundary>
+      {switchMarker && !hasServerSynced && <AccountSwitchTransition target={switchMarker} />}
       <AccountDeletionGate />
       <SkipLinks notes={!publicRouted} />
 

@@ -12,6 +12,7 @@ import {
   createNote as createSupabaseNote,
 } from "@/app/actions/supabaseActions";
 import type { RedisNote, CombinedNote } from "@/types/combined-notes";
+import { shouldSyncOp, getActiveSupabaseUser, needsCloudUserTag } from "./offline-queue-guard";
 import {
   OFFLINE_QUEUE_DB_NAME,
   OFFLINE_QUEUE_DB_VERSION,
@@ -484,6 +485,11 @@ export async function processQueue(): Promise<void> {
       const noteId = op.payload.noteId;
       if (blocked.has(noteId)) continue;
 
+      // B7: never send another account's cloud op under the current session.
+      // Left in the queue untouched (no failure, no backoff) so it syncs once
+      // its owning account is signed back in. See offline-queue-guard.ts.
+      if (!shouldSyncOp(op.payload, getActiveSupabaseUser())) continue;
+
       // Respect exponential backoff for previously-failed ops.
       if (op.retryCount > 0 && op.lastAttempt) {
         const waitLeft = backoffMs(op.retryCount) - (now - op.lastAttempt);
@@ -540,6 +546,27 @@ export async function getQueueSize(): Promise<number> {
 export async function clearQueue(): Promise<void> {
   await clearAllOps();
   notifySubscribers(0);
+}
+
+// B7: one-time backfill for legacy cloud ops queued before ops were account-scoped.
+// They carry no userId and so would never pass the cross-account guard (and would
+// sit in the queue forever). Tag them with the currently signed-in user, which
+// matches the pre-guard behaviour where any queued op flushed under whatever
+// session was active. The caller gates this to run once per device after deploy.
+// Returns how many ops were tagged.
+export async function migrateUntaggedCloudOps(currentUserId: string | null): Promise<number> {
+  if (!currentUserId) return 0;
+  const ops = await getAllOps();
+  let fixed = 0;
+  for (const op of ops) {
+    if (needsCloudUserTag(op.payload)) {
+      (op.payload as { userId: string }).userId = currentUserId;
+      await putOp(op);
+      fixed += 1;
+    }
+  }
+  if (fixed > 0) notifySubscribers(await countOps());
+  return fixed;
 }
 
 // Drop every queued op for a note. Called when a note is deleted so a pending

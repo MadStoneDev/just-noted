@@ -22,7 +22,8 @@ import {
   combiToRedis,
 } from "@/types/combined-notes";
 import { getAllLocalNotes, saveAllNotesToLocal, clearLocalNotes } from "@/utils/notes-idb-cache";
-import { clearQueue, processQueue, enqueue } from "@/utils/offline-queue";
+import { clearQueue, processQueue, enqueue, migrateUntaggedCloudOps } from "@/utils/offline-queue";
+import { setActiveSupabaseUser } from "@/utils/offline-queue-guard";
 import { reconcileNotes } from "@/utils/notes-merge";
 import { subscribeNoteUpdates } from "@/utils/cross-tab";
 import { stripHtmlToText } from "@/utils/html-utils";
@@ -342,6 +343,21 @@ export function useNotesSync() {
           // No readable session — proceed as unauthenticated.
         }
         setAuthenticated(authenticated);
+        // B7: tell the offline queue which account owns cloud ops right now, so a
+        // queued op from a previously signed-in account is never flushed under
+        // this session (the queue survives the account-switch reload).
+        setActiveSupabaseUser(authenticated ? newUserId : null);
+        // B7: one-time backfill of legacy untagged cloud ops (queued before ops
+        // were account-scoped) so they flush under this account, as they would
+        // have pre-guard. Runs once per device, before the first queue drain.
+        if (authenticated && typeof window !== "undefined") {
+          try {
+            if (!localStorage.getItem("jn_queue_usertag_migrated_v1")) {
+              await migrateUntaggedCloudOps(newUserId);
+              localStorage.setItem("jn_queue_usertag_migrated_v1", "1");
+            }
+          } catch {}
+        }
 
         const [redisResult, supabaseResult] = await Promise.allSettled([
           noteOperation("redis", { operation: "getAll", userId: newUserId }),

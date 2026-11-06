@@ -695,6 +695,22 @@ export function NoteEditor({
     return () => unregisterNoteFlush(note.id);
   }, [note.id, flushSave, registerNoteFlush, unregisterNoteFlush]);
 
+  // B7: flush the open note's dirty buffer on demand (e.g. right before an
+  // account switch) so it is saved under the CURRENT session. Register the flush
+  // promise with the dispatcher (when it provides a `register` callback) so the
+  // caller can strictly await the save rather than guessing at a delay.
+  useEffect(() => {
+    const onFlush = (e: Event) => {
+      const detail = (e as CustomEvent).detail as
+        | { register?: (p: Promise<unknown>) => void }
+        | undefined;
+      const p = Promise.resolve(flushSave());
+      if (detail && typeof detail.register === "function") detail.register(p);
+    };
+    window.addEventListener("justnoted:flush-saves", onFlush);
+    return () => window.removeEventListener("justnoted:flush-saves", onFlush);
+  }, [flushSave]);
+
   // Immediate local persistence (Phase 0 — local-first): keep the store + IDB
   // cache within ~0.5s of the latest keystroke, decoupled from the 2s cloud
   // debounce, so a tab close / crash / note switch never loses more than a

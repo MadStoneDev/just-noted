@@ -72,6 +72,7 @@
     "@types/react-google-recaptcha": "^2.1.9",
     "@types/turndown": "^5.0.6",
     "autoprefixer": "^10.4.21",
+    "fake-indexeddb": "^6.2.7",
     "postcss": "^8.5.3",
     "supabase": "^2.22.12",
     "tailwindcss": "^4.0.15",

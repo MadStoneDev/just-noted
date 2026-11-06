@@ -13,11 +13,13 @@ import { Avatar } from "@/components/ui/avatar";
 // and chooses to leave them on the device). Local-only notes are informational.
 export function AccountSwitchModal({
   target,
+  currentHandle,
   hasOpenSharedNote,
   onCancel,
   onConfirm,
 }: {
   target: DeviceAccount;
+  currentHandle?: string;
   hasOpenSharedNote?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -57,7 +59,9 @@ export function AccountSwitchModal({
               <div className="mt-0.5 text-[12px] leading-snug text-[var(--color-ink-4)]">
                 {isOnline
                   ? "Hang on — these finish uploading before the switch so nothing is lost."
-                  : "You're offline. These stay queued on this device until you sign back in here."}
+                  : currentHandle
+                    ? `You're offline, so these stay on this device. Switch back to @${currentHandle} to sync them.`
+                    : "You're offline, so these stay on this device. Switch back to this account to sync them."}
               </div>
             </div>
           </div>
@@ -112,8 +116,15 @@ export function AccountSwitchModal({
   );
 }
 
-// Full-screen hand-off shown between confirm and reload.
-export function AccountSwitchTransition({ target }: { target: DeviceAccount }) {
+// Full-screen hand-off shown between confirm and reload, and again on boot (via
+// the account-switch marker) until the new account's notes have synced. Accepts
+// any object with the display fields — a full DeviceAccount or the lighter
+// SwitchMarker both satisfy it.
+export function AccountSwitchTransition({
+  target,
+}: {
+  target: { handle: string; displayName?: string; email: string; avatarUrl?: string };
+}) {
   return (
     <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-[var(--color-canvas)]">
       <div className="relative">

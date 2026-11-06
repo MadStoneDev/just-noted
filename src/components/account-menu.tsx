@@ -106,6 +106,7 @@ export default function AccountMenu() {
     {confirmTarget && (
       <AccountSwitchModal
         target={confirmTarget}
+        currentHandle={current?.handle}
         hasOpenSharedNote={hasOpenShared}
         onCancel={() => setConfirmTarget(null)}
         onConfirm={() => commitSwitch(confirmTarget)}

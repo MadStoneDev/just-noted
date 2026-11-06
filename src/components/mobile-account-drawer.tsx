@@ -65,6 +65,7 @@ export function MobileAccountDrawer({ open, onClose }: { open: boolean; onClose:
       {confirmTarget && (
         <AccountSwitchModal
           target={confirmTarget}
+          currentHandle={current?.handle}
           hasOpenSharedNote={hasOpenShared}
           onCancel={() => setConfirmTarget(null)}
           onConfirm={() => commitSwitch(confirmTarget)}
