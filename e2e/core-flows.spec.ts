@@ -14,10 +14,22 @@ import { seededAccounts, signIn } from "./fixtures/auth";
 // - The remaining flows stay `test.fixme` until their selectors are verified.
 
 const EDITOR = ".ProseMirror"; // Milkdown's ProseMirror surface (contenteditable)
+const NOTE_ROW = "[data-note-card]"; // one sidebar note card (carries the note id)
 
 // The sidebar's note-count footer ("0 notes" / "1 note"), a reliable, visible
 // signal for whether a note is in the list.
 const noteCount = (page: Page) => page.getByText(/^\d+ notes?$/);
+
+// Parse the numeric note count out of the footer ("3 notes" → 3). Returns 0 when
+// the footer isn't present yet.
+async function readNoteCount(page: Page): Promise<number> {
+  try {
+    const t = await noteCount(page).first().innerText({ timeout: 5000 });
+    return parseInt(t.match(/\d+/)?.[0] ?? "0", 10);
+  } catch {
+    return 0;
+  }
+}
 
 // Wait for the notes app shell to be ready (so actions have a mounted target).
 async function waitForApp(page: Page): Promise<void> {
@@ -59,13 +71,14 @@ test.describe("notes — local (Redis, anonymous)", () => {
     await expect(editor(page)).toContainText(marker, { timeout: 20_000 });
   });
 
-  // Acceptance test for B8/D13#1. The correctness symptom (a new note not
-  // repainting into the sidebar until another note is selected) no longer
-  // reproduces — the sidebar footer updates to "1 note" immediately on create.
-  // The perf half of B8/D13 (the sidebar/editor repainting on every keystroke)
-  // was addressed by id-scoped/shallow store selectors + memoised list rows
-  // (NoteCard); this test guards the user-visible half of that work.
-  test("new note appears in the sidebar immediately (B8/D13)", async ({ page }) => {
+  // Acceptance test for B8 (a new note must appear in the sidebar immediately,
+  // without selecting another note first). D13 is the related keystroke-lag
+  // symptom, fixed by id-scoped/shallow store selectors + memoised list rows
+  // (NoteCard). NOTE: the originally-reported B8 bug was observed SIGNED IN
+  // (cloud notes); this anonymous/local case did not reproduce it on its own.
+  // The signed-in variant lives in the cloud describe block below and is the
+  // one that exercises the reported path (runs once E2E_ACCOUNTS is set).
+  test("new note appears in the sidebar immediately (B8) — local", async ({ page }) => {
     await page.goto("/");
     await waitForApp(page);
     await expect(noteCount(page)).toHaveText("0 notes");
@@ -94,6 +107,27 @@ test.describe("notes — cloud (Supabase, signed-in)", () => {
     await waitForApp(page);
     await page.locator(NOTE_ROW).first().click();
     await expect(editor(page)).toContainText(marker);
+  });
+
+  // Acceptance test for B8 on the SIGNED-IN path — the one the bug was actually
+  // reported on (cloud notes). A signed-in account may already hold notes, so
+  // assert the footer count increments by exactly one the moment the note is
+  // created, with NO reload and WITHOUT selecting another note first.
+  test("new note appears in the sidebar immediately (B8) — cloud", async ({ page }) => {
+    const [acc] = seededAccounts();
+    await signIn(page, acc);
+    await page.goto("/");
+    await waitForApp(page);
+
+    const before = await readNoteCount(page);
+    // Ctrl/Cmd+J creates a note regardless of whether one is already open (the
+    // empty-state button only exists when nothing is open).
+    await page.keyboard.press("Control+j");
+    await expect(noteCount(page)).toHaveText(
+      new RegExp(`^${before + 1} notes?$`),
+    );
+    // The new row is in the list immediately (not only after selecting another).
+    await expect(page.locator(NOTE_ROW)).toHaveCount(before + 1);
   });
 
   test.fixme("move a note local ↔ cloud", async () => {
