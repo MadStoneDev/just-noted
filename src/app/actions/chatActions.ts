@@ -151,7 +151,7 @@ export async function requestChatMediaUpload(
  */
 export async function sendChatMediaMessage(
   noteId: string,
-  input: { key: string; kind: string; mime: string; meta?: Record<string, unknown> },
+  input: { key: string; kind: string; mime: string; meta?: Record<string, unknown>; body?: string | null },
 ): Promise<{ success: boolean; error?: string }> {
   const uid = await sessionUserId();
   if (!uid) return { success: false, error: "Sign in to chat" };
@@ -164,6 +164,11 @@ export async function sendChatMediaMessage(
   if (!input.key.startsWith(`${CHAT_PREFIX}${noteId}/`) || input.key.includes("..")) {
     return { success: false, error: "Invalid upload" };
   }
+  // Optional caption sent alongside the attachment (same 4000-char cap the DB
+  // and text messages enforce). Empty/whitespace becomes null.
+  const caption = (input.body ?? "").trim();
+  if (caption.length > 4000) return { success: false, error: "Message is too long" };
+
   // Confirm the object actually landed and re-validate its real size/type.
   const head = await headPrivateObject(input.key);
   if (!head) return { success: false, error: "Upload didn't complete" };
@@ -177,6 +182,7 @@ export async function sendChatMediaMessage(
     note_id: noteId,
     author_id: uid,
     kind: input.kind,
+    body: caption || null,
     media_key: input.key,
     media_mime: baseMime(head.contentType || input.mime),
     media_meta: input.meta ?? null,

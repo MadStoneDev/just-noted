@@ -153,6 +153,15 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
   const [pendingAnchor, setPendingAnchor] = useState<NoteAnchor | null>(null);
+  // A single pending attachment held in the composer (C10/C11): the user picks
+  // an image or records audio, previews it here, and it only uploads when they
+  // hit send (optionally with a caption). One attachment per message.
+  type MediaDraft = { blob: Blob; url: string; kind: "image" | "gif" | "audio"; mime: string };
+  const [draft, setDraft] = useState<MediaDraft | null>(null);
+  // Revoke the preview object URL when the draft is replaced or the panel closes.
+  useEffect(() => {
+    return () => { if (draft) URL.revokeObjectURL(draft.url); };
+  }, [draft]);
 
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -169,36 +178,10 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
     el.style.height = `${el.scrollHeight}px`;
   }, [text, open, editing]);
 
-  // Upload an already-processed file/blob to the private bucket, then post it.
-  const uploadAndSend = async (
-    file: File | Blob,
-    kind: "image" | "gif" | "audio",
-    mime: string,
-  ) => {
-    setUploading(true);
-    try {
-      const req = await requestChatMediaUpload(noteId, kind, mime, file.size);
-      if (!req.ok || !req.url || !req.key) {
-        showError(req.error || "Couldn't start the upload");
-        return;
-      }
-      const put = await fetch(req.url, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": baseMime(mime) },
-      });
-      if (!put.ok) { showError("Upload failed"); return; }
-      const res = await sendChatMediaMessage(noteId, {
-        key: req.key,
-        kind,
-        mime: baseMime(mime),
-        meta: { size: file.size },
-      });
-      if (!res.success) { showError(res.error || "Couldn't send the attachment"); return; }
-      await reload();
-    } finally {
-      setUploading(false);
-    }
+  // Stage an attachment in the composer (replacing any previous one). The actual
+  // upload happens on send — see uploadDraft / submit.
+  const stageDraft = (blob: Blob, kind: MediaDraft["kind"], mime: string) => {
+    setDraft({ blob, url: URL.createObjectURL(blob), kind, mime });
   };
 
   const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -206,11 +189,11 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
     e.target.value = "";
     if (!f) return;
     const base = baseMime(f.type);
-    if (base === "image/gif") { await uploadAndSend(f, "gif", "image/gif"); return; }
+    if (base === "image/gif") { stageDraft(f, "gif", "image/gif"); return; }
     if (base.startsWith("image/")) {
       // Canvas re-encode strips EXIF and normalises to webp.
       const webp = await compressImage(f, { maxDim: 1600, mimeType: "image/webp" });
-      await uploadAndSend(webp, "image", "image/webp");
+      stageDraft(webp, "image", "image/webp");
       return;
     }
     showError("That file type isn’t supported");
@@ -225,10 +208,11 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
       const rec = new MediaRecorder(stream, { mimeType: mime });
       const chunks: BlobPart[] = [];
       rec.ondataavailable = (ev) => { if (ev.data.size > 0) chunks.push(ev.data); };
-      rec.onstop = async () => {
+      rec.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(chunks, { type: mime });
-        if (blob.size > 0) await uploadAndSend(blob, "audio", mime);
+        // Stage the recording for review (playback + delete) — don't auto-send.
+        if (blob.size > 0) stageDraft(blob, "audio", mime);
       };
       rec.start();
       recorderRef.current = rec;
@@ -244,6 +228,36 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
     setRecording(false);
   };
 
+  // Upload the staged attachment, then post the message (optional caption). The
+  // draft's object URL is revoked by the cleanup effect once `draft` is cleared.
+  const uploadDraft = async (d: MediaDraft, caption: string): Promise<boolean> => {
+    setUploading(true);
+    try {
+      const req = await requestChatMediaUpload(noteId, d.kind, d.mime, d.blob.size);
+      if (!req.ok || !req.url || !req.key) {
+        showError(req.error || "Couldn't start the upload");
+        return false;
+      }
+      const put = await fetch(req.url, {
+        method: "PUT",
+        body: d.blob,
+        headers: { "Content-Type": baseMime(d.mime) },
+      });
+      if (!put.ok) { showError("Upload failed"); return false; }
+      const res = await sendChatMediaMessage(noteId, {
+        key: req.key,
+        kind: d.kind,
+        mime: baseMime(d.mime),
+        meta: { size: d.blob.size },
+        body: caption || null,
+      });
+      if (!res.success) { showError(res.error || "Couldn't send the attachment"); return false; }
+      return true;
+    } finally {
+      setUploading(false);
+    }
+  };
+
   // Keep the newest message in view as messages arrive.
   useEffect(() => {
     if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
@@ -252,23 +266,53 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
   useEffect(() => {
     if (!editing) return;
     setText(editing.body ?? "");
+    setDraft(null); // editing is text-only; drop any staged attachment
     inputRef.current?.focus();
   }, [editing]);
 
   const submit = async () => {
+    if (sending || uploading) return;
     const value = text.trim();
-    if (!value || sending) return;
+
+    // Editing an existing message — text only.
+    if (editing) {
+      if (!value) return;
+      setSending(true);
+      try {
+        const res = await editChatMessage(editing.id, value);
+        if (!res.success) { showError(res.error || "Couldn't save the edit"); return; }
+        setText("");
+        setEditing(null);
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
+
+    // A staged attachment: upload it now, with the field text as an optional
+    // caption ("add text or just send").
+    if (draft) {
+      setSending(true);
+      try {
+        const ok = await uploadDraft(draft, value);
+        if (!ok) return; // uploadDraft surfaced the error; keep the draft to retry
+        setText("");
+        setDraft(null);
+        setPendingAnchor(null);
+        await reload();
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
+
+    // Plain text message.
+    if (!value) return;
     setSending(true);
     try {
-      const res = editing
-        ? await editChatMessage(editing.id, value)
-        : await sendChatMessage(noteId, value, editing ? null : pendingAnchor);
-      if (!res.success) {
-        showError(res.error || "Couldn't send the message");
-        return;
-      }
+      const res = await sendChatMessage(noteId, value, pendingAnchor);
+      if (!res.success) { showError(res.error || "Couldn't send the message"); return; }
       setText("");
-      setEditing(null);
       setPendingAnchor(null);
       await reload();
     } finally {
@@ -365,6 +409,36 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
                 </button>
               </div>
             )}
+            {/* Staged attachment preview (C10/C11): a thumbnail for an image/GIF,
+                a playable control for audio, each with a remove/delete button.
+                The attachment only uploads when the message is sent. */}
+            {draft && !editing && (
+              <div className="flex items-center gap-2 px-2 py-1.5 mb-1.5 rounded-[var(--radius-8)] bg-[var(--color-raised-soft)] border border-[var(--color-hairline)]">
+                {draft.kind === "audio" ? (
+                  <audio controls src={draft.url} className="h-9 flex-1 min-w-0" />
+                ) : (
+                  <>
+                    <img
+                      src={draft.url}
+                      alt="Attachment preview"
+                      className="h-14 w-14 rounded-[var(--radius-6)] object-cover shrink-0"
+                    />
+                    <span className="flex-1 min-w-0 text-[11.5px] text-[var(--color-ink-4)] truncate">
+                      {draft.kind === "gif" ? "GIF" : "Image"} ready to send
+                    </span>
+                  </>
+                )}
+                <button
+                  onClick={() => setDraft(null)}
+                  disabled={uploading || sending}
+                  aria-label={draft.kind === "audio" ? "Delete recording" : "Remove attachment"}
+                  title={draft.kind === "audio" ? "Delete recording" : "Remove attachment"}
+                  className="shrink-0 p-1 rounded-[var(--radius-6)] text-[var(--color-ink-5)] hover:text-[var(--color-danger-strong)] hover:bg-[var(--color-raised)] transition-colors disabled:opacity-40"
+                >
+                  <IconTrash size={14} />
+                </button>
+              </div>
+            )}
             {/* Two-row composer (C12): the message field spans the full width and
                 auto-grows; the action buttons live on their own row below it, so
                 the tools never squeeze the field and don't need to collapse. */}
@@ -375,7 +449,7 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
               onKeyDown={onKeyDown}
               rows={1}
               disabled={uploading || recording}
-              placeholder={uploading ? "Uploading…" : recording ? "Recording…" : "Message…"}
+              placeholder={uploading ? "Uploading…" : recording ? "Recording…" : draft ? "Add a caption, or just send…" : "Message…"}
               className="block w-full resize-none max-h-32 overflow-y-auto px-3 py-2 text-[13px] bg-[var(--color-raised-soft)] rounded-[var(--radius-md)] border border-transparent focus:border-[var(--color-accent)] focus:bg-[var(--color-raised)] focus:outline-none text-[var(--color-ink-1)] placeholder:text-[var(--color-ink-5)] disabled:opacity-60 transition-colors"
             />
             {!editing && (
@@ -426,7 +500,7 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
               <div className="flex-1" />
               <button
                 onClick={submit}
-                disabled={!text.trim() || sending || uploading || recording}
+                disabled={(!text.trim() && !draft) || sending || uploading || recording}
                 aria-label={editing ? "Save edit" : "Send message"}
                 className="shrink-0 w-9 h-9 flex items-center justify-center rounded-[var(--radius-md)] bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:opacity-90 transition-opacity disabled:opacity-40"
               >
