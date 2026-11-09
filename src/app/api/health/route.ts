@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import {
+  putPrivateObject,
+  deletePrivateObject,
+  isPrivateR2Configured,
+} from "@/utils/storage/r2-private";
 
 // Public uptime/health probe for external monitors. It reveals only up/down
 // status — never keys, URLs, response bodies, stack traces or error messages.
@@ -9,6 +14,42 @@ export const dynamic = "force-dynamic";
 const TIMEOUT_MS = 5000;
 
 const stripSlash = (u: string) => u.replace(/\/+$/, "");
+
+/** Reject a promise if it hasn't settled within `ms` (named so the caller can
+ *  report "timeout" distinctly). */
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(Object.assign(new Error("timeout"), { name: "TimeoutError" })),
+        ms,
+      ),
+    ),
+  ]);
+}
+
+// Prove the PRIVATE R2 bucket is WRITABLE (not just reachable): write then
+// delete a tiny object under health/. A read-only token fails here, which is
+// exactly the misconfiguration this is meant to catch (chat media upload,
+// account export write, and media purge all need write). Like the other checks,
+// it returns only "ok" | "timeout" | "error" — never keys or error details.
+async function r2WriteCheck(): Promise<string> {
+  if (!isPrivateR2Configured()) return "error";
+  const key = `health/${crypto.randomUUID()}.txt`;
+  try {
+    await withTimeout(
+      putPrivateObject(key, Buffer.from("ok"), "text/plain"),
+      TIMEOUT_MS,
+    );
+    // Best-effort cleanup; an "Object Read & Write" token that can PUT can also
+    // DELETE, so a successful write is the gate. Never throws.
+    await withTimeout(deletePrivateObject(key), TIMEOUT_MS).catch(() => {});
+    return "ok";
+  } catch (e) {
+    return e instanceof Error && e.name === "TimeoutError" ? "timeout" : "error";
+  }
+}
 
 // Run one check with a hard timeout. Returns exactly one of:
 //   "ok" | "timeout" | "error <status>" | "error"
@@ -63,13 +104,13 @@ export async function GET() {
       ? check(dbUrl, { apikey: anonKey, Authorization: `Bearer ${anonKey}` })
       : Promise.resolve("error");
 
-  const [siteR, authR, dbR] = await Promise.all([site, auth, db]);
-  const ok = siteR === "ok" && authR === "ok" && dbR === "ok";
+  const [siteR, authR, dbR, r2R] = await Promise.all([site, auth, db, r2WriteCheck()]);
+  const ok = siteR === "ok" && authR === "ok" && dbR === "ok" && r2R === "ok";
 
   return NextResponse.json(
     ok
-      ? { status: "ok", site: siteR, auth: authR, db: dbR }
-      : { status: "fail", site: siteR, auth: authR, db: dbR },
+      ? { status: "ok", site: siteR, auth: authR, db: dbR, r2: r2R }
+      : { status: "fail", site: siteR, auth: authR, db: dbR, r2: r2R },
     { status: ok ? 200 : 503, headers: { "Cache-Control": "no-store" } },
   );
 }
