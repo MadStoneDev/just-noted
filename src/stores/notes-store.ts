@@ -665,8 +665,10 @@ export const useFilteredNotes = () =>
     _filteredNotesCache = result;
     return result;
   });
-export const useNoteById = (noteId: string) =>
-  useNotesStore((state) => state.notes.find((n) => n.id === noteId));
+export const useNoteById = (noteId: string | null | undefined) =>
+  useNotesStore((state) =>
+    noteId ? state.notes.find((n) => n.id === noteId) : undefined,
+  );
 export const useNotebooks = () => useNotesStore((state) => state.notebooks);
 export const useActiveNotebook = () =>
   useNotesStore((state) =>

@@ -10,7 +10,7 @@ import { saveCollabDoc } from "@/app/actions/collabActions";
 import { fetchCollabState } from "@/lib/collab-client";
 import { colorForUser } from "@/hooks/use-presence";
 import { exportNote, EXPORT_FORMATS } from "@/utils/export-note";
-import { useNotesStore, useNotebooks } from "@/stores/notes-store";
+import { useNotesStore, useNotebooks, useNoteById } from "@/stores/notes-store";
 import { useAutoSave } from "@/hooks/use-auto-save";
 import { saveNoteToLocal } from "@/utils/notes-idb-cache";
 import { decideEditorChange } from "@/utils/editor-save-decision";
@@ -81,22 +81,31 @@ export default function ActiveNoteEditor({
   unregisterNoteFlush,
 }: ActiveNoteEditorProps) {
   const activeNoteId = useNotesStore((s) => s.activeNoteId);
-  const notes = useNotesStore((s) => s.notes);
   const setActiveNoteId = useNotesStore((s) => s.setActiveNoteId);
   const isLoading = useNotesStore((s) => s.isLoading);
   const [splitNoteId, setSplitNoteId] = useState<string | null>(null);
 
+  // Id-scoped subscriptions (B8/D13): resolve the open (and split) note by id so
+  // this shell repaints only when the ACTIVE note's object changes — not when any
+  // other note updates (realtime, a background poll, typing in a different tab).
+  // The list itself is reached non-reactively through getState(); `noteCount` is
+  // the only whole-list signal we still need to react to, and it changes rarely.
+  const note = useNoteById(activeNoteId) ?? null;
+  const splitNote = useNoteById(splitNoteId) ?? null;
+  const noteCount = useNotesStore((s) => s.notes.length);
+
   // Auto-select: restore last opened note, or pick most recent
   useEffect(() => {
-    if (activeNoteId || notes.length === 0) return;
+    if (activeNoteId || noteCount === 0) return;
 
+    const notes = useNotesStore.getState().notes;
     const lastId = localStorage.getItem(LAST_NOTE_KEY);
     if (lastId && notes.find((n) => n.id === lastId)) {
       setActiveNoteId(lastId);
-    } else {
+    } else if (notes[0]) {
       setActiveNoteId(notes[0].id);
     }
-  }, [activeNoteId, notes, setActiveNoteId]);
+  }, [activeNoteId, noteCount, setActiveNoteId]);
 
   // Persist active note to localStorage
   useEffect(() => {
@@ -104,13 +113,6 @@ export default function ActiveNoteEditor({
       localStorage.setItem(LAST_NOTE_KEY, activeNoteId);
     }
   }, [activeNoteId]);
-
-  const note = useMemo(
-    () => notes.find((n) => n.id === activeNoteId) || null,
-    [notes, activeNoteId],
-  );
-
-  const splitNote = splitNoteId ? notes.find((n) => n.id === splitNoteId) || null : null;
   const [syncScroll, setSyncScroll] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);
   const leftPaneRef = useRef<HTMLDivElement>(null);
@@ -203,7 +205,7 @@ export default function ActiveNoteEditor({
     setSplitNoteId(note.id);
   }, [note, splitNote, splitNoteId, setActiveNoteId]);
 
-  if (isLoading && notes.length === 0) {
+  if (isLoading && noteCount === 0) {
     return <LoadingSkeleton />;
   }
 

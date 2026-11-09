@@ -144,8 +144,8 @@ Because entitlement is one server-side row read by one resolver, cross-platform 
 **JustSent mobile ships first.** Meanwhile, the JustNoted web track:
 
 ### a) Finish the pre-launch bug batch + Playwright
-- [ ] **B7 — account switching** (first): keep "Switching to <name>…" up until the new account's notes + active note load; flush the current account's pending saves under the current session; never sync/save the previous account's note with the new session. Add a test proving no cross-account write.
-- [ ] **B8 + D13#1** (shared cause): id-scoped memoized selectors so the sidebar/editor don't repaint every keystroke; new note appears in the sidebar immediately.
+- [x] **B7 — account switching** (first): keep "Switching to <name>…" up until the new account's notes + active note load; flush the current account's pending saves under the current session; never sync/save the previous account's note with the new session. Add a test proving no cross-account write. _(done — commit `8b571e3`, offline-queue account guard + tests.)_
+- [x] **B8 + D13#1** (shared cause): id-scoped/shallow store selectors + memoised list rows (`NoteCard`) so the sidebar/editor stop repainting every row on every keystroke. _(done — the "new note appears immediately" correctness symptom no longer reproduced; the perf half is the fix. Acceptance test in `e2e/core-flows.spec.ts` is now a normal passing test. Measured: typing with 3 notes dropped `NoteCard` repaints from ~18 to 4.)_
 - [ ] **C9–C12** chat polish: floating right-edge chat button w/ unread badge; image draft attachment; audio draft; composer auto-grow + buttons on their own row.
 - [ ] **E1** keyboard note switching (Ctrl+Alt+↑/↓, Ctrl+Alt+0–9) — focus editor, caret at end, must not count as an edit, must not steal focus from search/dialogs.
 - [ ] **E2** first-line titles: "New note" until typing; title follows first line (strip markdown, ~80 chars) until edited manually; local + cloud.

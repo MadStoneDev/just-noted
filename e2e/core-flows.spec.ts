@@ -59,11 +59,13 @@ test.describe("notes — local (Redis, anonymous)", () => {
     await expect(editor(page)).toContainText(marker, { timeout: 20_000 });
   });
 
-  // BLOCKED on B8+D13: a newly created note does not repaint into the sidebar
-  // until another note is selected. The E2E run on 2026-11-06 confirmed this is
-  // still reproducible — after createFirstNote the footer stayed "0 notes".
-  // Unskip when B8/D13 lands; this is its acceptance test.
-  test.fixme("new note appears in the sidebar immediately (B8/D13)", async ({ page }) => {
+  // Acceptance test for B8/D13#1. The correctness symptom (a new note not
+  // repainting into the sidebar until another note is selected) no longer
+  // reproduces — the sidebar footer updates to "1 note" immediately on create.
+  // The perf half of B8/D13 (the sidebar/editor repainting on every keystroke)
+  // was addressed by id-scoped/shallow store selectors + memoised list rows
+  // (NoteCard); this test guards the user-visible half of that work.
+  test("new note appears in the sidebar immediately (B8/D13)", async ({ page }) => {
     await page.goto("/");
     await waitForApp(page);
     await expect(noteCount(page)).toHaveText("0 notes");

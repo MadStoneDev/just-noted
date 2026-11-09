@@ -51,7 +51,7 @@ interface NoteCardProps {
   onNotebookClick?: (notebookId: string) => void;
 }
 
-export default function NoteCard({
+function NoteCard({
   note,
   notebooks,
   tags,
@@ -206,3 +206,22 @@ export default function NoteCard({
     </div>
   );
 }
+
+// Memoised so a store change (e.g. typing in the open note bumps that note's
+// object) only repaints the row whose data actually changed, not every row in
+// the list. The callback props are deliberately excluded from the comparison:
+// in both callers they close only over stable state setters / refs and the
+// row's own (compared) `note`, so retaining an earlier instance is safe. This
+// is the "memoise the list rows" half of B8/D13 — see the sidebar/editor
+// id-scoped selectors for the other half.
+function notePropsEqual(a: NoteCardProps, b: NoteCardProps): boolean {
+  return (
+    a.note === b.note &&
+    a.isSaving === b.isSaving &&
+    a.notebooks === b.notebooks &&
+    a.tags === b.tags &&
+    a.noteTagMap === b.noteTagMap
+  );
+}
+
+export default React.memo(NoteCard, notePropsEqual);

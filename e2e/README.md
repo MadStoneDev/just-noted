@@ -41,11 +41,12 @@ interception helper) before enabling the cloud specs.
 
 Live now:
 - [x] app shell loads (`smoke.spec.ts`)
+- [x] create / edit / reload a note — local (Redis) (`core-flows.spec.ts`)
+- [x] a new note appears in the sidebar immediately (B8/D13)
 
 To fill in (currently `test.fixme` in `core-flows.spec.ts`), verifying selectors
 against the running app:
-- [ ] create / edit / reload a note — local (Redis) and cloud (Supabase)
-- [ ] a new note appears in the sidebar immediately (B8/D13)
+- [ ] create / edit / reload a note — cloud (Supabase)
 - [ ] keyboard note switching focuses the editor (E1)
 - [ ] rail navigation closes overlays (B6)
 - [ ] account switching keeps the "Switching…" screen until loaded + no cross-account write (B7)

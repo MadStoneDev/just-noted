@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useNotesStore } from "@/stores/notes-store";
+import { useShallow } from "zustand/react/shallow";
 import { amIAdmin } from "@/app/actions/adminActions";
 import { Notebook, CoverType } from "@/types/notebook";
 import {
@@ -83,6 +84,12 @@ const RAIL_VIEW_KEY = "jn_sidebar_rail_view";
 const RAIL_VIEWS = ["notes", "notebooks", "tags", "shared"] as const;
 
 export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMoveNote, onOpenTrash, onNewNote, onOpenShared, onTogglePin, onTransferNote, activeShortcode, notificationsActive, notifUnread = 0, onOpenNotifications }: SidebarProps) {
+  // Id-scoped / shallow selector (B8/D13): subscribe to exactly the slices this
+  // component reads, compared shallowly, so a store write the sidebar doesn't
+  // care about (presence, chat unread, another note's content persist that only
+  // mutates `notes`) no longer repaints the whole list. The list rows are
+  // additionally memoised (see NoteCard), so even when `notes` does change only
+  // the row whose data changed repaints.
   const {
     sidebarOpen,
     setSidebarOpen,
@@ -108,7 +115,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
     notebooksLoading,
     setNotebooksLoading,
     addNotebook,
-    updateNotebook: updateNotebookInStore,
+    updateNotebookInStore,
     removeNotebook,
     updateNotebookCounts,
     recalculateNotebookCounts,
@@ -118,7 +125,44 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
     setNoteTagMap,
     setTagsLoading,
     filterTagIds,
-  } = useNotesStore();
+  } = useNotesStore(
+    useShallow((s) => ({
+      sidebarOpen: s.sidebarOpen,
+      setSidebarOpen: s.setSidebarOpen,
+      searchQuery: s.searchQuery,
+      setSearchQuery: s.setSearchQuery,
+      filterSource: s.filterSource,
+      setFilterSource: s.setFilterSource,
+      filterPinned: s.filterPinned,
+      setFilterPinned: s.setFilterPinned,
+      clearFilters: s.clearFilters,
+      sortBy: s.sortBy,
+      setSortBy: s.setSortBy,
+      activeNoteId: s.activeNoteId,
+      setActiveNoteId: s.setActiveNoteId,
+      getFilteredNotes: s.getFilteredNotes,
+      notes: s.notes,
+      isSaving: s.isSaving,
+      isAuthenticated: s.isAuthenticated,
+      notebooks: s.notebooks,
+      setNotebooks: s.setNotebooks,
+      activeNotebookId: s.activeNotebookId,
+      setActiveNotebookId: s.setActiveNotebookId,
+      notebooksLoading: s.notebooksLoading,
+      setNotebooksLoading: s.setNotebooksLoading,
+      addNotebook: s.addNotebook,
+      updateNotebookInStore: s.updateNotebook,
+      removeNotebook: s.removeNotebook,
+      updateNotebookCounts: s.updateNotebookCounts,
+      recalculateNotebookCounts: s.recalculateNotebookCounts,
+      tags: s.tags,
+      noteTagMap: s.noteTagMap,
+      setTags: s.setTags,
+      setNoteTagMap: s.setNoteTagMap,
+      setTagsLoading: s.setTagsLoading,
+      filterTagIds: s.filterTagIds,
+    })),
+  );
 
   const sidebarRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -136,6 +180,10 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
   const [storageInfoNoteId, setStorageInfoNoteId] = useState<string | null>(null);
 
   const [selectMode, setSelectMode] = useState(false);
+  // Mirror selectMode into a ref so the per-row open handler reads the CURRENT
+  // mode even when its memoised NoteCard was not re-rendered on the toggle.
+  const selectModeRef = useRef(selectMode);
+  selectModeRef.current = selectMode;
   const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set());
 
   // Delete confirmation
@@ -1016,7 +1064,6 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
               <ul className="flex flex-col px-1 py-1 gap-0.5">
                 {filteredNotes.map((note, noteIndex) => {
                   const isSelected = selectedNoteIds.has(note.id);
-                  const canSelect = selectMode && note.source === "supabase";
                   const isActive = activeNoteId === note.id;
                   const shortcutKey = noteIndex < 9 ? noteIndex + 1 : noteIndex === 9 ? 0 : null;
 
@@ -1110,7 +1157,10 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                           noteTagMap={noteTagMap}
                           isSaving={isSaving.has(note.id)}
                           onOpen={() => {
-                            if (selectMode && canSelect) {
+                            // Read selectMode from the ref (not the captured
+                            // render value) so a memoised row still toggles
+                            // selection when tapped in select mode.
+                            if (selectModeRef.current && note.source === "supabase") {
                               handleToggleNoteSelection(note.id);
                             } else {
                               handleNoteClick(note.id);
