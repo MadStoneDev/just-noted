@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   IconX,
   IconMessageCircle,
@@ -12,7 +12,6 @@ import {
   IconMicrophone,
   IconPlayerStopFilled,
   IconQuote,
-  IconPlus,
 } from "@tabler/icons-react";
 import { getAnchorApi, type NoteAnchor } from "@/lib/note-anchor-bridge";
 import { useNoteChat } from "@/hooks/use-note-chat";
@@ -154,15 +153,21 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
   const [pendingAnchor, setPendingAnchor] = useState<NoteAnchor | null>(null);
-  // Composer tools (quote / attach / audio) show by default, but collapse to a
-  // single "+" when the textarea is focused so the message field gets the room.
-  // The "+" re-expands them (keeping the caret in the field).
-  const [toolsExpanded, setToolsExpanded] = useState(true);
 
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
+
+  // Auto-grow the composer textarea with its content (C12). Runs on every text
+  // change — typing, submit clearing it, a quote/edit prefill — so the field
+  // tracks the content up to the CSS cap (max-h-32), then scrolls.
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [text, open, editing]);
 
   // Upload an already-processed file/blob to the private bucket, then post it.
   const uploadAndSend = async (
@@ -360,80 +365,65 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
                 </button>
               </div>
             )}
-            <div className="flex items-end gap-1.5">
+            {/* Two-row composer (C12): the message field spans the full width and
+                auto-grows; the action buttons live on their own row below it, so
+                the tools never squeeze the field and don't need to collapse. */}
+            <textarea
+              ref={inputRef}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={onKeyDown}
+              rows={1}
+              disabled={uploading || recording}
+              placeholder={uploading ? "Uploading…" : recording ? "Recording…" : "Message…"}
+              className="block w-full resize-none max-h-32 overflow-y-auto px-3 py-2 text-[13px] bg-[var(--color-raised-soft)] rounded-[var(--radius-md)] border border-transparent focus:border-[var(--color-accent)] focus:bg-[var(--color-raised)] focus:outline-none text-[var(--color-ink-1)] placeholder:text-[var(--color-ink-5)] disabled:opacity-60 transition-colors"
+            />
+            {!editing && (
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className="hidden"
+                onChange={onPickFile}
+              />
+            )}
+            <div className="mt-1.5 flex items-center gap-1.5">
               {!editing && (
                 <>
-                  {/* Collapsed: a single "+" that reopens the tools without
-                      stealing the caret from the field. */}
-                  {!toolsExpanded && (
-                    <button
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => setToolsExpanded(true)}
-                      disabled={uploading || recording}
-                      aria-label="Show message tools"
-                      aria-expanded={false}
-                      title="More"
-                      className="shrink-0 w-9 h-9 flex items-center justify-center rounded-[var(--radius-md)] text-[var(--color-ink-4)] hover:text-[var(--color-ink-1)] hover:bg-[var(--color-raised-soft)] transition-colors disabled:opacity-40"
-                    >
-                      <IconPlus size={18} />
-                    </button>
-                  )}
-                  {toolsExpanded && (
-                    <>
-                      <button
-                        onClick={quoteSelection}
-                        disabled={uploading || recording}
-                        aria-label="Quote selected text from the note"
-                        title="Quote selected text from the note"
-                        className="shrink-0 w-9 h-9 flex items-center justify-center rounded-[var(--radius-md)] text-[var(--color-ink-4)] hover:text-[var(--color-ink-1)] hover:bg-[var(--color-raised-soft)] transition-colors disabled:opacity-40"
-                      >
-                        <IconQuote size={17} />
-                      </button>
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploading || recording}
-                        aria-label="Attach a photo or GIF"
-                        title="Attach a photo or GIF"
-                        className="shrink-0 w-9 h-9 flex items-center justify-center rounded-[var(--radius-md)] text-[var(--color-ink-4)] hover:text-[var(--color-ink-1)] hover:bg-[var(--color-raised-soft)] transition-colors disabled:opacity-40"
-                      >
-                        <IconPaperclip size={17} />
-                      </button>
-                      <button
-                        onClick={recording ? stopRecording : startRecording}
-                        disabled={uploading}
-                        aria-label={recording ? "Stop recording" : "Record audio"}
-                        title={recording ? "Stop recording" : "Record audio"}
-                        className={`shrink-0 w-9 h-9 flex items-center justify-center rounded-[var(--radius-md)] transition-colors disabled:opacity-40 ${
-                          recording
-                            ? "text-[var(--color-danger-strong)] bg-[var(--color-raised-soft)]"
-                            : "text-[var(--color-ink-4)] hover:text-[var(--color-ink-1)] hover:bg-[var(--color-raised-soft)]"
-                        }`}
-                      >
-                        {recording ? <IconPlayerStopFilled size={15} /> : <IconMicrophone size={17} />}
-                      </button>
-                    </>
-                  )}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,image/gif"
-                    className="hidden"
-                    onChange={onPickFile}
-                  />
+                  <button
+                    onClick={quoteSelection}
+                    disabled={uploading || recording}
+                    aria-label="Quote selected text from the note"
+                    title="Quote selected text from the note"
+                    className="shrink-0 w-9 h-9 flex items-center justify-center rounded-[var(--radius-md)] text-[var(--color-ink-4)] hover:text-[var(--color-ink-1)] hover:bg-[var(--color-raised-soft)] transition-colors disabled:opacity-40"
+                  >
+                    <IconQuote size={17} />
+                  </button>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading || recording}
+                    aria-label="Attach a photo or GIF"
+                    title="Attach a photo or GIF"
+                    className="shrink-0 w-9 h-9 flex items-center justify-center rounded-[var(--radius-md)] text-[var(--color-ink-4)] hover:text-[var(--color-ink-1)] hover:bg-[var(--color-raised-soft)] transition-colors disabled:opacity-40"
+                  >
+                    <IconPaperclip size={17} />
+                  </button>
+                  <button
+                    onClick={recording ? stopRecording : startRecording}
+                    disabled={uploading}
+                    aria-label={recording ? "Stop recording" : "Record audio"}
+                    title={recording ? "Stop recording" : "Record audio"}
+                    className={`shrink-0 w-9 h-9 flex items-center justify-center rounded-[var(--radius-md)] transition-colors disabled:opacity-40 ${
+                      recording
+                        ? "text-[var(--color-danger-strong)] bg-[var(--color-raised-soft)]"
+                        : "text-[var(--color-ink-4)] hover:text-[var(--color-ink-1)] hover:bg-[var(--color-raised-soft)]"
+                    }`}
+                  >
+                    {recording ? <IconPlayerStopFilled size={15} /> : <IconMicrophone size={17} />}
+                  </button>
                 </>
               )}
-              <textarea
-                ref={inputRef}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={onKeyDown}
-                onFocus={() => setToolsExpanded(false)}
-                onBlur={() => setToolsExpanded(true)}
-                rows={1}
-                disabled={uploading || recording}
-                placeholder={uploading ? "Uploading…" : recording ? "Recording…" : "Message…"}
-                className="flex-1 resize-none max-h-32 px-3 py-2 text-[13px] bg-[var(--color-raised-soft)] rounded-[var(--radius-md)] border border-transparent focus:border-[var(--color-accent)] focus:bg-[var(--color-raised)] focus:outline-none text-[var(--color-ink-1)] placeholder:text-[var(--color-ink-5)] disabled:opacity-60 transition-all"
-              />
+              <div className="flex-1" />
               <button
                 onClick={submit}
                 disabled={!text.trim() || sending || uploading || recording}
