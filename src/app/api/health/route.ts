@@ -51,6 +51,19 @@ async function r2WriteCheck(): Promise<string> {
   }
 }
 
+// The R2 write probe does a real put+delete, so cache it briefly: frequent
+// uptime polls shouldn't hammer the bucket. ~60s is well within a monitor's
+// cadence, and the cache is per-process so a restart re-probes immediately.
+let _r2Cache: { at: number; result: string } | null = null;
+const R2_CACHE_MS = 60_000;
+async function cachedR2WriteCheck(): Promise<string> {
+  const now = Date.now();
+  if (_r2Cache && now - _r2Cache.at < R2_CACHE_MS) return _r2Cache.result;
+  const result = await r2WriteCheck();
+  _r2Cache = { at: now, result };
+  return result;
+}
+
 // Run one check with a hard timeout. Returns exactly one of:
 //   "ok" | "timeout" | "error <status>" | "error"
 // Nothing derived from the URL, headers, response body, or exception is ever
@@ -104,13 +117,15 @@ export async function GET() {
       ? check(dbUrl, { apikey: anonKey, Authorization: `Bearer ${anonKey}` })
       : Promise.resolve("error");
 
-  const [siteR, authR, dbR, r2R] = await Promise.all([site, auth, db, r2WriteCheck()]);
-  const ok = siteR === "ok" && authR === "ok" && dbR === "ok" && r2R === "ok";
+  const [siteR, authR, dbR, r2R] = await Promise.all([site, auth, db, cachedR2WriteCheck()]);
+  // Core = what's needed to serve the app (site/auth/db). R2 is non-critical to
+  // serving pages, so a non-writable bucket is "degraded" (still 200) rather
+  // than "fail" — monitors page on 503 only when the core is actually down.
+  const coreOk = siteR === "ok" && authR === "ok" && dbR === "ok";
+  const status = !coreOk ? "fail" : r2R === "ok" ? "ok" : "degraded";
 
   return NextResponse.json(
-    ok
-      ? { status: "ok", site: siteR, auth: authR, db: dbR, r2: r2R }
-      : { status: "fail", site: siteR, auth: authR, db: dbR, r2: r2R },
-    { status: ok ? 200 : 503, headers: { "Cache-Control": "no-store" } },
+    { status, site: siteR, auth: authR, db: dbR, r2: r2R },
+    { status: coreOk ? 200 : 503, headers: { "Cache-Control": "no-store" } },
   );
 }
