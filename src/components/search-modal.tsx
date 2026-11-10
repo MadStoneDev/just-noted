@@ -100,7 +100,7 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[15vh]">
+    <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[15vh]" role="dialog" aria-modal="true" aria-label="Search notes">
       <div className="absolute inset-0 bg-[var(--color-bg-overlay)]" onClick={onClose} />
       <div className="relative w-full max-w-lg mx-4 bg-[var(--color-bg-elevated)] rounded-[var(--radius-xl)] shadow-[var(--shadow-modal)] border border-[var(--color-border-secondary)] overflow-hidden animate-scale-in">
         {/* Search input */}

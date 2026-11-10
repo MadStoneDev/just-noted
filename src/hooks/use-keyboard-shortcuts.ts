@@ -3,6 +3,7 @@
 
 import { useEffect, useCallback, useRef } from "react";
 import { useNotesStore } from "@/stores/notes-store";
+import { decideNoteSwitch, readNoteSwitchContext } from "@/utils/note-switch-focus";
 
 interface KeyboardShortcutsOptions {
   onNewNote?: () => void;
@@ -43,34 +44,41 @@ export function useKeyboardShortcuts({
         }
       }
 
-      // Ctrl/Cmd + Alt + key — note switching
-      if (isCtrlOrCmd && e.altKey) {
-        const { getFilteredNotes, activeNoteId, setActiveNoteId } = useNotesStore.getState();
+      // Ctrl/Cmd + Alt + key — note switching (E1). The target note's editor
+      // takes focus with the caret at the end so typing works at once; see
+      // utils/note-switch-focus for when the shortcut stands aside.
+      const isDigit = /^\d$/.test(e.key);
+      const isArrow = e.key === "ArrowUp" || e.key === "ArrowDown";
+      if (isCtrlOrCmd && e.altKey && !e.shiftKey && (isDigit || isArrow)) {
+        const decision = decideNoteSwitch(readNoteSwitchContext());
+        if (!decision.handle) return; // a modal owns the keyboard
+        e.preventDefault();
+
+        const { getFilteredNotes, activeNoteId, setActiveNoteId, requestEditorFocus } =
+          useNotesStore.getState();
         const visibleNotes = getFilteredNotes();
 
-        // Ctrl/Cmd + Alt + 1-9,0 — jump to note by position (0 = 10th)
-        const digitMatch = e.key.match(/^(\d)$/);
-        if (digitMatch) {
-          e.preventDefault();
-          const digit = parseInt(digitMatch[1]);
-          const index = digit === 0 ? 9 : digit - 1;
-          if (index < visibleNotes.length) {
-            setActiveNoteId(visibleNotes[index].id);
-          }
-          return;
-        }
-
-        // Ctrl/Cmd + Alt + Up/Down — prev/next note
-        if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-          e.preventDefault();
+        let targetId: string | undefined;
+        if (isDigit) {
+          // Ctrl/Cmd + Alt + 1-9,0 — jump to note by position (0 = 10th)
+          const digit = parseInt(e.key, 10);
+          targetId = visibleNotes[digit === 0 ? 9 : digit - 1]?.id;
+        } else {
+          // Ctrl/Cmd + Alt + Up/Down — prev/next note (clamped at the ends)
           const currentIndex = visibleNotes.findIndex((n) => n.id === activeNoteId);
           if (currentIndex === -1) return;
           const nextIndex = e.key === "ArrowUp"
             ? Math.max(0, currentIndex - 1)
             : Math.min(visibleNotes.length - 1, currentIndex + 1);
-          setActiveNoteId(visibleNotes[nextIndex].id);
-          return;
+          targetId = visibleNotes[nextIndex].id;
         }
+        if (!targetId) return;
+
+        if (targetId !== activeNoteId) setActiveNoteId(targetId);
+        // Also when the target is already open (clamped at an end): the user
+        // asked to be in that note, so pull focus in from e.g. the sidebar.
+        if (decision.focusEditor) requestEditorFocus(targetId);
+        return;
       }
 
       // Ctrl/Cmd + key shortcuts (work even when typing)

@@ -1117,6 +1117,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                     >
                     <div
                       data-note-card={note.id}
+                      data-active={isActive ? "true" : undefined}
                       className={`group/note relative w-full px-2.5 py-3 md:px-2 md:py-2 text-left transition-colors duration-[var(--duration-fast)] rounded-[var(--radius-8)] border ${
                         draggedNoteId === note.id ? "opacity-40" : ""
                       } ${

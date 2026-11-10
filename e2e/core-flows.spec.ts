@@ -85,7 +85,129 @@ test.describe("notes — local (Redis, anonymous)", () => {
     await createFirstNote(page);
     await expect(noteCount(page)).toHaveText("1 note");
   });
+
+  // E1 acceptance: keyboard note switching lands in the target note's editor with
+  // the caret at the end, ready to type — and opening it is NOT an edit (no
+  // "Saving…", per "open never edits"). The target ends in a list on purpose:
+  // that's the shape where Milkdown's trailing-paragraph plugin could turn a
+  // caret placement into a doc change.
+  test("keyboard switch focuses the editor at the end, without an edit (E1)", async ({ page }) => {
+    await page.goto("/");
+    await waitForApp(page);
+
+    // Note A — ends in a bullet list.
+    await createFirstNote(page);
+    const aId = await activeCardId(page);
+    await page.keyboard.type("- alpha item");
+    await expect(page.locator(`[data-note-card="${aId}"]`)).toContainText("alpha item");
+
+    // Note B — plain paragraph; focus ends up in B's editor.
+    await page.keyboard.press("Control+j");
+    await expect(noteCount(page)).toHaveText("2 notes");
+    const bId = await activeCardId(page);
+    await page.keyboard.type("bravo paragraph");
+    await expect(page.locator(`[data-note-card="${bId}"]`)).toContainText("bravo paragraph");
+    await page.waitForTimeout(2500); // let B's cloud debounce settle first
+
+    // Watch the editor's status for any "Saving…" from here on.
+    await page.evaluate(() => {
+      (window as any).__sawSaving = false;
+      new MutationObserver(() => {
+        if (/Saving/.test(document.getElementById("main-content")?.textContent ?? "")) {
+          (window as any).__sawSaving = true;
+        }
+      }).observe(document.body, { subtree: true, childList: true, characterData: true });
+    });
+
+    // Jump to A by its sidebar position (Ctrl+Alt+N).
+    const ids = await page.locator(NOTE_ROW).evaluateAll((els) =>
+      els.map((e) => e.getAttribute("data-note-card")),
+    );
+    await page.keyboard.press(`Control+Alt+${ids.indexOf(aId) + 1}`);
+    await expect(editor(page)).toContainText("alpha item");
+    expect(await activeCardId(page)).toBe(aId);
+
+    // Focus is in the editor body…
+    await expect
+      .poll(() => page.evaluate(() => !!document.activeElement?.closest(".ProseMirror")))
+      .toBe(true);
+    // …and opening it was not an edit.
+    await page.waitForTimeout(2500);
+    expect(await page.evaluate(() => (window as any).__sawSaving)).toBe(false);
+
+    // Caret at the end: typing appends to the last list item straight away.
+    await page.keyboard.type(" end");
+    await expect(editor(page).locator("li").last()).toHaveText("alpha item end");
+  });
+
+  // Data-loss regression: the editor debounces change emission (~300ms across
+  // Milkdown's listener + LazyTextBlock). Leaving a note inside that window —
+  // here Ctrl+J straight after typing — used to drop the last keystrokes (a
+  // freshly-typed note came back "Empty note"). The unmount path now flushes.
+  test("text typed just before leaving a note is kept (fast Ctrl+J)", async ({ page }) => {
+    await page.goto("/");
+    await waitForApp(page);
+    await createFirstNote(page);
+    const aId = await activeCardId(page);
+    await page.keyboard.type("quick words");
+    await page.keyboard.press("Control+j"); // no wait — inside the debounce window
+    await expect(noteCount(page)).toHaveText("2 notes");
+    await expect(page.locator(`[data-note-card="${aId}"]`)).toContainText("quick words");
+
+    await page.waitForTimeout(3000); // let the save land
+    await page.reload();
+    await waitForApp(page);
+    await expect(page.locator(`[data-note-card="${aId}"]`)).toContainText("quick words", {
+      timeout: 20_000,
+    });
+  });
+
+  // Regression: a background refresh used to filter empty "New Note #N" notes
+  // out of the store, so a just-created note vanished (and its editor closed)
+  // when the poll landed. It must survive the 12s visible-tab refresh.
+  test("an empty new note survives a background refresh", async ({ page }) => {
+    test.slow();
+    await page.goto("/");
+    await waitForApp(page);
+    await createFirstNote(page);
+    const id = await activeCardId(page);
+    await page.waitForTimeout(15_000); // > VISIBLE_REFRESH_INTERVAL (12s)
+    await expect(noteCount(page)).toHaveText("1 note");
+    expect(await activeCardId(page)).toBe(id);
+    await expect(editor(page)).toBeVisible();
+  });
+
+  // E1: the shortcut must not steal focus from an open overlay (search modal).
+  test("keyboard switch stands aside while search is open (E1)", async ({ page }) => {
+    await page.goto("/");
+    await waitForApp(page);
+    await createFirstNote(page);
+    await page.keyboard.type("one");
+    await page.keyboard.press("Control+j");
+    await expect(noteCount(page)).toHaveText("2 notes");
+    const before = await activeCardId(page);
+
+    await page.keyboard.press("Control+k");
+    const search = page.getByRole("dialog", { name: "Search notes" });
+    await expect(search).toBeVisible();
+    const input = search.locator("input").first();
+    await expect(input).toBeFocused();
+
+    await page.keyboard.press("Control+Alt+ArrowDown");
+    await page.keyboard.press("Control+Alt+2");
+    await expect(search).toBeVisible();
+    await expect(input).toBeFocused();
+    expect(await activeCardId(page)).toBe(before);
+  });
 });
+
+// The id of the sidebar card for the open note (marked data-active="true").
+async function activeCardId(page: Page): Promise<string | null> {
+  return page.evaluate(() => {
+    const el = document.querySelector('[data-note-card][data-active="true"]');
+    return el?.getAttribute("data-note-card") ?? null;
+  });
+}
 
 test.describe("notes — cloud (Supabase, signed-in)", () => {
   test.skip(seededAccounts().length < 1, "needs E2E_ACCOUNTS (see fixtures/auth.ts)");

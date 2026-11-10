@@ -276,8 +276,11 @@ export function useNotesSync() {
         freshNotes.push(...existingNotes.filter((n) => n.source === "supabase"));
       }
 
-      // Filter out empty default notes that shouldn't exist
-      const cleanedNotes = freshNotes.filter((n) => !isEmptyDefaultNote(n));
+      // Empty "New Note #N" notes are NOT filtered here any more: a refresh that
+      // landed seconds after a create dropped the brand-new note from the store
+      // (closing its editor mid-session). An empty starter note persisting is
+      // fine; a note vanishing under the user is not (see never-auto-delete).
+      const cleanedNotes = freshNotes;
 
       const normalisedNotes = normaliseOrdering(cleanedNotes);
       const sortedNotes = sortNotes(normalisedNotes, null);

@@ -69,7 +69,7 @@ export default function HelpModal() {
   ];
 
   return createPortal(
-    <div className="fixed inset-0 z-[9500] flex items-start justify-center px-4 pt-[12vh]">
+    <div className="fixed inset-0 z-[9500] flex items-start justify-center px-4 pt-[12vh]" role="dialog" aria-modal="true" aria-label="Help">
       <div className="absolute inset-0 bg-[var(--color-bg-overlay)]" onClick={() => setOpen(false)} />
       <div className="relative w-full max-w-[440px] max-h-[70vh] flex flex-col bg-[var(--color-panel-alt)] border border-[var(--color-hairline)] rounded-[16px] shadow-[0_24px_60px_rgba(0,0,0,.45)] overflow-hidden">
         {/* Header */}

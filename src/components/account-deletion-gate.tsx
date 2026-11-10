@@ -36,7 +36,7 @@ export default function AccountDeletionGate() {
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[var(--color-canvas)] px-6">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[var(--color-canvas)] px-6" role="dialog" aria-modal="true" aria-label="Account scheduled for deletion">
       <div className="max-w-sm w-full text-center">
         <h1 className="font-[family-name:var(--font-editor)] text-[26px] leading-tight font-medium text-[var(--color-ink)]">
           Account scheduled for deletion

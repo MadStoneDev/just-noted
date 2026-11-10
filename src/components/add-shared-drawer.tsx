@@ -57,6 +57,8 @@ export default function AddSharedDrawer({ open, onClose, onAdded }: AddSharedDra
     <div
       className={`fixed inset-0 z-[60] flex items-end justify-center ${open ? "" : "pointer-events-none"}`}
       aria-hidden={!open}
+      role={open ? "dialog" : undefined}
+      aria-modal={open ? true : undefined}
     >
       <div
         className={`absolute inset-0 bg-[var(--color-bg-overlay)] transition-opacity duration-[var(--duration-normal)] ${

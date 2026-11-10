@@ -82,6 +82,7 @@ export function MobileAccountDrawer({ open, onClose }: { open: boolean; onClose:
       {/* Sheet */}
       <div
         role="dialog"
+        aria-modal={open ? true : undefined}
         aria-label="Account"
         className={`fixed inset-x-0 bottom-0 z-[9601] lg:hidden bg-[var(--color-panel-alt)] border-t border-[var(--color-hairline)] rounded-t-[var(--radius-xl)] shadow-[0_-16px_40px_rgba(0,0,0,.35)] transition-transform duration-[var(--duration-slow)] ${
           open ? "translate-y-0" : "translate-y-full"

@@ -31,6 +31,10 @@ interface NotesStore {
   hasServerSynced: boolean;
   animating: boolean;
   newNoteId: string | null;
+  // One-shot request to focus a note's editor body (caret at end) once it
+  // mounts — set by keyboard note switching (E1). The nonce lets a repeat
+  // request for the same note re-fire. Focus only: it never touches content.
+  editorFocusRequest: { noteId: string; nonce: number } | null;
   isReorderingInProgress: boolean;
   transferringNoteId: string | null;
   lastUpdateTimestamp: number;
@@ -87,6 +91,8 @@ interface NotesStore {
   setServerSynced: (synced: boolean) => void;
   setAnimating: (animating: boolean) => void;
   setNewNoteId: (id: string | null) => void;
+  requestEditorFocus: (noteId: string) => void;
+  clearEditorFocusRequest: (nonce: number) => void;
   setReordering: (reordering: boolean) => void;
   setTransferring: (id: string | null) => void;
   markUpdated: () => void;
@@ -172,6 +178,7 @@ export const useNotesStore = create<NotesStore>()(
     hasServerSynced: false,
     animating: false,
     newNoteId: null,
+    editorFocusRequest: null,
     isReorderingInProgress: false,
     transferringNoteId: null,
     lastUpdateTimestamp: Date.now(),
@@ -247,6 +254,15 @@ export const useNotesStore = create<NotesStore>()(
     setServerSynced: (hasServerSynced) => set({ hasServerSynced }),
     setAnimating: (animating) => set({ animating }),
     setNewNoteId: (newNoteId) => set({ newNoteId }),
+    requestEditorFocus: (noteId) =>
+      set((s) => ({
+        editorFocusRequest: { noteId, nonce: (s.editorFocusRequest?.nonce ?? 0) + 1 },
+      })),
+    // Only clear the request we handled — a newer one may have arrived since.
+    clearEditorFocusRequest: (nonce) =>
+      set((s) =>
+        s.editorFocusRequest?.nonce === nonce ? { editorFocusRequest: null } : {},
+      ),
     setReordering: (isReorderingInProgress) => set({ isReorderingInProgress }),
     setTransferring: (transferringNoteId) => set({ transferringNoteId }),
     markUpdated: () => set({ lastUpdateTimestamp: Date.now() }),

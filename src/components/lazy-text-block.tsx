@@ -26,6 +26,8 @@ interface Props {
   className?: string;
   isCollapsed?: boolean;
   readOnly?: boolean;
+  /** Filled with a synchronous flush of any pending (debounced) change. */
+  flushRef?: React.MutableRefObject<(() => void) | null>;
   [key: string]: any;
 }
 
@@ -82,12 +84,14 @@ export default function LazyTextBlock({
   toolbarContainer,
   readOnly = false,
   collab,
+  flushRef,
 }: Props) {
   const [localValue, setLocalValue] = useState(value);
   const [localFormat, setLocalFormat] = useState<ContentFormat>(contentFormat);
   const [hasBeenExpanded, setHasBeenExpanded] = useState(!isCollapsed);
 
   const changeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingValueRef = useRef<string | null>(null); // change held by the 100ms debounce
   const lastExternalValueRef = useRef(value);
   const isInternalChangeRef = useRef(false);
   const onChangeRef = useRef(onChange);
@@ -123,11 +127,38 @@ export default function LazyTextBlock({
       clearTimeout(changeTimeoutRef.current);
     }
 
+    pendingValueRef.current = newContent;
     changeTimeoutRef.current = setTimeout(() => {
+      changeTimeoutRef.current = null;
+      pendingValueRef.current = null;
       onChangeRef.current?.(newContent);
       isInternalChangeRef.current = false;
     }, 100);
   }, []);
+
+  // Synchronous flush for the parent (see MilkdownEditor's flushRef): pull any
+  // change the editor's debounce still holds, then deliver our own pending
+  // 100ms change now instead of letting an unmount drop it.
+  const editorFlushRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    if (!flushRef) return;
+    flushRef.current = () => {
+      editorFlushRef.current?.();
+      if (changeTimeoutRef.current) {
+        clearTimeout(changeTimeoutRef.current);
+        changeTimeoutRef.current = null;
+      }
+      const pending = pendingValueRef.current;
+      pendingValueRef.current = null;
+      if (pending !== null) {
+        onChangeRef.current?.(pending);
+        isInternalChangeRef.current = false;
+      }
+    };
+    return () => {
+      flushRef.current = null;
+    };
+  }, [flushRef]);
 
   useEffect(() => {
     if (isEditing || isInternalChangeRef.current) return;
@@ -179,6 +210,7 @@ export default function LazyTextBlock({
           toolbarContainer={toolbarContainer}
           readOnly={readOnly}
           collab={collab}
+          flushRef={editorFlushRef}
         />
       </Suspense>
     </div>

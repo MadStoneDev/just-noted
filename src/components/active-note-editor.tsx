@@ -14,6 +14,7 @@ import { useNotesStore, useNotebooks, useNoteById } from "@/stores/notes-store";
 import { useAutoSave } from "@/hooks/use-auto-save";
 import { saveNoteToLocal } from "@/utils/notes-idb-cache";
 import { decideEditorChange } from "@/utils/editor-save-decision";
+import { decideNoteSwitch, readNoteSwitchContext } from "@/utils/note-switch-focus";
 import { useNoteStatistics } from "@/hooks/use-note-statistics";
 import { CombinedNote } from "@/types/combined-notes";
 import { NotesOperations } from "@/hooks/use-notes-operations";
@@ -689,7 +690,16 @@ export function NoteEditor({
     [note.id, goalTarget, goalType, notesOperations],
   );
 
-  const { debouncedSave, flushSave } = useAutoSave(content, saveContent);
+  // The editor's synchronous flush (LazyTextBlock → Milkdown). Run before every
+  // save-on-leave so keystrokes still inside the editor's ~300ms of change
+  // debouncing reach handleContentChange instead of dying with the editor.
+  const editorFlushRef = useRef<(() => void) | null>(null);
+  const { debouncedSave, flushSave, setLatestContent } = useAutoSave(
+    content,
+    saveContent,
+    undefined,
+    { onBeforeFlush: () => editorFlushRef.current?.() },
+  );
   flushSaveRef.current = flushSave;
 
   useEffect(() => {
@@ -754,6 +764,8 @@ export function NoteEditor({
 
       setContent(value);
       setContentFormat("markdown");
+      // Synchronously too: during an unmount flush there is no next render.
+      setLatestContent(value);
 
       // Classify the emission: the editor's load re-serialisation (adopt as the
       // clean baseline, never save) vs a real edit (persist). This is the ONE
@@ -781,7 +793,7 @@ export function NoteEditor({
       persistLocal(value);
       debouncedSave();
     },
-    [note.id, debouncedSave, persistLocal],
+    [note.id, debouncedSave, persistLocal, setLatestContent],
   );
 
   // When the hydration lock releases, pull the freshest reconciled content in
@@ -845,25 +857,43 @@ export function NoteEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.content, note.version]);
 
-  // Focus the editor body as soon as a freshly-created note opens. Without this
-  // the cursor never enters the note: keystrokes are lost (a guest's first words
-  // vanish) and, worse, focus stays on the "New note" button so Space/Enter
-  // re-fire it and spawn a run of empty notes. We wait for the lazy Milkdown
-  // editor to mount, then focus its contenteditable and drop the caret at the end.
+  // Focus the editor body (caret at the end) when:
+  //  - a freshly-created note opens. Without this the cursor never enters the
+  //    note: keystrokes are lost (a guest's first words vanish) and, worse,
+  //    focus stays on the "New note" button so Space/Enter re-fire it and spawn
+  //    a run of empty notes.
+  //  - keyboard note switching asked for it (E1: editorFocusRequest), so the
+  //    user can type straight away.
+  // We wait for the lazy Milkdown editor to mount, then focus its contenteditable.
+  // Focus + selection only — content is never touched, so opening stays a
+  // non-edit (see decideEditorChange).
   const newNoteId = useNotesStore((s) => s.newNoteId);
+  const focusRequest = useNotesStore((s) =>
+    s.editorFocusRequest?.noteId === note.id ? s.editorFocusRequest : null,
+  );
   const focusedNewNoteRef = useRef<string | null>(null);
   useEffect(() => {
     if (isHydrating || viewMode !== "rendered") return;
-    if (note.id !== newNoteId) return;
-    if (focusedNewNoteRef.current === note.id) return;
+    const forNewNote = note.id === newNoteId && focusedNewNoteRef.current !== note.id;
+    if (!forNewNote && !focusRequest) return;
     let cancelled = false;
     let tries = 0;
+    const done = () => {
+      if (forNewNote) focusedNewNoteRef.current = note.id;
+      if (focusRequest) useNotesStore.getState().clearEditorFocusRequest(focusRequest.nonce);
+    };
     const tryFocus = () => {
       if (cancelled) return;
+      // A switch request can wait out the mount/hydration; if a modal opened
+      // or the user moved into another text field meanwhile, don't steal focus.
+      if (focusRequest && !forNewNote && !decideNoteSwitch(readNoteSwitchContext()).focusEditor) {
+        done();
+        return;
+      }
       const host = scrollRef?.current;
       const el = host?.querySelector<HTMLElement>('.ProseMirror, [contenteditable="true"]');
       if (el) {
-        focusedNewNoteRef.current = note.id;
+        done();
         el.focus();
         const sel = window.getSelection();
         if (sel) {
@@ -876,10 +906,11 @@ export function NoteEditor({
         return;
       }
       if (tries++ < 30) requestAnimationFrame(tryFocus);
+      else done();
     };
     requestAnimationFrame(tryFocus);
     return () => { cancelled = true; };
-  }, [note.id, newNoteId, isHydrating, viewMode, scrollRef, editorRemountKey]);
+  }, [note.id, newNoteId, focusRequest, isHydrating, viewMode, scrollRef, editorRemountKey]);
 
   const handleTitleBlur = useCallback(() => {
     if (title !== note.title) {
@@ -1683,6 +1714,7 @@ export function NoteEditor({
                 contentFormat={contentFormat}
                 onChange={handleContentChange}
                 onReady={handleEditorReady}
+                flushRef={editorFlushRef}
                 readOnly={locked}
                 distractionFreeMode
                 placeholder="Start writing..."

@@ -2,7 +2,7 @@
 
 import React, { useRef, useMemo, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Editor, rootCtx, defaultValueCtx, remarkStringifyOptionsCtx, editorViewCtx, editorViewOptionsCtx, parserCtx } from "@milkdown/core";
+import { Editor, rootCtx, defaultValueCtx, remarkStringifyOptionsCtx, editorViewCtx, editorViewOptionsCtx, parserCtx, serializerCtx } from "@milkdown/core";
 import { collab, collabServiceCtx } from "@milkdown/plugin-collab";
 import * as Y from "yjs";
 import { collabDocIsBlank } from "@/utils/collab-doc";
@@ -20,7 +20,7 @@ import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import { $prose } from "@milkdown/utils";
 import { keymap } from "@milkdown/prose/keymap";
 import { Plugin, PluginKey, TextSelection } from "@milkdown/prose/state";
-import { Slice } from "@milkdown/prose/model";
+import { Slice, type Node as ProseNode } from "@milkdown/prose/model";
 import {
   ySyncPluginKey,
   absolutePositionToRelativePosition,
@@ -215,6 +215,13 @@ interface MilkdownEditorProps {
   onChange?: (markdown: string) => void;
   /** Fires once when the editor view is mounted — used to time the load window. */
   onReady?: () => void;
+  /**
+   * Filled with a function that emits any not-yet-reported change through
+   * onChange SYNCHRONOUSLY. The listener plugin debounces markdownUpdated by
+   * 200ms, so without this the last keystrokes before an unmount (note switch,
+   * new note, tab close) fired into a destroyed editor and were lost.
+   */
+  flushRef?: React.MutableRefObject<(() => void) | null>;
   onFocus?: () => void;
   onBlur?: () => void;
   placeholder?: string;
@@ -302,6 +309,21 @@ function stripEmptyParagraphBreaks(md: string): string {
     .replace(/\n{3,}/g, "\n\n");
 }
 
+// Records the loaded doc when the view mounts, as the baseline a synchronous
+// flush compares against (so an untouched note never flushes a "change").
+function seedEmittedDoc(ref: React.MutableRefObject<ProseNode | null>) {
+  return $prose(
+    () =>
+      new Plugin({
+        key: new PluginKey("JN_SEED_EMITTED_DOC"),
+        view: (view) => {
+          if (!ref.current) ref.current = view.state.doc;
+          return {};
+        },
+      }),
+  );
+}
+
 function MilkdownEditorInner({
   content,
   contentFormat,
@@ -314,8 +336,12 @@ function MilkdownEditorInner({
   className,
   toolbarContainer,
   collab: collabConfig,
+  flushRef,
 }: MilkdownEditorProps) {
   const collabEnabled = !!collabConfig;
+  // The doc as of the last change we reported via onChange (seeded with the
+  // loaded doc when the view mounts). A flush only emits if the live doc differs.
+  const emittedDocRef = useRef<ProseNode | null>(null);
   const onChangeRef = useRef(onChange);
   const onReadyRef = useRef(onReady);
   const onFocusRef = useRef(onFocus);
@@ -362,8 +388,14 @@ function MilkdownEditorInner({
         });
 
         ctx.get(listenerCtx)
-          .markdownUpdated((_ctx, markdown, prevMarkdown) => {
+          .markdownUpdated((lctx, markdown, prevMarkdown) => {
             if (markdown === prevMarkdown) return;
+            // Already reported by a synchronous flush — don't emit it twice.
+            try {
+              const doc = lctx.get(editorViewCtx).state.doc;
+              if (emittedDocRef.current?.eq(doc)) return;
+              emittedDocRef.current = doc;
+            } catch {}
             // Normalise away the preset's empty-paragraph <br /> before the
             // markdown is stored, exported or shared.
             onChangeRef.current?.(stripEmptyParagraphBreaks(markdown));
@@ -387,8 +419,34 @@ function MilkdownEditorInner({
       .use(cursor)
       .use(codeBlockEscape)
       .use(inputRuleUndo)
+      .use(seedEmittedDoc(emittedDocRef))
       .use(collabEnabled ? collab : []);
   }, []);
+
+  // Synchronous flush of a change the debounced listener hasn't reported yet.
+  // Callers run this before saving on unmount / pagehide / explicit flush.
+  // Not in collab mode: there the Yjs doc is the source of truth with its own
+  // persistence, and remote updates (addToHistory=false, which the listener
+  // deliberately ignores) would otherwise be flushed as if they were local edits.
+  useEffect(() => {
+    if (!flushRef || collabEnabled) return;
+    flushRef.current = () => {
+      try {
+        get()?.action((ctx) => {
+          const doc = ctx.get(editorViewCtx).state.doc;
+          if (!emittedDocRef.current || emittedDocRef.current.eq(doc)) return;
+          emittedDocRef.current = doc;
+          const markdown = ctx.get(serializerCtx)(doc);
+          onChangeRef.current?.(stripEmptyParagraphBreaks(markdown));
+        });
+      } catch {
+        // Editor not created yet / already destroyed — nothing to flush.
+      }
+    };
+    return () => {
+      flushRef.current = null;
+    };
+  }, [flushRef, get, collabEnabled]);
 
   // ProseMirror caches `editable` — re-apply it when readOnly changes so the
   // main editor un-locks after hydration and a read-only view stays locked.

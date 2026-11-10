@@ -5,7 +5,24 @@ export function useAutoSave(
   noteContent: string,
   saveFunction: (content: string, isManual?: boolean) => Promise<boolean | void>,
   delay: number = DEBOUNCE_DELAY,
+  options: {
+    /**
+     * Run synchronously before any save-on-leave (flushSave, beforeunload,
+     * unmount) so upstream debounces (the editor's change emission) deliver
+     * their latest value first — via setLatestContent — instead of being lost.
+     */
+    onBeforeFlush?: () => void;
+  } = {},
 ) {
+  const onBeforeFlushRef = useRef(options.onBeforeFlush);
+  onBeforeFlushRef.current = options.onBeforeFlush;
+  const runBeforeFlush = () => {
+    try {
+      onBeforeFlushRef.current?.();
+    } catch (error) {
+      console.error("Auto-save pre-flush failed:", error);
+    }
+  };
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const latestContentRef = useRef(noteContent);
   const lastSavedContentRef = useRef(noteContent);
@@ -99,6 +116,7 @@ export function useAutoSave(
   }, [executeSave, delay]);
 
   const flushSave = useCallback(async () => {
+    runBeforeFlush();
     // Cancel pending auto-save
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -156,6 +174,7 @@ export function useAutoSave(
     };
 
     const handleBeforeUnload = () => {
+      runBeforeFlush();
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
@@ -167,6 +186,9 @@ export function useAutoSave(
 
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
+      // Runs before the editor's own cleanup (ancestor effects unmount first),
+      // so the editor is still alive to hand over its last keystrokes.
+      runBeforeFlush();
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
@@ -174,9 +196,17 @@ export function useAutoSave(
     };
   }, []);
 
+  // Synchronous update of the content to save. The effect above lags a render
+  // behind; a change delivered by onBeforeFlush during unmount never renders,
+  // so the caller pushes it here directly.
+  const setLatestContent = useCallback((content: string) => {
+    latestContentRef.current = content;
+  }, []);
+
   return {
     debouncedSave,
     flushSave,
     cancelSave,
+    setLatestContent,
   };
 }
