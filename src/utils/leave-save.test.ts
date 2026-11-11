@@ -1,7 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { buildLeaveSaveBody, LEAVE_SAVE_MAX_BYTES } from "./leave-save";
 
-const base = { noteId: "n1", goal: 0, goalType: "" as const, baseVersion: 3 };
+const base = {
+  noteId: "n1",
+  goal: 0,
+  goalType: "" as const,
+  baseVersion: 3,
+  copyId: "00000000-0000-4000-8000-000000000001",
+  copyStamp: "11 Nov, 10:00 am",
+};
 
 describe("buildLeaveSaveBody — keepalive size cap", () => {
   it("serialises a normal note", () => {

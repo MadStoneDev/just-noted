@@ -32,10 +32,30 @@ describe("protectUnsyncedLocal — refresh never clobbers unsynced local edits",
     expect(r.toPush).toEqual([]);
   });
 
-  it("queued content wins even when the server moved on (the queue replays it)", () => {
+  it("server moved past the queued edit's base: server copy shown, drain makes the copy", () => {
     const server = [mk({ id: "a", content: "other device", version: 9 })];
     const local = [mk({ id: "a", content: "stale cache", version: 2 })];
-    const r = protectUnsyncedLocal(server, local, pend({ a: "queued" }));
+    const pending = new Map<string, PendingContent>([
+      ["a", { content: "queued", goal: 0, goalType: "", baseVersion: 2 }],
+    ]);
+    const r = protectUnsyncedLocal(server, local, pending);
+    expect(r.notes[0]).toBe(server[0]); // the newer remote edit is never hidden
+    expect(r.fromQueue).toEqual(["a"]); // the replay saves "queued" as a copy
+  });
+
+  it("server still at the queued edit's base: queued text shown and drained", () => {
+    const server = [mk({ id: "a", content: "old", version: 2 })];
+    const pending = new Map<string, PendingContent>([
+      ["a", { content: "old + typed", goal: 0, goalType: "", baseVersion: 2 }],
+    ]);
+    const r = protectUnsyncedLocal(server, [], pending);
+    expect(r.notes[0].content).toBe("old + typed");
+    expect(r.fromQueue).toEqual(["a"]);
+  });
+
+  it("a legacy queued entry (no base) still overlays, as before", () => {
+    const server = [mk({ id: "a", content: "other device", version: 9 })];
+    const r = protectUnsyncedLocal(server, [], pend({ a: "queued" }));
     expect(r.notes[0].content).toBe("queued");
   });
 

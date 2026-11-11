@@ -32,8 +32,16 @@ import {
 import { generateNoteId } from "@/utils/general/notes";
 import { withNoteLock, broadcastNoteUpdate, broadcastNoteDeleted, broadcastNotesChanged } from "@/utils/cross-tab";
 import { saveNoteToLocal, saveAllNotesToLocal, deleteLocalNote } from "@/utils/notes-idb-cache";
-import { enqueue, dropQueuedOps, enqueueContentNow, dropSupersededUpdates } from "@/utils/offline-queue";
+import {
+  enqueue,
+  dropQueuedOps,
+  enqueueContentNow,
+  dropSupersededUpdates,
+  queueClock,
+} from "@/utils/offline-queue";
 import { sendLeaveSave } from "@/utils/leave-save";
+import { conflictStamp } from "@/utils/background-conflict";
+import { v4 as uuidv4 } from "uuid";
 
 export interface NotesOperations {
   addNote: (templateContent?: string, templateTitle?: string) => Promise<void>;
@@ -855,9 +863,14 @@ export function useNotesOperations(
 
       optimisticUpdateNote(noteId, { content, goal, goal_type: goalType, contentFormat: "markdown" });
       saveNoteToLocal({ ...targetNote, content, goal, goal_type: goalType, contentFormat: "markdown", updatedAt: Date.now() }).catch(() => {});
-      // Anything queued for this note up to now is replaced by this full-content
-      // save once it lands (see dropSupersededUpdates below).
-      const saveStartedAt = Date.now();
+      // What this full-content save replaces in the offline queue once it lands
+      // (see dropSupersededUpdates below): this tab's earlier entries from the
+      // same base. The base is the version the text was edited from.
+      const saveStartedAt = queueClock();
+      const startBase = opts?.baseVersion ?? targetNote.version;
+      // Base of the last attempt — a failed save is queued against it, so the
+      // replay CASes on it and never overwrites a newer server version.
+      let attemptBase: number | undefined = startBase;
 
       try {
         // Serialize same-note saves across this browser's tabs (belt-and-braces
@@ -877,6 +890,7 @@ export function useNotesOperations(
           while (true) {
             const storeVersion = useNotesStore.getState().notes.find((n) => n.id === noteId)?.version;
             const baseVersion = pinnedBase !== undefined ? pinnedBase : storeVersion;
+            attemptBase = baseVersion;
 
             let r: any;
             if (targetNote.source === "redis") {
@@ -930,7 +944,10 @@ export function useNotesOperations(
               }
             } else {
               setSaveError(noteId, true);
-              enqueue({ type: "update", noteId, source: targetNote.source, userId, content, goal, goalType });
+              enqueue({
+                type: "update", noteId, source: targetNote.source, userId, content, goal, goalType,
+                baseVersion,
+              });
             }
             return r;
           }
@@ -940,7 +957,12 @@ export function useNotesOperations(
         if (result?.success) {
           // An older queued update (failed save, or the tab-hide write-ahead)
           // must not replay over this newer content later.
-          dropSupersededUpdates(noteId, saveStartedAt, content).catch(() => {});
+          dropSupersededUpdates(noteId, {
+            startedAt: saveStartedAt,
+            startBase,
+            landedVersion: typeof result.version === "number" ? result.version : undefined,
+            content,
+          }).catch(() => {});
           broadcastNoteUpdate({
             noteId,
             version: typeof result.version === "number" ? result.version : undefined,
@@ -952,7 +974,10 @@ export function useNotesOperations(
       } catch (error) {
         console.error("Failed to save note content, queuing for retry:", error);
         setSaveError(noteId, true);
-        enqueue({ type: "update", noteId, source: targetNote.source, userId, content, goal, goalType });
+        enqueue({
+          type: "update", noteId, source: targetNote.source, userId, content, goal, goalType,
+          baseVersion: attemptBase,
+        });
         return { success: false };
       } finally {
         setSaving(noteId, false);
@@ -1100,7 +1125,14 @@ export function useNotesOperations(
         contentFormat: "markdown",
         updatedAt: Date.now(),
       }).catch(() => {});
-      enqueueContentNow({ type: "update", noteId, source: targetNote.source, userId, content, goal, goalType });
+      // One copy id for both writes of this edit: if the server has moved on,
+      // the keepalive save and the later queue replay make ONE conflicted copy.
+      const baseVersion = opts.baseVersion ?? targetNote.version;
+      const copyId = uuidv4();
+      enqueueContentNow({
+        type: "update", noteId, source: targetNote.source, userId, content, goal, goalType,
+        baseVersion, copyId,
+      });
 
       // Closing (pagehide): cloud notes also get a keepalive save, which can
       // finish after the tab is gone. Over the size cap it is skipped; the queue
@@ -1111,7 +1143,9 @@ export function useNotesOperations(
           content,
           goal,
           goalType,
-          baseVersion: opts.baseVersion ?? targetNote.version,
+          baseVersion,
+          copyId,
+          copyStamp: conflictStamp(),
         });
       }
     },

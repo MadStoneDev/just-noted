@@ -5,7 +5,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { useNotesStore } from "@/stores/notes-store";
 import { createClient } from "@/utils/supabase/client";
 import { getUserId } from "@/utils/general/notes";
-import { sortNotes, normaliseOrdering } from "@/utils/notes-utils";
+import { sortNotes, normaliseOrdering, sameNoteContent } from "@/utils/notes-utils";
 import { noteOperation } from "@/app/actions/notes";
 import { fetchNotesRevision } from "@/lib/notes-revision-client";
 import {
@@ -29,9 +29,12 @@ import {
   migrateUntaggedCloudOps,
   getPendingContentByNote,
   warmQueueConnection,
+  subscribeConflicts,
 } from "@/utils/offline-queue";
+import { conflictStamp } from "@/utils/background-conflict";
+import { v4 as uuidv4 } from "uuid";
 import { setActiveSupabaseUser } from "@/utils/offline-queue-guard";
-import { reconcileNotes, protectUnsyncedLocal } from "@/utils/notes-merge";
+import { reconcileNotes, protectUnsyncedLocal, type PendingContent } from "@/utils/notes-merge";
 import { subscribeNoteUpdates } from "@/utils/cross-tab";
 import { stripHtmlToText } from "@/utils/html-utils";
 import {
@@ -84,10 +87,17 @@ function mergeLocalWithServer(
   localNotes: CombinedNote[],
   userId: string,
   isAuthenticated: boolean,
+  pending: Map<string, PendingContent> = new Map(),
 ): CombinedNote[] {
   // The decision logic is pure and unit-tested in utils/notes-merge; here we
   // just carry out the side effects it prescribes.
-  const { merged, toPush, toDelete, toConflictCopy } = reconcileNotes(serverNotes, localNotes);
+  const { merged, toPush, toDelete, toConflictCopy: allCopies } = reconcileNotes(serverNotes, localNotes);
+  // A versioned queued edit holding this same text makes its own conflicted
+  // copy when the queue replays (with a fixed id) — don't make a second one.
+  const toConflictCopy = allCopies.filter((local) => {
+    const q = pending.get(local.id);
+    return !(q && typeof q.baseVersion === "number" && sameNoteContent(q.content, local.content));
+  });
   for (const note of toPush) {
     pushNoteToServer(note, userId, isAuthenticated).catch(() => {});
   }
@@ -105,15 +115,24 @@ function mergeLocalWithServer(
 }
 
 /**
- * Push a local-winning note to the server. Uses the legacy (always-land +
- * history snapshot) path so an offline-ahead note is never rejected as stale.
+ * Push a local-winning note to the server. By default uses the legacy
+ * (always-land + history snapshot) path so an offline-ahead note is never
+ * rejected as stale. With `casOnVersion` (the refresh guard's push of an
+ * unsynced local copy, made from the server's current version) it is a
+ * background CAS write instead: if another save lands first, that save is kept
+ * and this text becomes a "(conflicted copy)".
  */
 async function pushNoteToServer(
   note: CombinedNote,
   userId: string,
   isAuthenticated: boolean,
+  opts?: { casOnVersion?: boolean },
 ): Promise<void> {
   try {
+    const cas =
+      opts?.casOnVersion && typeof note.version === "number"
+        ? { baseVersion: note.version, conflictCopy: { id: uuidv4(), stamp: conflictStamp() } }
+        : null;
     if (note.source === "redis") {
       await noteOperation("redis", {
         operation: "update",
@@ -122,9 +141,16 @@ async function pushNoteToServer(
         content: note.content,
         goal: note.goal,
         goalType: note.goal_type,
+        ...(cas ?? {}),
       });
     } else if (isAuthenticated) {
-      await updateSupabaseNote(note.id, note.content, note.goal ?? 0, note.goal_type ?? "", { allowLegacy: true });
+      await updateSupabaseNote(
+        note.id,
+        note.content,
+        note.goal ?? 0,
+        note.goal_type ?? "",
+        cas ?? { allowLegacy: true },
+      );
     }
   } catch (error) {
     console.error("Failed to push local note to server:", error);
@@ -310,7 +336,9 @@ export function useNotesSync() {
         const uid = useNotesStore.getState().userId;
         const authed = useNotesStore.getState().isAuthenticated;
         if (uid) {
-          for (const note of toPush) pushNoteToServer(note, uid, authed).catch(() => {});
+          for (const note of toPush) {
+            pushNoteToServer(note, uid, authed, { casOnVersion: true }).catch(() => {});
+          }
         }
         if (fromQueue.length > 0) processQueue().catch(() => {});
 
@@ -439,14 +467,21 @@ export function useNotesSync() {
 
         const normalizedNotes = normaliseOrdering(allNotes);
         const sortedNotes = sortNotes(normalizedNotes, null);
-        const reconciled = mergeLocalWithServer(sortedNotes, cachedNotes, newUserId, authenticated);
+        const pendingContent = await getPendingContentByNote();
+        const reconciled = mergeLocalWithServer(
+          sortedNotes,
+          cachedNotes,
+          newUserId,
+          authenticated,
+          pendingContent,
+        );
         // A queued edit whose cached copy was overwritten (e.g. by another tab's
         // refresh racing the close) still wins over the server; the drain below
         // pushes it.
         const { notes: mergedNotes } = protectUnsyncedLocal(
           reconciled,
           [],
-          await getPendingContentByNote(),
+          pendingContent,
         );
 
         syncFromBackend(mergedNotes);
@@ -672,6 +707,23 @@ export function useNotesSync() {
       stop();
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("focus", onFocus);
+    };
+  }, [refreshNotes]);
+
+  // A replayed queued edit met a newer server version and was saved as a
+  // "(conflicted copy)" (the server note was kept). Refresh so the copy shows.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const unsubscribe = subscribeConflicts(() => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        refreshNotes();
+      }, 500);
+    });
+    return () => {
+      unsubscribe();
+      if (timer) clearTimeout(timer);
     };
   }, [refreshNotes]);
 

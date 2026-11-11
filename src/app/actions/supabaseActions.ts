@@ -17,6 +17,12 @@ import {
   resolveRetentionDays,
 } from "@/lib/retention";
 import { LEGACY_VERSIONLESS_WRITES } from "@/constants/app";
+import {
+  decideBackgroundWrite,
+  conflictCopyTitle,
+  isValidConflictCopy,
+  type ConflictCopySpec,
+} from "@/utils/background-conflict";
 
 // ===========================
 // AUTHENTICATION HELPER
@@ -80,6 +86,9 @@ type UpdateNoteResult = {
   version?: number;
   conflict?: boolean;
   current?: CombinedNote | null;
+  /** Background write: the server note was kept and this copy was made. */
+  conflicted?: boolean;
+  copyId?: string;
   error?: string;
 };
 
@@ -160,15 +169,119 @@ async function noteHasYdoc(supabase: any, noteId: string): Promise<boolean> {
   }
 }
 
+// Background (unattended) CAS write — see utils/background-conflict.ts. The
+// server note is never overwritten past `baseVersion`: on a conflict the
+// incoming text is inserted as a "(conflicted copy)" note with the caller's
+// fixed copy id, so a retried / duplicated write makes at most one copy.
+async function backgroundCasWrite(
+  supabase: any,
+  userId: string,
+  noteId: string,
+  fields: { content: string; content_format: string; goal: number; goal_type: string },
+  baseVersion: number,
+  copy: ConflictCopySpec,
+): Promise<UpdateNoteResult> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data: cur, error: readErr } = await supabase
+      .from("notes")
+      .select("*")
+      .eq("id", noteId)
+      .eq("author", userId)
+      .maybeSingle();
+    if (readErr) return { success: false, error: String(readErr.message || readErr) };
+    if (!cur) return { success: false, error: "not_found" };
+    const curVersion = (cur as any).version ?? 1;
+
+    const decision = decideBackgroundWrite({
+      baseVersion,
+      serverVersion: curVersion,
+      serverContent: (cur as any).content,
+      serverDeleted: !!(cur as any).deleted_at,
+      content: fields.content,
+    });
+
+    if (decision === "noop") return { success: true, version: curVersion };
+
+    if (decision === "apply") {
+      const { data, error } = await supabase
+        .from("notes")
+        .update({ ...fields, version: baseVersion + 1, updated_at: new Date().toISOString() })
+        .eq("id", noteId)
+        .eq("author", userId)
+        .eq("version", baseVersion)
+        .select("version")
+        .maybeSingle();
+      if (error) return { success: false, error: String(error.message || error) };
+      if (data) return { success: true, version: (data as any).version };
+      continue; // raced — re-read; it is now a copy or a no-op
+    }
+
+    const now = new Date().toISOString();
+    const { error: insErr } = await supabase.from("notes").insert({
+      id: copy.id,
+      author: userId,
+      title: conflictCopyTitle((cur as any).title, copy.stamp),
+      content: fields.content,
+      content_format: fields.content_format,
+      goal: fields.goal,
+      goal_type: fields.goal_type,
+      is_pinned: false,
+      is_private: (cur as any).is_private ?? true,
+      is_collapsed: false,
+      order: (cur as any).order ?? 0,
+      notebook_id: (cur as any).notebook_id ?? null,
+      version: 1,
+      created_at: now,
+      updated_at: now,
+    });
+    // 23505 = this copy already exists (the keepalive save made it, or an
+    // earlier replay did and its response was lost). Same text — done.
+    if (insErr && (insErr as any).code !== "23505") {
+      return { success: false, error: String(insErr.message || insErr) };
+    }
+    return { success: true, version: curVersion, conflicted: true, copyId: copy.id };
+  }
+  return { success: false, error: "retry_exhausted" };
+}
+
 export const updateNote = async (
   noteId: string,
   content: string,
   wordCountGoal: number = 0,
   wordCountGoalType: string = "",
-  opts?: { baseVersion?: number; projection?: boolean; allowLegacy?: boolean },
+  opts?: {
+    baseVersion?: number;
+    projection?: boolean;
+    allowLegacy?: boolean;
+    /**
+     * Background write (queue replay / tab-close save): on a conflict keep the
+     * server note and save this text as the given conflicted copy instead.
+     * Requires baseVersion.
+     */
+    conflictCopy?: ConflictCopySpec;
+  },
 ): Promise<UpdateNoteResult> => {
   try {
     const { supabase, userId } = await getAuthenticatedUser();
+
+    if (opts?.conflictCopy !== undefined) {
+      if (!isValidConflictCopy(opts.conflictCopy) || typeof opts.baseVersion !== "number") {
+        return { success: false, error: "Invalid data" };
+      }
+      return await backgroundCasWrite(
+        supabase,
+        userId,
+        noteId,
+        {
+          content,
+          content_format: "markdown",
+          goal: wordCountGoal || 0,
+          goal_type: validateGoalType(wordCountGoalType),
+        },
+        opts.baseVersion,
+        opts.conflictCopy,
+      );
+    }
 
     const fields = {
       content,

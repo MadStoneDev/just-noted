@@ -14,6 +14,9 @@ import {
 import type { RedisNote, CombinedNote } from "@/types/combined-notes";
 import { shouldSyncOp, getActiveSupabaseUser, needsCloudUserTag } from "./offline-queue-guard";
 import { sameNoteContent } from "./notes-utils";
+import { conflictStamp } from "./background-conflict";
+import { TAB_ID } from "./cross-tab";
+import { v4 as uuidv4 } from "uuid";
 import {
   OFFLINE_QUEUE_DB_NAME,
   OFFLINE_QUEUE_DB_VERSION,
@@ -52,6 +55,16 @@ interface QueuedUpdateOp {
   content: string;
   goal: number;
   goalType: "" | "words" | "characters";
+  /**
+   * The server version this text was edited from. Replays CAS on it as a
+   * background write: if the server moved past it, the server note is kept and
+   * this text becomes a "(conflicted copy)" (see background-conflict.ts).
+   * Absent only on entries queued by an older build (legacy always-land path).
+   */
+  baseVersion?: number;
+  /** Fixed id for that conflicted copy, so retries (and the tab-close keepalive
+   * save of the same edit) make at most one. Assigned at enqueue. */
+  copyId?: string;
 }
 
 interface QueuedUpdateTitleOp {
@@ -108,6 +121,8 @@ interface QueuedOperation {
   timestamp: number;
   retryCount: number;
   lastAttempt: number | null;
+  /** TAB_ID of the tab that queued it (absent on entries from older builds). */
+  origin?: string;
 }
 
 // ===========================
@@ -140,6 +155,19 @@ export function subscribeDrops(cb: DropListener): () => void {
   dropListeners.add(cb);
   return () => {
     dropListeners.delete(cb);
+  };
+}
+
+// Background-conflict channel — a replayed edit met a newer server version, so
+// the server note was kept and the edit was saved as a "(conflicted copy)".
+// Nothing was lost; listeners refresh so the copy shows up.
+type ConflictListener = (payload: QueuedUpdateOp) => void;
+const conflictListeners = new Set<ConflictListener>();
+
+export function subscribeConflicts(cb: ConflictListener): () => void {
+  conflictListeners.add(cb);
+  return () => {
+    conflictListeners.delete(cb);
   };
 }
 
@@ -313,7 +341,43 @@ async function getOpsByNoteId(noteId: string): Promise<QueuedOperation[]> {
 // ENQUEUE (with dedup + collapse)
 // ===========================
 
-export async function enqueue(payload: QueuedOperationPayload): Promise<void> {
+/**
+ * A newer queued edit replaces an older one for the same note only when both
+ * were made from the same server version (or the older one predates versioned
+ * entries). An older entry on a different base is kept: it replays first and,
+ * if the server has moved on, becomes a conflicted copy instead of vanishing.
+ */
+function replacesUpdate(older: QueuedUpdateOp, newer: QueuedUpdateOp): boolean {
+  return older.baseVersion === undefined || older.baseVersion === newer.baseVersion;
+}
+
+// Strictly increasing within this tab: ops replay (and collapse) in timestamp
+// order, and a note can hold more than one update, so two ops queued in the
+// same millisecond must not tie.
+let lastStamp = 0;
+function nextTimestamp(): number {
+  lastStamp = Math.max(Date.now(), lastStamp + 1);
+  return lastStamp;
+}
+
+/**
+ * A point on the queue's clock. A save marks its start with this (not
+ * Date.now()) so "queued before / after the save started" in
+ * dropSupersededUpdates is decided on the same strictly-ordered clock.
+ */
+export function queueClock(): number {
+  return nextTimestamp();
+}
+
+function withCopyId<T extends QueuedOperationPayload>(payload: T): T {
+  if (payload.type === "update" && !payload.copyId) {
+    return { ...payload, copyId: uuidv4() };
+  }
+  return payload;
+}
+
+export async function enqueue(input: QueuedOperationPayload): Promise<void> {
+  const payload = withCopyId(input);
   const noteId = payload.noteId;
 
   // Rule 2: Delete wins — remove all other ops for this noteId
@@ -350,20 +414,30 @@ export async function enqueue(payload: QueuedOperationPayload): Promise<void> {
       return;
     }
 
-    // Rule 1: Same noteId + same type → replace older
-    const sameTypeOp = existing.find((op) => op.payload.type === payload.type);
-    if (sameTypeOp) {
-      await deleteOp(sameTypeOp.id);
+    // Rule 1: Same noteId + same type → replace older (content updates: only
+    // one made from the same base — see replacesUpdate)
+    for (const op of existing) {
+      if (op.payload.type !== payload.type) continue;
+      if (
+        payload.type === "update" &&
+        !replacesUpdate(op.payload as QueuedUpdateOp, payload)
+      ) {
+        continue;
+      }
+      await deleteOp(op.id);
+      if (payload.type !== "update") break;
     }
   }
 
   // Add new op
+  const timestamp = nextTimestamp();
   const op: QueuedOperation = {
-    id: `op_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+    id: `op_${timestamp}_${Math.random().toString(36).slice(2, 11)}`,
     payload,
-    timestamp: Date.now(),
+    timestamp,
     retryCount: 0,
     lastAttempt: null,
+    origin: TAB_ID,
   };
 
   await putOp(op);
@@ -398,14 +472,29 @@ async function executeOp(payload: QueuedOperationPayload): Promise<void> {
       break;
     }
     case "update": {
-      const { content, goal, goalType } = payload;
+      const { content, goal, goalType, baseVersion } = payload;
+      // Versioned entries replay as a background CAS write: a newer server
+      // version is never overwritten — the server note stays, this text becomes
+      // a "(conflicted copy)" (identical text: nothing to do). Entries from
+      // older builds carry no base and keep the legacy always-land path (prior
+      // server content snapshotted to history).
+      const conflictCopy =
+        typeof baseVersion === "number"
+          ? { id: payload.copyId ?? uuidv4(), stamp: conflictStamp() }
+          : undefined;
+      let r: { success: boolean; error?: string; conflicted?: boolean };
       if (source === "redis") {
-        throwIfFailed(await noteOperation("redis", { operation: "update", userId, noteId, content, goal, goalType }), "Update failed");
+        r = await noteOperation("redis", {
+          operation: "update", userId, noteId, content, goal, goalType, baseVersion, conflictCopy,
+        });
+      } else if (conflictCopy) {
+        r = await updateSupabaseNote(noteId, content, goal, goalType, { baseVersion, conflictCopy });
       } else {
-        // Replayed queued edits use the legacy (always-land + history snapshot)
-        // path so an offline edit is never rejected as "stale" with no UI to
-        // resolve it; the prior server content is preserved in history.
-        throwIfFailed(await updateSupabaseNote(noteId, content, goal, goalType, { allowLegacy: true }), "Update failed");
+        r = await updateSupabaseNote(noteId, content, goal, goalType, { allowLegacy: true });
+      }
+      throwIfFailed(r, "Update failed");
+      if (r.conflicted && conflictCopy) {
+        conflictListeners.forEach((cb) => cb(payload));
       }
       break;
     }
@@ -612,7 +701,8 @@ export function warmQueueConnection(): void {
  * update). Synchronous up to the IDB request: falls back to enqueue() when the
  * warm connection isn't open yet.
  */
-export function enqueueContentNow(payload: QueuedUpdateOp): void {
+export function enqueueContentNow(input: QueuedUpdateOp): void {
+  const payload = withCopyId(input);
   const db = leaveDb;
   if (!db) {
     warmQueueConnection();
@@ -634,14 +724,18 @@ export function enqueueContentNow(payload: QueuedUpdateOp): void {
         store.put(createOp);
       } else {
         for (const op of existing) {
-          if (op.payload.type === "update") store.delete(op.id);
+          if (op.payload.type === "update" && replacesUpdate(op.payload, payload)) {
+            store.delete(op.id);
+          }
         }
+        const timestamp = nextTimestamp();
         store.put({
-          id: `op_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+          id: `op_${timestamp}_${Math.random().toString(36).slice(2, 11)}`,
           payload,
-          timestamp: Date.now(),
+          timestamp,
           retryCount: 0,
           lastAttempt: null,
+          origin: TAB_ID,
         } satisfies QueuedOperation);
       }
       tx.commit?.();
@@ -659,6 +753,8 @@ export interface PendingNoteContent {
   content: string;
   goal: number;
   goalType: "" | "words" | "characters";
+  /** Base version of the queued edit; absent for a queued create / legacy entry. */
+  baseVersion?: number;
 }
 
 /**
@@ -679,7 +775,12 @@ export async function getPendingContentByNote(): Promise<Map<string, PendingNote
     const p = op.payload;
     if (deleted.has(p.noteId)) continue;
     if (p.type === "update") {
-      result.set(p.noteId, { content: p.content, goal: p.goal, goalType: p.goalType });
+      result.set(p.noteId, {
+        content: p.content,
+        goal: p.goal,
+        goalType: p.goalType,
+        baseVersion: p.baseVersion,
+      });
     } else if (p.type === "create") {
       const n = p.note as unknown as { content?: string; goal?: number; goal_type?: string };
       if (typeof n.content === "string") {
@@ -694,31 +795,77 @@ export async function getPendingContentByNote(): Promise<Map<string, PendingNote
   return result;
 }
 
+export interface LandedSave {
+  /** When the save started, from queueClock() (before it was sent). */
+  startedAt: number;
+  /** The base version the save was made from (before any conflict retry). */
+  startBase?: number;
+  /** The version the server now holds after it. */
+  landedVersion?: number;
+  /** The full text that was saved. */
+  content: string;
+}
+
 /**
- * A save of the FULL content landed on the server, so a queued update for this
- * note is obsolete when it was queued before that save started, or carries the
- * very text that was just saved (a tab-hide write-ahead raced the save).
- * Replaying either later could put older text back over a newer edit. Only
- * "update" ops are touched (creates, titles, pins etc. carry other fields).
+ * A save of the FULL content of a note landed. Clean up this note's queued
+ * content updates so none replays older text later — touching ONLY entries the
+ * save really replaces, never a newer or unrelated edit:
+ *
+ * - Same text as was just saved: dropped (replaying it would be a no-op).
+ * - Queued by THIS tab before the save started, from the same base or later:
+ *   dropped — it is an earlier state of the same editor's text.
+ * - Queued by this tab before the save, but from an OLDER base: kept. The
+ *   editor adopted a newer server version since, so this text is not part of
+ *   what was saved; it replays and becomes a conflicted copy.
+ * - Queued by this tab AFTER the save started from the save's base: kept, and
+ *   rebased onto the landed version (it was typed on top of this save's text,
+ *   so it must not later look like a conflict with it).
+ * - Queued by ANOTHER tab (with different text): always kept — it may hold
+ *   text this tab never saw.
+ *
+ * Entries from older builds carry no origin; they keep the previous rule
+ * (dropped when queued before the save started).
  */
-export async function dropSupersededUpdates(
-  noteId: string,
-  queuedBefore: number,
-  savedContent?: string,
-): Promise<void> {
+export async function dropSupersededUpdates(noteId: string, landed: LandedSave): Promise<void> {
   try {
     const ops = await getOpsByNoteId(noteId);
-    const stale = ops.filter(
-      (o) =>
-        o.payload.type === "update" &&
-        (o.timestamp <= queuedBefore ||
-          (savedContent !== undefined && sameNoteContent(o.payload.content, savedContent))),
-    );
-    if (stale.length === 0) return;
-    for (const op of stale) await deleteOp(op.id);
-    notifySubscribers(await countOps());
+    let changed = false;
+    for (const o of ops) {
+      if (o.payload.type !== "update") continue;
+      const p = o.payload;
+      if (sameNoteContent(p.content, landed.content)) {
+        await deleteOp(o.id);
+        changed = true;
+        continue;
+      }
+      if (o.origin === undefined) {
+        if (o.timestamp <= landed.startedAt) {
+          await deleteOp(o.id);
+          changed = true;
+        }
+        continue;
+      }
+      if (o.origin !== TAB_ID) continue;
+      if (o.timestamp <= landed.startedAt) {
+        const sameLineage =
+          p.baseVersion === undefined ||
+          landed.startBase === undefined ||
+          p.baseVersion >= landed.startBase;
+        if (sameLineage) {
+          await deleteOp(o.id);
+          changed = true;
+        }
+      } else if (
+        typeof landed.landedVersion === "number" &&
+        landed.startBase !== undefined &&
+        p.baseVersion === landed.startBase
+      ) {
+        await putOp({ ...o, payload: { ...p, baseVersion: landed.landedVersion } });
+      }
+    }
+    if (changed) notifySubscribers(await countOps());
   } catch {
-    /* best effort — a lingering identical op is a server-side no-op */
+    /* best effort — a lingering op replays as a CAS write: a no-op or a copy */
   }
 }
 

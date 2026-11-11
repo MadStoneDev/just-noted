@@ -18,6 +18,10 @@ export interface LeaveSavePayload {
   goalType: "" | "words" | "characters";
   /** The version the edit was made from (CAS on the server). */
   baseVersion?: number;
+  /** On a conflict the server keeps its note and saves this text as a copy with
+   * this id — the same id the offline-queue entry for this edit carries. */
+  copyId: string;
+  copyStamp: string;
 }
 
 /** Serialise the payload, or null when it is too large for a keepalive request. */

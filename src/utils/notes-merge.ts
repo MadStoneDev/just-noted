@@ -136,6 +136,8 @@ export interface PendingContent {
   content: string;
   goal: number;
   goalType: "" | "words" | "characters";
+  /** Version the queued edit was made from (absent: queued create / legacy). */
+  baseVersion?: number;
 }
 
 export interface ProtectResult {
@@ -153,9 +155,14 @@ export interface ProtectResult {
  * browser made just before it was closed. Two signals, strongest first:
  *
  * 1. A pending offline-queue entry for the note (its content is what will be
- *    sent). Kept as-is; the caller drains the queue to push it.
+ *    sent). Shown while the server is still at the entry's base version; the
+ *    caller drains the queue to push it. If the server has moved PAST that base
+ *    (another device edited), the server copy is shown and kept — the drain then
+ *    saves the queued text as a "(conflicted copy)", never over it.
  * 2. A newer local edit in the IDB cache: same base version as the server (or
- *    ahead) but different text. Kept and pushed.
+ *    ahead) but different text. Kept and pushed — as a background CAS write on
+ *    the server's version, so a save racing in between still can't be
+ *    overwritten (it becomes a conflicted copy).
  *
  * A server that has moved PAST the local base without a queue entry is a real
  * newer edit from elsewhere and wins, as before (conflicts are the load path's
@@ -177,6 +184,9 @@ export function protectUnsyncedLocal(
     if (queued) {
       if (sameNoteContent(queued.content, serverNote.content)) return serverNote;
       fromQueue.push(serverNote.id);
+      if (typeof queued.baseVersion === "number" && ver(serverNote) > queued.baseVersion) {
+        return serverNote;
+      }
       return {
         ...serverNote,
         content: queued.content,

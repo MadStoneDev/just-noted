@@ -17,6 +17,11 @@ import { redisRaw } from "@/utils/redis";
 import { randomUUID } from "crypto";
 import type { RedisNote } from "@/types/combined-notes";
 import { sameNoteContent } from "@/utils/notes-utils";
+import {
+  decideBackgroundWrite,
+  conflictCopyTitle,
+  type ConflictCopySpec,
+} from "@/utils/background-conflict";
 
 export const NOTES_HASH_PREFIX = "notes:";
 export const NOTES_BACKUP_PREFIX = "notes_backup:";
@@ -280,6 +285,12 @@ export async function casUpdateNote(
   noteId: string,
   patch: { content: string; goal: number; goalType: "" | "words" | "characters" },
   baseVersion?: number,
+  /**
+   * Background write (offline-queue replay): on a conflict keep the stored
+   * note untouched and save the INCOMING text as this conflicted copy (fixed id,
+   * so a retry makes at most one). See utils/background-conflict.ts.
+   */
+  keepServer?: ConflictCopySpec,
 ): Promise<CasResult> {
   const key = notesKey(userId);
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -290,6 +301,48 @@ export async function casUpdateNote(
     const cur = parseNote(raw);
     if (!cur) return { success: false, error: "corrupt" };
     const curVersion = cur.version ?? 1;
+
+    if (keepServer && typeof baseVersion === "number") {
+      const decision = decideBackgroundWrite({
+        baseVersion,
+        serverVersion: curVersion,
+        serverContent: cur.content,
+        content: patch.content,
+      });
+      if (decision === "noop") return { success: true, version: curVersion };
+      if (decision === "copy") {
+        const exists = (await redisRaw.hexists(key, keepServer.id)) as number;
+        if (exists) return { success: true, version: curVersion, conflicted: true };
+        const now = Date.now();
+        const copy: RedisNote = {
+          ...cur,
+          id: keepServer.id,
+          title: conflictCopyTitle(cur.title, keepServer.stamp),
+          content: patch.content,
+          goal: patch.goal || 0,
+          goal_type: patch.goalType,
+          contentFormat: "markdown",
+          pinned: false,
+          version: 1,
+          createdAt: now,
+          updatedAt: now,
+        };
+        // Same CAS script, but the original is written back unchanged: the
+        // copy only lands if the note is still exactly what we decided on.
+        const res = (await redisRaw.eval(
+          CAS_LUA,
+          [key],
+          [noteId, raw, raw, copy.id, JSON.stringify(copy)],
+        )) as number;
+        if (res === 1) {
+          touchRevision(userId);
+          return { success: true, version: curVersion, conflicted: true };
+        }
+        await sleep(backoffMs(attempt));
+        continue;
+      }
+      // "apply": base matches — fall through to the normal CAS write.
+    }
 
     // A version gap alone isn't a real conflict: if the stored content already
     // matches what we're writing (same normalisation as the save no-op), there's

@@ -180,24 +180,143 @@ describe("leave-path queue helpers (real IDB)", () => {
     expect((await getPendingContentByNote()).has("leave-3")).toBe(false);
   });
 
-  it("dropSupersededUpdates removes only updates queued before the save", async () => {
+  it("dropSupersededUpdates removes only this note's updates queued before the save", async () => {
     const { dropSupersededUpdates } = await import("./offline-queue");
     await cloudUpdate("leave-4", "u");
+    await cloudUpdate("leave-4b", "u"); // another note: never touched
     await enqueue({ type: "updateTitle", noteId: "leave-4", source: "supabase", userId: "u", title: "t" });
-    const savedAt = Date.now();
-    await dropSupersededUpdates("leave-4", savedAt);
-    expect(await getQueueSize()).toBe(1); // the title op stays
-    await dropSupersededUpdates("leave-4", savedAt);
-    expect(await getQueueSize()).toBe(1);
+    const landed = { startedAt: Date.now(), content: "something else" };
+    await dropSupersededUpdates("leave-4", landed);
+    expect(await getQueueSize()).toBe(2); // the title op + the other note's update
+    await dropSupersededUpdates("leave-4", landed);
+    expect(await getQueueSize()).toBe(2);
   });
 
   it("dropSupersededUpdates also removes a newer update holding the saved text", async () => {
     const { dropSupersededUpdates } = await import("./offline-queue");
-    const savedAt = Date.now() - 1000; // the save started before this op was queued
+    const startedAt = Date.now() - 1000; // the save started before this op was queued
     await cloudUpdate("leave-5", "u"); // content "c-leave-5"
-    await dropSupersededUpdates("leave-5", savedAt, "c-leave-6");
+    await dropSupersededUpdates("leave-5", { startedAt, content: "c-leave-6" });
     expect(await getQueueSize()).toBe(1); // different text: kept
-    await dropSupersededUpdates("leave-5", savedAt, "c-leave-5\n");
+    await dropSupersededUpdates("leave-5", { startedAt, content: "c-leave-5\n" });
     expect(await getQueueSize()).toBe(0);
+  });
+});
+
+// ── Versioned (CAS) queue entries ────────────────────────────────────────────
+
+const OTHER_TAB = "some-other-tab";
+
+/** Write an op as if another tab of this browser had queued it. */
+async function putForeignOp(op: Record<string, unknown>) {
+  const { OFFLINE_QUEUE_DB_NAME, OFFLINE_QUEUE_DB_VERSION, OFFLINE_QUEUE_STORE_NAME } = await import(
+    "@/constants/app"
+  );
+  const db = await new Promise<IDBDatabase>((resolve, reject) => {
+    const r = indexedDB.open(OFFLINE_QUEUE_DB_NAME, OFFLINE_QUEUE_DB_VERSION);
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(OFFLINE_QUEUE_STORE_NAME, "readwrite");
+    tx.objectStore(OFFLINE_QUEUE_STORE_NAME).put(op);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+}
+
+const upd = (noteId: string, content: string, baseVersion?: number) => ({
+  type: "update" as const,
+  noteId,
+  source: "supabase" as const,
+  userId: "u",
+  content,
+  goal: 0,
+  goalType: "" as const,
+  baseVersion,
+});
+
+describe("versioned queue entries (real IDB)", () => {
+  it("replays as a background CAS write with a fixed copy id; a conflict is reported", async () => {
+    const { subscribeConflicts } = await import("./offline-queue");
+    setActiveSupabaseUser("u");
+    mockedUpdate.mockResolvedValueOnce({ success: true, version: 9, conflicted: true, copyId: "x" });
+    const seen: string[] = [];
+    const off = subscribeConflicts((p) => seen.push(p.noteId));
+    await enqueue(upd("v-1", "queued text", 3));
+    await processQueue();
+    off();
+
+    expect(mockedUpdate).toHaveBeenCalledTimes(1);
+    const [, content, , , opts] = mockedUpdate.mock.calls[0];
+    expect(content).toBe("queued text");
+    expect(opts).toMatchObject({ baseVersion: 3 });
+    expect(opts?.allowLegacy).toBeUndefined(); // never the always-land path
+    expect(opts?.conflictCopy?.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(seen).toEqual(["v-1"]);
+    expect(await getQueueSize()).toBe(0);
+  });
+
+  it("an entry from an older build (no base) keeps the legacy path", async () => {
+    setActiveSupabaseUser("u");
+    await enqueue(upd("v-2", "legacy text"));
+    await processQueue();
+    expect(mockedUpdate.mock.calls[0][4]).toEqual({ allowLegacy: true });
+  });
+
+  it("a newer edit from a different base does not replace an older queued one", async () => {
+    const { getPendingContentByNote } = await import("./offline-queue");
+    await enqueue(upd("v-3", "typed on v3", 3));
+    await enqueue(upd("v-3", "typed on v3, more", 3)); // same base: replaces
+    expect(await getQueueSize()).toBe(1);
+    await enqueue(upd("v-3", "typed after adopting v5", 5)); // different base: kept
+    expect(await getQueueSize()).toBe(2);
+    expect((await getPendingContentByNote()).get("v-3")).toMatchObject({
+      content: "typed after adopting v5",
+      baseVersion: 5,
+    });
+  });
+
+  it("a successful save never drops another tab's queued edit", async () => {
+    const { dropSupersededUpdates } = await import("./offline-queue");
+    await putForeignOp({
+      id: "op_foreign",
+      payload: upd("v-4", "typed in the closed tab", 3),
+      timestamp: Date.now() - 5000,
+      retryCount: 0,
+      lastAttempt: null,
+      origin: OTHER_TAB,
+    });
+    await dropSupersededUpdates("v-4", {
+      startedAt: Date.now(),
+      startBase: 3,
+      landedVersion: 4,
+      content: "this tab's text",
+    });
+    expect(await getQueueSize()).toBe(1);
+  });
+
+  it("drops this tab's older entry from the same base, keeps one from an older base", async () => {
+    const { dropSupersededUpdates, getPendingContentByNote } = await import("./offline-queue");
+    await enqueue(upd("v-5", "earlier draft", 4));
+    await enqueue(upd("v-6", "text from before adopting v7", 4));
+    const startedAt = Date.now();
+    await dropSupersededUpdates("v-5", { startedAt, startBase: 4, landedVersion: 5, content: "final" });
+    await dropSupersededUpdates("v-6", { startedAt, startBase: 7, landedVersion: 8, content: "final" });
+    const pending = await getPendingContentByNote();
+    expect(pending.has("v-5")).toBe(false);
+    expect(pending.get("v-6")?.content).toBe("text from before adopting v7");
+  });
+
+  it("keeps an entry queued after the save started and rebases it onto the landed version", async () => {
+    const { dropSupersededUpdates, getPendingContentByNote } = await import("./offline-queue");
+    const startedAt = Date.now() - 1000;
+    await enqueue(upd("v-7", "typed while the save was in flight", 4));
+    await dropSupersededUpdates("v-7", { startedAt, startBase: 4, landedVersion: 5, content: "saved" });
+    expect((await getPendingContentByNote()).get("v-7")).toMatchObject({
+      content: "typed while the save was in flight",
+      baseVersion: 5,
+    });
   });
 });

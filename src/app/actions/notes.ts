@@ -11,6 +11,7 @@ import {
   getNotesRevision,
 } from "@/utils/redis/note-store";
 import { headers } from "next/headers";
+import { isValidConflictCopy, type ConflictCopySpec } from "@/utils/background-conflict";
 import { createClient } from "@/utils/supabase/server";
 // Note: revalidatePath removed - client-side state is managed by Zustand
 // Calling revalidatePath on every Redis operation caused unnecessary re-renders
@@ -48,6 +49,9 @@ type NoteOperationParams =
       goal?: number;
       goalType?: string;
       baseVersion?: number; // Phase 2: best-effort optimistic concurrency
+      /** Background (queue replay) write: keep the stored note on a conflict and
+       * save this text as the given conflicted copy. See background-conflict. */
+      conflictCopy?: ConflictCopySpec;
     }
   | { operation: "updateTitle"; userId: string; noteId: string; title: string }
   | {
@@ -212,8 +216,15 @@ async function handleRedisOperation(params: NoteOperationParams) {
       }
 
       case "update": {
-        const { userId, noteId, content, goal = 0, goalType = "", baseVersion } = params;
+        const { userId, noteId, content, goal = 0, goalType = "", baseVersion, conflictCopy } = params;
         validateRedisUserId(userId);
+
+        if (
+          conflictCopy !== undefined &&
+          (!isValidConflictCopy(conflictCopy) || typeof baseVersion !== "number")
+        ) {
+          return { success: false, error: "Invalid data" };
+        }
 
         if (!validateNoteContent(content)) {
           return {
@@ -239,6 +250,7 @@ async function handleRedisOperation(params: NoteOperationParams) {
           noteId,
           { content, goal: goal || 0, goalType: validateGoalType(goalType) },
           baseVersion,
+          conflictCopy,
         );
         if (!res.success) {
           const notFound = res.error === "not_found";
@@ -249,7 +261,7 @@ async function handleRedisOperation(params: NoteOperationParams) {
               : res.error || "Update failed",
           };
         }
-        return { success: true, version: res.version };
+        return { success: true, version: res.version, conflicted: !!res.conflicted };
       }
 
       case "updateTitle": {
