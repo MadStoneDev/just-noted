@@ -134,6 +134,61 @@ export function reconcileNotes(
   return { merged, toPush, toDelete, toConflictCopy };
 }
 
+/**
+ * Startup commit guard. The initial load fetches the server list, reconciles it
+ * with the cache, then puts the result in the store — but the user can create,
+ * edit, trash or remove notes while that fetch is in flight (Ctrl+J right after
+ * the app opens). The reconciled list was built from data read BEFORE those
+ * actions, so committing it as-is drops a just-created note and closes its
+ * editor. This lays the actions taken during the load back over it.
+ *
+ * `baseline` is the store's note list when the load started (after the cache
+ * paint) and `current` is the store now. Store updates keep untouched notes as
+ * the same object, so a note whose object differs from its baseline one (or
+ * that wasn't in the baseline) was changed during the load.
+ *
+ * - changed during the load → the store's copy wins over the reconciled one
+ *   (same as the refresh's in-flight rule; a save racing a newer server version
+ *   still goes through the normal CAS → conflicted-copy path, it isn't decided
+ *   here)
+ * - in the store but not in the reconciled list → kept when it was changed
+ *   during the load or created at/after `loadStartedAt` (a just-created note
+ *   the stale server list hasn't seen yet); otherwise dropped, as reconcile
+ *   decided
+ * - in the baseline but removed from the store during the load → stays removed
+ * - everything else, incl. reconcile's conflicted copies → the reconciled copy
+ */
+export function keepChangesMadeDuringLoad(
+  reconciled: CombinedNote[],
+  baseline: CombinedNote[],
+  current: CombinedNote[],
+  loadStartedAt: number,
+): CombinedNote[] {
+  const baseById = new Map(baseline.map((n) => [n.id, n]));
+  const currentById = new Map(current.map((n) => [n.id, n]));
+  const reconciledIds = new Set(reconciled.map((n) => n.id));
+  const changedDuringLoad = (n: CombinedNote) => baseById.get(n.id) !== n;
+
+  const result: CombinedNote[] = [];
+  for (const note of reconciled) {
+    const live = currentById.get(note.id);
+    if (!live) {
+      // Removed from the store while loading → honour that.
+      if (baseById.has(note.id)) continue;
+      result.push(note);
+      continue;
+    }
+    result.push(changedDuringLoad(live) ? live : note);
+  }
+
+  // Notes only the store has (created during the load, or created just before
+  // and cached before the server saw them). New ones go first, like addNote.
+  const keptNew = current.filter(
+    (n) => !reconciledIds.has(n.id) && (changedDuringLoad(n) || n.createdAt >= loadStartedAt),
+  );
+  return keptNew.length ? [...keptNew, ...result] : result;
+}
+
 export interface PendingContent {
   content: string;
   goal: number;

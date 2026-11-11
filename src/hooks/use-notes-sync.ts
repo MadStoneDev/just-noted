@@ -34,7 +34,7 @@ import {
 import { conflictStamp } from "@/utils/background-conflict";
 import { v4 as uuidv4 } from "uuid";
 import { setActiveSupabaseUser } from "@/utils/offline-queue-guard";
-import { reconcileNotes, protectUnsyncedLocal, type PendingContent } from "@/utils/notes-merge";
+import { reconcileNotes, protectUnsyncedLocal, keepChangesMadeDuringLoad, type PendingContent } from "@/utils/notes-merge";
 import { subscribeNoteUpdates } from "@/utils/cross-tab";
 import { stripHtmlToText } from "@/utils/html-utils";
 import {
@@ -189,6 +189,7 @@ export function useNotesSync() {
 
   const hasInitialisedRef = useRef(false);
   const isInitializingRef = useRef(false);
+  const loadStartedAtRef = useRef<number | null>(null);
   const isMounted = useRef(true);
   const initRetryCount = useRef(0);
   const initRetryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -373,13 +374,26 @@ export function useNotesSync() {
         localStorage.removeItem("justnoted_notes_cache_ts");
         localStorage.removeItem("justnoted_offline_queue");
 
-        // STEP 0: Render IDB cache immediately for fast first paint
+        // When this session's load began (first attempt; kept across retries).
+        // A note created after it and missing from the server list was made
+        // during the load — see keepChangesMadeDuringLoad.
+        loadStartedAtRef.current ??= Date.now();
+        const loadStartedAt = loadStartedAtRef.current;
+
+        // STEP 0: Render IDB cache immediately for fast first paint. Notes
+        // already in the store (created while the cache was being read, or
+        // kept from an earlier attempt) win over their cached copies.
         const cachedNotes = await getAllLocalNotes();
         if (cachedNotes.length > 0) {
-          syncFromBackend(cachedNotes);
+          const inStore = useNotesStore.getState().notes;
+          const inStoreIds = new Set(inStore.map((n) => n.id));
+          syncFromBackend([...inStore, ...cachedNotes.filter((n) => !inStoreIds.has(n.id))]);
           recalculateNotebookCounts();
           setLoading(false);
         }
+        // What the store held when the load started: anything that differs
+        // from this at commit time was done by the user during the load.
+        const loadBaseline = useNotesStore.getState().notes;
 
         // STEP 1: Check authentication (single attempt with short timeout for speed)
         const newUserId = getUserId();
@@ -482,9 +496,22 @@ export function useNotesSync() {
           pendingContent,
         );
 
-        syncFromBackend(mergedNotes);
+        // Commit — never a blind replace: mergedNotes was built from data read
+        // before the user may have created/edited/removed notes during the load
+        // (Ctrl+J right after open). Lay those actions back over it, then apply
+        // the refresh's in-flight rule (mergeWithBackend). Read + set happen in
+        // the same tick, so nothing can slip in between.
+        mergeWithBackend(
+          keepChangesMadeDuringLoad(
+            mergedNotes,
+            loadBaseline,
+            useNotesStore.getState().notes,
+            loadStartedAt,
+          ),
+        );
         recalculateNotebookCounts();
-        saveAllNotesToLocal(mergedNotes).catch(() => {});
+        // Cache the store's result (as refresh does), not the pre-load list.
+        saveAllNotesToLocal(useNotesStore.getState().notes).catch(() => {});
 
         // Mark as initialised only after successful completion
         hasInitialisedRef.current = true;
@@ -524,7 +551,7 @@ export function useNotesSync() {
         clearTimeout(initRetryTimer.current);
       }
     };
-  }, [supabase, syncFromBackend, setLoading, setUserId, setAuthenticated, recalculateNotebookCounts]);
+  }, [supabase, syncFromBackend, mergeWithBackend, setLoading, setUserId, setAuthenticated, recalculateNotebookCounts]);
 
   // Auth change listener
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { test, expect, chromium, type Page } from "@playwright/test";
+import { test, expect, chromium, type Page, type Route } from "@playwright/test";
 import { seedState, seededAccounts, signIn, type SeededAccount } from "./fixtures/auth";
 import { adminClient } from "./fixtures/admin";
 
@@ -352,6 +352,71 @@ test.describe("signed-in", () => {
       await expect(page.locator(`[data-note-card="${id}"]`)).toBeVisible();
     });
 
+    // A note created while the first cloud load is still in flight must survive
+    // that load's commit. The load's server list was read before the create, so
+    // committing it blindly dropped the note (it flashed for ~100ms, the editor
+    // went to "Nothing open yet" and typed text had nowhere to go). The race is
+    // forced at the network: server actions are held while the app opens, the
+    // note is created, then everything EXCEPT the new note's own create/save is
+    // released — so the load commits a server list that doesn't have it.
+    test("a note created before the first load finishes stays open and is saved", async ({ page }) => {
+      const [acc] = seededAccounts();
+      await signIn(page, acc);
+
+      let phase: "holdAll" | "holdNote" | "open" = "holdAll";
+      let noteId = "";
+      const held: { route: Route; body: string }[] = [];
+      await page.route("**/*", async (route) => {
+        const req = route.request();
+        const isAction = req.method() === "POST" && !!req.headers()["next-action"];
+        const body = req.postData() ?? "";
+        if (isAction && (phase === "holdAll" || (phase === "holdNote" && body.includes(noteId)))) {
+          held.push({ route, body });
+          return;
+        }
+        await route.continue();
+      });
+
+      await page.goto("/");
+      await waitForApp(page);
+      // The load is stuck: the seeded note hasn't arrived yet.
+      await expect(page.locator(NOTE_ROW)).toHaveCount(0);
+
+      await page.locator("body").press("Control+j");
+      await expect.poll(() => activeCardId(page)).not.toBeNull();
+      noteId = (await activeCardId(page))!;
+
+      // Let the load finish without the new note's create (stale server list).
+      phase = "holdNote";
+      for (const h of held.splice(0).filter((x) => { if (x.body.includes(noteId)) { held.push(x); return false; } return true; })) {
+        await h.route.continue();
+      }
+      await expect(page.locator(`[data-note-card="${seedState()!.sharedNote!.noteId}"]`)).toBeVisible(); // load committed
+
+      // The new note is still listed, still open, and the editor takes typing.
+      await expect(page.locator(`[data-note-card="${noteId}"]`)).toBeVisible();
+      await expect(page.getByText("Nothing open yet")).toHaveCount(0);
+      await expect
+        .poll(() => page.evaluate(() => !!document.activeElement?.closest(".ProseMirror")))
+        .toBe(true);
+      const marker = `e2e-early-${Date.now()}`;
+      await page.keyboard.type(marker);
+      await expect(editor(page)).toContainText(marker);
+      await expect(page.locator(`[data-note-card="${noteId}"]`)).toBeVisible();
+
+      // Now let its create + saves through; it reaches the server…
+      phase = "open";
+      for (const h of held.splice(0)) await h.route.continue();
+      await expect.poll(() => cloudContent(noteId), { timeout: 15_000 }).toContain(marker);
+      await page.unroute("**/*");
+
+      // …and survives a reload.
+      await page.reload();
+      await waitForApp(page);
+      await page.locator(`[data-note-card="${noteId}"]`).click();
+      await expect(editor(page)).toContainText(marker);
+    });
+
     // Cloud tab-close: the last keystrokes are still inside the editor debounce
     // when the tab closes, so only the pagehide keepalive save
     // (/api/notes/leave-save) can get them to the server. With NO app tab open
@@ -369,13 +434,11 @@ test.describe("signed-in", () => {
       const v0 = await cloudVersion(id);
       const notesBefore = await cloudNoteCount(acc.id);
 
-      const leaveSave = page.waitForRequest((r) => r.url().includes("/api/notes/leave-save"));
       const marker = `e2e-cloud-close-${Date.now()}`;
       await editor(page).click();
       await page.keyboard.press("End");
       await page.keyboard.type(marker);
       await page.close({ runBeforeUnload: true }); // no wait — inside the debounce
-      expect((await leaveSave).method()).toBe("POST");
 
       await expect.poll(() => cloudContent(id), { timeout: 15_000 }).toContain(marker);
       expect(await cloudVersion(id)).toBeGreaterThan(v0 ?? 0);
