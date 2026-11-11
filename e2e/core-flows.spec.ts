@@ -138,6 +138,19 @@ test.describe("notes — local (Redis, anonymous)", () => {
     // Caret at the end: typing appends to the last list item straight away.
     await page.keyboard.type(" end");
     await expect(editor(page).locator("li").last()).toHaveText("alpha item end");
+
+    // The switch shortcut must not also run Milkdown's Mod-Alt-N block command
+    // on the note being left (it used to save B as "## bravo paragraph").
+    const order = await page.locator(NOTE_ROW).evaluateAll((els) =>
+      els.map((e) => e.getAttribute("data-note-card")),
+    );
+    await page.keyboard.press(`Control+Alt+${order.indexOf(bId) + 1}`);
+    await expect(editor(page)).toContainText("bravo paragraph");
+    await expect(editor(page).locator("h1, h2, h3, h4, h5, h6")).toHaveCount(0);
+    await expect(editor(page).locator("p", { hasText: "bravo paragraph" })).toHaveCount(1);
+    // …and A is still a list (leaving it didn't convert it either).
+    await page.keyboard.press(`Control+Alt+${order.indexOf(aId) + 1}`);
+    await expect(editor(page).locator("li").last()).toHaveText("alpha item end");
   });
 
   // Data-loss regression: the editor debounces change emission (~300ms across

@@ -113,6 +113,31 @@ const codeBlockEscape = $prose(() =>
   })
 );
 
+// Ctrl/Cmd+Alt+0–9 and Ctrl/Cmd+Alt+↑/↓ are the app's note-switching shortcuts
+// (E1, use-keyboard-shortcuts). Milkdown's commonmark preset binds Mod-Alt-0…8
+// to block commands (heading 1–6, paragraph, ordered/bullet list), and
+// ProseMirror sees the keydown on the editor before it bubbles to the window
+// listener — so switching away also turned the current block into a heading
+// (a fresh note saved as "## …"). Claim these keys here so the editor ignores
+// them and the event still bubbles to the note switcher. handleDOMEvents runs
+// before every plugin's keymap, regardless of plugin order. Matched on
+// event.code because macOS Option+digit changes event.key.
+const NOTE_SWITCH_CODE = /^(Digit\d|Numpad\d|ArrowUp|ArrowDown)$/;
+const noteSwitchKeys = $prose(
+  () =>
+    new Plugin({
+      props: {
+        handleDOMEvents: {
+          keydown: (_view, event) =>
+            (event.ctrlKey || event.metaKey) &&
+            event.altKey &&
+            !event.shiftKey &&
+            NOTE_SWITCH_CODE.test(event.code),
+        },
+      },
+    }),
+);
+
 // Backspace immediately after a markdown input rule fired (e.g. "1. " → a
 // numbered list, "# " → a heading) should revert the conversion back to the
 // literal text instead of deleting it. Milkdown's Backspace already chains
@@ -418,6 +443,7 @@ function MilkdownEditorInner({
       .use(indent)
       .use(cursor)
       .use(codeBlockEscape)
+      .use(noteSwitchKeys)
       .use(inputRuleUndo)
       .use(seedEmittedDoc(emittedDocRef))
       .use(collabEnabled ? collab : []);
