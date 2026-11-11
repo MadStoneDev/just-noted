@@ -8,6 +8,7 @@ import Link from "next/link";
 import ManageSharedNotes from "./manage-shared-notes";
 import { useToast } from "@/components/ui/toast";
 import { uploadAvatar } from "@/app/actions/avatarActions";
+import { ensureOwnAuthor } from "@/app/actions/authorActions";
 import { compressImage } from "@/utils/image/compress";
 import { processQueue } from "@/utils/offline-queue";
 import { Avatar } from "@/components/ui/avatar";
@@ -185,12 +186,11 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
             },
           });
         } else if (checkError?.code === "PGRST116") {
-          const { data: newAuthor, error: createError } = await supabase.rpc(
-            "create_author_with_random_username",
-            { user_id: user.id },
-          );
+          // Server action: the create function is service-role only and acts
+          // on the session's own user id.
+          const created = await ensureOwnAuthor();
 
-          if (createError) {
+          if (!created.success) {
             showError(
               "Failed to create user profile. Please refresh the page.",
             );
@@ -198,8 +198,8 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
             dispatch({
               type: "LOAD_AUTHOR_DATA",
               payload: {
-                username: newAuthor.username || "",
-                avatarUrl: newAuthor.avatar_url || "",
+                username: created.author.username || "",
+                avatarUrl: "",
               },
             });
             showSuccess("Profile created successfully!");

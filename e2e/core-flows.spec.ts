@@ -470,6 +470,63 @@ test.describe("signed-in", () => {
       expect(await cloudNoteCount(b.id)).toBe(0);
     });
   });
+
+  // Share by email resolves the person through author_id_by_email, which is
+  // service-role only — so this also proves the server action (not the
+  // signed-in user's client) does the lookup. B then opens the note with the
+  // public link OFF, so access can only come from the reader row.
+  test.describe("sharing by email", () => {
+    test.skip(seededAccounts().length < 2, "needs 2 seeded accounts");
+
+    test("owner adds a person by email; they can open the private note", async ({ page, browser }) => {
+      const [a, b] = seededAccounts();
+      await signIn(page, a);
+      await page.goto("/");
+      await waitForApp(page);
+      // Wait for the initial cloud load first (a note made before it lands is
+      // dropped from the list — known bug, see use-notes-sync init).
+      await expect(page.locator(NOTE_ROW).first()).toBeVisible();
+      const id = await newNote(page);
+      const marker = `e2e-share-email-${Date.now()}`;
+      await page.keyboard.type(marker);
+      await expect.poll(() => cloudContent(id), { timeout: 15_000 }).toContain(marker);
+
+      await page.getByRole("button", { name: "Share note" }).click();
+      const field = page.getByPlaceholder("Username or email");
+      await expect(field).toBeVisible();
+
+      // Unknown email: refused, nobody added.
+      await field.fill(`nobody-${Date.now()}@e2e.justnoted.test`);
+      await page.getByRole("button", { name: "Add", exact: true }).click();
+      await expect(page.getByText("No JustNoted account uses that email")).toBeVisible();
+
+      // B's email, in a different case with spaces: resolved to B's username.
+      await field.fill(`  ${b.email.toUpperCase()} `);
+      await page.getByRole("button", { name: "Add", exact: true }).click();
+      await expect(page.getByText(`@${b.handle}`, { exact: true })).toBeVisible();
+
+      const db = adminClient();
+      const { data: share } = await db.from("shared_notes").select("id, shortcode").eq("note_id", id).single();
+      const { data: readers } = await db
+        .from("shared_notes_readers")
+        .select("reader_id, reader_username, role")
+        .eq("shared_note", (share as any).id);
+      expect(readers).toEqual([{ reader_id: b.id, reader_username: b.handle, role: "view" }]);
+
+      // Link off → B's access must come from the reader row alone.
+      await db.from("shared_notes").update({ is_public: false, link_permission: "off" }).eq("id", (share as any).id);
+
+      const ctxB = await browser.newContext();
+      try {
+        await signIn(ctxB, b);
+        const pageB = await ctxB.newPage();
+        await pageB.goto(`/n/${(share as any).shortcode}`);
+        await expect(pageB.getByText(marker)).toBeVisible({ timeout: 20_000 });
+      } finally {
+        await ctxB.close();
+      }
+    });
+  });
 });
 
 // Create a cloud/local note with Ctrl+J and return its id (works whether or not
