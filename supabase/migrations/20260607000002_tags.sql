@@ -23,38 +23,47 @@ CREATE INDEX IF NOT EXISTS idx_note_tags_tag_id ON note_tags(tag_id);
 -- RLS for tags
 ALTER TABLE tags ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own tags" ON tags;
 CREATE POLICY "Users can view own tags" ON tags
   FOR SELECT USING (auth.uid() = owner);
 
+DROP POLICY IF EXISTS "Users can create own tags" ON tags;
 CREATE POLICY "Users can create own tags" ON tags
   FOR INSERT WITH CHECK (auth.uid() = owner);
 
+DROP POLICY IF EXISTS "Users can update own tags" ON tags;
 CREATE POLICY "Users can update own tags" ON tags
   FOR UPDATE USING (auth.uid() = owner);
 
+DROP POLICY IF EXISTS "Users can delete own tags" ON tags;
 CREATE POLICY "Users can delete own tags" ON tags
   FOR DELETE USING (auth.uid() = owner);
 
+DROP POLICY IF EXISTS "Service role full access to tags" ON tags;
 CREATE POLICY "Service role full access to tags" ON tags
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 -- RLS for note_tags
 ALTER TABLE note_tags ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view tags on own notes" ON note_tags;
 CREATE POLICY "Users can view tags on own notes" ON note_tags
   FOR SELECT USING (
     EXISTS (SELECT 1 FROM notes WHERE notes.id = note_tags.note_id AND notes.author = auth.uid())
   );
 
+DROP POLICY IF EXISTS "Users can add tags to own notes" ON note_tags;
 CREATE POLICY "Users can add tags to own notes" ON note_tags
   FOR INSERT WITH CHECK (
     EXISTS (SELECT 1 FROM notes WHERE notes.id = note_tags.note_id AND notes.author = auth.uid())
   );
 
+DROP POLICY IF EXISTS "Users can remove tags from own notes" ON note_tags;
 CREATE POLICY "Users can remove tags from own notes" ON note_tags
   FOR DELETE USING (
     EXISTS (SELECT 1 FROM notes WHERE notes.id = note_tags.note_id AND notes.author = auth.uid())
   );
 
+DROP POLICY IF EXISTS "Service role full access to note_tags" ON note_tags;
 CREATE POLICY "Service role full access to note_tags" ON note_tags
   FOR ALL TO service_role USING (true) WITH CHECK (true);

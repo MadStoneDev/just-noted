@@ -61,6 +61,12 @@ UPDATE public.notebooks
 UPDATE public.notebooks SET sort_index = COALESCE(display_order, 0);
 
 -- Lock the new columns now that the backfill guarantees valid values.
+-- (Dropped first so this re-applies cleanly on top of the production baseline.)
+ALTER TABLE public.notebooks
+  DROP CONSTRAINT IF EXISTS notebooks_colour_chk,
+  DROP CONSTRAINT IF EXISTS notebooks_name_len_chk,
+  DROP CONSTRAINT IF EXISTS notebooks_description_len_chk,
+  DROP CONSTRAINT IF EXISTS notebooks_goal_chk;
 ALTER TABLE public.notebooks
   ADD CONSTRAINT notebooks_colour_chk
     CHECK (colour IN ('violet', 'violet-light', 'blue', 'indigo', 'pink', 'green')),

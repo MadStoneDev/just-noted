@@ -13,11 +13,14 @@ CREATE INDEX IF NOT EXISTS idx_note_versions_created ON public.note_versions(cre
 
 ALTER TABLE public.note_versions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can read own versions" ON public.note_versions;
 CREATE POLICY "Users can read own versions" ON public.note_versions
   FOR SELECT USING (auth.uid() = author);
 
+DROP POLICY IF EXISTS "Users can insert own versions" ON public.note_versions;
 CREATE POLICY "Users can insert own versions" ON public.note_versions
   FOR INSERT WITH CHECK (auth.uid() = author);
 
+DROP POLICY IF EXISTS "Users can delete own versions" ON public.note_versions;
 CREATE POLICY "Users can delete own versions" ON public.note_versions
   FOR DELETE USING (auth.uid() = author);

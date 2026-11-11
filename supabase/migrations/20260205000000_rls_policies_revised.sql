@@ -107,6 +107,7 @@ DROP POLICY IF EXISTS "Note owners can select readers of their notes" ON shared_
 DROP POLICY IF EXISTS "Readers can see their own access to a note" ON shared_notes_readers;
 
 -- Recreate with correct column reference (note_owner_id is TEXT)
+DROP POLICY IF EXISTS "Note owners can view readers" ON shared_notes_readers;
 CREATE POLICY "Note owners can view readers" ON shared_notes_readers
   FOR SELECT
   USING (
@@ -117,6 +118,7 @@ CREATE POLICY "Note owners can view readers" ON shared_notes_readers
     )
   );
 
+DROP POLICY IF EXISTS "Note owners can insert readers" ON shared_notes_readers;
 CREATE POLICY "Note owners can insert readers" ON shared_notes_readers
   FOR INSERT
   WITH CHECK (
@@ -127,6 +129,7 @@ CREATE POLICY "Note owners can insert readers" ON shared_notes_readers
     )
   );
 
+DROP POLICY IF EXISTS "Note owners can update readers" ON shared_notes_readers;
 CREATE POLICY "Note owners can update readers" ON shared_notes_readers
   FOR UPDATE
   USING (
@@ -137,6 +140,7 @@ CREATE POLICY "Note owners can update readers" ON shared_notes_readers
     )
   );
 
+DROP POLICY IF EXISTS "Note owners can delete readers" ON shared_notes_readers;
 CREATE POLICY "Note owners can delete readers" ON shared_notes_readers
   FOR DELETE
   USING (
@@ -148,6 +152,7 @@ CREATE POLICY "Note owners can delete readers" ON shared_notes_readers
   );
 
 -- Readers can see their own access records (reader_id is TEXT)
+DROP POLICY IF EXISTS "Readers can view own access" ON shared_notes_readers;
 CREATE POLICY "Readers can view own access" ON shared_notes_readers
   FOR SELECT
   USING (
@@ -160,6 +165,7 @@ CREATE POLICY "Readers can view own access" ON shared_notes_readers
   );
 
 -- Allow inserting reader records for public shared notes (view tracking)
+DROP POLICY IF EXISTS "Public notes can track readers" ON shared_notes_readers;
 CREATE POLICY "Public notes can track readers" ON shared_notes_readers
   FOR INSERT
   WITH CHECK (
@@ -187,6 +193,7 @@ DROP POLICY IF EXISTS "Note owners can insert analytics" ON shared_notes_analyti
 DROP POLICY IF EXISTS "Note owners can view analytics of their notes" ON shared_notes_analytics;
 
 -- Recreate with correct column (note_owner_id is TEXT)
+DROP POLICY IF EXISTS "Note owners can view analytics" ON shared_notes_analytics;
 CREATE POLICY "Note owners can view analytics" ON shared_notes_analytics
   FOR SELECT
   USING (
@@ -197,6 +204,7 @@ CREATE POLICY "Note owners can view analytics" ON shared_notes_analytics
     )
   );
 
+DROP POLICY IF EXISTS "Note owners can insert analytics" ON shared_notes_analytics;
 CREATE POLICY "Note owners can insert analytics" ON shared_notes_analytics
   FOR INSERT
   WITH CHECK (
@@ -208,6 +216,7 @@ CREATE POLICY "Note owners can insert analytics" ON shared_notes_analytics
   );
 
 -- Allow analytics insertion for public notes (view tracking)
+DROP POLICY IF EXISTS "Public notes can track analytics" ON shared_notes_analytics;
 CREATE POLICY "Public notes can track analytics" ON shared_notes_analytics
   FOR INSERT
   WITH CHECK (
@@ -311,11 +320,12 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 -- Enable RLS
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 
--- Users can only view their own subscription (user_id is TEXT)
+-- Users can only view their own subscription (user_id was TEXT here; it is
+-- UUID in the production baseline, so compare as text to work on both)
 DROP POLICY IF EXISTS "Users can view own subscription" ON subscriptions;
 CREATE POLICY "Users can view own subscription" ON subscriptions
   FOR SELECT
-  USING (auth.uid()::text = user_id);
+  USING (auth.uid()::text = user_id::text);
 
 -- Only service role can insert/update/delete (via webhooks)
 DROP POLICY IF EXISTS "Service role full access to subscriptions" ON subscriptions;

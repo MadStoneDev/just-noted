@@ -53,7 +53,14 @@ $$;
 
 grant execute on function public.realtime_note_id(text) to authenticated;
 
-alter table realtime.messages enable row level security;
+-- Supabase enables RLS on realtime.messages already, and the table is owned by
+-- supabase_realtime_admin (so a plain ALTER fails as postgres locally). Only
+-- enable it if it's somehow off.
+do $$ begin
+  if not (select relrowsecurity from pg_class where oid = 'realtime.messages'::regclass) then
+    alter table realtime.messages enable row level security;
+  end if;
+end $$;
 
 -- presence:<noteId> — any current participant may send AND receive; restricted
 -- to the presence extension so it can't be used to smuggle broadcast traffic.

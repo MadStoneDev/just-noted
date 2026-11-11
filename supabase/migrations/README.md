@@ -18,9 +18,22 @@ supabase link --project-ref <your-project-ref>
 supabase db push
 ```
 
+## Baseline and local replay
+
+`20260101000000_production_baseline.sql` is a schema-only dump of production's
+`public` schema (2026-11-11) plus the `auth.users` signup trigger. It sorts first,
+so `supabase start` / `supabase db reset` builds production's schema, then re-runs
+every older migration on top (all idempotent: `IF NOT EXISTS` / `DROP … IF EXISTS`).
+Some of those recreate policies production no longer has;
+`20261111000000_reconcile_to_production.sql` drops them, so a fresh local database
+ends at exactly production's tables, RLS policies, functions and grants.
+
+New migrations go after the reconcile one. Names must be `<14-digit timestamp>_name.sql`
+and unique (the CLI rejects duplicates and letter suffixes).
+
 ## Migration Files
 
-### 20260205_rls_policies_revised.sql
+### 20260205000000_rls_policies_revised.sql
 
 Comprehensive RLS security fix that:
 

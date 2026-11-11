@@ -13,14 +13,18 @@ CREATE INDEX IF NOT EXISTS idx_writing_sessions_user_date ON writing_sessions(us
 
 ALTER TABLE writing_sessions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own writing sessions" ON writing_sessions;
 CREATE POLICY "Users can view own writing sessions" ON writing_sessions
   FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own writing sessions" ON writing_sessions;
 CREATE POLICY "Users can insert own writing sessions" ON writing_sessions
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own writing sessions" ON writing_sessions;
 CREATE POLICY "Users can update own writing sessions" ON writing_sessions
   FOR UPDATE USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Service role full access to writing_sessions" ON writing_sessions;
 CREATE POLICY "Service role full access to writing_sessions" ON writing_sessions
   FOR ALL TO service_role USING (true) WITH CHECK (true);
