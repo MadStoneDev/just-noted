@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { getAccounts, switchToAccount, type DeviceAccount } from "@/utils/accounts";
+import { getAccounts, switchToAccount, isOffline, OFFLINE_SWITCH_MESSAGE, type DeviceAccount } from "@/utils/accounts";
+import { useToast } from "@/components/ui/toast";
 import { getQueueSize } from "@/utils/offline-queue";
 import { useNotesStore } from "@/stores/notes-store";
 import { AccountSwitchModal, AccountSwitchTransition } from "@/components/account-switch-modal";
@@ -13,6 +14,7 @@ import { IconPlus, IconLogout, IconCheck, IconHelpCircle, IconX } from "@tabler/
 // full-width sheet suited to touch: switch / add / log out, plus Help.
 export function MobileAccountDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const supabase = createClient();
+  const { showError } = useToast();
   const [accounts, setAccounts] = useState<DeviceAccount[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -41,16 +43,20 @@ export function MobileAccountDrawer({ open, onClose }: { open: boolean; onClose:
     setSwitching(a);
     setBusy(true);
     const res = await switchToAccount(supabase, a); // reloads on success
-    if (!res.ok) { setSwitching(null); setBusy(false); setAccounts(getAccounts()); }
-  }, [supabase]);
+    if (!res.ok) {
+      setSwitching(null); setBusy(false); setAccounts(getAccounts());
+      showError(res.offline ? OFFLINE_SWITCH_MESSAGE : "That session expired — sign in again to reconnect it.");
+    }
+  }, [supabase, showError]);
 
   const doSwitch = useCallback(async (a: DeviceAccount) => {
+    if (isOffline()) { showError(OFFLINE_SWITCH_MESSAGE); return; }
     const pending = await getQueueSize();
     const localOnly = useNotesStore.getState().notes.filter((n) => !n.deletedAt && n.source === "redis").length;
     const hasOpenShared = typeof document !== "undefined" && !!document.querySelector('[aria-label="Shared note"]');
     if (pending === 0 && localOnly === 0 && !hasOpenShared) { await commitSwitch(a); return; }
     setConfirmTarget(a);
-  }, [commitSwitch]);
+  }, [commitSwitch, showError]);
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();

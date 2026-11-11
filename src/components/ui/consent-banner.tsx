@@ -28,8 +28,10 @@ export function ConsentBanner() {
   if (!isPending && !forceOpen) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 print:hidden">
-      <div className="mx-auto max-w-lg bg-[var(--color-bg-elevated)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] border border-[var(--color-border-primary)] p-4">
+    // The full-width wrapper only positions the card — it must not swallow clicks
+    // on the rail (account avatar) and editor toolbar either side of it.
+    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 print:hidden pointer-events-none">
+      <div className="pointer-events-auto mx-auto max-w-lg bg-[var(--color-bg-elevated)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] border border-[var(--color-border-primary)] p-4">
         <div className="flex items-start gap-3">
           <div className="flex-1">
             <h3 className="text-sm font-semibold text-[var(--color-text-primary)] mb-1">

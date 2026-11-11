@@ -11,6 +11,15 @@ import { processQueue, getQueueSize } from "@/utils/offline-queue";
 // account's notes have synced. See note-wrapper.tsx.
 export const SWITCH_MARKER_KEY = "jn_switching_to";
 
+// Switching needs the network: the session swap validates the target's tokens
+// with the auth server, and the reload has to fetch the new account's app. So
+// offline we refuse up front and stay on the current account.
+export const OFFLINE_SWITCH_MESSAGE = "You're offline. Switching accounts needs a connection.";
+
+export function isOffline(): boolean {
+  return typeof navigator !== "undefined" && navigator.onLine === false;
+}
+
 export interface SwitchMarker {
   handle: string;
   displayName?: string;
@@ -127,7 +136,9 @@ async function flushBeforeSwitch(timeoutMs = 3000): Promise<void> {
 export async function switchToAccount(
   supabase: SupabaseClient,
   target: DeviceAccount,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; offline?: boolean }> {
+  if (isOffline()) return { ok: false, offline: true, error: OFFLINE_SWITCH_MESSAGE };
+
   // Drain the outgoing account's work under ITS session first (B7).
   await flushBeforeSwitch();
 
@@ -136,6 +147,11 @@ export async function switchToAccount(
     refresh_token: target.refreshToken,
   });
   if (error) {
+    // A dropped connection is not an expired session: leave the stored account
+    // valid (marking it expired would force a needless re-sign-in).
+    if (isOffline() || error.name === "AuthRetryableFetchError") {
+      return { ok: false, offline: true, error: OFFLINE_SWITCH_MESSAGE };
+    }
     upsertAccount({ ...target, sessionValid: false });
     return { ok: false, error: error.message };
   }

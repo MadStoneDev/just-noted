@@ -250,7 +250,7 @@ function DeviceAccountsSection() {
     if (!res.ok) {
       setBusyId(null);
       setAccounts(getAccounts());
-      showError("That session expired — sign in again to reconnect it.");
+      showError(res.error && res.offline ? res.error : "That session expired — sign in again to reconnect it.");
     }
   };
 

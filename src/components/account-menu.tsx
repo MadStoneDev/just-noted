@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { Dropdown } from "@/components/ds/dropdown";
 import { createClient } from "@/utils/supabase/client";
-import { getAccounts, switchToAccount, type DeviceAccount } from "@/utils/accounts";
+import { getAccounts, switchToAccount, isOffline, OFFLINE_SWITCH_MESSAGE, type DeviceAccount } from "@/utils/accounts";
+import { useToast } from "@/components/ui/toast";
 import { getQueueSize } from "@/utils/offline-queue";
 import { useNotesStore } from "@/stores/notes-store";
 import { AccountSwitchModal, AccountSwitchTransition } from "@/components/account-switch-modal";
@@ -20,6 +21,7 @@ import { Avatar } from "@/components/ui/avatar";
 // screen are the next pass.
 export default function AccountMenu() {
   const supabase = createClient();
+  const { showError } = useToast();
   const [accounts, setAccounts] = useState<DeviceAccount[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -75,11 +77,16 @@ export default function AccountMenu() {
       setSwitching(null);
       setBusy(false);
       setAccounts(getAccounts());
+      showError(res.offline ? OFFLINE_SWITCH_MESSAGE : "That session expired — sign in again to reconnect it.");
     }
   };
 
   // Decide whether a switch is clean (go straight) or needs the confirm gate.
   const doSwitch = async (a: DeviceAccount) => {
+    if (isOffline()) {
+      showError(OFFLINE_SWITCH_MESSAGE);
+      return;
+    }
     const pending = await getQueueSize();
     const localOnly = useNotesStore
       .getState()

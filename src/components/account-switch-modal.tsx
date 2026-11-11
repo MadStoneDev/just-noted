@@ -4,13 +4,14 @@ import React from "react";
 import { Modal } from "@/components/ds/modal";
 import { useNotesStore } from "@/stores/notes-store";
 import { useOfflineQueue } from "@/hooks/use-online-status";
-import type { DeviceAccount } from "@/utils/accounts";
-import { IconUser, IconCloudUpload, IconDeviceLaptop } from "@tabler/icons-react";
+import { OFFLINE_SWITCH_MESSAGE, type DeviceAccount } from "@/utils/accounts";
+import { IconUser, IconCloudUpload, IconDeviceLaptop, IconWifiOff } from "@tabler/icons-react";
 import { Avatar } from "@/components/ui/avatar";
 
 // Blocking "unsynced work" gate before an account switch (design surface 12).
-// Unsynced notes hold the switch until the queue drains (or the user is offline
-// and chooses to leave them on the device). Local-only notes are informational.
+// Unsynced notes hold the switch until the queue drains. Switching needs a
+// connection, so offline the switch is unavailable (no "switch anyway") and the
+// user stays on the current account. Local-only notes are informational.
 export function AccountSwitchModal({
   target,
   currentHandle,
@@ -30,7 +31,6 @@ export function AccountSwitchModal({
 
   // While online with pending ops, block the switch until they finish uploading.
   const blockingSync = pendingCount > 0 && isOnline;
-  const offlinePending = pendingCount > 0 && !isOnline;
 
   return (
     <Modal open onClose={onCancel} title={`Switch to @${target.handle || "account"}?`} size="md">
@@ -59,11 +59,16 @@ export function AccountSwitchModal({
               <div className="mt-0.5 text-[12px] leading-snug text-[var(--color-ink-4)]">
                 {isOnline
                   ? "Hang on — these finish uploading before the switch so nothing is lost."
-                  : currentHandle
-                    ? `You're offline, so these stay on this device. Switch back to @${currentHandle} to sync them.`
-                    : "You're offline, so these stay on this device. Switch back to this account to sync them."}
+                  : `They're saved on this device and upload to @${currentHandle || "this account"} once you're back online.`}
               </div>
             </div>
+          </div>
+        )}
+
+        {!isOnline && (
+          <div role="alert" className="flex items-start gap-2.5 rounded-[var(--radius-9)] p-3 bg-[var(--color-warn-tint)] border border-[var(--color-warn-tint-border)]">
+            <IconWifiOff size={17} className="text-[var(--color-warn)] mt-0.5 shrink-0" />
+            <div className="text-[13px] font-medium text-[var(--color-ink-1)]">{OFFLINE_SWITCH_MESSAGE}</div>
           </div>
         )}
 
@@ -102,13 +107,13 @@ export function AccountSwitchModal({
           </button>
           <button
             onClick={onConfirm}
-            disabled={blockingSync}
+            disabled={blockingSync || !isOnline}
             className="h-9 px-4 rounded-[var(--radius-7)] text-[13px] font-semibold bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
           >
             {blockingSync && (
               <span className="w-3.5 h-3.5 rounded-full border-2 border-[var(--color-accent-on-fill)] border-t-transparent animate-spin" />
             )}
-            {blockingSync ? "Waiting on sync…" : offlinePending ? "Switch anyway" : "Switch account"}
+            {blockingSync ? "Waiting on sync…" : "Switch account"}
           </button>
         </div>
       </div>
