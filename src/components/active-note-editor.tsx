@@ -745,6 +745,38 @@ export function NoteEditor({
     [note],
   );
 
+  // The editor's latest value, synchronously (`content` state lags a render, and
+  // an unload handler never gets that render).
+  const latestValueRef = useRef(content);
+  // Follow programmatic replacements too (reconcile, restore, note change).
+  useEffect(() => {
+    latestValueRef.current = content;
+  }, [content]);
+
+  // Tab hiding / closing (dispatched by NoteWrapper just before its flush): make
+  // any unsaved text durable NOW — IDB copy + offline-queue entry, plus a
+  // keepalive save for cloud notes on close. The regular flushSave runs right
+  // after and clears the queue entry once its save lands.
+  useEffect(() => {
+    const onLeaving = (e: Event) => {
+      const closing = !!(e as CustomEvent<{ closing?: boolean }>).detail?.closing;
+      // Pull keystrokes still inside the editor's change debounce.
+      editorFlushRef.current?.();
+      const value = latestValueRef.current;
+      if (value === lastSavedContentRef.current) return;
+      if (localPersistTimerRef.current) {
+        clearTimeout(localPersistTimerRef.current);
+        localPersistTimerRef.current = null;
+      }
+      notesOperations.persistForLeave(note.id, value, goalTarget, goalType, {
+        baseVersion: baseVersionRef.current,
+        closing,
+      });
+    };
+    window.addEventListener("justnoted:leaving", onLeaving);
+    return () => window.removeEventListener("justnoted:leaving", onLeaving);
+  }, [note.id, goalTarget, goalType, notesOperations]);
+
   // Cancel any pending local write on unmount — the final content is covered by
   // the auto-save flush; this just prevents a stray post-unmount store write.
   useEffect(() => {
@@ -762,6 +794,7 @@ export function NoteEditor({
       // after the 5s release, editing cached content is allowed and safe).
       if (lockedRef.current) return;
 
+      latestValueRef.current = value;
       setContent(value);
       setContentFormat("markdown");
       // Synchronously too: during an unmount flush there is no next render.

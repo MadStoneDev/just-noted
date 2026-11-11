@@ -22,9 +22,16 @@ import {
   combiToRedis,
 } from "@/types/combined-notes";
 import { getAllLocalNotes, saveAllNotesToLocal, clearLocalNotes } from "@/utils/notes-idb-cache";
-import { clearQueue, processQueue, enqueue, migrateUntaggedCloudOps } from "@/utils/offline-queue";
+import {
+  clearQueue,
+  processQueue,
+  enqueue,
+  migrateUntaggedCloudOps,
+  getPendingContentByNote,
+  warmQueueConnection,
+} from "@/utils/offline-queue";
 import { setActiveSupabaseUser } from "@/utils/offline-queue-guard";
-import { reconcileNotes } from "@/utils/notes-merge";
+import { reconcileNotes, protectUnsyncedLocal } from "@/utils/notes-merge";
 import { subscribeNoteUpdates } from "@/utils/cross-tab";
 import { stripHtmlToText } from "@/utils/html-utils";
 import {
@@ -283,9 +290,30 @@ export function useNotesSync() {
       const cleanedNotes = freshNotes;
 
       const normalisedNotes = normaliseOrdering(cleanedNotes);
-      const sortedNotes = sortNotes(normalisedNotes, null);
+      const serverSorted = sortNotes(normalisedNotes, null);
+
+      // Never let this refresh overwrite a local copy with unsynced changes —
+      // e.g. text another tab typed right before it was closed, which reached
+      // this browser's IDB cache / offline queue but not the server. Keep it and
+      // push it instead (see protectUnsyncedLocal).
+      const [localNotes, pending] = await Promise.all([
+        getAllLocalNotes(),
+        getPendingContentByNote(),
+      ]);
+      const { notes: sortedNotes, toPush, fromQueue } = protectUnsyncedLocal(
+        serverSorted,
+        localNotes,
+        pending,
+      );
 
       if (isMounted.current) {
+        const uid = useNotesStore.getState().userId;
+        const authed = useNotesStore.getState().isAuthenticated;
+        if (uid) {
+          for (const note of toPush) pushNoteToServer(note, uid, authed).catch(() => {});
+        }
+        if (fromQueue.length > 0) processQueue().catch(() => {});
+
         mergeWithBackend(sortedNotes);
         recalculateNotebookCounts();
         markUpdated();
@@ -310,6 +338,10 @@ export function useNotesSync() {
 
     const initialize = async () => {
       try {
+        // Open the offline queue's connection now so a tab-close flush can write
+        // to it synchronously (see enqueueContentNow).
+        warmQueueConnection();
+
         // One-time cleanup of old localStorage cache
         localStorage.removeItem("justnoted_notes_cache");
         localStorage.removeItem("justnoted_notes_cache_ts");
@@ -407,7 +439,15 @@ export function useNotesSync() {
 
         const normalizedNotes = normaliseOrdering(allNotes);
         const sortedNotes = sortNotes(normalizedNotes, null);
-        const mergedNotes = mergeLocalWithServer(sortedNotes, cachedNotes, newUserId, authenticated);
+        const reconciled = mergeLocalWithServer(sortedNotes, cachedNotes, newUserId, authenticated);
+        // A queued edit whose cached copy was overwritten (e.g. by another tab's
+        // refresh racing the close) still wins over the server; the drain below
+        // pushes it.
+        const { notes: mergedNotes } = protectUnsyncedLocal(
+          reconciled,
+          [],
+          await getPendingContentByNote(),
+        );
 
         syncFromBackend(mergedNotes);
         recalculateNotebookCounts();

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, chromium, type Page } from "@playwright/test";
 import { seededAccounts, signIn } from "./fixtures/auth";
 
 // Core flows for the Ready-for-mobile gate (docs/mobile-readiness.md).
@@ -173,6 +173,86 @@ test.describe("notes — local (Redis, anonymous)", () => {
     await expect(page.locator(`[data-note-card="${aId}"]`)).toContainText("quick words", {
       timeout: 20_000,
     });
+  });
+
+  // Data-loss guard for closing the tab straight after typing: the last
+  // keystrokes are still inside the editor's ~300ms debounce and the 0.5s local
+  // persist, so only the pagehide/visibilitychange flush can save them (IDB copy
+  // + offline-queue entry). A SECOND app tab stays open throughout: when it
+  // refreshes it must keep (and push) the closed tab's text, not overwrite it
+  // with its own stale copy. Then a full browser restart must still show it.
+  // Uses a persistent profile so IndexedDB/localStorage (and the guest
+  // identity) survive the restart, not just a page reload.
+  test("text typed just before closing the tab is kept (pagehide, second tab)", async ({ baseURL }, testInfo) => {
+    test.slow();
+    const userDataDir = testInfo.outputPath("profile");
+    const launch = () => chromium.launchPersistentContext(userDataDir, { baseURL });
+
+    let ctx = await launch();
+    try {
+      // The other tab hears the closing tab's pagehide over a BroadcastChannel,
+      // proving the close really ran the unload path.
+      await ctx.addInitScript(() => {
+        window.addEventListener("pagehide", () => {
+          new BroadcastChannel("e2e").postMessage("pagehide");
+        });
+      });
+      const page = ctx.pages()[0] ?? (await ctx.newPage());
+      await page.goto("/");
+      await waitForApp(page);
+      await createFirstNote(page);
+      const id = await activeCardId(page);
+      // Let the create land so the note itself exists; only the text is at risk.
+      await page.waitForTimeout(2500);
+
+      // Second app tab, loaded now — so it holds the note WITHOUT the text.
+      const other = await ctx.newPage();
+      await other.goto("/");
+      await waitForApp(other);
+      const otherCard = other.locator(`[data-note-card="${id}"]`);
+      await expect(otherCard).toBeVisible();
+      const heard = other.evaluate(
+        () =>
+          new Promise<string>((resolve) => {
+            const ch = new BroadcastChannel("e2e");
+            ch.onmessage = (e) => resolve(String(e.data));
+          }),
+      );
+
+      const marker = `e2e-close-${Date.now()}`;
+      await page.bringToFront();
+      await editor(page).click();
+      await page.keyboard.type(marker);
+      await page.close({ runBeforeUnload: true }); // no wait — inside the debounce
+      expect(await heard).toBe("pagehide");
+      await expect(otherCard).not.toContainText(marker); // nothing synced yet
+
+      // Case 1: the other tab refreshes (focus → full refresh; past the 5s
+      // min-refresh gap since it loaded). It must keep the closed tab's text.
+      await other.bringToFront();
+      await other.waitForTimeout(5500);
+      await other.evaluate(() => window.dispatchEvent(new Event("focus")));
+      await expect(otherCard).toContainText(marker, { timeout: 20_000 });
+
+      // …and it pushed it: a reload of that tab still shows it.
+      await other.waitForTimeout(3000);
+      await other.reload();
+      await waitForApp(other);
+      await expect(other.locator(`[data-note-card="${id}"]`)).toContainText(marker, { timeout: 20_000 });
+      await ctx.close();
+
+      // Case 2: full browser restart, fresh load.
+      ctx = await launch();
+      const reopened = ctx.pages()[0] ?? (await ctx.newPage());
+      await reopened.goto("/");
+      await waitForApp(reopened);
+      const card = reopened.locator(`[data-note-card="${id}"]`);
+      await expect(card).toContainText(marker, { timeout: 20_000 });
+      await card.click();
+      await expect(editor(reopened)).toContainText(marker);
+    } finally {
+      await ctx.close().catch(() => {});
+    }
   });
 
   // Regression: a background refresh used to filter empty "New Note #N" notes

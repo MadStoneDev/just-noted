@@ -421,17 +421,33 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
   // tab is discarded (and while the page is still alive, so async saves can
   // complete); pagehide is the backup for bfcache/navigation. beforeunload
   // alone is not dependable for saving.
+  //
+  // "justnoted:leaving" goes out first (synchronously) so the open editor makes
+  // its unsaved text durable before the async save starts — the IDB copy plus an
+  // offline-queue entry, and on close a keepalive save for cloud notes. A tab
+  // that dies mid-save then still has the edit queued for the next load.
   useEffect(() => {
+    const announceLeaving = (closing: boolean) => {
+      try {
+        window.dispatchEvent(new CustomEvent("justnoted:leaving", { detail: { closing } }));
+      } catch {}
+    };
     const onVisibility = () => {
-      if (document.visibilityState === "hidden") handleForceSave();
+      if (document.visibilityState !== "hidden") return;
+      announceLeaving(false);
+      handleForceSave();
+    };
+    const onPageHide = () => {
+      announceLeaving(true);
+      handleForceSave();
     };
     document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("pagehide", handleForceSave);
+    window.addEventListener("pagehide", onPageHide);
     // Explicit flush request (e.g. just before logout, while still authenticated).
     window.addEventListener("justnoted:flush", handleForceSave);
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("pagehide", handleForceSave);
+      window.removeEventListener("pagehide", onPageHide);
       window.removeEventListener("justnoted:flush", handleForceSave);
     };
   }, [handleForceSave]);

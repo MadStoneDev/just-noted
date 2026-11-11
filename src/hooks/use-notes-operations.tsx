@@ -32,7 +32,8 @@ import {
 import { generateNoteId } from "@/utils/general/notes";
 import { withNoteLock, broadcastNoteUpdate, broadcastNoteDeleted, broadcastNotesChanged } from "@/utils/cross-tab";
 import { saveNoteToLocal, saveAllNotesToLocal, deleteLocalNote } from "@/utils/notes-idb-cache";
-import { enqueue, dropQueuedOps } from "@/utils/offline-queue";
+import { enqueue, dropQueuedOps, enqueueContentNow, dropSupersededUpdates } from "@/utils/offline-queue";
+import { sendLeaveSave } from "@/utils/leave-save";
 
 export interface NotesOperations {
   addNote: (templateContent?: string, templateTitle?: string) => Promise<void>;
@@ -50,6 +51,20 @@ export interface NotesOperations {
   saveNoteTitle: (noteId: string, title: string) => Promise<{ success: boolean }>;
   refreshSingleNote: (noteId: string) => Promise<CombinedNote | null>;
   transferNote: (noteId: string, targetSource: NoteSource) => Promise<void>;
+  /**
+   * Make an unsaved edit durable while the tab is hiding or closing. Runs
+   * synchronously up to the IDB/network requests (an unload handler can't
+   * await): IDB cache copy, offline-queue entry, and — for cloud notes — a
+   * keepalive save. A normal save still runs after it and, when it lands,
+   * clears the queue entry again.
+   */
+  persistForLeave: (
+    noteId: string,
+    content: string,
+    goal: number,
+    goalType: "" | "words" | "characters",
+    opts: { baseVersion?: number; closing: boolean },
+  ) => void;
 }
 import { HAS_INITIALISED_KEY } from "@/constants/app";
 
@@ -840,6 +855,9 @@ export function useNotesOperations(
 
       optimisticUpdateNote(noteId, { content, goal, goal_type: goalType, contentFormat: "markdown" });
       saveNoteToLocal({ ...targetNote, content, goal, goal_type: goalType, contentFormat: "markdown", updatedAt: Date.now() }).catch(() => {});
+      // Anything queued for this note up to now is replaced by this full-content
+      // save once it lands (see dropSupersededUpdates below).
+      const saveStartedAt = Date.now();
 
       try {
         // Serialize same-note saves across this browser's tabs (belt-and-braces
@@ -920,6 +938,9 @@ export function useNotesOperations(
 
         // Tell other tabs so they refresh instead of re-saving stale content.
         if (result?.success) {
+          // An older queued update (failed save, or the tab-hide write-ahead)
+          // must not replay over this newer content later.
+          dropSupersededUpdates(noteId, saveStartedAt, content).catch(() => {});
           broadcastNoteUpdate({
             noteId,
             version: typeof result.version === "number" ? result.version : undefined,
@@ -1058,6 +1079,45 @@ export function useNotesOperations(
     };
   }, []);
 
+  const persistForLeave = useCallback(
+    (
+      noteId: string,
+      content: string,
+      goal: number,
+      goalType: "" | "words" | "characters",
+      opts: { baseVersion?: number; closing: boolean },
+    ) => {
+      if (!userId) return;
+      const targetNote = useNotesStore.getState().notes.find((note) => note.id === noteId);
+      if (!targetNote) return;
+
+      optimisticUpdateNote(noteId, { content, goal, goal_type: goalType, contentFormat: "markdown" });
+      saveNoteToLocal({
+        ...targetNote,
+        content,
+        goal,
+        goal_type: goalType,
+        contentFormat: "markdown",
+        updatedAt: Date.now(),
+      }).catch(() => {});
+      enqueueContentNow({ type: "update", noteId, source: targetNote.source, userId, content, goal, goalType });
+
+      // Closing (pagehide): cloud notes also get a keepalive save, which can
+      // finish after the tab is gone. Over the size cap it is skipped; the queue
+      // entry covers it. Not on a mere tab switch — the normal save handles that.
+      if (opts.closing && targetNote.source === "supabase" && isAuthenticated) {
+        sendLeaveSave({
+          noteId,
+          content,
+          goal,
+          goalType,
+          baseVersion: opts.baseVersion ?? targetNote.version,
+        });
+      }
+    },
+    [userId, isAuthenticated, optimisticUpdateNote],
+  );
+
   return useMemo(() => ({
     addNote,
     updatePinStatus,
@@ -1068,5 +1128,6 @@ export function useNotesOperations(
     saveNoteTitle,
     refreshSingleNote,
     transferNote,
-  }), [addNote, updatePinStatus, updatePrivacyStatus, deleteNote, restoreNote, saveNoteContent, saveNoteTitle, refreshSingleNote, transferNote]);
+    persistForLeave,
+  }), [addNote, updatePinStatus, updatePrivacyStatus, deleteNote, restoreNote, saveNoteContent, saveNoteTitle, refreshSingleNote, transferNote, persistForLeave]);
 }

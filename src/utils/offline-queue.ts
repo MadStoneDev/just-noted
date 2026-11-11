@@ -13,6 +13,7 @@ import {
 } from "@/app/actions/supabaseActions";
 import type { RedisNote, CombinedNote } from "@/types/combined-notes";
 import { shouldSyncOp, getActiveSupabaseUser, needsCloudUserTag } from "./offline-queue-guard";
+import { sameNoteContent } from "./notes-utils";
 import {
   OFFLINE_QUEUE_DB_NAME,
   OFFLINE_QUEUE_DB_VERSION,
@@ -567,6 +568,158 @@ export async function migrateUntaggedCloudOps(currentUserId: string | null): Pro
   }
   if (fixed > 0) notifySubscribers(await countOps());
   return fixed;
+}
+
+// ===========================
+// LEAVE-SAFE ENQUEUE (tab hide / close)
+// ===========================
+//
+// enqueue() opens a fresh connection and runs several transactions in a row; a
+// closing tab is torn down long before that chain finishes. The leave path keeps
+// one warm connection and writes the op in a SINGLE transaction it commits
+// explicitly, so the op is durable if the browser gets to run it at all. The
+// next app load (or another open tab's refresh) then syncs it to the server.
+
+let leaveDb: IDBDatabase | null = null;
+let leaveDbOpening = false;
+
+/** Open (and keep) the connection the leave path writes through. Idempotent. */
+export function warmQueueConnection(): void {
+  if (leaveDb || leaveDbOpening) return;
+  if (typeof indexedDB === "undefined") return;
+  leaveDbOpening = true;
+  openDB()
+    .then((db) => {
+      leaveDb = db;
+      // Let a future schema upgrade proceed; re-warm lazily on the next write.
+      db.onversionchange = () => {
+        db.close();
+        leaveDb = null;
+      };
+      db.onclose = () => {
+        leaveDb = null;
+      };
+    })
+    .catch(() => {})
+    .finally(() => {
+      leaveDbOpening = false;
+    });
+}
+
+/**
+ * Queue a content update while the page is hiding/closing. Same collapse rules
+ * as enqueue() for an update (folds into a queued create, replaces an older
+ * update). Synchronous up to the IDB request: falls back to enqueue() when the
+ * warm connection isn't open yet.
+ */
+export function enqueueContentNow(payload: QueuedUpdateOp): void {
+  const db = leaveDb;
+  if (!db) {
+    warmQueueConnection();
+    enqueue(payload).catch(() => {});
+    return;
+  }
+  try {
+    const tx = db.transaction(OFFLINE_QUEUE_STORE_NAME, "readwrite");
+    const store = tx.objectStore(OFFLINE_QUEUE_STORE_NAME);
+    const req = store.index("noteId").getAll(IDBKeyRange.only(payload.noteId));
+    req.onsuccess = () => {
+      const existing = req.result as QueuedOperation[];
+      const createOp = existing.find((op) => op.payload.type === "create");
+      if (createOp) {
+        const note = (createOp.payload as QueuedCreateOp).note as unknown as Record<string, unknown>;
+        note.content = payload.content;
+        note.goal = payload.goal;
+        note.goal_type = payload.goalType;
+        store.put(createOp);
+      } else {
+        for (const op of existing) {
+          if (op.payload.type === "update") store.delete(op.id);
+        }
+        store.put({
+          id: `op_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+          payload,
+          timestamp: Date.now(),
+          retryCount: 0,
+          lastAttempt: null,
+        } satisfies QueuedOperation);
+      }
+      tx.commit?.();
+    };
+    tx.oncomplete = () => {
+      countOps().then(notifySubscribers).catch(() => {});
+    };
+  } catch {
+    leaveDb = null;
+    enqueue(payload).catch(() => {});
+  }
+}
+
+export interface PendingNoteContent {
+  content: string;
+  goal: number;
+  goalType: "" | "words" | "characters";
+}
+
+/**
+ * The newest queued (not yet synced) content per note: from an update op, or a
+ * queued create's note body. Notes with a pending delete are left out. Used so a
+ * refresh never shows — or caches — server content older than what is queued.
+ */
+export async function getPendingContentByNote(): Promise<Map<string, PendingNoteContent>> {
+  const result = new Map<string, PendingNoteContent>();
+  let ops: QueuedOperation[];
+  try {
+    ops = await getAllOps();
+  } catch {
+    return result;
+  }
+  const deleted = new Set(ops.filter((o) => o.payload.type === "delete").map((o) => o.payload.noteId));
+  for (const op of ops.sort((a, b) => a.timestamp - b.timestamp)) {
+    const p = op.payload;
+    if (deleted.has(p.noteId)) continue;
+    if (p.type === "update") {
+      result.set(p.noteId, { content: p.content, goal: p.goal, goalType: p.goalType });
+    } else if (p.type === "create") {
+      const n = p.note as unknown as { content?: string; goal?: number; goal_type?: string };
+      if (typeof n.content === "string") {
+        result.set(p.noteId, {
+          content: n.content,
+          goal: n.goal ?? 0,
+          goalType: (n.goal_type as PendingNoteContent["goalType"]) ?? "",
+        });
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * A save of the FULL content landed on the server, so a queued update for this
+ * note is obsolete when it was queued before that save started, or carries the
+ * very text that was just saved (a tab-hide write-ahead raced the save).
+ * Replaying either later could put older text back over a newer edit. Only
+ * "update" ops are touched (creates, titles, pins etc. carry other fields).
+ */
+export async function dropSupersededUpdates(
+  noteId: string,
+  queuedBefore: number,
+  savedContent?: string,
+): Promise<void> {
+  try {
+    const ops = await getOpsByNoteId(noteId);
+    const stale = ops.filter(
+      (o) =>
+        o.payload.type === "update" &&
+        (o.timestamp <= queuedBefore ||
+          (savedContent !== undefined && sameNoteContent(o.payload.content, savedContent))),
+    );
+    if (stale.length === 0) return;
+    for (const op of stale) await deleteOp(op.id);
+    notifySubscribers(await countOps());
+  } catch {
+    /* best effort — a lingering identical op is a server-side no-op */
+  }
 }
 
 // Drop every queued op for a note. Called when a note is deleted so a pending

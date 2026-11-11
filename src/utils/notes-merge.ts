@@ -131,3 +131,77 @@ export function reconcileNotes(
 
   return { merged, toPush, toDelete, toConflictCopy };
 }
+
+export interface PendingContent {
+  content: string;
+  goal: number;
+  goalType: "" | "words" | "characters";
+}
+
+export interface ProtectResult {
+  /** The server list with unsynced local content laid over it. */
+  notes: CombinedNote[];
+  /** Notes whose newer content lives only in this browser's cache — push them. */
+  toPush: CombinedNote[];
+  /** Notes kept because of a pending offline-queue entry — drain the queue. */
+  fromQueue: string[];
+}
+
+/**
+ * Background refresh / poll guard: a server list must never overwrite a local
+ * copy that still has unsynced changes — typically an edit another tab of this
+ * browser made just before it was closed. Two signals, strongest first:
+ *
+ * 1. A pending offline-queue entry for the note (its content is what will be
+ *    sent). Kept as-is; the caller drains the queue to push it.
+ * 2. A newer local edit in the IDB cache: same base version as the server (or
+ *    ahead) but different text. Kept and pushed.
+ *
+ * A server that has moved PAST the local base without a queue entry is a real
+ * newer edit from elsewhere and wins, as before (conflicts are the load path's
+ * job — see reconcileNotes). Tombstones are never revived here.
+ */
+export function protectUnsyncedLocal(
+  serverNotes: CombinedNote[],
+  localNotes: CombinedNote[],
+  pending: Map<string, PendingContent>,
+): ProtectResult {
+  const localMap = new Map(localNotes.map((n) => [n.id, n]));
+  const toPush: CombinedNote[] = [];
+  const fromQueue: string[] = [];
+
+  const notes = serverNotes.map((serverNote) => {
+    if (serverNote.deletedAt) return serverNote;
+
+    const queued = pending.get(serverNote.id);
+    if (queued) {
+      if (sameNoteContent(queued.content, serverNote.content)) return serverNote;
+      fromQueue.push(serverNote.id);
+      return {
+        ...serverNote,
+        content: queued.content,
+        goal: queued.goal,
+        goal_type: queued.goalType,
+        contentFormat: "markdown" as const,
+      };
+    }
+
+    const local = localMap.get(serverNote.id);
+    if (!local || local.deletedAt) return serverNote;
+    if (ver(local) < ver(serverNote)) return serverNote;
+    if (!contentDiffers(local, serverNote)) return serverNote;
+    // Same guard as the load path: an emptied local copy never blanks text.
+    if (!hasText(local) && hasText(serverNote)) return serverNote;
+    const kept: CombinedNote = {
+      ...serverNote,
+      content: local.content,
+      goal: local.goal,
+      goal_type: local.goal_type,
+      contentFormat: local.contentFormat,
+    };
+    toPush.push(kept);
+    return kept;
+  });
+
+  return { notes, toPush, fromQueue };
+}

@@ -131,3 +131,73 @@ describe("migrateUntaggedCloudOps — legacy backfill (real IDB)", () => {
     expect(await migrateUntaggedCloudOps("userB")).toBe(0); // tagged1 already has userA
   });
 });
+
+describe("leave-path queue helpers (real IDB)", () => {
+  it("enqueueContentNow collapses into one update and is readable as pending", async () => {
+    const { enqueueContentNow, warmQueueConnection, getPendingContentByNote } = await import(
+      "./offline-queue"
+    );
+    warmQueueConnection();
+    await new Promise((r) => setTimeout(r, 20));
+    const op = (content: string) => ({
+      type: "update" as const,
+      noteId: "leave-1",
+      source: "redis" as const,
+      userId: "u",
+      content,
+      goal: 0,
+      goalType: "" as const,
+    });
+    await enqueue(op("first"));
+    enqueueContentNow(op("typed before close"));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(await getQueueSize()).toBe(1);
+    expect((await getPendingContentByNote()).get("leave-1")?.content).toBe("typed before close");
+  });
+
+  it("enqueueContentNow folds into a queued create", async () => {
+    const { enqueueContentNow, getPendingContentByNote } = await import("./offline-queue");
+    await enqueue({
+      type: "create",
+      noteId: "leave-2",
+      source: "redis",
+      userId: "u",
+      note: { id: "leave-2", content: "" } as any,
+    });
+    enqueueContentNow({
+      type: "update", noteId: "leave-2", source: "redis", userId: "u",
+      content: "body", goal: 0, goalType: "",
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(await getQueueSize()).toBe(1);
+    expect((await getPendingContentByNote()).get("leave-2")?.content).toBe("body");
+  });
+
+  it("a pending delete hides the note's queued content", async () => {
+    const { getPendingContentByNote } = await import("./offline-queue");
+    await cloudUpdate("leave-3", "u");
+    await enqueue({ type: "delete", noteId: "leave-3", source: "supabase", userId: "u" });
+    expect((await getPendingContentByNote()).has("leave-3")).toBe(false);
+  });
+
+  it("dropSupersededUpdates removes only updates queued before the save", async () => {
+    const { dropSupersededUpdates } = await import("./offline-queue");
+    await cloudUpdate("leave-4", "u");
+    await enqueue({ type: "updateTitle", noteId: "leave-4", source: "supabase", userId: "u", title: "t" });
+    const savedAt = Date.now();
+    await dropSupersededUpdates("leave-4", savedAt);
+    expect(await getQueueSize()).toBe(1); // the title op stays
+    await dropSupersededUpdates("leave-4", savedAt);
+    expect(await getQueueSize()).toBe(1);
+  });
+
+  it("dropSupersededUpdates also removes a newer update holding the saved text", async () => {
+    const { dropSupersededUpdates } = await import("./offline-queue");
+    const savedAt = Date.now() - 1000; // the save started before this op was queued
+    await cloudUpdate("leave-5", "u"); // content "c-leave-5"
+    await dropSupersededUpdates("leave-5", savedAt, "c-leave-6");
+    expect(await getQueueSize()).toBe(1); // different text: kept
+    await dropSupersededUpdates("leave-5", savedAt, "c-leave-5\n");
+    expect(await getQueueSize()).toBe(0);
+  });
+});

@@ -47,6 +47,9 @@ export async function saveNoteToLocal(note: CombinedNote): Promise<void> {
     const tx = db.transaction(IDB_CACHE_STORE_NAME, "readwrite");
     const store = tx.objectStore(IDB_CACHE_STORE_NAME);
     store.put(note);
+    // Commit now rather than when the transaction goes idle: on a tab close the
+    // page can be torn down before auto-commit, losing the last keystrokes.
+    tx.commit?.();
     await new Promise<void>((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
