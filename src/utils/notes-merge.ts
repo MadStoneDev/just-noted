@@ -135,26 +135,28 @@ export function reconcileNotes(
 }
 
 /**
- * Startup commit guard. The initial load fetches the server list, reconciles it
- * with the cache, then puts the result in the store — but the user can create,
- * edit, trash or remove notes while that fetch is in flight (Ctrl+J right after
- * the app opens). The reconciled list was built from data read BEFORE those
- * actions, so committing it as-is drops a just-created note and closes its
- * editor. This lays the actions taken during the load back over it.
+ * Commit guard for every path that replaces the note list from a fetch (the
+ * startup load and refreshNotes). The fetched list was read BEFORE anything the
+ * user did while it was in flight (Ctrl+J right after the app opens, or while a
+ * refresh is running), so committing it as-is drops a just-created note and
+ * closes its editor. This lays the actions taken during the load back over it.
  *
- * `baseline` is the store's note list when the load started (after the cache
- * paint) and `current` is the store now. Store updates keep untouched notes as
- * the same object, so a note whose object differs from its baseline one (or
- * that wasn't in the baseline) was changed during the load.
+ * `baseline` is the store's note list when the fetch started and `current` is
+ * the store now. Store updates keep untouched notes as the same object, so a
+ * note whose object differs from its baseline one was (probably) changed during
+ * the load. "Probably": a bulk rebuild (drag-reorder, renumbering, another
+ * commit) replaces every object, so identity alone is never trusted to override
+ * newer server data or to resurrect a note:
  *
- * - changed during the load → the store's copy wins over the reconciled one
- *   (same as the refresh's in-flight rule; a save racing a newer server version
- *   still goes through the normal CAS → conflicted-copy path, it isn't decided
- *   here)
- * - in the store but not in the reconciled list → kept when it was changed
- *   during the load or created at/after `loadStartedAt` (a just-created note
- *   the stale server list hasn't seen yet); otherwise dropped, as reconcile
- *   decided
+ * - in both lists, store object replaced during the load → the store's copy,
+ *   UNLESS the reconciled copy has a higher version (a newer edit from
+ *   elsewhere always wins; local unsaved text is protected separately — it is
+ *   isEditing/isSaving, which mergeWithBackend keeps, and its save goes through
+ *   the CAS → conflicted-copy path)
+ * - only in the store → kept if it appeared during the load (not in the
+ *   baseline: a create, a realtime insert, another tab) or was created at/after
+ *   `loadStartedAt` (made just before the baseline was taken); a baseline note
+ *   the fetch no longer has stays gone, as reconcile/the server decided
  * - in the baseline but removed from the store during the load → stays removed
  * - everything else, incl. reconcile's conflicted copies → the reconciled copy
  */
@@ -178,13 +180,13 @@ export function keepChangesMadeDuringLoad(
       result.push(note);
       continue;
     }
-    result.push(changedDuringLoad(live) ? live : note);
+    result.push(changedDuringLoad(live) && ver(note) <= ver(live) ? live : note);
   }
 
   // Notes only the store has (created during the load, or created just before
   // and cached before the server saw them). New ones go first, like addNote.
   const keptNew = current.filter(
-    (n) => !reconciledIds.has(n.id) && (changedDuringLoad(n) || n.createdAt >= loadStartedAt),
+    (n) => !reconciledIds.has(n.id) && (!baseById.has(n.id) || n.createdAt >= loadStartedAt),
   );
   return keptNew.length ? [...keptNew, ...result] : result;
 }

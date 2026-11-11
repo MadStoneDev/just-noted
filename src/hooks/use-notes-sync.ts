@@ -279,6 +279,12 @@ export function useNotesSync() {
         }
       }
 
+      // Snapshot the store as the fetch starts: anything the user does while it
+      // is in flight (e.g. Ctrl+J) is laid back over the result at commit — see
+      // keepChangesMadeDuringLoad.
+      const refreshStartedAt = Date.now();
+      const refreshBaseline = useNotesStore.getState().notes;
+
       const [redisNotes, supabaseNotes] = await Promise.all([
         loadNotesFromRedis(),
         loadNotesFromSupabase(),
@@ -341,7 +347,16 @@ export function useNotesSync() {
         }
         if (fromQueue.length > 0) processQueue().catch(() => {});
 
-        mergeWithBackend(sortedNotes);
+        // Same commit as startup: actions taken during the fetch survive it,
+        // then the in-flight rule applies. Read + set in the same tick.
+        mergeWithBackend(
+          keepChangesMadeDuringLoad(
+            sortedNotes,
+            refreshBaseline,
+            useNotesStore.getState().notes,
+            refreshStartedAt,
+          ),
+        );
         recalculateNotebookCounts();
         markUpdated();
         lastUpdateTimestamp.current = Date.now();

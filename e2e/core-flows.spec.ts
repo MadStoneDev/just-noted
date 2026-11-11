@@ -355,66 +355,63 @@ test.describe("signed-in", () => {
     // A note created while the first cloud load is still in flight must survive
     // that load's commit. The load's server list was read before the create, so
     // committing it blindly dropped the note (it flashed for ~100ms, the editor
-    // went to "Nothing open yet" and typed text had nowhere to go). The race is
-    // forced at the network: server actions are held while the app opens, the
-    // note is created, then everything EXCEPT the new note's own create/save is
-    // released — so the load commits a server list that doesn't have it.
+    // went to "Nothing open yet" and typed text had nowhere to go). Forced at the
+    // network: the load's note-list fetch is held, the note is created (its
+    // create queues behind the fetch), then the fetch is released while the
+    // note's own requests stay held — so the load commits a list without it.
     test("a note created before the first load finishes stays open and is saved", async ({ page }) => {
       const [acc] = seededAccounts();
       await signIn(page, acc);
-
-      let phase: "holdAll" | "holdNote" | "open" = "holdAll";
-      let noteId = "";
-      const held: { route: Route; body: string }[] = [];
-      await page.route("**/*", async (route) => {
-        const req = route.request();
-        const isAction = req.method() === "POST" && !!req.headers()["next-action"];
-        const body = req.postData() ?? "";
-        if (isAction && (phase === "holdAll" || (phase === "holdNote" && body.includes(noteId)))) {
-          held.push({ route, body });
-          return;
-        }
-        await route.continue();
-      });
+      const gate = await gateServerActions(page);
+      gate.hold(isNoteListFetch);
 
       await page.goto("/");
       await waitForApp(page);
-      // The load is stuck: the seeded note hasn't arrived yet.
-      await expect(page.locator(NOTE_ROW)).toHaveCount(0);
+      await expect.poll(() => gate.held.length, { message: "startup note-list fetch held" }).toBeGreaterThanOrEqual(1);
+      await expect(page.locator(NOTE_ROW)).toHaveCount(0); // load stuck: seeded note not in yet
 
       await page.locator("body").press("Control+j");
       await expect.poll(() => activeCardId(page)).not.toBeNull();
-      noteId = (await activeCardId(page))!;
+      const noteId = (await activeCardId(page))!;
 
-      // Let the load finish without the new note's create (stale server list).
-      phase = "holdNote";
-      for (const h of held.splice(0).filter((x) => { if (x.body.includes(noteId)) { held.push(x); return false; } return true; })) {
-        await h.route.continue();
-      }
+      gate.hold((body) => body.includes(noteId));
+      await gate.release();
       await expect(page.locator(`[data-note-card="${seedState()!.sharedNote!.noteId}"]`)).toBeVisible(); // load committed
+      await expect.poll(() => gate.held.some((h) => h.body.includes(noteId)), { message: "create queued behind the load" }).toBe(true);
 
-      // The new note is still listed, still open, and the editor takes typing.
-      await expect(page.locator(`[data-note-card="${noteId}"]`)).toBeVisible();
-      await expect(page.getByText("Nothing open yet")).toHaveCount(0);
-      await expect
-        .poll(() => page.evaluate(() => !!document.activeElement?.closest(".ProseMirror")))
-        .toBe(true);
-      const marker = `e2e-early-${Date.now()}`;
-      await page.keyboard.type(marker);
-      await expect(editor(page)).toContainText(marker);
-      await expect(page.locator(`[data-note-card="${noteId}"]`)).toBeVisible();
+      await expectNoteKeptAndTypeable(page, noteId, `e2e-early-${Date.now()}`, gate);
+    });
 
-      // Now let its create + saves through; it reaches the server…
-      phase = "open";
-      for (const h of held.splice(0)) await h.route.continue();
-      await expect.poll(() => cloudContent(noteId), { timeout: 15_000 }).toContain(marker);
-      await page.unroute("**/*");
-
-      // …and survives a reload.
-      await page.reload();
+    // Same race on a background refresh (focus / visibility / interval / other
+    // tab): a note created while a refresh's fetch is in flight must survive
+    // that refresh's commit. A focus event starts the refresh; otherwise forced
+    // exactly like the startup test.
+    test("a note created while a refresh is in flight stays open and is saved", async ({ page }) => {
+      const [acc] = seededAccounts();
+      await signIn(page, acc);
+      await page.goto("/");
       await waitForApp(page);
-      await page.locator(`[data-note-card="${noteId}"]`).click();
-      await expect(editor(page)).toContainText(marker);
+      await expect(page.locator(`[data-note-card="${seedState()!.sharedNote!.noteId}"]`)).toBeVisible(); // startup done
+      await page.waitForTimeout(1000); // let startup's follow-up actions settle
+
+      const gate = await gateServerActions(page);
+      gate.hold(isNoteListFetch);
+      await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+      await expect.poll(() => gate.held.length, { message: "refresh note-list fetch held" }).toBeGreaterThanOrEqual(1);
+
+      const before = await activeCardId(page);
+      await page.locator("body").press("Control+j");
+      await expect.poll(() => activeCardId(page)).not.toBe(before);
+      const noteId = (await activeCardId(page))!;
+
+      gate.hold((body) => body.includes(noteId));
+      await gate.release();
+      // The create only reaches the network once the refresh's fetches have all
+      // answered (one action at a time), so seeing it held = refresh is done.
+      await expect.poll(() => gate.held.some((h) => h.body.includes(noteId)), { message: "create queued behind the refresh" }).toBe(true);
+      await page.waitForTimeout(1000); // the refresh commits right after its responses
+
+      await expectNoteKeptAndTypeable(page, noteId, `e2e-refresh-race-${Date.now()}`, gate);
     });
 
     // Cloud tab-close: the last keystrokes are still inside the editor debounce
@@ -603,6 +600,61 @@ async function newNote(page: Page): Promise<string> {
     .poll(() => page.evaluate(() => !!document.activeElement?.closest(".ProseMirror")))
     .toBe(true);
   return (await activeCardId(page))!;
+}
+
+// Hold the page's server-action requests at the network. Next.js sends server
+// actions ONE AT A TIME per page, so holding one also holds every action queued
+// behind it in the browser (they don't reach the network until it answers).
+async function gateServerActions(page: Page) {
+  let shouldHold: (body: string) => boolean = () => false;
+  const held: { route: Route; body: string }[] = [];
+  await page.route("**/*", async (route) => {
+    const req = route.request();
+    const body = req.postData() ?? "";
+    if (req.method() === "POST" && req.headers()["next-action"] && shouldHold(body)) {
+      held.push({ route, body });
+      return;
+    }
+    await route.continue();
+  });
+  return {
+    held,
+    /** Which requests to hold from now on (already-held ones stay held). */
+    hold(fn: (body: string) => boolean) { shouldHold = fn; },
+    /** Send everything held so far, in order. */
+    async release() { for (const h of held.splice(0)) await h.route.continue(); },
+    async open() { shouldHold = () => false; await this.release(); await page.unroute("**/*"); },
+  };
+}
+// The note-list fetch both startup and refreshNotes make (Redis getAll — the
+// first of their two list fetches; the Supabase one queues behind it).
+const isNoteListFetch = (body: string) => body.includes('"operation":"getAll"');
+
+// After a load/refresh committed without the new note: it must still be listed
+// and open, take typing, reach the server once its requests go through, and
+// survive a reload.
+async function expectNoteKeptAndTypeable(
+  page: Page,
+  noteId: string,
+  marker: string,
+  gate: Awaited<ReturnType<typeof gateServerActions>>,
+): Promise<void> {
+  await expect(page.locator(`[data-note-card="${noteId}"]`)).toBeVisible();
+  await expect(page.getByText("Nothing open yet")).toHaveCount(0);
+  await expect
+    .poll(() => page.evaluate(() => !!document.activeElement?.closest(".ProseMirror")))
+    .toBe(true);
+  await page.keyboard.type(marker);
+  await expect(editor(page)).toContainText(marker);
+  await expect(page.locator(`[data-note-card="${noteId}"]`)).toBeVisible();
+
+  await gate.open(); // its create + saves go through now
+  await expect.poll(() => cloudContent(noteId), { timeout: 15_000 }).toContain(marker);
+
+  await page.reload();
+  await waitForApp(page);
+  await page.locator(`[data-note-card="${noteId}"]`).click();
+  await expect(editor(page)).toContainText(marker);
 }
 
 // Open the seeded note (owned by A) and return its id.
