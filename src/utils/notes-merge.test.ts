@@ -126,12 +126,15 @@ describe("reconcileNotes — version-based (clock-independent)", () => {
     expect(toConflictCopy.map((n) => n.content)).toContain("text I typed during sync");
   });
 
-  it("keeps a strictly-newer local version and pushes it", () => {
+  it("local version AHEAD of the server (server not at our base) → copy, never an overwrite", () => {
+    // The local version only ever comes from the server, so a server behind it
+    // isn't the base this text was edited on (e.g. a restored note).
     const server = [mk({ id: "f", content: "old", version: 2 })];
     const local = [mk({ id: "f", content: "new offline edit", version: 3 })];
-    const { merged, toPush } = reconcileNotes(server, local, NOW);
-    expect(merged[0].content).toBe("new offline edit");
-    expect(toPush.map((n) => n.id)).toContain("f");
+    const { merged, toPush, toConflictCopy } = reconcileNotes(server, local, NOW);
+    expect(merged[0].content).toBe("old");
+    expect(toPush).toHaveLength(0);
+    expect(toConflictCopy.map((n) => n.content)).toEqual(["new offline edit"]);
   });
 
   it("same version + differing content = unsynced local edit → keep & push (no conflict copy)", () => {
@@ -161,12 +164,59 @@ describe("reconcileNotes — version-based (clock-independent)", () => {
       expect(toConflictCopy.map((n) => n.content)).toContain("stale local");
     });
 
-    it("device clock BEHIND: an old local timestamp still wins when its version is ahead", () => {
-      const server = [mk({ id: "s2", content: "server", version: 2, updatedAt: NOW })];
+    it("device clock BEHIND: an old local timestamp still pushes when the server is at its base", () => {
+      const server = [mk({ id: "s2", content: "server", version: 5, updatedAt: NOW })];
       const local = [mk({ id: "s2", content: "newer local", version: 5, updatedAt: NOW - 10_000_000 })];
       const { merged, toPush } = reconcileNotes(server, local, NOW);
       expect(merged[0].content).toBe("newer local");
       expect(toPush.map((n) => n.id)).toContain("s2");
     });
+  });
+});
+
+describe("reconcileNotes — load pushes use the background CAS decision", () => {
+  it("server at base → push, carrying the base version for the CAS write", () => {
+    const server = [mk({ id: "p1", content: "server", version: 4 })];
+    const local = [mk({ id: "p1", content: "local edit", version: 4 })];
+    const { toPush, toConflictCopy } = reconcileNotes(server, local, NOW);
+    expect(toPush.map((n) => [n.id, n.version])).toEqual([["p1", 4]]);
+    expect(toConflictCopy).toHaveLength(0);
+  });
+
+  it("same text, different versions → nothing to push, no copy", () => {
+    const server = [mk({ id: "p2", content: "same\n", version: 6 })];
+    const local = [mk({ id: "p2", content: "same", version: 4 })];
+    const { merged, toPush, toConflictCopy } = reconcileNotes(server, local, NOW);
+    expect(merged[0].version).toBe(6);
+    expect(toPush).toHaveLength(0);
+    expect(toConflictCopy).toHaveLength(0);
+  });
+
+  it("empty server copy that moved past our base → server kept, local text becomes the copy", () => {
+    // Previously the empty-server safety net pushed over it whatever the
+    // versions said. Now the text is still kept — as a copy, not an overwrite.
+    const server = [mk({ id: "p3", content: "", version: 5 })];
+    const local = [mk({ id: "p3", content: "my text", version: 3 })];
+    const { merged, toPush, toConflictCopy } = reconcileNotes(server, local, NOW);
+    expect(merged[0].content).toBe("");
+    expect(toPush).toHaveLength(0);
+    expect(toConflictCopy.map((n) => n.content)).toEqual(["my text"]);
+  });
+
+  it("note deleted on the server at our same version → copy, never revived by a push", () => {
+    const server = [mk({ id: "p4", content: "text", version: 4, deletedAt: NOW - 1000 })];
+    const local = [mk({ id: "p4", content: "text plus my edit", version: 4 })];
+    const { merged, toPush, toConflictCopy } = reconcileNotes(server, local, NOW);
+    expect(merged[0].deletedAt).toBe(NOW - 1000);
+    expect(toPush).toHaveLength(0);
+    expect(toConflictCopy.map((n) => n.content)).toEqual(["text plus my edit"]);
+  });
+
+  it("note deleted on the server with the same text → no copy", () => {
+    const server = [mk({ id: "p5", content: "text", version: 5, deletedAt: NOW - 1000 })];
+    const local = [mk({ id: "p5", content: "text", version: 4 })];
+    const { toPush, toConflictCopy } = reconcileNotes(server, local, NOW);
+    expect(toPush).toHaveLength(0);
+    expect(toConflictCopy).toHaveLength(0);
   });
 });

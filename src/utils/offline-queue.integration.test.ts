@@ -121,7 +121,10 @@ describe("migrateUntaggedCloudOps — legacy backfill (real IDB)", () => {
     const fixed = await migrateUntaggedCloudOps("userA");
     expect(fixed).toBe(1);
     await processQueue();
-    expect(mockedUpdate).toHaveBeenCalledWith("legacy1", "x", 0, "", { allowLegacy: true });
+    expect(mockedUpdate).toHaveBeenCalledWith("legacy1", "x", 0, "", {
+      queuedAt: expect.any(Number),
+      conflictCopy: expect.objectContaining({ id: expect.any(String) }),
+    });
     expect(await getQueueSize()).toBe(0);
   });
 
@@ -226,6 +229,24 @@ async function putForeignOp(op: Record<string, unknown>) {
   db.close();
 }
 
+async function readOp(id: string): Promise<any> {
+  const { OFFLINE_QUEUE_DB_NAME, OFFLINE_QUEUE_DB_VERSION, OFFLINE_QUEUE_STORE_NAME } = await import(
+    "@/constants/app"
+  );
+  const db = await new Promise<IDBDatabase>((resolve, reject) => {
+    const r = indexedDB.open(OFFLINE_QUEUE_DB_NAME, OFFLINE_QUEUE_DB_VERSION);
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+  const op = await new Promise<any>((resolve, reject) => {
+    const req = db.transaction(OFFLINE_QUEUE_STORE_NAME, "readonly").objectStore(OFFLINE_QUEUE_STORE_NAME).get(id);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  db.close();
+  return op;
+}
+
 const upd = (noteId: string, content: string, baseVersion?: number) => ({
   type: "update" as const,
   noteId,
@@ -258,11 +279,31 @@ describe("versioned queue entries (real IDB)", () => {
     expect(await getQueueSize()).toBe(0);
   });
 
-  it("an entry from an older build (no base) keeps the legacy path", async () => {
+  it("an entry from an older build (no base, no copy id) CAS-replays on its queued time", async () => {
     setActiveSupabaseUser("u");
-    await enqueue(upd("v-2", "legacy text"));
+    // As written by an older build: no baseVersion, no copyId.
+    await putForeignOp({
+      id: "op_legacy",
+      payload: { ...upd("v-2", "legacy text"), baseVersion: undefined },
+      timestamp: 1_700_000_000_000,
+      retryCount: 0,
+      lastAttempt: null,
+    });
+    // The copy id sent to the server must already be persisted on the entry,
+    // so a retry after a lost response can't make a second copy.
+    let storedAtSend: any;
+    mockedUpdate.mockImplementationOnce(async () => {
+      storedAtSend = await readOp("op_legacy");
+      return { success: true, version: 4 };
+    });
     await processQueue();
-    expect(mockedUpdate.mock.calls[0][4]).toEqual({ allowLegacy: true });
+    const opts = mockedUpdate.mock.calls[0][4];
+    expect(opts).toMatchObject({ queuedAt: 1_700_000_000_000 });
+    expect(opts?.allowLegacy).toBeUndefined(); // never the always-land path
+    expect(opts?.baseVersion).toBeUndefined();
+    expect(opts?.conflictCopy?.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(storedAtSend.payload.copyId).toBe(opts?.conflictCopy?.id);
+    expect(await getQueueSize()).toBe(0);
   });
 
   it("a newer edit from a different base does not replace an older queued one", async () => {

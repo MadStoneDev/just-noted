@@ -59,7 +59,8 @@ interface QueuedUpdateOp {
    * The server version this text was edited from. Replays CAS on it as a
    * background write: if the server moved past it, the server note is kept and
    * this text becomes a "(conflicted copy)" (see background-conflict.ts).
-   * Absent only on entries queued by an older build (legacy always-land path).
+   * Absent only on entries queued by an older build: those CAS on the time
+   * they were queued instead (server changed since → conflicted copy).
    */
   baseVersion?: number;
   /** Fixed id for that conflicted copy, so retries (and the tab-close keepalive
@@ -458,7 +459,7 @@ function throwIfFailed(result: { success: boolean; error?: string }, fallback: s
   }
 }
 
-async function executeOp(payload: QueuedOperationPayload): Promise<void> {
+async function executeOp(payload: QueuedOperationPayload, queuedAt: number): Promise<void> {
   const { type, source, userId, noteId } = payload;
 
   switch (type) {
@@ -473,27 +474,25 @@ async function executeOp(payload: QueuedOperationPayload): Promise<void> {
     }
     case "update": {
       const { content, goal, goalType, baseVersion } = payload;
-      // Versioned entries replay as a background CAS write: a newer server
-      // version is never overwritten — the server note stays, this text becomes
-      // a "(conflicted copy)" (identical text: nothing to do). Entries from
-      // older builds carry no base and keep the legacy always-land path (prior
-      // server content snapshotted to history).
-      const conflictCopy =
-        typeof baseVersion === "number"
-          ? { id: payload.copyId ?? uuidv4(), stamp: conflictStamp() }
-          : undefined;
+      // Every entry replays as a background CAS write: a newer server edit is
+      // never overwritten — the server note stays, this text becomes a
+      // "(conflicted copy)" (identical text: nothing to do). Versioned entries
+      // CAS on their base version. Entries from older builds carry no base, so
+      // the time they were queued stands in: if the server note changed after
+      // that, it's a copy (see decideBackgroundWrite).
+      const conflictCopy = { id: payload.copyId ?? uuidv4(), stamp: conflictStamp() };
+      const base =
+        typeof baseVersion === "number" ? { baseVersion } : { queuedAt };
       let r: { success: boolean; error?: string; conflicted?: boolean };
       if (source === "redis") {
         r = await noteOperation("redis", {
-          operation: "update", userId, noteId, content, goal, goalType, baseVersion, conflictCopy,
+          operation: "update", userId, noteId, content, goal, goalType, ...base, conflictCopy,
         });
-      } else if (conflictCopy) {
-        r = await updateSupabaseNote(noteId, content, goal, goalType, { baseVersion, conflictCopy });
       } else {
-        r = await updateSupabaseNote(noteId, content, goal, goalType, { allowLegacy: true });
+        r = await updateSupabaseNote(noteId, content, goal, goalType, { ...base, conflictCopy });
       }
       throwIfFailed(r, "Update failed");
-      if (r.conflicted && conflictCopy) {
+      if (r.conflicted) {
         conflictListeners.forEach((cb) => cb(payload));
       }
       break;
@@ -590,8 +589,16 @@ export async function processQueue(): Promise<void> {
         }
       }
 
+      // An entry from an older build has no fixed copy id: give it one and
+      // persist it first, so a retry (e.g. a lost response) can't make a
+      // second conflicted copy.
+      if (op.payload.type === "update" && !op.payload.copyId) {
+        op.payload = withCopyId(op.payload);
+        await putOp(op);
+      }
+
       try {
-        await executeOp(op.payload);
+        await executeOp(op.payload, op.timestamp);
         await deleteOp(op.id);
       } catch {
         // NEVER drop a queued edit. Keep it, back off, and retry later. Ops that

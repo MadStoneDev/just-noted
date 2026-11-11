@@ -21,6 +21,8 @@ import {
   decideBackgroundWrite,
   conflictCopyTitle,
   isValidConflictCopy,
+  isBackgroundBase,
+  type BackgroundBase,
   type ConflictCopySpec,
 } from "@/utils/background-conflict";
 
@@ -173,12 +175,14 @@ async function noteHasYdoc(supabase: any, noteId: string): Promise<boolean> {
 // server note is never overwritten past `baseVersion`: on a conflict the
 // incoming text is inserted as a "(conflicted copy)" note with the caller's
 // fixed copy id, so a retried / duplicated write makes at most one copy.
+// `base` is the version the text was edited from, or (queue entries from older
+// builds) the time it was queued — see decideBackgroundWrite.
 async function backgroundCasWrite(
   supabase: any,
   userId: string,
   noteId: string,
   fields: { content: string; content_format: string; goal: number; goal_type: string },
-  baseVersion: number,
+  base: BackgroundBase,
   copy: ConflictCopySpec,
 ): Promise<UpdateNoteResult> {
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -193,10 +197,11 @@ async function backgroundCasWrite(
     const curVersion = (cur as any).version ?? 1;
 
     const decision = decideBackgroundWrite({
-      baseVersion,
+      base,
       serverVersion: curVersion,
       serverContent: (cur as any).content,
       serverDeleted: !!(cur as any).deleted_at,
+      serverUpdatedAt: (cur as any).updated_at,
       content: fields.content,
     });
 
@@ -205,10 +210,10 @@ async function backgroundCasWrite(
     if (decision === "apply") {
       const { data, error } = await supabase
         .from("notes")
-        .update({ ...fields, version: baseVersion + 1, updated_at: new Date().toISOString() })
+        .update({ ...fields, version: curVersion + 1, updated_at: new Date().toISOString() })
         .eq("id", noteId)
         .eq("author", userId)
-        .eq("version", baseVersion)
+        .eq("version", curVersion)
         .select("version")
         .maybeSingle();
       if (error) return { success: false, error: String(error.message || error) };
@@ -256,16 +261,20 @@ export const updateNote = async (
     /**
      * Background write (queue replay / tab-close save): on a conflict keep the
      * server note and save this text as the given conflicted copy instead.
-     * Requires baseVersion.
+     * Requires baseVersion, or `queuedAt` for a queue entry from an older
+     * build that has no base version.
      */
     conflictCopy?: ConflictCopySpec;
+    queuedAt?: number;
   },
 ): Promise<UpdateNoteResult> => {
   try {
     const { supabase, userId } = await getAuthenticatedUser();
 
     if (opts?.conflictCopy !== undefined) {
-      if (!isValidConflictCopy(opts.conflictCopy) || typeof opts.baseVersion !== "number") {
+      const base: unknown =
+        opts.baseVersion !== undefined ? { version: opts.baseVersion } : { queuedAt: opts.queuedAt };
+      if (!isValidConflictCopy(opts.conflictCopy) || !isBackgroundBase(base)) {
         return { success: false, error: "Invalid data" };
       }
       return await backgroundCasWrite(
@@ -278,7 +287,7 @@ export const updateNote = async (
           goal: wordCountGoal || 0,
           goal_type: validateGoalType(wordCountGoalType),
         },
-        opts.baseVersion,
+        base,
         opts.conflictCopy,
       );
     }

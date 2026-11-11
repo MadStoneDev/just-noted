@@ -2,11 +2,13 @@
 // load. Kept side-effect-free (it only decides) so it can be unit-tested; the
 // caller performs the resulting server pushes/deletes. See use-notes-sync.
 //
-// Rules:
-// - Server wins on a tie / when newer, EXCEPT empty server content never
-//   clobbers a local copy that still has text (guards a just-typed note whose
-//   edit hasn't durably reached the server, and any silent write failure).
-// - Local wins when strictly newer (and is pushed back).
+// Rules (by VERSION, never timestamps — a wrong device clock can't flip them):
+// - Same text (after normalisation) → server copy, nothing to do.
+// - Local holds different text: decided like every background write (see
+//   utils/background-conflict). Server still at the local copy's version →
+//   keep local and push it as a CAS write. Server moved on, or deleted the
+//   note → server copy kept, local text saved as a "(conflicted copy)".
+//   Nothing is overwritten either way.
 // - A note deleted locally but still present on the server keeps its tombstone
 //   and the server delete is finished — never resurrected.
 // - A local-only note with content, created within 24h, is kept + pushed
@@ -15,6 +17,7 @@
 
 import type { CombinedNote } from "@/types/combined-notes";
 import { sameNoteContent, sameAuthoredContent } from "@/utils/notes-utils";
+import { decideBackgroundWrite } from "@/utils/background-conflict";
 
 const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
 
@@ -32,7 +35,8 @@ const contentDiffers = (a: CombinedNote, b: CombinedNote): boolean =>
 export interface ReconcileResult {
   /** The list to show and cache. */
   merged: CombinedNote[];
-  /** Local-winning notes to push back to the server. */
+  /** Local-winning notes to push back to the server — each as a background CAS
+   * write on its own `version` (the base the server was still at). */
   toPush: CombinedNote[];
   /** Local tombstones whose server-side delete still needs finishing. */
   toDelete: CombinedNote[];
@@ -45,11 +49,7 @@ export interface ReconcileResult {
   toConflictCopy: CombinedNote[];
 }
 
-/**
- * Reconcile the local cache against the server by VERSION (not timestamps — a
- * wrong device clock can't flip the winner). Empty server content never
- * clobbers non-empty local content (safety net retained).
- */
+/** Reconcile the local cache against the server (rules at the top of file). */
 export function reconcileNotes(
   serverNotes: CombinedNote[],
   localNotes: CombinedNote[],
@@ -75,48 +75,50 @@ export function reconcileNotes(
       continue;
     }
 
-    const lv = ver(localNote);
-    const sv = ver(serverNote);
-
-    // Safety net: an empty server copy never overwrites local text, whatever the
-    // versions say (guards a write that hasn't durably landed).
-    if (!hasText(serverNote) && hasText(localNote)) {
-      merged.push(localNote);
-      toPush.push(localNote);
-    } else if (lv > sv) {
-      // Local is ahead (e.g. an edit made offline) — keep and push it.
-      merged.push(localNote);
-      toPush.push(localNote);
-    } else if (lv === sv) {
-      // Same base. Differing content means an unsynced local edit — keep & push
-      // (a CAS on this base will succeed). Otherwise take the server copy.
-      if (contentDiffers(localNote, serverNote)) {
-        merged.push(localNote);
-        toPush.push(localNote);
-      } else {
-        merged.push(serverNote);
-      }
-    } else {
-      // Server advanced past our base. Take the server copy; if we also hold
-      // different un-pushed text, preserve it as a conflicted copy — UNLESS the
-      // two bodies are the same authored content once serialisation/format noise
-      // is ignored (e.g. the server copy is our own note re-serialised, or an
-      // HTML original a collaborator's editor saved back as Markdown when they
-      // merely opened the share). Equal content is never worth a copy, whatever
-      // the versions say; only genuinely divergent text is preserved.
+    // Nothing unsynced here: take the server copy.
+    if (!contentDiffers(localNote, serverNote)) {
       merged.push(serverNote);
-      if (
-        contentDiffers(localNote, serverNote) &&
-        hasText(localNote) &&
-        !sameAuthoredContent(
-          localNote.content,
-          localNote.contentFormat,
-          serverNote.content,
-          serverNote.contentFormat,
-        )
-      ) {
-        toConflictCopy.push(localNote);
-      }
+      continue;
+    }
+
+    // The local copy holds text the server doesn't. Same rule as every other
+    // background write (utils/background-conflict): the local version is the
+    // base the text was edited from.
+    // - server still at that base → keep local and push it (as a CAS write on
+    //   that base, so a save racing in after this read still can't be lost)
+    // - server moved on, or the note was deleted there → take the server copy
+    //   and preserve the local text as a "(conflicted copy)"
+    // This also covers a just-typed note whose server copy is still empty: at
+    // the same base it's pushed; past it, the local text becomes the copy.
+    const decision = decideBackgroundWrite({
+      baseVersion: ver(localNote),
+      serverVersion: ver(serverNote),
+      serverContent: serverNote.content,
+      serverDeleted: !!serverNote.deletedAt,
+      content: localNote.content ?? "",
+    });
+    if (decision === "apply") {
+      merged.push(localNote);
+      toPush.push(localNote);
+      continue;
+    }
+    merged.push(serverNote);
+    // A copy only when the local text is genuinely different authored content
+    // — never for an empty local copy, or the same words once serialisation /
+    // format noise is ignored (e.g. the server copy is our own note
+    // re-serialised, or an HTML original a collaborator's editor saved back as
+    // Markdown when they merely opened the share).
+    if (
+      decision === "copy" &&
+      hasText(localNote) &&
+      !sameAuthoredContent(
+        localNote.content,
+        localNote.contentFormat,
+        serverNote.content,
+        serverNote.contentFormat,
+      )
+    ) {
+      toConflictCopy.push(localNote);
     }
   }
 

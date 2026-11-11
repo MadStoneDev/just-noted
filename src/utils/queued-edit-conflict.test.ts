@@ -78,6 +78,7 @@ import { updateNote } from "@/app/actions/supabaseActions";
 import { POST as leaveSave } from "@/app/api/notes/leave-save/route";
 import { casUpdateNote } from "@/utils/redis/note-store";
 import { decideBackgroundWrite } from "./background-conflict";
+import { reconcileNotes } from "./notes-merge";
 
 const NOTE = "note-1";
 
@@ -266,4 +267,173 @@ describe("decideBackgroundWrite", () => {
   it("copies when the server moved on with other text", () => expect(d(3, 4, "a", "b")).toBe("copy"));
   it("no-op when the server already has the text", () => expect(d(3, 4, "b\n", "b")).toBe("noop"));
   it("copies onto a deleted note, never applies", () => expect(d(3, 3, "a", "b", true)).toBe("copy"));
+});
+
+// ── Queue entries from an older build (no base version) ─────────────────────
+// They CAS on the time they were queued: server changed after → copy.
+
+/** Write a queue entry exactly as an older build stored it (no base, no copy id). */
+async function putLegacyOp(content: string, queuedAt: number) {
+  const { OFFLINE_QUEUE_DB_NAME, OFFLINE_QUEUE_DB_VERSION, OFFLINE_QUEUE_STORE_NAME } = await import(
+    "@/constants/app"
+  );
+  const idb = await new Promise<IDBDatabase>((resolve, reject) => {
+    const r = indexedDB.open(OFFLINE_QUEUE_DB_NAME, OFFLINE_QUEUE_DB_VERSION);
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+  await new Promise<void>((resolve, reject) => {
+    const tx = idb.transaction(OFFLINE_QUEUE_STORE_NAME, "readwrite");
+    tx.objectStore(OFFLINE_QUEUE_STORE_NAME).put({
+      id: `op_${queuedAt}_legacy`,
+      payload: { type: "update", noteId: NOTE, source: "supabase", userId: USER, content, goal: 0, goalType: "" },
+      timestamp: queuedAt,
+      retryCount: 0,
+      lastAttempt: null,
+    });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  idb.close();
+}
+
+describe("legacy queue entry replay (Supabase)", () => {
+  const QUEUED = Date.parse("2026-11-10T09:00:00Z");
+
+  it("server changed AFTER the entry was queued → conflicted copy; server intact", async () => {
+    seedCloud("other device's newer text", 6);
+    db.notes.get(NOTE)!.updated_at = "2026-11-10T09:05:00Z";
+    await putLegacyOp("text queued by the old build", QUEUED);
+
+    await processQueue();
+
+    expect(db.notes.get(NOTE)).toMatchObject({ content: "other device's newer text", version: 6 });
+    expect(copies().map((c) => c.content)).toEqual(["text queued by the old build"]);
+  });
+
+  it("server unchanged since the entry was queued → saved normally, no copy", async () => {
+    seedCloud("before", 6);
+    db.notes.get(NOTE)!.updated_at = "2026-11-10T08:55:00Z";
+    await putLegacyOp("before + queued", QUEUED);
+
+    await processQueue();
+
+    expect(db.notes.get(NOTE)).toMatchObject({ content: "before + queued", version: 7 });
+    expect(copies()).toHaveLength(0);
+  });
+
+  it("server changed after, but already holds the same text → nothing written", async () => {
+    seedCloud("same text\n", 6);
+    db.notes.get(NOTE)!.updated_at = "2026-11-10T09:05:00Z";
+    await putLegacyOp("same text", QUEUED);
+    await processQueue();
+    expect(db.notes.get(NOTE)).toMatchObject({ content: "same text\n", version: 6 });
+    expect(copies()).toHaveLength(0);
+  });
+
+  it("server time unknown → treated as changed (copy, never an overwrite)", async () => {
+    seedCloud("server text", 6); // no updated_at
+    await putLegacyOp("queued", QUEUED);
+    await processQueue();
+    expect(db.notes.get(NOTE)!.content).toBe("server text");
+    expect(copies().map((c) => c.content)).toEqual(["queued"]);
+  });
+
+  it("refuses a background write with neither a base version nor a queued time", async () => {
+    seedCloud("before", 6);
+    const r = await updateNote(NOTE, "x", 0, "", {
+      conflictCopy: { id: "44444444-4444-4444-8444-444444444444", stamp: "11 Nov" },
+    });
+    expect(r).toMatchObject({ success: false, error: "Invalid data" });
+    expect(db.notes.get(NOTE)!.content).toBe("before");
+  });
+});
+
+describe("legacy queue entry replay (Redis CAS)", () => {
+  const KEY = "notes:anon-1";
+  const spec = { id: "55555555-5555-4555-8555-555555555555", stamp: "11 Nov" };
+  const patch = (content: string) => ({ content, goal: 0, goalType: "" as const });
+  const seed = (content: string, updatedAt: number) => {
+    hash.clear();
+    field(KEY).set(NOTE, JSON.stringify({ id: NOTE, title: "Ideas", content, version: 4, updatedAt }));
+  };
+  const read = (id: string) => JSON.parse(field(KEY).get(id)!);
+
+  it("stored note changed after the entry was queued → copy; stored note untouched", async () => {
+    seed("remote", 2_000);
+    const r = await casUpdateNote("anon-1", NOTE, patch("queued"), undefined, spec, 1_000);
+    expect(r).toMatchObject({ success: true, conflicted: true });
+    expect(read(NOTE)).toMatchObject({ content: "remote", version: 4 });
+    expect(read(spec.id)).toMatchObject({ content: "queued", version: 1 });
+  });
+
+  it("unchanged since queued → saved normally", async () => {
+    seed("old", 1_000);
+    const r = await casUpdateNote("anon-1", NOTE, patch("old + new"), undefined, spec, 2_000);
+    expect(r).toMatchObject({ success: true, conflicted: false, version: 5 });
+    expect(read(NOTE).content).toBe("old + new");
+    expect(field(KEY).size).toBe(1);
+  });
+});
+
+// ── Load-time reconcile push ─────────────────────────────────────────────────
+// reconcileNotes decides; the push is the same background CAS write on the
+// local copy's version (what use-notes-sync's pushNoteToServer sends).
+
+describe("load reconcile push (Supabase)", () => {
+  const cached = (content: string, version: number): any => ({
+    id: NOTE, title: "Shopping", content, version, source: "supabase",
+    createdAt: 0, updatedAt: 0, isPinned: false, isPrivate: true,
+  });
+  const serverNote = () => {
+    const r = db.notes.get(NOTE)!;
+    return { ...cached(r.content, r.version), deletedAt: r.deleted_at };
+  };
+  const push = (n: any) =>
+    updateNote(n.id, n.content, 0, "", {
+      baseVersion: n.version,
+      conflictCopy: { id: "66666666-6666-4666-8666-666666666666", stamp: "11 Nov" },
+    });
+
+  it("server at base → the unsynced cached edit is saved", async () => {
+    seedCloud("milk", 3);
+    const { toPush } = reconcileNotes([serverNote()], [cached("milk, eggs", 3)]);
+    expect(toPush).toHaveLength(1);
+    expect(await push(toPush[0])).toMatchObject({ success: true, version: 4 });
+    expect(db.notes.get(NOTE)!.content).toBe("milk, eggs");
+    expect(copies()).toHaveLength(0);
+  });
+
+  it("another save lands between reconcile and push → server kept, cached text is the copy", async () => {
+    seedCloud("milk", 3);
+    const { toPush } = reconcileNotes([serverNote()], [cached("milk, eggs", 3)]);
+    Object.assign(db.notes.get(NOTE)!, { content: "milk, bread (other device)", version: 4 });
+    expect(await push(toPush[0])).toMatchObject({ success: true, conflicted: true });
+    expect(db.notes.get(NOTE)!.content).toBe("milk, bread (other device)");
+    expect(copies().map((c) => c.content)).toEqual(["milk, eggs"]);
+  });
+
+  it("server moved on before load → no push at all; reconcile makes the copy", async () => {
+    seedCloud("milk, bread (other device)", 5);
+    const { toPush, toConflictCopy } = reconcileNotes([serverNote()], [cached("milk, eggs", 3)]);
+    expect(toPush).toHaveLength(0);
+    expect(toConflictCopy.map((n) => n.content)).toEqual(["milk, eggs"]);
+  });
+});
+
+describe("decideBackgroundWrite — queued-time base (older queue entries)", () => {
+  const d = (queuedAt: number, serverUpdatedAt: string | number | null, serverContent = "a", content = "b") =>
+    decideBackgroundWrite({ base: { queuedAt }, serverVersion: 9, serverContent, serverUpdatedAt, content });
+  const T = Date.parse("2026-11-10T09:00:00Z");
+  it("applies when the server last changed before it was queued", () =>
+    expect(d(T, "2026-11-10T08:59:59Z")).toBe("apply"));
+  it("applies when the server last changed exactly when it was queued", () => expect(d(T, T)).toBe("apply"));
+  it("copies when the server changed after it was queued", () =>
+    expect(d(T, "2026-11-10T09:00:01Z")).toBe("copy"));
+  it("no-op when the server changed after but has the same text", () =>
+    expect(d(T, T + 1, "b\n", "b")).toBe("noop"));
+  it("copies when the server time is unknown or unparseable", () => {
+    expect(d(T, null)).toBe("copy");
+    expect(d(T, "not a date")).toBe("copy");
+  });
 });

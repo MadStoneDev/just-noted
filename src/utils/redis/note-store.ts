@@ -291,6 +291,9 @@ export async function casUpdateNote(
    * so a retry makes at most one). See utils/background-conflict.ts.
    */
   keepServer?: ConflictCopySpec,
+  /** Background write from a queue entry with no base version (older build):
+   * the server counts as "at base" only if unchanged since this time. */
+  queuedAt?: number,
 ): Promise<CasResult> {
   const key = notesKey(userId);
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -302,11 +305,18 @@ export async function casUpdateNote(
     if (!cur) return { success: false, error: "corrupt" };
     const curVersion = cur.version ?? 1;
 
-    if (keepServer && typeof baseVersion === "number") {
+    const bgBase =
+      typeof baseVersion === "number"
+        ? { version: baseVersion }
+        : typeof queuedAt === "number"
+          ? { queuedAt }
+          : null;
+    if (keepServer && bgBase) {
       const decision = decideBackgroundWrite({
-        baseVersion,
+        base: bgBase,
         serverVersion: curVersion,
         serverContent: cur.content,
+        serverUpdatedAt: cur.updatedAt ?? null,
         content: patch.content,
       });
       if (decision === "noop") return { success: true, version: curVersion };

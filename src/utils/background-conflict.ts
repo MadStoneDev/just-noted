@@ -18,17 +18,60 @@ export type BackgroundWriteDecision =
   /** Server moved on (or the note was deleted) with different text: copy. */
   | "copy";
 
+/**
+ * What a background write was made from. Normally the server `version` it was
+ * edited on. Queue entries from older builds carry no version; for those the
+ * time the edit was queued stands in: the server is "still at base" only if it
+ * has not changed since then.
+ */
+export type BackgroundBase = { version: number } | { queuedAt: number };
+
+export function isBackgroundBase(b: unknown): b is BackgroundBase {
+  if (!b || typeof b !== "object") return false;
+  const { version, queuedAt } = b as Record<string, unknown>;
+  if (version !== undefined) return Number.isInteger(version);
+  return typeof queuedAt === "number" && Number.isFinite(queuedAt) && queuedAt > 0;
+}
+
+/** Server's last-updated time as epoch ms (Supabase ISO string or Redis ms). */
+export function toEpochMs(t: string | number | null | undefined): number | null {
+  if (typeof t === "number") return Number.isFinite(t) ? t : null;
+  if (typeof t === "string" && t) {
+    const ms = Date.parse(t);
+    return Number.isNaN(ms) ? null : ms;
+  }
+  return null;
+}
+
 export function decideBackgroundWrite(p: {
-  baseVersion: number;
+  /** Versioned base (shorthand for `base: { version }`). */
+  baseVersion?: number;
+  base?: BackgroundBase;
   serverVersion: number;
   serverContent: string | null | undefined;
   serverDeleted?: boolean;
+  /** Server's last-updated time — needed for a `queuedAt` base. */
+  serverUpdatedAt?: string | number | null;
   content: string;
 }): BackgroundWriteDecision {
   const same = sameNoteContent(p.serverContent ?? "", p.content);
   if (p.serverDeleted) return same ? "noop" : "copy";
-  if (p.baseVersion === p.serverVersion) return "apply";
+  const base: BackgroundBase | undefined =
+    typeof p.baseVersion === "number" ? { version: p.baseVersion } : p.base;
+  if (base && atBase(base, p.serverVersion, p.serverUpdatedAt)) return "apply";
   return same ? "noop" : "copy";
+}
+
+function atBase(
+  base: BackgroundBase,
+  serverVersion: number,
+  serverUpdatedAt: string | number | null | undefined,
+): boolean {
+  if ("version" in base) return base.version === serverVersion;
+  // Legacy entry: unknown server time can't prove "unchanged" — treat it as
+  // moved on (a copy never loses anything; an overwrite might).
+  const updated = toEpochMs(serverUpdatedAt);
+  return updated !== null && updated <= base.queuedAt;
 }
 
 /** Which copy to create on a conflict. `id` is fixed per queued edit, so the

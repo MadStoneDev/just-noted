@@ -11,7 +11,11 @@ import {
   getNotesRevision,
 } from "@/utils/redis/note-store";
 import { headers } from "next/headers";
-import { isValidConflictCopy, type ConflictCopySpec } from "@/utils/background-conflict";
+import {
+  isValidConflictCopy,
+  isBackgroundBase,
+  type ConflictCopySpec,
+} from "@/utils/background-conflict";
 import { createClient } from "@/utils/supabase/server";
 // Note: revalidatePath removed - client-side state is managed by Zustand
 // Calling revalidatePath on every Redis operation caused unnecessary re-renders
@@ -52,6 +56,9 @@ type NoteOperationParams =
       /** Background (queue replay) write: keep the stored note on a conflict and
        * save this text as the given conflicted copy. See background-conflict. */
       conflictCopy?: ConflictCopySpec;
+      /** With conflictCopy and no baseVersion: when a queue entry from an older
+       * build was queued (see decideBackgroundWrite). */
+      queuedAt?: number;
     }
   | { operation: "updateTitle"; userId: string; noteId: string; title: string }
   | {
@@ -216,12 +223,13 @@ async function handleRedisOperation(params: NoteOperationParams) {
       }
 
       case "update": {
-        const { userId, noteId, content, goal = 0, goalType = "", baseVersion, conflictCopy } = params;
+        const { userId, noteId, content, goal = 0, goalType = "", baseVersion, conflictCopy, queuedAt } = params;
         validateRedisUserId(userId);
 
         if (
           conflictCopy !== undefined &&
-          (!isValidConflictCopy(conflictCopy) || typeof baseVersion !== "number")
+          (!isValidConflictCopy(conflictCopy) ||
+            !isBackgroundBase(baseVersion !== undefined ? { version: baseVersion } : { queuedAt }))
         ) {
           return { success: false, error: "Invalid data" };
         }
@@ -251,6 +259,7 @@ async function handleRedisOperation(params: NoteOperationParams) {
           { content, goal: goal || 0, goalType: validateGoalType(goalType) },
           baseVersion,
           conflictCopy,
+          conflictCopy && baseVersion === undefined ? queuedAt : undefined,
         );
         if (!res.success) {
           const notFound = res.error === "not_found";
