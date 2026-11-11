@@ -1,0 +1,16 @@
+# Local stand-in for Upstash Redis during E2E (guest notes use the Upstash REST
+# API). serverless-redis-http speaks the same REST protocol over a plain Redis.
+#   docker compose -f e2e/docker-compose.yml up -d
+services:
+  redis:
+    image: redis:7-alpine
+  upstash:
+    image: hiett/serverless-redis-http:latest
+    ports:
+      - "8079:80"
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: e2e-local-token
+      SRH_CONNECTION_STRING: redis://redis:6379
+    depends_on:
+      - redis

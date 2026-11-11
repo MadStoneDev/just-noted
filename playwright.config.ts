@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { hasE2EEnvFile, serverEnv, validateE2EEnv, E2E_ENV_FILE } from "./e2e/fixtures/env";
 
 // Playwright E2E config. Specs live in ./e2e (vitest only scans src/**, so there
 // is no spec-file collision).
@@ -12,10 +13,25 @@ const PORT = 3050;
 const BASE_URL = process.env.E2E_BASE_URL || `http://localhost:${PORT}`;
 const useDevServer = process.env.E2E_DEV === "1";
 
+// The suite runs against an ISOLATED test database (local Supabase), configured
+// in .env.e2e — never .env.local, which points at production. The managed app
+// server is built and started with that env only (see e2e/fixtures/env.ts).
+// Hard stop at config load if .env.e2e is missing or points at production;
+// global-setup re-checks the running app's actual Supabase target.
+if (!process.env.E2E_BASE_URL) {
+  if (!hasE2EEnvFile()) {
+    throw new Error(`[e2e] ${E2E_ENV_FILE} not found — copy .env.e2e.example and fill it from \`supabase status\` (see e2e/README.md)`);
+  }
+  validateE2EEnv();
+}
+
 export default defineConfig({
   testDir: "./e2e",
   testMatch: /.*\.spec\.ts/,
+  // Setup seeds the signed-in test accounts (local env only, see e2e/README.md);
+  // teardown deletes them and everything they own.
   globalSetup: "./e2e/global-setup.ts",
+  globalTeardown: "./e2e/global-teardown.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -34,7 +50,18 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    {
+      name: "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        // Fake mic/camera + auto-accept the permission prompt, for audio specs
+        // (chat voice notes).
+        launchOptions: {
+          args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
+        },
+        permissions: ["microphone"],
+      },
+    },
     // Add firefox/webkit + a mobile viewport project once the core specs are green.
     // { name: "mobile-safari", use: { ...devices["iPhone 13"] } },
   ],
@@ -46,6 +73,7 @@ export default defineConfig({
     : {
         command: useDevServer ? "npm run dev" : `npm run build && npx next start -p ${PORT}`,
         url: BASE_URL,
+        env: serverEnv(),
         timeout: useDevServer ? 120_000 : 300_000,
         reuseExistingServer: !process.env.CI,
       },

@@ -8,23 +8,51 @@ React Native/Expo mobile build (see `docs/mobile-readiness.md` → "Ready-for-mo
 ```bash
 npm install                 # installs @playwright/test
 npx playwright install      # one-time: download browsers
-npm run test:e2e            # boots `next dev` on :3050 and runs the suite
+npm run test:e2e            # builds + starts the app on :3050 with .env.e2e and runs the suite
 npm run test:e2e:ui         # interactive UI mode
 ```
 
-Against an already-running app (local or staging), skip the managed dev server:
+Against an already-running app, skip the managed server (global-setup still
+verifies it isn't built against production):
 
 ```bash
 E2E_BASE_URL=https://staging.example npm run test:e2e
 ```
 
-### Environment
+### Environment — isolated test database only
 
-The app needs its normal runtime env to boot (Supabase, Redis/Upstash, etc. — see
-`.env.example`). Anonymous "local" notes are Redis-backed server-side, so even the
-guest flows need `UPSTASH_REDIS_REST_*`. Signed-in flows need a seeded test account;
-put its credentials in `E2E_USER_EMAIL` / `E2E_USER_OTP` (or wire a magic-link
-interception helper) before enabling the cloud specs.
+The suite never touches production. It uses **only `.env.e2e`** (gitignored;
+copy `.env.e2e.example`), and the app server Playwright builds gets a
+deny-by-default env: every `.env.local` key is blanked, then `.env.e2e` applied.
+
+```bash
+supabase start                                  # local Supabase (Docker), applies supabase/migrations
+supabase status                                 # copy API URL / anon / service_role into .env.e2e
+docker compose -f e2e/docker-compose.yml up -d  # local Upstash-compatible Redis for guest notes
+npm run test:e2e
+```
+
+Hard guards (each refuses to run):
+- `playwright.config.ts` — `.env.e2e` missing, its Supabase URL is production
+  (`supabase.justnoted.app` or whatever `.env.local` points at), a mail/billing key
+  (`RESEND_API_KEY`, `RESEND`, `MAILERSEND_API`, `STRIPE_SECRET_KEY`, `QSTASH_TOKEN`)
+  is set, or it shares `.env.local`'s Upstash.
+- `global-setup.ts` — the RUNNING app's client bundle mentions a production
+  Supabase host, or doesn't mention the test one (catches a reused `next start`
+  built from `.env.local`).
+- `fixtures/admin.ts` — the service-role client re-checks the URL on creation.
+
+No real email: Resend sends nothing without a key (`src/utils/email/send.ts`), and
+the local Supabase delivers auth mail to its Mailpit inbox (http://127.0.0.1:54324).
+
+### Signed-in accounts
+
+`global-setup.ts` creates two accounts per run (`e2e-a-…`/`e2e-b-…@e2e.justnoted.test`):
+A has Scribe (`plan_source: 'manual'`) and owns a note shared with B (edit).
+`global-teardown.ts` deletes them and everything they own (`E2E_KEEP_SEED=1` keeps
+them; the next run purges stale `@e2e.justnoted.test` accounts first). Sessions are
+minted per test via admin `generateLink` + `verifyOtp` (the OTP path) and injected as
+the `@supabase/ssr` auth cookie — see `fixtures/auth.ts`.
 
 ## Conventions
 
