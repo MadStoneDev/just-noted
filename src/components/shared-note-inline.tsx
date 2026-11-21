@@ -59,12 +59,19 @@ export default function SharedNoteInline({ shortcode, onClose, onToggleSplit }: 
   const lastSavedContentRef = useRef("");
   const awaitingLoadEmission = useRef(false);
   const editorMountedAt = useRef(0);
+  // The user's first input ends the window early (see decideEditorChange).
+  const userInputSeen = useRef(false);
   const handleEditorReady = useCallback(() => {
     editorMountedAt.current = Date.now();
     awaitingLoadEmission.current = (lastSavedContentRef.current ?? "").trim().length > 0;
+    userInputSeen.current = false;
+  }, []);
+  const handleEditorInput = useCallback(() => {
+    userInputSeen.current = true;
   }, []);
   // Wide window because the collab load emission is async; only ever armed for a
-  // note that loaded with content, so it can't swallow a real keystroke.
+  // note that loaded with content, and closed by the user's first input, so it
+  // can't swallow a real keystroke.
   const LOAD_EMISSION_WINDOW_MS = 8000;
 
   const supabase = createClient();
@@ -185,6 +192,7 @@ export default function SharedNoteInline({ shortcode, onClose, onToggleSplit }: 
         value: markdown,
         baseline: lastSavedContentRef.current,
         awaitingLoadEmission: awaitingLoadEmission.current,
+        userInputSinceMount: userInputSeen.current,
         msSinceMount: Date.now() - editorMountedAt.current,
         windowMs: LOAD_EMISSION_WINDOW_MS,
       });
@@ -363,6 +371,7 @@ export default function SharedNoteInline({ shortcode, onClose, onToggleSplit }: 
     };
     const ops: NoteOps = {
       onEditorReady: handleEditorReady,
+      onEditorInput: handleEditorInput,
       onClose,
       onCopyLink: copyLink,
       onHistory: () => setShowHistory(true),

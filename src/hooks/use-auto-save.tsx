@@ -1,4 +1,4 @@
-﻿import { useCallback, useRef, useEffect } from "react";
+﻿import { useCallback, useRef, useEffect, type MutableRefObject } from "react";
 import { DEBOUNCE_DELAY } from "@/constants/app";
 
 export function useAutoSave(
@@ -12,6 +12,15 @@ export function useAutoSave(
      * their latest value first — via setLatestContent — instead of being lost.
      */
     onBeforeFlush?: () => void;
+    /**
+     * The caller's "last saved content" ref, used as THE baseline. Pass it when
+     * the caller also decides what counts as saved (the note editor adopts the
+     * load re-serialisation, adopts external changes, advances it on each
+     * landed save): with two separate baselines they drift apart, and the
+     * editor shows "Saving…" for a change this hook thinks is already saved,
+     * or this hook skips a save the editor is waiting on.
+     */
+    lastSavedRef?: MutableRefObject<string>;
   } = {},
 ) {
   const onBeforeFlushRef = useRef(options.onBeforeFlush);
@@ -25,7 +34,8 @@ export function useAutoSave(
   };
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const latestContentRef = useRef(noteContent);
-  const lastSavedContentRef = useRef(noteContent);
+  const ownLastSavedRef = useRef(noteContent);
+  const lastSavedContentRef = options.lastSavedRef ?? ownLastSavedRef;
   const saveInProgressRef = useRef(false);
   const pendingRetryRef = useRef(false);
   const savePromiseRef = useRef<Promise<boolean | void> | null>(null);
@@ -139,8 +149,10 @@ export function useAutoSave(
         saveInProgressRef.current = true;
         const promise = saveFunction(contentToSave, false);
         savePromiseRef.current = promise;
-        await promise;
-        lastSavedContentRef.current = contentToSave;
+        const result = await promise;
+        // Same rule as executeSave: an explicit false is a failed save — the
+        // content stays unsaved (and, with a shared baseline, the caller dirty).
+        if (result !== false) lastSavedContentRef.current = contentToSave;
       } catch (error) {
         console.error("Flush save failed:", error);
       } finally {

@@ -1,7 +1,7 @@
 # "Saving…" stuck after a keystroke in the 1-second load window
 
-- **Status:** open, not fixed (logged 2026-11-21, branch `prelaunch/playwright-and-b7`)
-- **Severity:** low. The status line is wrong, but the server already holds the text on screen in the reported case. A related case may lose a keystroke (see below; not verified).
+- **Status:** fixed 2026-11-21 on `prelaunch/playwright-and-b7` (see Resolution)
+- **Severity:** blocker (raised from low). The related case was verified: it lost the keystroke.
 - **Area:** editor save status. `src/components/active-note-editor.tsx`, `src/utils/editor-save-decision.ts`, `src/hooks/use-auto-save.tsx`
 
 ## Symptom
@@ -53,3 +53,35 @@ Not verified.
   one, or derive "dirty" from the same ref the autosave compares against.
 - Add a unit test on `decideEditorChange` plus an E2E test: type within 1 s of
   open, revert, and expect the status to settle to Saved/Synced.
+
+## Resolution (2026-11-21)
+
+Reproduced first in `e2e/load-window-keystroke.spec.ts`, guest and cloud. All
+six tests failed on the unfixed code:
+
+- **(a) The keystroke was lost (verified).** One key typed 78–108 ms after the
+  editor mounted was in neither IndexedDB nor the server 4 s later, and was gone
+  after a reload.
+- **(b)** A keystroke in the window, then back to the stored text: "Saving…"
+  stayed up.
+- **(c)** The same "back to the stored text" edit made outside the window,
+  before the 2 s autosave fired: "Saving…" also stayed up. The IndexedDB
+  write-ahead still held the undone text, marked as a local edit.
+
+Fix:
+
+1. **One baseline.** `useAutoSave` takes the editor's `lastSavedContentRef` as
+   `lastSavedRef`, so both read and write the same "last saved content".
+   `flushSave` no longer marks a failed save as saved.
+2. **The load window ends at the first real input.** `MilkdownEditor` gets an
+   `onUserInput` prop. It fires in the capture phase, before ProseMirror
+   handles the event, for beforeinput, paste, drop, cut, composition and
+   editing keydowns (`isEditingInputEvent`). `decideEditorChange` adopts an
+   emission as the load baseline only if no input has been seen yet. The 1 s
+   timer stays as an outer bound only, for changes that come without an input
+   event (a portaled toolbar button). The shared-note views had the same rule
+   with an 8 s window, and now use the same input flag.
+3. **Back to the saved text.** `decideEditorChange` returns `backToBaseline`.
+   While the editor is dirty with no save in flight, it cancels the pending
+   autosave and the pending write-ahead, rewrites the cached copy as clean, and
+   sets the status to clean.

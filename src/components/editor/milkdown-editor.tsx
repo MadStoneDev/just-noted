@@ -40,6 +40,7 @@ import LinkPopover from "./link-popover";
 import type { ContentFormat } from "@/types/combined-notes";
 import { htmlToMarkdown } from "@/utils/html-to-markdown";
 import { readEditorSpellcheck } from "@/utils/editor-font";
+import { EDITING_INPUT_EVENTS, isEditingInputEvent } from "@/utils/editor-save-decision";
 
 // Markdown-on-paste. When someone pastes plain text that contains Markdown
 // (### headings, **bold**, - lists, > quotes, ``` fences, [links](…)), convert
@@ -246,6 +247,14 @@ interface MilkdownEditorProps {
   /** Fires once when the editor view is mounted — used to time the load window. */
   onReady?: () => void;
   /**
+   * Fires on each real input event in the editor (typing, deleting, paste,
+   * drop, IME, an editing key; see isEditingInputEvent), BEFORE ProseMirror
+   * handles it — so before the change it causes reaches onChange. Callers use
+   * it to end the load window: after the user's first input, no emission is the
+   * load re-serialisation (see decideEditorChange).
+   */
+  onUserInput?: () => void;
+  /**
    * Filled with a function that emits any not-yet-reported change through
    * onChange SYNCHRONOUSLY. The listener plugin debounces markdownUpdated by
    * 200ms, so without this the last keystrokes before an unmount (note switch,
@@ -311,6 +320,7 @@ function MilkdownEditorInner({
   contentFormat,
   onChange,
   onReady,
+  onUserInput,
   onFocus,
   onBlur,
   placeholder = "Start writing...",
@@ -326,6 +336,7 @@ function MilkdownEditorInner({
   const emittedDocRef = useRef<ProseNode | null>(null);
   const onChangeRef = useRef(onChange);
   const onReadyRef = useRef(onReady);
+  const onUserInputRef = useRef(onUserInput);
   const onFocusRef = useRef(onFocus);
   const onBlurRef = useRef(onBlur);
   const readOnlyRef = useRef(readOnly);
@@ -333,6 +344,7 @@ function MilkdownEditorInner({
 
   onChangeRef.current = onChange;
   onReadyRef.current = onReady;
+  onUserInputRef.current = onUserInput;
   onFocusRef.current = onFocus;
   onBlurRef.current = onBlur;
   readOnlyRef.current = readOnly;
@@ -438,6 +450,20 @@ function MilkdownEditorInner({
       });
     } catch {}
   }, [readOnly, get]);
+
+  // Report real input (capture phase: ahead of ProseMirror's own handlers, so
+  // ahead of the change they emit).
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onInput = (e: Event) => {
+      if (isEditingInputEvent(e as KeyboardEvent)) onUserInputRef.current?.();
+    };
+    for (const t of EDITING_INPUT_EVENTS) el.addEventListener(t, onInput, true);
+    return () => {
+      for (const t of EDITING_INPUT_EVENTS) el.removeEventListener(t, onInput, true);
+    };
+  }, []);
 
   // Fire onReady once, as soon as the editor instance exists. Consumers use this
   // to time the "load re-serialisation" window from the editor actually mounting

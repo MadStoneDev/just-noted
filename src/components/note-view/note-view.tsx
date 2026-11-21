@@ -384,7 +384,11 @@ export default function NoteView({
               ) : viewMode === "source" ? (
                 <textarea
                   value={content}
-                  onChange={(e) => sourceEditable && onContentChange?.(e.target.value)}
+                  onChange={(e) => {
+                    if (!sourceEditable) return;
+                    ops.onEditorInput?.();
+                    onContentChange?.(e.target.value);
+                  }}
                   readOnly={!sourceEditable}
                   spellCheck={false}
                   placeholder="# Markdown source"
@@ -400,6 +404,7 @@ export default function NoteView({
                       setEditorReady(true);
                       ops.onEditorReady?.();
                     }}
+                    onUserInput={ops.onEditorInput}
                     onChange={caps.canEditContent ? onContentChange : undefined}
                     readOnly={!caps.canEditContent}
                     toolbarContainer={caps.canEditContent ? toolbarSlot : undefined}

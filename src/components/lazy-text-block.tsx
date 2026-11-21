@@ -21,6 +21,8 @@ interface Props {
   value: string;
   contentFormat?: ContentFormat;
   onChange?: (value: string) => void;
+  /** Each real input event in the editor (see MilkdownEditor.onUserInput). */
+  onUserInput?: () => void;
   placeholder?: string;
   distractionFreeMode?: boolean;
   className?: string;
@@ -77,6 +79,7 @@ export default function LazyTextBlock({
   contentFormat = "html",
   onChange,
   onReady,
+  onUserInput,
   placeholder = "Start typing...",
   distractionFreeMode = false,
   className = "",
@@ -206,6 +209,7 @@ export default function LazyTextBlock({
           contentFormat={localFormat}
           onChange={handleChange}
           onReady={onReady}
+          onUserInput={onUserInput}
           placeholder={placeholder}
           toolbarContainer={toolbarContainer}
           readOnly={readOnly}

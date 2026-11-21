@@ -71,6 +71,8 @@ export interface NoteOps {
   onSaveContent?: (markdown: string) => void;
   /** Fires once the editor mounts (load-emission timing). */
   onEditorReady?: () => void;
+  /** Each real input event in the editor — ends the load-emission window. */
+  onEditorInput?: () => void;
   /** Close/return (shared view). */
   onClose?: () => void;
   /** Copy the share link (shared view). */

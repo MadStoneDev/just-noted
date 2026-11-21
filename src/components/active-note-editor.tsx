@@ -375,6 +375,8 @@ export function NoteEditor({
   // there are unsaved edits it reads "Saving…", and a failed/queued write reads
   // "Not saved" rather than falsely claiming success.
   const [saveState, setSaveState] = useState<"clean" | "dirty" | "saving" | "error">("clean");
+  const saveStateRef = useRef(saveState);
+  saveStateRef.current = saveState;
   // Global sync-problem flag from the offline queue — queued edits are safe on
   // this device but the server sync is repeatedly failing.
   const [syncProblem, setSyncProblem] = useState(false);
@@ -544,7 +546,18 @@ export function NoteEditor({
     return () => ro.disconnect();
   }, [autoGrowTitle]);
   const dropZoneRef = useRef<HTMLDivElement>(null);
+  // Set by the editor's first real input event since it (re)mounted (typing,
+  // paste, drop, an editing key — MilkdownEditor's onUserInput; any change in
+  // the source textarea). From then on no emission is the load
+  // re-serialisation: a keystroke in the first second is an edit like any other.
+  const editorInputSeenRef = useRef(false);
+  const markEditorInput = useCallback(() => {
+    editorInputSeenRef.current = true;
+  }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // THE "last saved content" for this note: shared with useAutoSave (passed as
+  // its lastSavedRef), so the editor's idea of clean and the autosave's idea of
+  // what still needs saving can never disagree.
   const lastSavedContentRef = useRef(note.content);
   // Milkdown parses the stored Markdown and serialises it back on mount; that
   // round-trip can change the bytes without changing meaning and is emitted via
@@ -561,11 +574,13 @@ export function NoteEditor({
   // window and make opening a note look like an edit.
   useEffect(() => {
     awaitingLoadEmissionRef.current = (lastSavedContentRef.current ?? "").trim().length > 0;
+    editorInputSeenRef.current = false;
     mountTimeRef.current = Date.now();
   }, [editorRemountKey]);
   const handleEditorReady = useCallback(() => {
     mountTimeRef.current = Date.now();
     awaitingLoadEmissionRef.current = (lastSavedContentRef.current ?? "").trim().length > 0;
+    editorInputSeenRef.current = false;
   }, []);
   const toast = useToast();
 
@@ -745,11 +760,11 @@ export function NoteEditor({
   // save-on-leave so keystrokes still inside the editor's ~300ms of change
   // debouncing reach handleContentChange instead of dying with the editor.
   const editorFlushRef = useRef<(() => void) | null>(null);
-  const { debouncedSave, flushSave, setLatestContent } = useAutoSave(
+  const { debouncedSave, flushSave, cancelSave, setLatestContent } = useAutoSave(
     content,
     saveContent,
     undefined,
-    { onBeforeFlush: () => editorFlushRef.current?.() },
+    { onBeforeFlush: () => editorFlushRef.current?.(), lastSavedRef: lastSavedContentRef },
   );
   flushSaveRef.current = flushSave;
 
@@ -779,23 +794,27 @@ export function NoteEditor({
   // debounce, so a tab close / crash / note switch never loses more than a
   // moment's typing even if the cloud save hasn't fired yet.
   const localPersistTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const writeLocal = useCallback(
+    (value: string, localEdit: boolean) => {
+      const { optimisticUpdateNote, notes } = useNotesStore.getState();
+      optimisticUpdateNote(note.id, { content: value, contentFormat: "markdown" });
+      // The store's copy as of NOW: a save that landed since this timer was set
+      // has raised its version, and the cache must carry that version (a stale
+      // one makes the next load's save conflict with our own text).
+      const live = notes.find((n) => n.id === note.id) ?? note;
+      saveNoteToLocal(
+        { ...live, content: value, contentFormat: "markdown", updatedAt: Date.now() },
+        { localEdit },
+      ).catch(() => {});
+    },
+    [note],
+  );
   const persistLocal = useCallback(
     (value: string) => {
       if (localPersistTimerRef.current) clearTimeout(localPersistTimerRef.current);
-      localPersistTimerRef.current = setTimeout(() => {
-        const { optimisticUpdateNote, notes } = useNotesStore.getState();
-        optimisticUpdateNote(note.id, { content: value, contentFormat: "markdown" });
-        // The store's copy as of NOW: a save that landed since this timer was set
-        // has raised its version, and the cache must carry that version (a stale
-        // one makes the next load's save conflict with our own text).
-        const live = notes.find((n) => n.id === note.id) ?? note;
-        saveNoteToLocal(
-          { ...live, content: value, contentFormat: "markdown", updatedAt: Date.now() },
-          { localEdit: true },
-        ).catch(() => {});
-      }, 500);
+      localPersistTimerRef.current = setTimeout(() => writeLocal(value, true), 500);
     },
-    [note],
+    [writeLocal],
   );
 
   // The editor's latest value, synchronously (`content` state lags a render, and
@@ -862,6 +881,7 @@ export function NoteEditor({
         value,
         baseline: lastSavedContentRef.current,
         awaitingLoadEmission: awaitingLoadEmissionRef.current,
+        userInputSinceMount: editorInputSeenRef.current,
         msSinceMount: Date.now() - mountTimeRef.current,
       });
       // The first emission after (re)mount is now consumed either way.
@@ -875,8 +895,27 @@ export function NoteEditor({
           return;
         }
         // content === lastSavedContentRef keeps the "clean" invariant, so the
-        // auto-save flush (which also tracks `content`) sees nothing to save.
+        // auto-save flush (which shares this ref) sees nothing to save.
         lastSavedContentRef.current = value;
+        return;
+      }
+      if (decision.backToBaseline) {
+        // An edit undone before its save went out (typed and deleted, say).
+        // Drop what is still pending for it: the autosave (it would no-op and
+        // leave "Saving…" up for good) and the IndexedDB write-ahead copy (it
+        // holds the undone text marked as a local edit, which the next load
+        // would push back to the server). A save already in flight is left to
+        // finish: useAutoSave sees the text changed under it and saves this one.
+        if (saveStateRef.current === "dirty" && savesInFlightRef.current.size === 0) {
+          cancelSave();
+          if (localPersistTimerRef.current) {
+            clearTimeout(localPersistTimerRef.current);
+            localPersistTimerRef.current = null;
+          }
+          writeLocal(value, false);
+          setSaveState("clean");
+          useNotesStore.getState().setEditing(note.id, false); // as a landed save does
+        }
         return;
       }
       if (!decision.persist) return;
@@ -886,7 +925,7 @@ export function NoteEditor({
       persistLocal(value);
       debouncedSave();
     },
-    [note.id, debouncedSave, persistLocal, setLatestContent],
+    [note.id, debouncedSave, cancelSave, persistLocal, writeLocal, setLatestContent],
   );
 
   // ── Ownership: one upload path per note (utils/note-ownership) ──────────
@@ -1796,6 +1835,7 @@ export function NoteEditor({
                 {goalTarget > 0 ? `${Math.round(progressPercentage)}% of ${goalTarget} ${goalType}` : "set goal"}
               </button>
               {" "}·{" "}
+              <span data-testid="save-status">
               {locked ? (
                 <span className="text-[var(--color-ink-4)]" title="Reconciling your notes with the server…">Syncing your notes…</span>
               ) : editingElsewhere ? (
@@ -1816,6 +1856,7 @@ export function NoteEditor({
               ) : (
                 <span className="text-[var(--color-ink-4)]">Saved</span>
               )}
+              </span>
             </span>
             {goalTarget > 0 && (
               <span
@@ -1947,7 +1988,10 @@ export function NoteEditor({
             {viewMode === "source" ? (
               <textarea
                 value={content}
-                onChange={(e) => handleContentChange(e.target.value)}
+                onChange={(e) => {
+                  markEditorInput();
+                  handleContentChange(e.target.value);
+                }}
                 readOnly={readOnly}
                 spellCheck={false}
                 placeholder="# Markdown source"
@@ -1961,6 +2005,7 @@ export function NoteEditor({
                 contentFormat={contentFormat}
                 onChange={handleContentChange}
                 onReady={handleEditorReady}
+                onUserInput={markEditorInput}
                 flushRef={editorFlushRef}
                 readOnly={readOnly}
                 distractionFreeMode

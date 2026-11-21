@@ -81,15 +81,22 @@ export default function SharedNotePage({
   // its format), which is exactly what spawned conflicted copies on their side.
   const awaitingLoadEmission = useRef(false);
   const editorMountedAt = useRef(0);
+  // The user's first input ends the window early (see decideEditorChange): a
+  // keystroke in it is an edit, not the load emission.
+  const userInputSeen = useRef(false);
   const handleEditorReady = useCallback(() => {
     editorMountedAt.current = Date.now();
     awaitingLoadEmission.current = (contentRef.current ?? "").trim().length > 0;
+    userInputSeen.current = false;
+  }, []);
+  const handleUserInput = useCallback(() => {
+    userInputSeen.current = true;
   }, []);
   // A generous window: the load emission is async in collab mode (Yjs load plus
   // the 1s seed grace), so 1s (the standalone-editor default) is too tight here.
-  // It is only ever armed for a note that loaded WITH content, where the first
-  // emission is always the load re-serialisation, never a human keystroke — so a
-  // wide window can't swallow a real edit.
+  // It is only ever armed for a note that loaded WITH content, and it closes at
+  // the user's first input (handleUserInput), so a keystroke inside it is still
+  // an edit — the wide window can't swallow one.
   const LOAD_EMISSION_WINDOW_MS = 8000;
 
   const supabase = createClient();
@@ -345,11 +352,13 @@ export default function SharedNotePage({
             content={note.content || ""}
             contentFormat={(note.content_format as ContentFormat) || "markdown"}
             onReady={handleEditorReady}
+            onUserInput={handleUserInput}
             onChange={(markdown) => {
               const decision = decideEditorChange({
                 value: markdown,
                 baseline: contentRef.current,
                 awaitingLoadEmission: awaitingLoadEmission.current,
+                userInputSinceMount: userInputSeen.current,
                 msSinceMount: Date.now() - editorMountedAt.current,
                 windowMs: LOAD_EMISSION_WINDOW_MS,
               });
