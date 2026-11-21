@@ -1,6 +1,7 @@
 "use server";
 
-import redis, { redisRaw } from "@/utils/redis";
+import { redis } from "@/lib/redis";
+import { checkRateLimit } from "@/utils/rate-limit";
 import { randomUUID } from "crypto";
 import { headers } from "next/headers";
 import {
@@ -14,9 +15,8 @@ import { readAllNotes, putNotes, NOTES_HASH_PREFIX } from "@/utils/redis/note-st
 const ANON_RE = /^[0-9a-fA-F-]{36}$/;
 const RECOVERY_PREFIX = "recovery:"; // recovery:{hash} -> anonId
 const RECOVERY_OWNER_PREFIX = "recovery_owner:"; // recovery_owner:{anonId} -> current hash
-const RL_PREFIX = "rl:recover:";
 const RL_MAX = 5;
-const RL_WINDOW = 15 * 60; // 15 minutes
+const RL_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
 const GENERIC_FAIL = "That recovery key isn't valid.";
 
@@ -30,7 +30,7 @@ function getPepper(): string {
  *  we can never re-show an existing key — the UI offers Regenerate instead). */
 export async function getRecoveryStatus(anonId: string): Promise<{ exists: boolean }> {
   if (!ANON_RE.test(anonId)) return { exists: false };
-  const h = await redisRaw.get(`${RECOVERY_OWNER_PREFIX}${anonId}`);
+  const h = await redis.get(`${RECOVERY_OWNER_PREFIX}${anonId}`);
   return { exists: !!h };
 }
 
@@ -45,11 +45,11 @@ export async function createRecoveryKey(
     const key = generateRecoveryKey();
     const hash = hashRecoveryKey(normalizeRecoveryKey(key), pepper);
 
-    const oldHash = (await redisRaw.get(`${RECOVERY_OWNER_PREFIX}${anonId}`)) as string | null;
-    if (oldHash) await redisRaw.del(`${RECOVERY_PREFIX}${oldHash}`);
+    const oldHash = await redis.get(`${RECOVERY_OWNER_PREFIX}${anonId}`);
+    if (oldHash) await redis.del(`${RECOVERY_PREFIX}${oldHash}`);
 
-    await redisRaw.set(`${RECOVERY_PREFIX}${hash}`, anonId);
-    await redisRaw.set(`${RECOVERY_OWNER_PREFIX}${anonId}`, hash);
+    await redis.set(`${RECOVERY_PREFIX}${hash}`, anonId);
+    await redis.set(`${RECOVERY_OWNER_PREFIX}${anonId}`, hash);
 
     return { success: true, key };
   } catch (e) {
@@ -69,10 +69,10 @@ export async function recoverWithKey(
       hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       hdrs.get("x-real-ip")?.trim() ||
       "unknown";
-    const rlKey = `${RL_PREFIX}${ip}`;
-    const count = (await redis.incr(rlKey)) as number;
-    if (count === 1) await redis.expire(rlKey, RL_WINDOW);
-    if (count > RL_MAX) {
+    // Fails open on a Valkey outage — the key lookup below needs Valkey too,
+    // so an outage can't be used to brute-force keys.
+    const rl = await checkRateLimit(ip, "recover", RL_MAX, RL_WINDOW_MS);
+    if (!rl.allowed) {
       return { success: false, error: "Too many attempts. Please try again later." };
     }
 
@@ -80,7 +80,7 @@ export async function recoverWithKey(
     if (!isValidRecoveryKeyFormat(norm)) return { success: false, error: GENERIC_FAIL };
 
     const hash = hashRecoveryKey(norm, getPepper());
-    const anonId = (await redisRaw.get(`${RECOVERY_PREFIX}${hash}`)) as string | null;
+    const anonId = await redis.get(`${RECOVERY_PREFIX}${hash}`);
     if (!anonId || !ANON_RE.test(anonId)) return { success: false, error: GENERIC_FAIL };
 
     return { success: true, anonId };
@@ -110,7 +110,7 @@ export async function mergeDeviceNotes(
     const toWrite = fromNotes.map((n) => (toIds.has(n.id) ? { ...n, id: randomUUID() } : n));
 
     await putNotes(toAnonId, toWrite);
-    await redisRaw.del(`${NOTES_HASH_PREFIX}${fromAnonId}`); // discard the old device key
+    await redis.del(`${NOTES_HASH_PREFIX}${fromAnonId}`); // discard the old device key
     return { success: true, moved: toWrite.length };
   } catch (e) {
     console.error("mergeDeviceNotes failed:", e);

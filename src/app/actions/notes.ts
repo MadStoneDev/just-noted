@@ -1,6 +1,5 @@
 ﻿"use server";
 
-import redis from "@/utils/redis";
 import {
   readAllNotes,
   putNote,
@@ -186,10 +185,9 @@ async function updateRedisNoteField<K extends keyof RedisNote>(
 // ===========================
 // REDIS OPERATIONS
 // ===========================
-// LIMITATION (H9): All notes for a user are stored as a single JSON key in Redis.
-// Every read-modify-write fetches ALL notes, modifies one, and writes ALL back.
-// The proper fix is Redis hashes: HSET notes:{userId} {noteId} {json}
-// This requires migrating to self-hosted Redis (Upstash REST API doesn't support HSET well).
+// Notes live in one Valkey hash per user, one field per note, with an atomic
+// per-note compare-and-set (see utils/redis/note-store.ts). This resolved the
+// old single-JSON-key limitation (H9).
 async function handleRedisOperation(params: NoteOperationParams) {
   const { operation } = params;
 

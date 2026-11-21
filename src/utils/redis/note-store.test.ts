@@ -5,14 +5,12 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 // exercised without a live server.
 const h = vi.hoisted(() => ({ store: new Map<string, Map<string, string>>() }));
 
-vi.mock("@/utils/redis", () => ({
-  redisRaw: {
+vi.mock("@/lib/redis", () => ({
+  redis: {
     type: async (key: string) => (h.store.has(key) ? "hash" : "none"),
     hget: async (key: string, field: string) => h.store.get(key)?.get(field) ?? null,
-    hgetall: async (key: string) => {
-      const m = h.store.get(key);
-      return m ? Object.fromEntries(m) : null;
-    },
+    // ioredis returns {} (not null) for a missing hash.
+    hgetall: async (key: string) => Object.fromEntries(h.store.get(key) ?? new Map()),
     hset: async (key: string, obj: Record<string, string>) => {
       let m = h.store.get(key);
       if (!m) {
@@ -25,8 +23,8 @@ vi.mock("@/utils/redis", () => ({
     hdel: async (key: string, field: string) => (h.store.get(key)?.delete(field) ? 1 : 0),
     incr: async () => 1,
     // CAS_LUA: if HGET(field) === expected then [HSET copy] + HSET(field,new).
-    eval: async (_script: string, keys: string[], argv: string[]) => {
-      const key = keys[0];
+    // ioredis signature: eval(script, numkeys, ...keys, ...argv).
+    eval: async (_script: string, _numkeys: number, key: string, ...argv: string[]) => {
       const [field, expected, newVal, copyField, copyVal] = argv;
       const m = h.store.get(key);
       const cur = m?.get(field) ?? null;
@@ -36,8 +34,8 @@ vi.mock("@/utils/redis", () => ({
       return 1;
     },
     get: async () => null,
-    set: async () => {},
-    del: async () => {},
+    set: async () => "OK",
+    del: async () => 0,
   },
 }));
 

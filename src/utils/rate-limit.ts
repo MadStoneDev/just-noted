@@ -1,4 +1,4 @@
-import redis from "@/utils/redis";
+import { redis } from "@/lib/redis";
 
 const RATE_LIMIT_PREFIX = "ratelimit:";
 
@@ -8,55 +8,54 @@ interface RateLimitResult {
   resetAt: number;
 }
 
+interface RateLimitOptions {
+  /**
+   * What to do when Valkey is unreachable. Default: allow (fail open) — a cache
+   * outage must not break the app. Pass `true` only where an unlimited burst
+   * costs real money (paid AI calls, account exports); those then refuse fast
+   * (~1.5s, bounded by the client's command timeout) instead of hanging.
+   */
+  failClosed?: boolean;
+}
+
 /**
- * Redis-based rate limiter
- * Uses sliding window with atomic operations for accuracy across distributed instances
+ * Fixed-window rate limiter: one atomic MULTI of INCR + EXPIRE NX + PTTL.
+ * EXPIRE NX sets the window's TTL on the first hit only, and because it runs in
+ * the same transaction as the INCR a key can never be left without a TTL.
  */
 export async function checkRateLimit(
   userId: string,
   feature: string,
   limit: number,
-  windowMs: number
+  windowMs: number,
+  options: RateLimitOptions = {},
 ): Promise<RateLimitResult> {
   const key = `${RATE_LIMIT_PREFIX}${feature}:${userId}`;
   const now = Date.now();
-  const windowSec = Math.ceil(windowMs / 1000);
-  const resetAt = now + windowMs;
+  const windowSec = Math.max(1, Math.ceil(windowMs / 1000));
 
   try {
-    // Atomic increment: INCR returns the new value and never races the way a
-    // separate GET+INCR would. Set the TTL only on the first hit of the window.
-    const count = await redis.incr(key);
-    if (count === 1) {
-      await redis.expire(key, windowSec);
-    }
+    const results = await redis.multi().incr(key).expire(key, windowSec, "NX").pttl(key).exec();
+    // exec() resolves to [err, result] tuples (or null if the transaction was aborted).
+    if (!results) throw new Error("rate limit transaction aborted");
+    for (const [err] of results) if (err) throw err;
+    const count = Number(results[0][1]);
+    const pttl = Number(results[2][1]);
+    const resetAt = pttl > 0 ? now + pttl : now + windowMs;
 
-    const ttl = await redis.ttl(key);
-    const actualResetAt = ttl > 0 ? now + ttl * 1000 : resetAt;
-
-    if (count > limit) {
-      return { allowed: false, remaining: 0, resetAt: actualResetAt };
-    }
-
-    return {
-      allowed: true,
-      remaining: Math.max(0, limit - count),
-      resetAt: actualResetAt,
-    };
+    if (count > limit) return { allowed: false, remaining: 0, resetAt };
+    return { allowed: true, remaining: Math.max(0, limit - count), resetAt };
   } catch (error) {
-    console.error("Rate limit check failed:", error);
-    // Fail CLOSED: these limits guard expensive paid (AI) calls, so a Redis
-    // outage must not become an unlimited-spend hole. Block rather than allow.
-    return {
-      allowed: false,
-      remaining: 0,
-      resetAt,
-    };
+    console.error(`Rate limit check failed (${feature}), failing ${options.failClosed ? "closed" : "open"}:`, error);
+    return options.failClosed
+      ? { allowed: false, remaining: 0, resetAt: now + windowMs }
+      : { allowed: true, remaining: limit, resetAt: now + windowMs };
   }
 }
 
 /**
- * Get current rate limit status without incrementing
+ * Get current rate limit status without incrementing. Display-only, so it
+ * always fails open.
  */
 export async function getRateLimitStatus(
   userId: string,
@@ -69,32 +68,22 @@ export async function getRateLimitStatus(
   const resetAt = now + windowMs;
 
   try {
-    const [count, ttl] = await Promise.all([
-      redis.get<number>(key),
-      redis.ttl(key),
-    ]);
+    const results = await redis.pipeline().get(key).pttl(key).exec();
+    if (!results) throw new Error("pipeline returned no results");
+    for (const [err] of results) if (err) throw err;
+    const raw = results[0][1] as string | null;
+    const pttl = Number(results[1][1]);
 
-    if (count === null) {
-      return {
-        allowed: true,
-        remaining: limit,
-        resetAt,
-      };
-    }
+    if (raw === null) return { allowed: true, remaining: limit, resetAt };
 
-    const actualResetAt = ttl > 0 ? now + ttl * 1000 : resetAt;
-
+    const count = Number(raw);
     return {
       allowed: count < limit,
       remaining: Math.max(0, limit - count),
-      resetAt: actualResetAt,
+      resetAt: pttl > 0 ? now + pttl : resetAt,
     };
   } catch (error) {
     console.error("Rate limit status check failed:", error);
-    return {
-      allowed: true,
-      remaining: limit,
-      resetAt,
-    };
+    return { allowed: true, remaining: limit, resetAt };
   }
 }

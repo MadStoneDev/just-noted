@@ -1,10 +1,13 @@
 "use server";
 
-import { Client } from "@upstash/qstash";
+import { after } from "next/server";
 import { createClient, createServiceRoleClient } from "@/utils/supabase/server";
 import { checkRateLimit } from "@/utils/rate-limit";
 import { processExport } from "@/utils/account/export-runner";
 import { presignGet } from "@/utils/storage/r2-private";
+
+/** An export still pending/processing after this long was interrupted. */
+const STALE_EXPORT_MS = 30 * 60 * 1000;
 
 export type ExportFormat = "json" | "markdown_zip";
 
@@ -20,7 +23,8 @@ export interface AccountExportItem {
 /**
  * Start a full account export (JSON, or a zip of Markdown). Includes the
  * requesting browser's local notes when anonId is given. Limited to one export
- * per 48 hours. Runs as a signed QStash job when configured, otherwise inline.
+ * per 48 hours. The export is built after the response is sent (Next `after`,
+ * same process); the account_exports row is the durable job record.
  */
 export async function requestAccountExport(
   format: ExportFormat,
@@ -33,6 +37,16 @@ export async function requestAccountExport(
 
   const svc = createServiceRoleClient();
 
+  // An export interrupted by a restart (it runs in-process) would otherwise sit
+  // in pending/processing forever and block new requests. Treat it as failed.
+  const staleBefore = new Date(Date.now() - STALE_EXPORT_MS).toISOString();
+  await svc
+    .from("account_exports")
+    .update({ status: "failed", error: "interrupted" } as any)
+    .eq("user_id", user.id)
+    .in("status", ["pending", "processing"])
+    .lt("created_at", staleBefore);
+
   const { data: active } = await svc
     .from("account_exports")
     .select("id")
@@ -43,7 +57,7 @@ export async function requestAccountExport(
     return { success: false, error: "An export is already being prepared." };
   }
 
-  const rl = await checkRateLimit(user.id, "account-export", 1, 48 * 60 * 60 * 1000);
+  const rl = await checkRateLimit(user.id, "account-export", 1, 48 * 60 * 60 * 1000, { failClosed: true });
   if (!rl.allowed) return { success: false, error: "You can request one export every 48 hours." };
 
   const { data: row, error } = await svc
@@ -54,25 +68,17 @@ export async function requestAccountExport(
   if (error || !row) return { success: false, error: "Couldn't start the export." };
   const exportId = (row as any).id as string;
 
-  const token = process.env.QSTASH_TOKEN;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-  // Only enqueue when the worker can verify the signature too — otherwise the
-  // job would be rejected and the export would stay stuck. Fall back to inline.
-  const canVerify = !!(process.env.QSTASH_CURRENT_SIGNING_KEY && process.env.QSTASH_NEXT_SIGNING_KEY);
-  if (token && appUrl && canVerify) {
+  // Build the export after responding, so the request doesn't wait on it. The
+  // row moves pending -> processing -> ready/failed. If the process dies
+  // mid-export the row is left pending/processing until STALE_EXPORT_MS marks
+  // it failed on the user's next request.
+  after(async () => {
     try {
-      const qstash = new Client({ token });
-      await qstash.publishJSON({
-        url: `${appUrl.replace(/\/+$/, "")}/api/export/process`,
-        body: { exportId },
-      });
-      return { success: true };
+      await processExport(exportId);
     } catch (e) {
-      console.error("[export] enqueue failed, running inline:", e);
+      console.error("[export] background export crashed:", e);
     }
-  }
-  // Inline fallback (also when QStash isn't configured).
-  await processExport(exportId);
+  });
   return { success: true };
 }
 

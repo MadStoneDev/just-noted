@@ -48,7 +48,7 @@ Secrets must never reach the device:
 - **Sharing** (`sharing.ts`) — cross-user service-role writes.
 - **Collab chat + Yjs** (`chatActions`, `collabActions`, `/api/collab`, `/api/chat-unread`) — service role + R2 presigned media.
 - **R2 upload/signing** — avatars, notebook covers, chat media, export downloads.
-- **Stripe** (billing portal, account-deletion sub-cancel, webhook); **AI** (`/api/ai/*`, Anthropic key); **QStash export worker**; **admin/cron**; **Resend** contact email; **roadmap voting** (anon cookie identity).
+- **Stripe** (billing portal, account-deletion sub-cancel, webhook); **AI** (`/api/ai/*`, Anthropic key); **account export** (runs in-process via `after()`); **admin/cron**; **Resend** contact email; **roadmap voting** (anon cookie identity).
 - _(Redis/anon path — `/api/notes-revision`, `/api/user-activity`, `recoveryActions` — NOT built for mobile per Decision 1.)_
 
 ### Biggest Next-only coupling: cookie-based auth

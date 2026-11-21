@@ -1,4 +1,4 @@
-﻿import redis from "@/utils/redis";
+import { redis, scanKeys } from "@/lib/redis";
 import {
   USER_ACTIVITY_PREFIX,
   NOTES_KEY_PREFIX,
@@ -58,8 +58,8 @@ export async function cleanupOldNotes(options?: { dryRun?: boolean }): Promise<C
     for (const key of activityKeys) {
       const id = key.slice(USER_ACTIVITY_PREFIX.length);
       try {
-        const val = await redis.get<string | number>(key);
-        const ts = typeof val === "number" ? val : parseInt(String(val ?? ""), 10);
+        const val = await redis.get(key);
+        const ts = val == null ? NaN : Number(val);
         if (Number.isFinite(ts)) lastActivity.set(id, ts);
       } catch {
         /* ignore a single activity read error */
@@ -143,21 +143,7 @@ export async function cleanupOldNotes(options?: { dryRun?: boolean }): Promise<C
   }
 }
 
+/** Keys matching `pattern`, without the project prefix (see lib/redis scanKeys). */
 export async function scanAllKeys(pattern: string): Promise<string[]> {
-  let cursor = 0;
-  const allKeys: string[] = [];
-
-  do {
-    const [newCursor, keys] = await redis.scan(cursor, { match: pattern });
-
-    cursor =
-      typeof newCursor === "string" ? parseInt(newCursor, 10) : newCursor;
-
-    // Add the keys to our collection
-    if (Array.isArray(keys)) {
-      allKeys.push(...keys);
-    }
-  } while (cursor !== 0);
-
-  return allKeys;
+  return scanKeys(pattern);
 }

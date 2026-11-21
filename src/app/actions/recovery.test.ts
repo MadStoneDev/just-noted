@@ -19,32 +19,47 @@ vi.mock("next/headers", () => ({
   }),
 }));
 
-vi.mock("@/utils/redis", () => {
-  const raw = {
+vi.mock("@/lib/redis", () => {
+  // multi()/pipeline() chain: records commands, exec() resolves to ioredis
+  // [err, result] tuples. Only what the rate limiter uses.
+  const chain = () => {
+    const ops: Array<() => unknown> = [];
+    const c = {
+      incr: (k: string) => {
+        ops.push(() => {
+          const n = (h.counters.get(k) ?? 0) + 1;
+          h.counters.set(k, n);
+          return n;
+        });
+        return c;
+      },
+      expire: () => (ops.push(() => 1), c),
+      pttl: () => (ops.push(() => 60_000), c),
+      get: (k: string) => (ops.push(() => (h.counters.has(k) ? String(h.counters.get(k)) : null)), c),
+      exec: async () => ops.map((op) => [null, op()]),
+    };
+    return c;
+  };
+  const redis = {
     get: async (k: string) => h.kv.get(k) ?? null,
     set: async (k: string, v: string) => {
       h.kv.set(k, String(v));
+      return "OK";
     },
     del: async (k: string) => {
       h.kv.delete(k);
       return 1;
     },
-    hgetall: async () => null,
+    hgetall: async () => ({}),
     type: async () => "none",
     hget: async () => null,
     hset: async () => 1,
     hdel: async () => 0,
     eval: async () => 0,
+    multi: chain,
+    pipeline: chain,
   };
-  const def = {
-    incr: async (k: string) => {
-      const n = (h.counters.get(k) ?? 0) + 1;
-      h.counters.set(k, n);
-      return n;
-    },
-    expire: async () => 1,
-  };
-  return { default: def, redisRaw: raw };
+  return { redis };
 });
 
 process.env.RECOVERY_KEY_PEPPER = "test-pepper";

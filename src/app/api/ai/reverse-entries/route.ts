@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check rate limit using Redis
-    const rateLimit = await checkRateLimit(userId, FEATURE_NAME, DAILY_LIMIT, RATE_LIMIT_WINDOW);
+    const rateLimit = await checkRateLimit(userId, FEATURE_NAME, DAILY_LIMIT, RATE_LIMIT_WINDOW, { failClosed: true });
     if (!rateLimit.allowed) {
       return NextResponse.json(
         {

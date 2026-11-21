@@ -28,7 +28,7 @@
 | Styling | Tailwind CSS 4, SASS |
 | Editor | TipTap (Markdown-based rich text) |
 | State | Zustand |
-| Database | PostgreSQL (Supabase) + Redis (Upstash) |
+| Database | PostgreSQL (Supabase) + Valkey (self-hosted, Redis-compatible) |
 | Auth | Supabase Auth |
 | Email | Mailersend |
 | Monitoring | LogRocket + Google Analytics |
@@ -261,7 +261,7 @@ MAJOR . MINOR . FEATURE
 3. **URL validation added** - TipTap editor and image upload now validate URLs (http/https only)
 4. **Open redirect fixed** - Auth confirm validates redirect is relative path without protocol
 5. **Timing-safe API key comparison** - Uses `crypto.timingSafeEqual` for admin API keys
-6. **Redis-based rate limiting** - Replaced in-memory Map with Upstash Redis for persistence
+6. **Redis-based rate limiting** - Replaced in-memory Map with Redis for persistence (now self-hosted Valkey)
 7. **Server-side validation** - Added comprehensive validators in `src/utils/validation.ts`
 8. **Sensitive data removed from logs** - All console.log statements sanitized
 9. **Row-Level Security policies** - Created migration in `supabase/migrations/20260205_rls_policies.sql`

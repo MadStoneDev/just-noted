@@ -5,15 +5,15 @@
 // different fields and can't clobber each other; concurrent saves to the SAME
 // note go through an atomic per-note compare-and-set (Lua).
 //
-// We use the `redisRaw` client (deserialization OFF) so the Lua full-value CAS
-// can compare the stored value byte-for-byte — no cjson needed anywhere.
+// Values are stored as raw JSON strings (we stringify/parse ourselves), so the
+// Lua full-value CAS compares the stored value byte-for-byte — no cjson needed.
 //
 // Migration from the legacy single-array shape is lazy (on first write, via
 // ensureHash) and can also be run in bulk (see api/admin/migrate-notes). Both
 // paths back up the original array to `notes_backup:{userId}` (30-day TTL) and
 // use a compare-guard so a save landing mid-migration is never lost.
 
-import { redisRaw } from "@/utils/redis";
+import { redis } from "@/lib/redis";
 import { randomUUID } from "crypto";
 import type { RedisNote } from "@/types/combined-notes";
 import { sameNoteContent } from "@/utils/notes-utils";
@@ -28,8 +28,8 @@ export const NOTES_BACKUP_PREFIX = "notes_backup:";
 export const NOTES_STAGING_PREFIX = "notes_staging:";
 export const BACKUP_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
 
-// Conservative ceiling for a single EVAL payload (Upstash request limit is ~1MB
-// on smaller tiers). Above this we migrate in batches via a staging key.
+// Conservative ceiling for a single EVAL payload, kept well under the client's
+// command timeout. Above this we migrate in batches via a staging key.
 const EVAL_SIZE_LIMIT = 800_000;
 const HSET_BATCH_BYTES = 400_000;
 
@@ -44,11 +44,11 @@ const stagingKey = (userId: string) => `${NOTES_STAGING_PREFIX}${userId}`;
 const revKey = (userId: string) => `${NOTES_REV_PREFIX}${userId}`;
 
 // A tiny per-user revision counter bumped on every write, so a poll can do a
-// cheap 1-command change check and skip the full HGETALL when nothing changed
-// (Upstash bills per command + data). Fire-and-forget on writes.
+// cheap 1-command change check and skip the full HGETALL when nothing changed.
+// Fire-and-forget on writes.
 function touchRevision(userId: string): void {
   try {
-    Promise.resolve(redisRaw.incr(revKey(userId))).catch(() => {});
+    Promise.resolve(redis.incr(revKey(userId))).catch(() => {});
   } catch {
     /* best-effort */
   }
@@ -57,8 +57,7 @@ function touchRevision(userId: string): void {
 /** Current revision (0 if none). One cheap GET. */
 export async function getNotesRevision(userId: string): Promise<number> {
   try {
-    const v = (await redisRaw.get(revKey(userId))) as string | number | null;
-    const n = typeof v === "number" ? v : parseInt(String(v ?? "0"), 10);
+    const n = Number((await redis.get(revKey(userId))) ?? "0");
     return Number.isFinite(n) ? n : 0;
   } catch {
     return 0;
@@ -148,12 +147,12 @@ export interface MigrateOutcome {
 export async function ensureHash(userId: string, dryRun = false): Promise<MigrateOutcome> {
   const key = notesKey(userId);
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const type = (await redisRaw.type(key)) as string;
+    const type = await redis.type(key);
     if (type === "hash") return { status: "already-hash" };
     if (type === "none") return { status: "empty" };
     if (type !== "string") throw new Error(`Unexpected Redis type for ${key}: ${type}`);
 
-    const raw = (await redisRaw.get(key)) as string | null;
+    const raw = await redis.get(key);
     if (raw == null) return { status: "empty" };
 
     let arr: RedisNote[];
@@ -174,7 +173,7 @@ export async function ensureHash(userId: string, dryRun = false): Promise<Migrat
     if (!oversized) {
       const argv: string[] = [raw, String(BACKUP_TTL_SECONDS)];
       for (const n of arr) argv.push(n.id, JSON.stringify(n));
-      const res = (await redisRaw.eval(MIGRATE_LUA, [key, backupKey(userId)], argv)) as string;
+      const res = (await redis.eval(MIGRATE_LUA, 2, key, backupKey(userId), ...argv)) as string;
       if (res === "changed") {
         await sleep(backoffMs(attempt));
         continue;
@@ -186,14 +185,13 @@ export async function ensureHash(userId: string, dryRun = false): Promise<Migrat
     // guarded-swap it into place. If the original changed meanwhile, the swap
     // returns "changed", we drop staging and retry.
     const staging = stagingKey(userId);
-    await redisRaw.del(staging);
+    await redis.del(staging);
     let batch: Record<string, string> = {};
     let batchBytes = 0;
     const flush = async () => {
       const entries = Object.entries(batch);
       if (entries.length) {
-        // hset accepts an object of field->value
-        await (redisRaw as any).hset(staging, batch);
+        await redis.hset(staging, batch);
       }
       batch = {};
       batchBytes = 0;
@@ -206,10 +204,14 @@ export async function ensureHash(userId: string, dryRun = false): Promise<Migrat
     }
     await flush();
 
-    const res = (await redisRaw.eval(
+    const res = (await redis.eval(
       SWAP_LUA,
-      [key, backupKey(userId), staging],
-      [raw, String(BACKUP_TTL_SECONDS)],
+      3,
+      key,
+      backupKey(userId),
+      staging,
+      raw,
+      String(BACKUP_TTL_SECONDS),
     )) as string;
     if (res === "changed" || res === "not-string") {
       await sleep(backoffMs(attempt));
@@ -226,8 +228,8 @@ export async function ensureHash(userId: string, dryRun = false): Promise<Migrat
 export async function readAllNotes(userId: string): Promise<RedisNote[]> {
   const key = notesKey(userId);
   try {
-    const all = (await redisRaw.hgetall(key)) as Record<string, unknown> | null;
-    if (!all) return [];
+    // ioredis returns {} (not null) for a missing key.
+    const all = await redis.hgetall(key);
     const out: RedisNote[] = [];
     for (const v of Object.values(all)) {
       const n = parseNote(v);
@@ -237,7 +239,7 @@ export async function readAllNotes(userId: string): Promise<RedisNote[]> {
   } catch (e: any) {
     // WRONGTYPE => still a legacy array string. Read it directly (don't migrate
     // on a read path); the next write migrates it.
-    const raw = (await redisRaw.get(key)) as string | null;
+    const raw = await redis.get(key);
     if (raw == null) return [];
     try {
       const arr = JSON.parse(raw) as RedisNote[];
@@ -253,14 +255,14 @@ export async function readAllNotes(userId: string): Promise<RedisNote[]> {
 /** Upsert a whole note field (create, metadata changes). Ensures the hash first. */
 export async function putNote(userId: string, note: RedisNote): Promise<void> {
   await ensureHash(userId);
-  await (redisRaw as any).hset(notesKey(userId), { [note.id]: JSON.stringify(note) });
+  await redis.hset(notesKey(userId), { [note.id]: JSON.stringify(note) });
   touchRevision(userId);
 }
 
 /** Remove a note field. */
 export async function deleteNote(userId: string, noteId: string): Promise<boolean> {
   await ensureHash(userId);
-  const removed = (await redisRaw.hdel(notesKey(userId), noteId)) as number;
+  const removed = await redis.hdel(notesKey(userId), noteId);
   if (removed > 0) touchRevision(userId);
   return removed > 0;
 }
@@ -298,7 +300,7 @@ export async function casUpdateNote(
   const key = notesKey(userId);
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     await ensureHash(userId);
-    const raw = (await redisRaw.hget(key, noteId)) as string | null;
+    const raw = await redis.hget(key, noteId);
     if (raw == null) return { success: false, error: "not_found" };
 
     const cur = parseNote(raw);
@@ -321,7 +323,7 @@ export async function casUpdateNote(
       });
       if (decision === "noop") return { success: true, version: curVersion };
       if (decision === "copy") {
-        const exists = (await redisRaw.hexists(key, keepServer.id)) as number;
+        const exists = await redis.hexists(key, keepServer.id);
         if (exists) return { success: true, version: curVersion, conflicted: true };
         const now = Date.now();
         const copy: RedisNote = {
@@ -339,10 +341,15 @@ export async function casUpdateNote(
         };
         // Same CAS script, but the original is written back unchanged: the
         // copy only lands if the note is still exactly what we decided on.
-        const res = (await redisRaw.eval(
+        const res = (await redis.eval(
           CAS_LUA,
-          [key],
-          [noteId, raw, raw, copy.id, JSON.stringify(copy)],
+          1,
+          key,
+          noteId,
+          raw,
+          raw,
+          copy.id,
+          JSON.stringify(copy),
         )) as number;
         if (res === 1) {
           touchRevision(userId);
@@ -386,10 +393,15 @@ export async function casUpdateNote(
       version: nextVersion,
     };
 
-    const res = (await redisRaw.eval(
+    const res = (await redis.eval(
       CAS_LUA,
-      [key],
-      [noteId, raw, JSON.stringify(updated), copyField, copyRaw],
+      1,
+      key,
+      noteId,
+      raw,
+      JSON.stringify(updated),
+      copyField,
+      copyRaw,
     )) as number;
 
     if (res === 1) {
@@ -404,8 +416,7 @@ export async function casUpdateNote(
 
 /** Read a single note (for metadata updates that read-modify-write one field). */
 export async function getNote(userId: string, noteId: string): Promise<RedisNote | null> {
-  const raw = (await redisRaw.hget(notesKey(userId), noteId)) as string | null;
-  return parseNote(raw);
+  return parseNote(await redis.hget(notesKey(userId), noteId));
 }
 
 /** Upsert several note fields in one HSET (e.g. batch reorder). */
@@ -414,6 +425,6 @@ export async function putNotes(userId: string, notes: RedisNote[]): Promise<void
   await ensureHash(userId);
   const obj: Record<string, string> = {};
   for (const n of notes) obj[n.id] = JSON.stringify(n);
-  await (redisRaw as any).hset(notesKey(userId), obj);
+  await redis.hset(notesKey(userId), obj);
   touchRevision(userId);
 }

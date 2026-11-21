@@ -28,15 +28,15 @@ deny-by-default env: every `.env.local` key is blanked, then `.env.e2e` applied.
 ```bash
 supabase start                                  # local Supabase (Docker), applies supabase/migrations
 supabase status                                 # copy API URL / anon / service_role into .env.e2e
-docker compose -f e2e/docker-compose.yml up -d  # local Upstash-compatible Redis for guest notes
+docker compose -f e2e/docker-compose.yml up -d  # throwaway Valkey for guest notes (port 6380)
 npm run test:e2e
 ```
 
 Hard guards (each refuses to run):
 - `playwright.config.ts` — `.env.e2e` missing, its Supabase URL is production
   (`supabase.justnoted.app` or whatever `.env.local` points at), a mail/billing key
-  (`RESEND_API_KEY`, `RESEND`, `MAILERSEND_API`, `STRIPE_SECRET_KEY`, `QSTASH_TOKEN`)
-  is set, or it shares `.env.local`'s Upstash.
+  (`RESEND_API_KEY`, `RESEND`, `MAILERSEND_API`, `STRIPE_SECRET_KEY`)
+  is set, or it shares `.env.local`'s Valkey.
 - `global-setup.ts` — the RUNNING app's client bundle mentions a production
   Supabase host, or doesn't mention the test one (catches a reused `next start`
   built from `.env.local`).

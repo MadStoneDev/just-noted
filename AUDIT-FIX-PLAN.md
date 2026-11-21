@@ -140,7 +140,7 @@ Changes are grouped into batches. Within each batch, numbered items must be done
 - **Do this last** in the HIGH batch since it touches many files
 
 ### 15. Redis read-all-modify-one-write-all (DEFERRED)
-- **H9:** This is architectural. Current Upstash REST API stores all notes as one JSON key. Proper fix is Redis hashes (`HSET notes:{userId} {noteId} {json}`). **Defer to self-hosted migration** — add code comment documenting the limitation.
+- **H9:** This is architectural. The hosted Redis REST setup stored all notes as one JSON key (since resolved: per-note hashes, Phase 3). Proper fix is Redis hashes (`HSET notes:{userId} {noteId} {json}`). **Defer to self-hosted migration** — add code comment documenting the limitation.
 
 ---
 

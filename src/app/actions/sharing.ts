@@ -7,7 +7,6 @@ import { noteIsTrashed } from "@/lib/note-trash";
 import { getCollabAllowance, ownerCanCollaborate, resolvePlanTier, getLimits, type SubscriptionRow } from "@/lib/subscription";
 import { wouldBlankNonEmpty } from "@/lib/collab-guard";
 import { notifyShareAdded, notifyNoteEdited } from "@/utils/notifications/create";
-import { NOTES_KEY_PREFIX } from "@/constants/app";
 
 // ===========================
 // TYPES
@@ -117,14 +116,11 @@ async function verifyRedisNoteOwnership(
   currentUserId: string,
 ): Promise<boolean> {
   try {
-    const redis = (await import("@/utils/redis")).default;
-    const notesData = await redis.get(`${NOTES_KEY_PREFIX}${currentUserId}`);
-
-    if (!notesData || !Array.isArray(notesData)) {
-      return false;
-    }
-
-    return notesData.some((note: any) => note?.id === noteId);
+    // Reads the per-note hash (falling back to a legacy array key). A plain GET
+    // here would fail with WRONGTYPE on every hash-migrated user.
+    const { readAllNotes } = await import("@/utils/redis/note-store");
+    const notesData = await readAllNotes(currentUserId);
+    return notesData.some((note) => note?.id === noteId);
   } catch (error) {
     console.error("Redis note verification failed:", error);
     return false;
@@ -159,14 +155,9 @@ async function fetchRedisNote(
   noteOwnerId: string,
 ): Promise<{ success: boolean; note?: NormalizedNote; error?: string }> {
   try {
-    const redis = (await import("@/utils/redis")).default;
-    const notesData = await redis.get(`${NOTES_KEY_PREFIX}${noteOwnerId}`);
-
-    if (!notesData || !Array.isArray(notesData)) {
-      return { success: false, error: "Note not found in local storage" };
-    }
-
-    const redisNote = notesData.find((n: any) => n?.id === noteId);
+    const { readAllNotes } = await import("@/utils/redis/note-store");
+    const notesData = await readAllNotes(noteOwnerId);
+    const redisNote: any = notesData.find((n) => n?.id === noteId);
 
     if (!redisNote) {
       return { success: false, error: "Note not found in local storage" };

@@ -1,4 +1,4 @@
-import redis from "@/utils/redis";
+import { redis } from "@/lib/redis";
 import { NOTES_KEY_PREFIX } from "@/constants/app";
 import { scanAllKeys } from "@/utils/redis/redisCleanup";
 import { NOTES_BACKUP_PREFIX, NOTES_STAGING_PREFIX } from "@/utils/redis/note-store";

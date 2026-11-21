@@ -1,4 +1,5 @@
-import redis from "@/utils/redis";
+import { redis } from "@/lib/redis";
+import { checkRateLimit } from "@/utils/rate-limit";
 import { GUEST_NOTE_RETENTION_SECONDS, USER_ACTIVITY_PREFIX } from "@/constants/app";
 
 // Anonymous ids (localStorage UUID) and Supabase auth ids both match this.
@@ -29,15 +30,10 @@ export async function POST(request: Request) {
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       request.headers.get("x-real-ip")?.trim() ||
       "unknown";
-    try {
-      const rlKey = `rl:activity:${ip}`;
-      const count = await redis.incr(rlKey);
-      if (count === 1) await redis.expire(rlKey, RL_WINDOW);
-      if (count > RL_MAX) {
-        return Response.json({ error: "Rate limited" }, { status: 429 });
-      }
-    } catch {
-      // If the rate-limit check itself fails, don't block the write.
+    // Fails open: if Valkey is down the limiter allows the request.
+    const rl = await checkRateLimit(ip, "activity", RL_MAX, RL_WINDOW * 1000);
+    if (!rl.allowed) {
+      return Response.json({ error: "Rate limited" }, { status: 429 });
     }
 
     let userId: string | undefined;
@@ -52,11 +48,19 @@ export async function POST(request: Request) {
       return Response.json({ error: "Invalid id" }, { status: 400 });
     }
 
-    await redis.setex(
-      `${USER_ACTIVITY_PREFIX}${userId}`,
-      GUEST_NOTE_RETENTION_SECONDS,
-      Date.now().toString(),
-    );
+    try {
+      await redis.set(
+        `${USER_ACTIVITY_PREFIX}${userId}`,
+        Date.now().toString(),
+        "EX",
+        GUEST_NOTE_RETENTION_SECONDS,
+      );
+    } catch (error) {
+      // Best-effort: a missed ping only means the cleanup job falls back to the
+      // notes' own timestamps. Report "unavailable", never a 500.
+      console.error("Failed to record user activity (Valkey unavailable):", error);
+      return Response.json({ success: false }, { status: 503 });
+    }
 
     return Response.json({ success: true });
   } catch (error) {

@@ -55,21 +55,22 @@ vi.mock("@/app/actions/notes", () => ({
 // ── In-memory Redis (only what casUpdateNote touches) ────────────────────────
 const hash = new Map<string, Map<string, string>>();
 const field = (k: string) => hash.get(k) ?? hash.set(k, new Map()).get(k)!;
-vi.mock("@/utils/redis", () => {
-  const raw = {
+vi.mock("@/lib/redis", () => {
+  const redis = {
     type: async (k: string) => (hash.has(k) ? "hash" : "none"),
     hget: async (k: string, f: string) => field(k).get(f) ?? null,
     hexists: async (k: string, f: string) => (field(k).has(f) ? 1 : 0),
     incr: async () => 1,
     // CAS_LUA: set field only if unchanged; optional extra (copy) field.
-    eval: async (_script: string, [k]: string[], [f, expected, next, copyF, copyV]: string[]) => {
+    // ioredis signature: eval(script, numkeys, ...keys, ...argv).
+    eval: async (_script: string, _n: number, k: string, f: string, expected: string, next: string, copyF: string, copyV: string) => {
       if (field(k).get(f) !== expected) return 0;
       if (copyF) field(k).set(copyF, copyV);
       field(k).set(f, next);
       return 1;
     },
   };
-  return { redisRaw: raw, default: raw };
+  return { redis };
 });
 
 import { enqueue, processQueue, clearQueue } from "./offline-queue";

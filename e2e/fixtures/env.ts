@@ -52,7 +52,7 @@ export function assertNotProductionSupabase(url: string | undefined, where: stri
 }
 
 /** Keys that send real mail / charge cards / call production side services. */
-const MUST_BE_BLANK = ["RESEND_API_KEY", "RESEND", "MAILERSEND_API", "STRIPE_SECRET_KEY", "QSTASH_TOKEN"];
+const MUST_BE_BLANK = ["RESEND_API_KEY", "RESEND", "MAILERSEND_API", "STRIPE_SECRET_KEY"];
 
 export function e2eFileEnv(): Record<string, string> {
   return parseFile(E2E_ENV_FILE);
@@ -69,8 +69,8 @@ export function validateE2EEnv(env: Record<string, string> = e2eFileEnv()): void
     if (env[k]) throw new Error(`[e2e] refusing to run: ${k} is set in ${E2E_ENV_FILE} — tests must not send real email or billing calls`);
   }
   const local = parseFile(path.join(ROOT, ".env.local"));
-  if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_URL === local.UPSTASH_REDIS_REST_URL) {
-    throw new Error("[e2e] refusing to run: .env.e2e uses the same Upstash Redis as .env.local (production)");
+  if (env.VALKEY_URL && env.VALKEY_URL === local.VALKEY_URL) {
+    throw new Error("[e2e] refusing to run: .env.e2e uses the same Valkey as .env.local (production)");
   }
 }
 
