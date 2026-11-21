@@ -254,3 +254,64 @@ describe("reconcileNotes — a stale cache is not an unsynced edit (two devices)
   });
 });
 
+
+describe("reconcileNotes — one-time legacy cache (records from before localEdit)", () => {
+  const legacy = { legacyCacheSources: new Set(["supabase", "redis"] as const) };
+
+  it("keeps an unflagged cached copy newer than the server as a conflicted copy", () => {
+    const server = [mk({ id: "a", content: "server text", version: 3, updatedAt: NOW - 60_000 })];
+    // Same version as the server: still a copy, never a push over the note.
+    const local = [mk({ id: "a", content: "typed on the old build", version: 3, updatedAt: NOW })];
+    const r = reconcileNotes(server, local, NOW, legacy);
+    expect(r.merged[0].content).toBe("server text");
+    expect(r.toPush).toHaveLength(0);
+    expect(r.toConflictCopy).toHaveLength(0);
+    expect(r.toLegacyCopy.map((n) => n.content)).toEqual(["typed on the old build"]);
+  });
+
+  it("drops an unflagged cached copy older than the server (a stale cache)", () => {
+    const server = [mk({ id: "a", content: "edited elsewhere", version: 4, updatedAt: NOW })];
+    const local = [mk({ id: "a", content: "older cached", version: 3, updatedAt: NOW - 60_000 })];
+    const r = reconcileNotes(server, local, NOW, legacy);
+    expect(r.merged[0].content).toBe("edited elsewhere");
+    expect(r.toLegacyCopy).toHaveLength(0);
+  });
+
+  it("no copy for normalised-equal text, an empty copy, or the same updated time", () => {
+    const server = [
+      mk({ id: "a", content: "same\n", updatedAt: NOW - 1 }),
+      mk({ id: "b", content: "text", updatedAt: NOW - 1 }),
+      mk({ id: "c", content: "server", updatedAt: NOW }),
+    ];
+    const local = [
+      mk({ id: "a", content: "same  \r\n\n", updatedAt: NOW }),
+      mk({ id: "b", content: "   ", updatedAt: NOW }),
+      mk({ id: "c", content: "local", updatedAt: NOW }),
+    ];
+    expect(reconcileNotes(server, local, NOW, legacy).toLegacyCopy).toHaveLength(0);
+  });
+
+  it("only for sources not yet checked on this device: afterwards the flag rules apply", () => {
+    const server = [
+      mk({ id: "a", source: "supabase", content: "server", updatedAt: NOW - 1 }),
+      mk({ id: "b", source: "redis", content: "server", updatedAt: NOW - 1 }),
+    ];
+    const local = [
+      mk({ id: "a", source: "supabase", content: "newer", updatedAt: NOW }),
+      mk({ id: "b", source: "redis", content: "newer", updatedAt: NOW }),
+    ];
+    const onlyRedis = reconcileNotes(server, local, NOW, { legacyCacheSources: new Set(["redis"] as const) });
+    expect(onlyRedis.toLegacyCopy.map((n) => n.id)).toEqual(["b"]);
+    const checked = reconcileNotes(server, local, NOW);
+    expect(checked.toLegacyCopy).toHaveLength(0);
+    expect(checked.merged.map((n) => n.content)).toEqual(["server", "server"]);
+  });
+
+  it("flagged copies keep the version rules even on the first load", () => {
+    const server = [mk({ id: "a", content: "server", version: 2, updatedAt: NOW - 1 })];
+    const local = typed([mk({ id: "a", content: "unsynced", version: 2, updatedAt: NOW })]);
+    const r = reconcileNotes(server, local, NOW, legacy);
+    expect(r.toPush.map((n) => n.content)).toEqual(["unsynced"]);
+    expect(r.toLegacyCopy).toHaveLength(0);
+  });
+});

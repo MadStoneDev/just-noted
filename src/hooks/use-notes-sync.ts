@@ -19,7 +19,13 @@ import {
   redisToCombi,
   supabaseToCombi,
 } from "@/types/combined-notes";
-import { getAllLocalNotes, saveAllNotesToLocal, clearLocalNotes } from "@/utils/notes-idb-cache";
+import { getAllLocalNotes, saveAllNotesToLocal, saveNoteToLocal, clearLocalNotes } from "@/utils/notes-idb-cache";
+import {
+  LEGACY_COPY_BASE_VERSION,
+  legacyCopyId,
+  legacyCacheSourcesPending,
+  markLegacyCacheChecked,
+} from "@/utils/legacy-cache";
 import {
   clearQueue,
   processQueue,
@@ -74,10 +80,16 @@ function mergeLocalWithServer(
   isAuthenticated: boolean,
   pending: Map<string, PendingContent> = new Map(),
   notToWrite: ReadonlySet<string> = new Set(),
-): CombinedNote[] {
+  legacyCacheSources: ReadonlySet<NoteSource> = new Set(),
+): { merged: CombinedNote[]; legacyCopies: Promise<CombinedNote[]> } {
   // The decision logic is pure and unit-tested in utils/notes-merge; here we
   // just carry out the side effects it prescribes.
-  const { merged, toPush, toDelete, toConflictCopy } = reconcileNotes(serverNotes, localNotes);
+  const { merged, toPush, toDelete, toConflictCopy, toLegacyCopy } = reconcileNotes(
+    serverNotes,
+    localNotes,
+    Date.now(),
+    { legacyCacheSources },
+  );
 
   // One upload path per note: a note an editor owns is uploaded by that editor
   // (here: hand it over), never pushed from here; one owned by another tab or
@@ -105,7 +117,26 @@ function mergeLocalWithServer(
     if (notToWrite.has(local.id) || editorHandleFor(local.id)) continue;
     pushNoteToServer(local, userId, isAuthenticated).catch(() => {});
   }
-  return merged;
+  // Cached copies from a build before `localEdit` that are newer than the
+  // server (first load on this build only — see utils/legacy-cache). Always a
+  // copy, never a write on the note: base 0 is below every real version, so the
+  // server keeps its note and saves ours beside it (same text: nothing). The
+  // copy id is fixed per record, so other tabs / a retry make no second copy.
+  // Not skipped for an open note: the copy is a new note, it can't race the
+  // editor's save. A queued edit with this text makes its own decision when the
+  // queue replays. Resolves to the records whose copy didn't land.
+  const legacyCopies = Promise.all(
+    toLegacyCopy.map(async (local) => {
+      const q = pending.get(local.id);
+      if (q && sameNoteContent(q.content, local.content)) return null;
+      const ok = await pushNoteToServer(local, userId, isAuthenticated, {
+        baseVersion: LEGACY_COPY_BASE_VERSION,
+        copyId: legacyCopyId(local),
+      });
+      return ok ? null : local;
+    }),
+  ).then((r) => r.filter((n): n is CombinedNote => n !== null));
+  return { merged, legacyCopies };
 }
 
 /**
@@ -121,11 +152,12 @@ async function pushNoteToServer(
   note: CombinedNote,
   userId: string,
   isAuthenticated: boolean,
-): Promise<void> {
+  override: { baseVersion?: number; copyId?: string } = {},
+): Promise<boolean> {
   try {
     const cas = {
-      baseVersion: note.version ?? 1,
-      conflictCopy: { id: uuidv4(), stamp: conflictStamp() },
+      baseVersion: override.baseVersion ?? note.version ?? 1,
+      conflictCopy: { id: override.copyId ?? uuidv4(), stamp: conflictStamp() },
     };
     let r: { success: boolean; conflicted?: boolean } | undefined;
     if (note.source === "redis") {
@@ -144,8 +176,10 @@ async function pushNoteToServer(
     // Another save landed between our read and this write: the server kept it
     // and made the copy. Refresh so both show.
     if (r?.conflicted) pushConflictListeners.forEach((cb) => cb());
+    return !!r?.success;
   } catch (error) {
     console.error("Failed to push local note to server:", error);
+    return false;
   }
 }
 
@@ -479,13 +513,20 @@ export function useNotesSync() {
           getPendingContentByNote(),
           notesNotToWrite(),
         ]);
-        const reconciled = mergeLocalWithServer(
+        // Sources fetched from the server this load whose cache this device
+        // hasn't checked for pre-`localEdit` records yet (one time per device).
+        const legacyPending = legacyCacheSourcesPending();
+        const legacyCacheSources = new Set<NoteSource>(
+          [...legacyPending].filter((s) => (s === "redis" ? redisOk : authenticated && supabaseOk)),
+        );
+        const { merged: reconciled, legacyCopies } = mergeLocalWithServer(
           sortedNotes,
           cachedNotes,
           newUserId,
           authenticated,
           pendingContent,
           notToWrite,
+          legacyCacheSources,
         );
         // A queued edit whose cached copy was overwritten (e.g. by another tab's
         // refresh racing the close) still wins over the server; the drain below
@@ -512,7 +553,20 @@ export function useNotesSync() {
         );
         recalculateNotebookCounts();
         // Cache the store's result (as refresh does), not the pre-load list.
-        saveAllNotesToLocal(useNotesStore.getState().notes).catch(() => {});
+        const cacheWritten = saveAllNotesToLocal(useNotesStore.getState().notes).catch(() => {});
+        // One-time legacy check done once its copies have landed. A copy that
+        // didn't land: put the old record back in the cache (the write above
+        // replaced it) and leave that source unmarked, so the next load retries.
+        if (legacyCacheSources.size) {
+          legacyCopies
+            .then(async (failed) => {
+              await cacheWritten;
+              for (const n of failed) await saveNoteToLocal(n).catch(() => {});
+              const failedSources = new Set(failed.map((n) => n.source));
+              for (const s of legacyCacheSources) if (!failedSources.has(s)) markLegacyCacheChecked(s);
+            })
+            .catch(() => {});
+        }
 
         // Mark as initialised only after successful completion
         hasInitialisedRef.current = true;

@@ -14,8 +14,14 @@
 // - A local-only note with content, created within 24h, is kept + pushed
 //   (assumed created offline). A local-only tombstone is dropped, never
 //   re-pushed. Empty/old local-only notes are dropped.
+// - One time per device and source, on the first load of the build that
+//   introduced `localEdit`: cached copies written by older builds carry no flag
+//   at all, so an unsynced edit among them can't be told from a stale cache by
+//   the flag. Such a copy with different text and a newer `updatedAt` than the
+//   server's is kept as a "(conflicted copy)" (never pushed over the server);
+//   an older one is a stale cache as usual. See `legacyCacheSources`.
 
-import type { CombinedNote } from "@/types/combined-notes";
+import type { CombinedNote, NoteSource } from "@/types/combined-notes";
 import { sameNoteContent, sameAuthoredContent } from "@/utils/notes-utils";
 import { decideBackgroundWrite } from "@/utils/background-conflict";
 
@@ -47,6 +53,23 @@ export interface ReconcileResult {
    * lost (per the load/reconcile branch of the conflict policy).
    */
   toConflictCopy: CombinedNote[];
+  /**
+   * Unflagged cached copies from a build before `localEdit` existed that are
+   * newer than the server (see `legacyCacheSources`). The server copy is kept;
+   * the caller saves each of these as a "(conflicted copy)" — ALWAYS a copy,
+   * never a write on the note itself, since nothing says which base it had.
+   */
+  toLegacyCopy: CombinedNote[];
+}
+
+export interface ReconcileOptions {
+  /**
+   * Sources whose cache may still hold records written before `localEdit`
+   * existed — i.e. this device hasn't completed a load of this source on the
+   * new build yet. Unflagged copies from these sources get the one-time legacy
+   * rule; everywhere else the flag rules apply. Empty by default.
+   */
+  legacyCacheSources?: ReadonlySet<NoteSource>;
 }
 
 /** Reconcile the local cache against the server (rules at the top of file). */
@@ -54,13 +77,16 @@ export function reconcileNotes(
   serverNotes: CombinedNote[],
   localNotes: CombinedNote[],
   now: number = Date.now(),
+  opts: ReconcileOptions = {},
 ): ReconcileResult {
+  const legacySources = opts.legacyCacheSources ?? new Set<NoteSource>();
   const serverMap = new Map(serverNotes.map((n) => [n.id, n]));
   const localMap = new Map(localNotes.map((n) => [n.id, n]));
   const merged: CombinedNote[] = [];
   const toPush: CombinedNote[] = [];
   const toDelete: CombinedNote[] = [];
   const toConflictCopy: CombinedNote[] = [];
+  const toLegacyCopy: CombinedNote[] = [];
 
   for (const serverNote of serverNotes) {
     const localNote = localMap.get(serverNote.id);
@@ -87,6 +113,23 @@ export function reconcileNotes(
     // "(conflicted copy)" of stale text.
     if (!localNote.localEdit) {
       merged.push(serverNote);
+      // ...unless the cache predates the flag (first load on this build): an
+      // edit the old build never got to the server looks exactly like a stale
+      // copy. Newer than the server by its own clock → keep it as a copy
+      // (losing nothing either way); older → stale cache, dropped as above.
+      if (
+        legacySources.has(localNote.source) &&
+        hasText(localNote) &&
+        (localNote.updatedAt ?? 0) > (serverNote.updatedAt ?? 0) &&
+        !sameAuthoredContent(
+          localNote.content,
+          localNote.contentFormat,
+          serverNote.content,
+          serverNote.contentFormat,
+        )
+      ) {
+        toLegacyCopy.push(localNote);
+      }
       continue;
     }
 
@@ -140,7 +183,7 @@ export function reconcileNotes(
     }
   }
 
-  return { merged, toPush, toDelete, toConflictCopy };
+  return { merged, toPush, toDelete, toConflictCopy, toLegacyCopy };
 }
 
 /**
