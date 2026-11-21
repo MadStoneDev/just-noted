@@ -1,4 +1,5 @@
-import { test, expect, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { test, expect } from "./fixtures/no-conflicts";
 
 // Markdown round-trip: content typed into a note must come back byte-for-byte
 // (stored markdown) and node-for-node (rendered DOM) after every reload — and

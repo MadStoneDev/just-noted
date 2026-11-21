@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import type { BrowserContext, Page } from "@playwright/test";
+import { test, type BrowserContext, type Page } from "@playwright/test";
 import { createServerClient } from "@supabase/ssr";
 import { adminClient, anonKey, hasAdminEnv, SEED_FILE, supabaseUrl } from "./admin";
 import { assertNotProductionSupabase } from "./env";
@@ -102,6 +102,13 @@ export async function signIn(
   opts: { alsoOnDevice?: SeededAccount[]; baseURL?: string } = {},
 ): Promise<void> {
   const context = "context" in target ? target.context() : target;
+  // Tell the no-conflicted-copies check (fixtures/no-conflicts.ts) which
+  // accounts this test writes as. Outside a test (e.g. setup) there's no info.
+  try {
+    for (const a of [acc, ...(opts.alsoOnDevice ?? [])]) (test.info() as any)._signedIn?.add(a.id);
+  } catch {
+    /* not inside a test */
+  }
   const baseURL = opts.baseURL || process.env.E2E_BASE_URL || "http://localhost:3050";
   const session = await mintSession(acc);
   const expires = Math.floor(Date.now() / 1000) + 60 * 60 * 24;

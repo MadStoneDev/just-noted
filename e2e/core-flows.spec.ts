@@ -1,4 +1,5 @@
-import { test, expect, chromium, type Page, type Route } from "@playwright/test";
+import { chromium, type Page, type Route } from "@playwright/test";
+import { test, expect } from "./fixtures/no-conflicts";
 import { seedState, seededAccounts, signIn, type SeededAccount } from "./fixtures/auth";
 import { adminClient } from "./fixtures/admin";
 
@@ -184,10 +185,14 @@ test.describe("notes — local (Redis, anonymous)", () => {
   // with its own stale copy. Then a full browser restart must still show it.
   // Uses a persistent profile so IndexedDB/localStorage (and the guest
   // identity) survive the restart, not just a page reload.
-  test("text typed just before closing the tab is kept (pagehide, second tab)", async ({ baseURL }, testInfo) => {
+  test("text typed just before closing the tab is kept (pagehide, second tab)", async ({ baseURL, trackContext }, testInfo) => {
     test.slow();
     const userDataDir = testInfo.outputPath("profile");
-    const launch = () => chromium.launchPersistentContext(userDataDir, { baseURL });
+    const launch = async () => {
+      const c = await chromium.launchPersistentContext(userDataDir, { baseURL });
+      trackContext(c); // its guest notes get the no-conflicted-copies check too
+      return c;
+    };
 
     let ctx = await launch();
     try {
@@ -538,7 +543,7 @@ test.describe("signed-in", () => {
   test.describe("sharing by email", () => {
     test.skip(seededAccounts().length < 2, "needs 2 seeded accounts");
 
-    test("owner adds a person by email; they can open the private note", async ({ page, browser }) => {
+    test("owner adds a person by email; they can open the private note", async ({ page, browser, trackContext }) => {
       const [a, b] = seededAccounts();
       await signIn(page, a);
       await page.goto("/");
@@ -577,6 +582,7 @@ test.describe("signed-in", () => {
       await db.from("shared_notes").update({ is_public: false, link_permission: "off" }).eq("id", (share as any).id);
 
       const ctxB = await browser.newContext();
+      trackContext(ctxB);
       try {
         await signIn(ctxB, b);
         const pageB = await ctxB.newPage();
