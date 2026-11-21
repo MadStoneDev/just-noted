@@ -57,7 +57,15 @@ import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import VersionHistoryPanel from "@/components/version-history-panel";
 import ChatDrawer from "@/components/chat-drawer";
 import { noteChatAvailable } from "@/app/actions/chatActions";
-import { subscribeProblem } from "@/utils/offline-queue";
+import { subscribeProblem, getPendingContentByNote, replayQueuedFor } from "@/utils/offline-queue";
+import {
+  acquireNoteOwnership,
+  registerEditorHandle,
+  waitForNoSaveInFlight,
+  editorHandleFor,
+} from "@/utils/note-ownership";
+import { baseAfterIncoming } from "@/utils/version-resolve";
+import { sameNoteContent } from "@/utils/notes-utils";
 import GoalSuggestionsModal from "@/components/goal-suggestions-modal";
 import SplitToolbar, { SplitToolbarMobile } from "@/components/editor/split-toolbar";
 import { saveVersion } from "@/app/actions/versionActions";
@@ -196,7 +204,11 @@ export default function ActiveNoteEditor({
     const targetNote = direction === "left" ? note : splitNote;
     if (!targetNote) return;
     const newContent = targetNote.content + "\n\n" + text;
-    notesOperations.saveNoteContent(targetNote.id, newContent, targetNote.goal || 0, targetNote.goal_type || "");
+    // One upload path per note: if the target pane's editor owns the note, it
+    // makes the change and saves it; a direct save here would be a second writer.
+    const handle = editorHandleFor(targetNote.id);
+    if (handle) handle.replaceContent(handle.currentContent() + "\n\n" + text);
+    else notesOperations.saveNoteContent(targetNote.id, newContent, targetNote.goal || 0, targetNote.goal_type || "");
   }, [note, splitNote, notesOperations]);
 
   const handleSwapPanes = useCallback(() => {
@@ -560,6 +572,28 @@ export function NoteEditor({
   const hasServerSynced = useNotesStore((s) => s.hasServerSynced);
   const isHydrating = !hasServerSynced;
 
+  // One upload path per note (utils/note-ownership): this editor uploads the
+  // note only while it holds the note's edit lock. Another tab with the same
+  // note open keeps it until it closes; meanwhile this one is read-only and
+  // follows that tab's saves (cross-tab broadcast / realtime / refresh).
+  const [ownsNote, setOwnsNote] = useState(false);
+  const ownsNoteRef = useRef(false);
+  // Read-only ONLY once we know another tab holds the note. Until the lock
+  // answers (a few ms) typing is allowed; uploads wait for writerReady.
+  const [editingElsewhere, setEditingElsewhere] = useState(false);
+  const editingElsewhereRef = useRef(false);
+  // Resolves once this editor may upload: it owns the note and has settled any
+  // text still queued for it. Every save awaits it.
+  const writerReadyRef = useRef<{ promise: Promise<void>; resolve: () => void } | null>(null);
+  if (!writerReadyRef.current) {
+    let resolve!: () => void;
+    const promise = new Promise<void>((r) => (resolve = r));
+    writerReadyRef.current = { promise, resolve };
+  }
+  // Saves this editor has started and not finished — the lock is held until
+  // they're done.
+  const savesInFlightRef = useRef(new Set<Promise<unknown>>());
+
   // The note version this editor is editing FROM. Pinned and passed to the save
   // so an edit made during initial sync is CAS'd against where it started — if
   // the server has since advanced, that triggers the conflict path (a conflicted
@@ -579,6 +613,8 @@ export function NoteEditor({
   const locked = isHydrating && !lockReleased;
   const lockedRef = useRef(locked);
   lockedRef.current = locked;
+  // Read-only while another tab owns the note.
+  const readOnly = locked || editingElsewhere;
   const timedOut = lockReleased && isHydrating;
   useEffect(() => {
     if (!isHydrating) { setLockReleased(false); setShowSyncingNotice(false); return; }
@@ -638,8 +674,10 @@ export function NoteEditor({
   const { wordCount, charCount, readingTime, pageEstimate, progressPercentage } =
     useNoteStatistics(content, pageFormat, { target: goalTarget, type: goalType });
 
-  const saveContent = useCallback(
+  // One upload path: only once this editor owns the note (writerReady).
+  const saveContentNow = useCallback(
     async (newContent: string) => {
+      await writerReadyRef.current!.promise;
       if (newContent === lastSavedContentRef.current) return true;
 
       setIsSaving(true);
@@ -690,6 +728,19 @@ export function NoteEditor({
     [note.id, goalTarget, goalType, notesOperations],
   );
 
+  // Every save of this note's text by this editor. Tracked so the edit lock is
+  // held until the last one has landed (see the ownership effect).
+  const saveContent = useCallback(
+    (newContent: string): Promise<boolean> => {
+      if (newContent === lastSavedContentRef.current) return Promise.resolve(true);
+      const run = saveContentNow(newContent);
+      savesInFlightRef.current.add(run);
+      run.finally(() => savesInFlightRef.current.delete(run));
+      return run;
+    },
+    [saveContentNow],
+  );
+
   // The editor's synchronous flush (LazyTextBlock → Milkdown). Run before every
   // save-on-leave so keystrokes still inside the editor's ~300ms of change
   // debouncing reach handleContentChange instead of dying with the editor.
@@ -732,14 +783,16 @@ export function NoteEditor({
     (value: string) => {
       if (localPersistTimerRef.current) clearTimeout(localPersistTimerRef.current);
       localPersistTimerRef.current = setTimeout(() => {
-        const { optimisticUpdateNote } = useNotesStore.getState();
+        const { optimisticUpdateNote, notes } = useNotesStore.getState();
         optimisticUpdateNote(note.id, { content: value, contentFormat: "markdown" });
-        saveNoteToLocal({
-          ...note,
-          content: value,
-          contentFormat: "markdown",
-          updatedAt: Date.now(),
-        }).catch(() => {});
+        // The store's copy as of NOW: a save that landed since this timer was set
+        // has raised its version, and the cache must carry that version (a stale
+        // one makes the next load's save conflict with our own text).
+        const live = notes.find((n) => n.id === note.id) ?? note;
+        saveNoteToLocal(
+          { ...live, content: value, contentFormat: "markdown", updatedAt: Date.now() },
+          { localEdit: true },
+        ).catch(() => {});
       }, 500);
     },
     [note],
@@ -791,8 +844,9 @@ export function NoteEditor({
   const handleContentChange = useCallback(
     (value: string) => {
       // Ignore edits only while the lock is engaged (not merely while hydrating —
-      // after the 5s release, editing cached content is allowed and safe).
-      if (lockedRef.current) return;
+      // after the 5s release, editing cached content is allowed and safe), and
+      // while another tab owns the note.
+      if (lockedRef.current || editingElsewhereRef.current) return;
 
       latestValueRef.current = value;
       setContent(value);
@@ -814,6 +868,12 @@ export function NoteEditor({
       awaitingLoadEmissionRef.current = false;
 
       if (decision.adoptBaseline) {
+        // After replaceContent's remount the first emission is that new text,
+        // which is an edit still to be saved — not a clean baseline.
+        if (replacedContentRef.current) {
+          replacedContentRef.current = false;
+          return;
+        }
         // content === lastSavedContentRef keeps the "clean" invariant, so the
         // auto-save flush (which also tracks `content`) sees nothing to save.
         lastSavedContentRef.current = value;
@@ -829,6 +889,138 @@ export function NoteEditor({
     [note.id, debouncedSave, persistLocal, setLatestContent],
   );
 
+  // ── Ownership: one upload path per note (utils/note-ownership) ──────────
+  const replacedContentRef = useRef(false);
+
+  /** Put `value` in the editor as an edit; the autosave uploads it. */
+  const replaceContent = useCallback(
+    (value: string) => {
+      if (editingElsewhereRef.current) return;
+      latestValueRef.current = value;
+      setContent(value);
+      setContentFormat("markdown");
+      setLatestContent(value);
+      replacedContentRef.current = true;
+      setEditorRemountKey((k) => k + 1); // Milkdown is mount-only
+      setSaveState("dirty");
+      useNotesStore.getState().setEditing(note.id, true);
+      persistLocal(value);
+      debouncedSave();
+    },
+    [note.id, setLatestContent, persistLocal, debouncedSave],
+  );
+
+  /** A background path found unsynced text for this note (e.g. the startup
+   *  reconcile): upload it through this editor's own save, on `local.version`. */
+  const uploadThroughEditor = useCallback(
+    async (local: CombinedNote) => {
+      if (!ownsNoteRef.current) return;
+      editorFlushRef.current?.();
+      const value = latestValueRef.current;
+      // We've typed since: our pending autosave carries newer text already.
+      if (!sameNoteContent(value, local.content)) return;
+      if (typeof local.version === "number") baseVersionRef.current = local.version;
+      lastSavedContentRef.current = "\u0000"; // force saveContent past its no-op check
+      await saveContent(value);
+    },
+    [saveContent],
+  );
+
+  /** Saves made by this editor's own controls (goal, restore) — owner only. */
+  const saveAsOwner = useCallback(
+    async (...args: Parameters<NotesOperations["saveNoteContent"]>) => {
+      if (editingElsewhereRef.current) return { success: false };
+      await writerReadyRef.current!.promise;
+      return notesOperations.saveNoteContent(...args);
+    },
+    [notesOperations],
+  );
+
+  // When ownership is granted, take over any text still waiting in the offline
+  // queue for this note (a previous owner's last save hadn't landed), BEFORE
+  // this editor writes anything:
+  //   - the newest entry applies cleanly on the version we hold → it becomes
+  //     this editor's edit (our autosave uploads it);
+  //   - otherwise → replay the note's entries through the server CAS now (the
+  //     server decides: apply, copy or no-op), then follow the server copy.
+  // After this, a later save of ours supersedes every older entry.
+  // Returns the text to adopt as an edit, if any.
+  const settlePendingEdits = useCallback(async (): Promise<{ content: string; base: number } | null> => {
+    try {
+      const p = (await getPendingContentByNote()).get(note.id);
+      if (!p) return null;
+      if (sameNoteContent(p.content, latestValueRef.current)) return null;
+      const live = useNotesStore.getState().notes.find((n) => n.id === note.id);
+      const onVersion = live?.version ?? baseVersionRef.current;
+      const clean = latestValueRef.current === lastSavedContentRef.current;
+      if (clean && typeof p.baseVersion === "number" && p.baseVersion === onVersion) {
+        return { content: p.content, base: p.baseVersion };
+      }
+      await replayQueuedFor(note.id);
+      // Follow the server copy; the store update reaches the editor through the
+      // adopt effect (we're still clean).
+      await notesOperations.refreshSingleNote(note.id);
+      return null;
+    } catch {
+      return null; // best effort: anything left replays once the note is closed
+    }
+  }, [note.id, notesOperations]);
+  const settlePendingEditsRef = useRef(settlePendingEdits);
+  settlePendingEditsRef.current = settlePendingEdits;
+  const replaceContentRef = useRef(replaceContent);
+  replaceContentRef.current = replaceContent;
+
+  useEffect(() => {
+    let cancelled = false;
+    const release = acquireNoteOwnership(
+      note.id,
+      () => {
+        editingElsewhereRef.current = false;
+        setEditingElsewhere(false);
+        ownsNoteRef.current = true;
+        setOwnsNote(true);
+        // Settle text still queued for this note, then let saves go out.
+        settlePendingEditsRef.current().then((adopt) => {
+          if (cancelled) return;
+          if (adopt) {
+            baseVersionRef.current = adopt.base;
+            replaceContentRef.current(adopt.content);
+          }
+          writerReadyRef.current!.resolve();
+        });
+      },
+      () => {
+        // Another tab has it: read-only, following its saves, until it lets go.
+        editingElsewhereRef.current = true;
+        setEditingElsewhere(true);
+      },
+    );
+    return () => {
+      cancelled = true;
+      ownsNoteRef.current = false;
+      // useAutoSave's unmount flush (declared earlier, so it cleaned up first)
+      // has already started any last save: hold the lock until every save this
+      // editor started has landed, so another tab can't start writing first.
+      const saves = [...savesInFlightRef.current];
+      release(async () => {
+        await Promise.allSettled(saves);
+        await waitForNoSaveInFlight(note.id);
+      });
+    };
+  }, [note.id]);
+
+  useEffect(() => {
+    if (!ownsNote) return;
+    return registerEditorHandle(note.id, {
+      upload: (local) => void uploadThroughEditor(local),
+      replaceContent,
+      currentContent: () => {
+        editorFlushRef.current?.();
+        return latestValueRef.current;
+      },
+    });
+  }, [ownsNote, note.id, uploadThroughEditor, replaceContent]);
+
   // When the hydration lock releases, pull the freshest reconciled content in
   // from the store and remount the editor so Milkdown (mount-only) shows it.
   // Safe because the editor was read-only throughout hydration.
@@ -838,6 +1030,17 @@ export function NoteEditor({
     didReconcileRef.current = true;
     const latest = useNotesStore.getState().notes.find((n) => n.id === note.id);
     if (!latest) return;
+    // The cache can paint the editor a version behind the server. If the
+    // server's (higher) version holds exactly the text this editor started from,
+    // it's our own earlier save: move the base forward even with unsaved edits,
+    // so the next save isn't a "(conflicted copy)" of our own text.
+    baseVersionRef.current = baseAfterIncoming({
+      base: baseVersionRef.current,
+      baseContent: lastSavedContentRef.current,
+      incomingVersion: latest.version,
+      incomingContent: latest.content,
+      same: sameNoteContent,
+    }) ?? baseVersionRef.current;
     // Keep in-progress edits: if the editor has unsaved local changes (possible
     // now that editing is allowed during the 5s window), DON'T clobber them.
     // They stay in the editor and save against baseVersionRef (the pre-sync
@@ -865,6 +1068,15 @@ export function NoteEditor({
     // collab probe flips collabConfig back to null and re-enables this).
     if (collabConfigRef.current) return;
     if (isHydrating) return;
+    // Our own earlier save coming back at a higher version (same text as our
+    // base): adopt the version as the base, whether or not we have unsaved edits.
+    baseVersionRef.current = baseAfterIncoming({
+      base: baseVersionRef.current,
+      baseContent: lastSavedContentRef.current,
+      incomingVersion: note.version,
+      incomingContent: note.content,
+      same: sameNoteContent,
+    }) ?? baseVersionRef.current;
     if (note.content === content) return; // nothing new
     if (content !== lastSavedContentRef.current) return; // we have unsaved edits — keep them
     // Only adopt a genuinely NEWER server version. A background refresh (the 12s
@@ -964,7 +1176,7 @@ export function NoteEditor({
   const handleGoalSave = useCallback(() => {
     const target = parseInt(goalInput) || 0;
     setGoalTarget(target);
-    notesOperations.saveNoteContent(note.id, content, target, goalType);
+    saveAsOwner(note.id, content, target, goalType);
   }, [goalInput, note.id, content, goalType, notesOperations]);
 
   const handleGoalTypeChange = useCallback(
@@ -972,7 +1184,7 @@ export function NoteEditor({
       const target = parseInt(goalInput) || 0;
       setGoalTarget(target);
       setGoalType(type);
-      notesOperations.saveNoteContent(note.id, content, target, type);
+      saveAsOwner(note.id, content, target, type);
     },
     [goalInput, note.id, content, notesOperations],
   );
@@ -1586,6 +1798,8 @@ export function NoteEditor({
               {" "}·{" "}
               {locked ? (
                 <span className="text-[var(--color-ink-4)]" title="Reconciling your notes with the server…">Syncing your notes…</span>
+              ) : editingElsewhere ? (
+                <span className="text-[var(--color-ink-4)]" title="This note is open in another tab. Edit it there, or close it there to edit here — this tab follows along.">Editing in another tab</span>
               ) : timedOut ? (
                 // The 5s load-lock timed out: the editor is unlocked so you can
                 // type on your cached copy, but this is slowness, not a failure —
@@ -1656,7 +1870,7 @@ export function NoteEditor({
                       const target = parseInt(goalInput) || 0;
                       setGoalTarget(target);
                       setGoalType(t);
-                      notesOperations.saveNoteContent(note.id, content, target, t);
+                      saveAsOwner(note.id, content, target, t);
                       setShowGoalPicker(false);
                     }}
                     className={`px-3 py-2 rounded-[var(--radius-8)] text-[13px] font-medium capitalize transition-colors border ${
@@ -1734,7 +1948,7 @@ export function NoteEditor({
               <textarea
                 value={content}
                 onChange={(e) => handleContentChange(e.target.value)}
-                readOnly={locked}
+                readOnly={readOnly}
                 spellCheck={false}
                 placeholder="# Markdown source"
                 className="flex-1 w-full resize-none bg-transparent border-none outline-none font-mono text-sm leading-relaxed text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]"
@@ -1748,7 +1962,7 @@ export function NoteEditor({
                 onChange={handleContentChange}
                 onReady={handleEditorReady}
                 flushRef={editorFlushRef}
-                readOnly={locked}
+                readOnly={readOnly}
                 distractionFreeMode
                 placeholder="Start writing..."
                 className="flex-1 flex flex-col overflow-visible"
@@ -1813,7 +2027,7 @@ export function NoteEditor({
           setGoalInput(String(value));
           setGoalTarget(value);
           setGoalType(type);
-          notesOperations.saveNoteContent(note.id, content, value, type);
+          saveAsOwner(note.id, content, value, type);
           setShowGoalPicker(false);
         }}
       />
@@ -1824,10 +2038,10 @@ export function NoteEditor({
         open={showVersions}
         onClose={() => setShowVersions(false)}
         onRestore={(restoredContent, restoredTitle) => {
-          setContent(restoredContent);
+          if (editingElsewhereRef.current) return; // read-only here: restore in the owning tab
           setTitle(restoredTitle);
-          setContentFormat("markdown");
-          notesOperations.saveNoteContent(note.id, restoredContent, goalTarget, goalType);
+          // An edit like any other: the autosave uploads it on our base version.
+          replaceContent(restoredContent);
           notesOperations.saveNoteTitle?.(note.id, restoredTitle);
         }}
       />

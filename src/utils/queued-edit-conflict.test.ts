@@ -382,13 +382,16 @@ describe("legacy queue entry replay (Redis CAS)", () => {
 // local copy's version (what use-notes-sync's pushNoteToServer sends).
 
 describe("load reconcile push (Supabase)", () => {
-  const cached = (content: string, version: number): any => ({
+  // A cached copy holding text typed on this device and not yet confirmed
+  // (CombinedNote.localEdit) — the only kind the load reconcile pushes.
+  const cached = (content: string, version: number, typedHere = true): any => ({
     id: NOTE, title: "Shopping", content, version, source: "supabase",
     createdAt: 0, updatedAt: 0, isPinned: false, isPrivate: true,
+    ...(typedHere ? { localEdit: 1 } : {}),
   });
   const serverNote = () => {
     const r = db.notes.get(NOTE)!;
-    return { ...cached(r.content, r.version), deletedAt: r.deleted_at };
+    return { ...cached(r.content, r.version, false), deletedAt: r.deleted_at };
   };
   const push = (n: any) =>
     updateNote(n.id, n.content, 0, "", {

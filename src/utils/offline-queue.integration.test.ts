@@ -319,7 +319,10 @@ describe("versioned queue entries (real IDB)", () => {
     });
   });
 
-  it("a successful save never drops another tab's queued edit", async () => {
+  // One upload path per note: before an editor writes a note it takes over
+  // every waiting entry (adopts the text, or has it replayed through the CAS),
+  // so a later successful save supersedes them all — this tab's or another's.
+  it("a later successful save supersedes another tab's earlier entry", async () => {
     const { dropSupersededUpdates } = await import("./offline-queue");
     await putForeignOp({
       id: "op_foreign",
@@ -335,19 +338,54 @@ describe("versioned queue entries (real IDB)", () => {
       landedVersion: 4,
       content: "this tab's text",
     });
-    expect(await getQueueSize()).toBe(1);
+    expect(await getQueueSize()).toBe(0);
   });
 
-  it("drops this tab's older entry from the same base, keeps one from an older base", async () => {
-    const { dropSupersededUpdates, getPendingContentByNote } = await import("./offline-queue");
+  it("drops every entry queued before the save started, whatever its base", async () => {
+    const { dropSupersededUpdates, getPendingContentByNote, queueClock } = await import("./offline-queue");
     await enqueue(upd("v-5", "earlier draft", 4));
     await enqueue(upd("v-6", "text from before adopting v7", 4));
-    const startedAt = Date.now();
+    const startedAt = queueClock(); // the same strictly-ordered clock the save uses
     await dropSupersededUpdates("v-5", { startedAt, startBase: 4, landedVersion: 5, content: "final" });
     await dropSupersededUpdates("v-6", { startedAt, startBase: 7, landedVersion: 8, content: "final" });
     const pending = await getPendingContentByNote();
     expect(pending.has("v-5")).toBe(false);
-    expect(pending.get("v-6")?.content).toBe("text from before adopting v7");
+    expect(pending.has("v-6")).toBe(false);
+  });
+
+  it("never replays an entry for a note an editor owns; it replays once the note is closed", async () => {
+    const { acquireNoteOwnership } = await import("./note-ownership");
+    setActiveSupabaseUser("u");
+    let owned = false;
+    const release = acquireNoteOwnership("v-own", () => { owned = true; });
+    expect(owned).toBe(true);
+    await enqueue(upd("v-own", "queued while open", 3));
+    await processQueue();
+    expect(mockedUpdate).not.toHaveBeenCalled();
+    expect(await getQueueSize()).toBe(1);
+
+    let done!: () => void;
+    const released = new Promise<void>((r) => (done = r));
+    release(async () => done());
+    await released;
+    await new Promise((r) => setTimeout(r, 0));
+    await processQueue();
+    expect(mockedUpdate).toHaveBeenCalledTimes(1);
+    expect(await getQueueSize()).toBe(0);
+  });
+
+  it("replayQueuedFor sends just that note's entries, through the CAS", async () => {
+    const { replayQueuedFor } = await import("./offline-queue");
+    setActiveSupabaseUser("u");
+    await enqueue(upd("v-a", "a text", 2));
+    await enqueue(upd("v-b", "b text", 5));
+    mockedUpdate.mockClear();
+    await replayQueuedFor("v-a");
+    expect(mockedUpdate).toHaveBeenCalledTimes(1);
+    expect(mockedUpdate.mock.calls[0][0]).toBe("v-a");
+    expect(mockedUpdate.mock.calls[0][4]).toMatchObject({ baseVersion: 2 });
+    expect(mockedUpdate.mock.calls[0][4]?.conflictCopy?.id).toBeTruthy();
+    expect(await getQueueSize()).toBe(1); // v-b untouched
   });
 
   it("keeps an entry queued after the save started and rebases it onto the landed version", async () => {

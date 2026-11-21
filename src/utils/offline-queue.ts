@@ -16,6 +16,7 @@ import { shouldSyncOp, getActiveSupabaseUser, needsCloudUserTag } from "./offlin
 import { sameNoteContent } from "./notes-utils";
 import { conflictStamp } from "./background-conflict";
 import { TAB_ID } from "./cross-tab";
+import { notesNotToWrite } from "./note-ownership";
 import { v4 as uuidv4 } from "uuid";
 import {
   OFFLINE_QUEUE_DB_NAME,
@@ -555,6 +556,31 @@ function scheduleRetry(delayMs: number): void {
   }, Math.max(1000, delayMs));
 }
 
+/**
+ * Replay one note's queued operations now, in order — used by the editor that
+ * just took ownership of the note, BEFORE it starts writing, for queued text
+ * that doesn't apply cleanly on the version it holds. Each update goes through
+ * the same background CAS as processQueue (server decides: apply, copy or
+ * no-op). Stops at the first failure; what's left replays later.
+ */
+export async function replayQueuedFor(noteId: string): Promise<void> {
+  const ops = (await getOpsByNoteId(noteId)).sort((a, b) => a.timestamp - b.timestamp);
+  for (const op of ops) {
+    if (!shouldSyncOp(op.payload, getActiveSupabaseUser())) continue;
+    if (op.payload.type === "update" && !op.payload.copyId) {
+      op.payload = withCopyId(op.payload);
+      await putOp(op);
+    }
+    try {
+      await executeOp(op.payload, op.timestamp);
+      await deleteOp(op.id);
+    } catch {
+      break;
+    }
+  }
+  notifySubscribers(await countOps());
+}
+
 export async function processQueue(): Promise<void> {
   if (processing) return;
   if (typeof navigator !== "undefined" && !navigator.onLine) return;
@@ -570,9 +596,15 @@ export async function processQueue(): Promise<void> {
     const blocked = new Set<string>();
     let nextWakeup = Infinity;
 
+    // One upload path per note: an open editor (any tab) owns its note's
+    // uploads, and took over its queued text when it opened it. Its entries
+    // replay once the note is closed again (or are superseded by its saves).
+    const notToWrite = await notesNotToWrite();
+
     for (const op of ops) {
       const noteId = op.payload.noteId;
       if (blocked.has(noteId)) continue;
+      if (op.payload.type === "update" && notToWrite.has(noteId)) continue;
 
       // B7: never send another account's cloud op under the current session.
       // Left in the queue untouched (no failure, no backoff) so it syncs once
@@ -814,24 +846,17 @@ export interface LandedSave {
 }
 
 /**
- * A save of the FULL content of a note landed. Clean up this note's queued
- * content updates so none replays older text later — touching ONLY entries the
- * save really replaces, never a newer or unrelated edit:
+ * A save of the FULL content of a note landed. Its queued content updates are
+ * superseded — one upload path per note (utils/note-ownership):
  *
+ * - Queued before the save started (any tab, any base): dropped. The saving
+ *   editor owns the note, and before it could save it took over every entry
+ *   that was waiting (adopted the text, or had it replayed through the CAS),
+ *   so a later full-content save carries or follows all of them.
  * - Same text as was just saved: dropped (replaying it would be a no-op).
- * - Queued by THIS tab before the save started, from the same base or later:
- *   dropped — it is an earlier state of the same editor's text.
- * - Queued by this tab before the save, but from an OLDER base: kept. The
- *   editor adopted a newer server version since, so this text is not part of
- *   what was saved; it replays and becomes a conflicted copy.
  * - Queued by this tab AFTER the save started from the save's base: kept, and
- *   rebased onto the landed version (it was typed on top of this save's text,
- *   so it must not later look like a conflict with it).
- * - Queued by ANOTHER tab (with different text): always kept — it may hold
- *   text this tab never saw.
- *
- * Entries from older builds carry no origin; they keep the previous rule
- * (dropped when queued before the save started).
+ *   rebased onto the landed version (typed on top of this save's text, so it
+ *   must not later look like a conflict with it).
  */
 export async function dropSupersededUpdates(noteId: string, landed: LandedSave): Promise<void> {
   try {
@@ -845,24 +870,13 @@ export async function dropSupersededUpdates(noteId: string, landed: LandedSave):
         changed = true;
         continue;
       }
-      if (o.origin === undefined) {
-        if (o.timestamp <= landed.startedAt) {
-          await deleteOp(o.id);
-          changed = true;
-        }
+      if (o.timestamp <= landed.startedAt) {
+        await deleteOp(o.id);
+        changed = true;
         continue;
       }
-      if (o.origin !== TAB_ID) continue;
-      if (o.timestamp <= landed.startedAt) {
-        const sameLineage =
-          p.baseVersion === undefined ||
-          landed.startBase === undefined ||
-          p.baseVersion >= landed.startBase;
-        if (sameLineage) {
-          await deleteOp(o.id);
-          changed = true;
-        }
-      } else if (
+      if (
+        o.origin === TAB_ID &&
         typeof landed.landedVersion === "number" &&
         landed.startBase !== undefined &&
         p.baseVersion === landed.startBase

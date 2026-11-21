@@ -23,8 +23,11 @@ import { adminClient } from "./fixtures/admin";
 // (seen while building this test: throttling every action let only one refresh
 // through in 35s). A slow LIST fetch with normal saves is the case that breaks.
 //
-// Marked test.fail until fixed. Each run logs a request timeline (background
-// pushes are tagged) plus editor remount / focus-loss counts.
+// Regression for: the refresh pushed the open note's IndexedDB write-ahead copy
+// (a second writer), and the editor's next save then made a "(conflicted copy)".
+// Fixed by one upload path per note (utils/note-ownership). Each run logs a
+// request timeline (background pushes are tagged) plus editor remount /
+// focus-loss counts.
 
 const EDITOR = ".ProseMirror";
 const THROTTLE_MS = 2500;
@@ -179,7 +182,6 @@ async function typeDuringSync(page: Page, noteId: string, server: ServerView) {
 
 test.describe("typing during sync keeps every word, with no conflicted copies", () => {
   test("local (guest) note", async ({ page }) => {
-    test.fail(true, "Known bug: a refresh during typing pushes the IDB copy and the next save makes a conflicted copy. Remove once fixed.");
     test.setTimeout(120_000);
     await instrument(page);
     await page.goto("/");
@@ -211,8 +213,7 @@ test.describe("typing during sync keeps every word, with no conflicted copies", 
     test.skip(seededAccounts().length < 1, "needs seeded accounts (service-role key)");
 
     test("cloud note", async ({ page }) => {
-      test.fail(true, "Known bug: a refresh during typing pushes the IDB copy and the next save makes a conflicted copy. Remove once fixed.");
-      test.setTimeout(120_000);
+        test.setTimeout(120_000);
       await instrument(page);
       const [acc] = seededAccounts();
       await signIn(page, acc);
@@ -241,18 +242,19 @@ test.describe("typing during sync keeps every word, with no conflicted copies", 
   });
 });
 
-// Reproduction (also on origin/main, so live in production): reopen the app on
+// Regression (was also on origin/main, live in production): reopen the app on
 // a slow link and keep writing in a note before the first sync finishes. After
 // a save lands, the IndexedDB cache still holds the PREVIOUS version, so the
 // cache-painted editor pins a stale base; once the 5s hydration lock releases
 // the user types, and that save is CAS'd against the stale base. The server
 // sees a newer version (our own earlier save) and keeps "(conflicted copy)" of
-// our own earlier text. Same tab, same person — not a conflict.
+// our own earlier text. Same tab, same person — not a conflict. Fixed by
+// keeping the cache's version in step and by moving the editor's base forward
+// when the server's newer version holds exactly the text it started from.
 test.describe("reopening on a slow link", () => {
   test.skip(seededAccounts().length < 1, "needs seeded accounts (service-role key)");
 
   test("cloud note: typing during the first sync makes no conflicted copy", async ({ page }) => {
-    test.fail(true, "Known bug: the editor pins the stale IndexedDB version at startup. Remove once fixed.");
     test.setTimeout(120_000);
     const LATENCY_MS = 2000; // keeps the first sync running past the 5s lock release
     const [acc] = seededAccounts();
@@ -301,5 +303,173 @@ test.describe("reopening on a slow link", () => {
     expect(norm(await page.locator(EDITOR).first().innerText()), "editor text").toBe(expected);
     expect(norm(await idbContent(page, noteId)), "IndexedDB text").toBe(expected);
     // The no-conflicted-copies fixture fails this test if the save made a copy.
+  });
+});
+
+// Two tabs, one note. Only the tab holding the note's edit lock writes; the
+// other shows it read-only and follows along, and takes over when the first
+// tab closes. Nothing typed in the read-only tab goes anywhere, nothing typed in
+// the owning tab is lost, and no conflicted copy is made.
+async function twoTabs(
+  context: import("@playwright/test").BrowserContext,
+  a: Page,
+  noteId: string,
+  serverContent: () => Promise<string | null>,
+) {
+  await a.keyboard.type("alpha bravo ", { delay: 40 });
+  await expect.poll(async () => norm(await serverContent()), { timeout: 15_000 }).toBe("alpha bravo");
+
+  const b = await context.newPage();
+  await b.goto("/");
+  await expect(b.getByRole("heading", { name: "All Notes" })).toBeVisible();
+  await b.locator(`[data-note-card="${noteId}"]`).click();
+  await expect(b.locator(EDITOR).first()).toContainText("alpha bravo");
+  await expect(b.getByText("Editing in another tab")).toBeVisible();
+
+  // Both tabs type at once. A owns the note; B is read-only.
+  await a.bringToFront();
+  const typingA = a.keyboard.type("charlie delta ", { delay: 50 });
+  await b.locator(EDITOR).first().click({ force: true }).catch(() => {});
+  await b.keyboard.type("IGNORED", { delay: 30 });
+  await typingA;
+  await expect.poll(async () => norm(await serverContent()), { timeout: 15_000 }).toBe("alpha bravo charlie delta");
+  await expect.poll(async () => norm(await b.locator(EDITOR).first().innerText()), { timeout: 15_000 })
+    .toBe("alpha bravo charlie delta"); // B followed A, and kept none of its own keys
+
+  // A closes; B takes over and writes.
+  await a.close({ runBeforeUnload: true });
+  await expect(b.getByText("Editing in another tab")).toHaveCount(0, { timeout: 15_000 });
+  await b.bringToFront();
+  await b.locator(EDITOR).first().click();
+  await b.keyboard.press("Control+End");
+  await b.keyboard.type(" echo foxtrot", { delay: 40 });
+  const expected = "alpha bravo charlie delta echo foxtrot";
+  await expect.poll(async () => norm(await serverContent()), { timeout: 15_000 }).toBe(expected);
+  await b.waitForTimeout(1500);
+  expect(norm(await b.locator(EDITOR).first().innerText()), "editor text in the tab that took over").toBe(expected);
+  expect(norm(await idbContent(b, noteId)), "IndexedDB text").toBe(expected);
+  // The no-conflicted-copies fixture checks that no copy was made.
+}
+
+test.describe("two tabs with the same note open", () => {
+  test("local (guest) note: one writer at a time, no conflicted copies", async ({ page, context }) => {
+    test.setTimeout(120_000);
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "All Notes" })).toBeVisible();
+    await page.getByRole("main", { name: "Note editor" }).getByRole("button", { name: "New note" }).click();
+    await expect(page.locator(EDITOR).first()).toBeVisible();
+    await expect.poll(() => editorFocused(page)).toBe(true);
+    await expect.poll(() => activeId(page)).not.toBeNull();
+    const noteId = (await activeId(page))!;
+    const anonId = await page.evaluate(() => localStorage.getItem("notes_user_id"));
+    const redis = new Redis(process.env.VALKEY_URL || "redis://127.0.0.1:6380", { keyPrefix: "justnoted:" });
+    try {
+      await twoTabs(context, page, noteId, async () => {
+        const raw = await redis.hget(`notes:${anonId}`, noteId);
+        return raw ? (JSON.parse(raw).content as string) : null;
+      });
+    } finally {
+      redis.disconnect();
+    }
+  });
+
+  test.describe("signed-in", () => {
+    test.skip(seededAccounts().length < 1, "needs seeded accounts (service-role key)");
+
+    test("cloud note: one writer at a time, no conflicted copies", async ({ page, context }) => {
+      test.setTimeout(120_000);
+      const [acc] = seededAccounts();
+      await signIn(page, acc);
+      await page.goto("/");
+      await expect(page.getByRole("heading", { name: "All Notes" })).toBeVisible();
+      await expect(page.locator("[data-note-card]").first()).toBeVisible();
+      await page.waitForTimeout(1000);
+      const before = await activeId(page);
+      await page.locator("body").press("Control+j");
+      await expect.poll(() => activeId(page)).not.toBe(before);
+      await expect.poll(() => editorFocused(page)).toBe(true);
+      const noteId = (await activeId(page))!;
+      await twoTabs(context, page, noteId, async () => {
+        const { data } = await adminClient().from("notes").select("content").eq("id", noteId).maybeSingle();
+        return (data as { content: string } | null)?.content ?? null;
+      });
+    });
+  });
+});
+
+// Two devices: a note edited on one device must not become a "(conflicted
+// copy)" when the other device — whose cache just holds an older, already
+// synced copy — opens the app again. A stale cache is not an unsynced edit.
+test.describe("another device edited the note", () => {
+  test.skip(seededAccounts().length < 1, "needs seeded accounts (service-role key)");
+
+  test("cloud note: reopening with an older cached copy makes no conflicted copy", async ({ browser, page, trackContext }) => {
+    test.setTimeout(120_000);
+    const [acc] = seededAccounts();
+    await signIn(page, acc);
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "All Notes" })).toBeVisible();
+    await expect(page.locator("[data-note-card]").first()).toBeVisible();
+    await page.waitForTimeout(1000);
+    const before = await activeId(page);
+    await page.locator("body").press("Control+j");
+    await expect.poll(() => activeId(page)).not.toBe(before);
+    await expect.poll(() => editorFocused(page)).toBe(true);
+    const noteId = (await activeId(page))!;
+    const row = async () => {
+      const { data } = await adminClient().from("notes").select("content, version").eq("id", noteId).maybeSingle();
+      return data as { content: string; version: number } | null;
+    };
+    await page.keyboard.type("written on device one", { delay: 30 });
+    await expect.poll(async () => norm((await row())?.content), { timeout: 15_000 }).toBe("written on device one");
+    await page.waitForTimeout(1000);
+    console.log(`[two-device] device one cached v${await page.evaluate((id) => new Promise<number | null>((res) => {
+      const r = indexedDB.open("NotesCacheDB");
+      r.onsuccess = () => { const g = r.result.transaction("notes").objectStore("notes").get(id); g.onsuccess = () => res(g.result?.version ?? null); };
+    }), noteId)}, server v${(await row())?.version}`);
+    // Device one goes away with the note in its cache (closing the note first).
+    await page.locator("body").press("Control+j");
+    await page.waitForTimeout(1500);
+    await page.goto("about:blank");
+
+    // Device two (its own browser profile) edits the same note.
+    const other = await browser.newContext();
+    trackContext(other);
+    try {
+      await signIn(other, acc);
+      const two = await other.newPage();
+      await two.goto("/");
+      await expect(two.getByRole("heading", { name: "All Notes" })).toBeVisible();
+      await two.locator(`[data-note-card="${noteId}"]`).click();
+      await expect(two.locator(EDITOR).first()).toContainText("written on device one");
+      await two.locator(EDITOR).first().click();
+      await two.keyboard.press("Control+End");
+      await two.keyboard.type(" then edited on device two", { delay: 30 });
+      await expect.poll(async () => norm((await row())?.content), { timeout: 15_000 })
+        .toBe("written on device one then edited on device two");
+      await two.waitForTimeout(1000);
+    } finally {
+      await other.close();
+    }
+
+    // Device one opens the app again: its cache is older than the server.
+    const pushes: string[] = [];
+    page.on("request", (req) => {
+      const b = req.postData() ?? "";
+      if (req.method() === "POST" && req.headers()["next-action"] && b.includes("conflictCopy")) {
+        pushes.push(`background push base=${b.match(/"baseVersion":(\d+)/)?.[1]} ${b.includes(noteId) ? "(this note)" : "(other note)"}`);
+      }
+    });
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "All Notes" })).toBeVisible();
+    // Leave the note closed while the startup reconcile runs (an open note is
+    // its editor's, and is skipped) — that is the case that made copies.
+    await page.waitForTimeout(5000);
+    await page.locator(`[data-note-card="${noteId}"]`).click();
+    await expect(page.locator(EDITOR).first()).toContainText("then edited on device two", { timeout: 20_000 });
+    await page.waitForTimeout(2000);
+    console.log(`[two-device] server v${(await row())?.version}; background pushes from device one: ${JSON.stringify(pushes)}`);
+    expect(norm((await row())?.content)).toBe("written on device one then edited on device two");
+    // The no-conflicted-copies fixture fails this test if a copy was made.
   });
 });

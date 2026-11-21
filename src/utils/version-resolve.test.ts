@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { resolveWrite } from "./version-resolve";
+import { resolveWrite, baseAfterIncoming } from "./version-resolve";
+import { sameNoteContent } from "./notes-utils";
 
 describe("resolveWrite — optimistic concurrency decision", () => {
   it("CAS: base matches server version → apply and bump", () => {
@@ -38,5 +39,29 @@ describe("resolveWrite — optimistic concurrency decision", () => {
       nextVersion: 2,
       snapshotPrior: true,
     });
+  });
+});
+
+
+describe("baseAfterIncoming (editor base after a store update)", () => {
+  const run = (base: number, baseContent: string, incomingVersion: number, incomingContent: string) =>
+    baseAfterIncoming({ base, baseContent, incomingVersion, incomingContent, same: sameNoteContent });
+
+  it("adopts a higher version holding our own text (stale cache paint)", () => {
+    expect(run(2, "alpha bravo charlie\n", 3, "alpha bravo charlie")).toBe(3);
+  });
+  it("ignores trailing blank lines and whitespace when comparing", () => {
+    expect(run(2, "a\n\n", 3, "a  \n\n\n")).toBe(3);
+    expect(run(2, "a\r\nb\n", 3, "a\nb")).toBe(3);
+  });
+  it("keeps the base when the higher version has different text (a real edit elsewhere)", () => {
+    expect(run(2, "alpha", 3, "alpha and more")).toBe(2);
+  });
+  it("never moves backwards or sideways", () => {
+    expect(run(5, "x", 4, "x")).toBe(5);
+    expect(run(5, "x", 5, "x")).toBe(5);
+  });
+  it("leaves the base alone without an incoming version", () => {
+    expect(baseAfterIncoming({ base: 2, baseContent: "x", incomingVersion: undefined, incomingContent: "x", same: sameNoteContent })).toBe(2);
   });
 });

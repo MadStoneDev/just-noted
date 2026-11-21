@@ -11,7 +11,6 @@ import { fetchNotesRevision } from "@/lib/notes-revision-client";
 import {
   getNotesByUserId as getSupabaseNotesByUserId,
   updateNote as updateSupabaseNote,
-  createNote as createSupabaseNote,
 } from "@/app/actions/supabaseActions";
 import {
   CombinedNote,
@@ -19,7 +18,6 @@ import {
   SupabaseNote,
   redisToCombi,
   supabaseToCombi,
-  combiToRedis,
 } from "@/types/combined-notes";
 import { getAllLocalNotes, saveAllNotesToLocal, clearLocalNotes } from "@/utils/notes-idb-cache";
 import {
@@ -34,6 +32,7 @@ import {
 import { conflictStamp } from "@/utils/background-conflict";
 import { v4 as uuidv4 } from "uuid";
 import { setActiveSupabaseUser } from "@/utils/offline-queue-guard";
+import { notesNotToWrite, editorHandleFor } from "@/utils/note-ownership";
 import { reconcileNotes, protectUnsyncedLocal, keepChangesMadeDuringLoad, type PendingContent } from "@/utils/notes-merge";
 import { subscribeNoteUpdates } from "@/utils/cross-tab";
 import { stripHtmlToText } from "@/utils/html-utils";
@@ -67,20 +66,6 @@ function isEmptyDefaultNote(note: CombinedNote): boolean {
  * Local-only notes older than 24h are dropped (assumed deleted on server).
  * Returns the merged note list and queues server pushes for local-winning notes.
  */
-function conflictCopyOf(note: CombinedNote): CombinedNote {
-  const stamp = new Date().toLocaleString(undefined, {
-    day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
-  });
-  return {
-    ...note,
-    id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${note.id}-copy-${Date.now()}`,
-    title: `${note.title || "Untitled"} (conflicted copy — ${stamp})`,
-    version: 1,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    deletedAt: null,
-  };
-}
 
 function mergeLocalWithServer(
   serverNotes: CombinedNote[],
@@ -88,28 +73,37 @@ function mergeLocalWithServer(
   userId: string,
   isAuthenticated: boolean,
   pending: Map<string, PendingContent> = new Map(),
+  notToWrite: ReadonlySet<string> = new Set(),
 ): CombinedNote[] {
   // The decision logic is pure and unit-tested in utils/notes-merge; here we
   // just carry out the side effects it prescribes.
-  const { merged, toPush, toDelete, toConflictCopy: allCopies } = reconcileNotes(serverNotes, localNotes);
-  // A versioned queued edit holding this same text makes its own conflicted
-  // copy when the queue replays (with a fixed id) — don't make a second one.
-  const toConflictCopy = allCopies.filter((local) => {
-    const q = pending.get(local.id);
-    return !(q && typeof q.baseVersion === "number" && sameNoteContent(q.content, local.content));
-  });
-  for (const note of toPush) {
+  const { merged, toPush, toDelete, toConflictCopy } = reconcileNotes(serverNotes, localNotes);
+
+  // One upload path per note: a note an editor owns is uploaded by that editor
+  // (here: hand it over), never pushed from here; one owned by another tab or
+  // with a save in flight is left alone. Everything else goes out as a
+  // versioned background CAS write — the server decides apply / copy / no-op.
+  const upload = (note: CombinedNote) => {
+    const handle = editorHandleFor(note.id);
+    if (handle) return handle.upload(note);
+    if (notToWrite.has(note.id)) return;
     pushNoteToServer(note, userId, isAuthenticated).catch(() => {});
-  }
+  };
+  for (const note of toPush) upload(note);
   for (const note of toDelete) {
     enqueue({ type: "delete", noteId: note.id, source: note.source, userId }).catch(() => {});
   }
-  // Background conflicts (load/reconcile): we took the server copy; preserve the
-  // local text as a "(conflicted copy)" note so nothing is lost.
+  // The server moved past the version our cached text was edited from. That is
+  // the server's call, not ours: send the text on its own base through the
+  // same CAS as every other background write. If it's still divergent the
+  // server keeps its note and saves ours as one "(conflicted copy)" (identical
+  // text: nothing). A versioned queued edit holding this text makes that same
+  // write when the queue replays — don't send it twice.
   for (const local of toConflictCopy) {
-    const copy = conflictCopyOf(local);
-    merged.push(copy);
-    createNoteOnServer(copy, userId, isAuthenticated).catch(() => {});
+    const q = pending.get(local.id);
+    if (q && typeof q.baseVersion === "number" && sameNoteContent(q.content, local.content)) continue;
+    if (notToWrite.has(local.id) || editorHandleFor(local.id)) continue;
+    pushNoteToServer(local, userId, isAuthenticated).catch(() => {});
   }
   return merged;
 }
@@ -155,21 +149,6 @@ async function pushNoteToServer(
   }
 }
 
-async function createNoteOnServer(
-  note: CombinedNote,
-  userId: string,
-  isAuthenticated: boolean,
-): Promise<void> {
-  try {
-    if (note.source === "redis") {
-      await noteOperation("redis", { operation: "create", userId, note: combiToRedis(note) });
-    } else if (isAuthenticated) {
-      await createSupabaseNote(note);
-    }
-  } catch (error) {
-    console.error("Failed to create conflicted-copy note:", error);
-  }
-}
 
 export function useNotesSync() {
   const supabase = createClient();
@@ -327,14 +306,16 @@ export function useNotesSync() {
       // e.g. text another tab typed right before it was closed, which reached
       // this browser's IDB cache / offline queue but not the server. Keep it and
       // push it instead (see protectUnsyncedLocal).
-      const [localNotes, pending] = await Promise.all([
+      const [localNotes, pending, notToWrite] = await Promise.all([
         getAllLocalNotes(),
         getPendingContentByNote(),
+        notesNotToWrite(),
       ]);
       const { notes: sortedNotes, toPush, fromQueue } = protectUnsyncedLocal(
         serverSorted,
         localNotes,
         pending,
+        notToWrite,
       );
 
       if (isMounted.current) {
@@ -494,21 +475,26 @@ export function useNotesSync() {
 
         const normalizedNotes = normaliseOrdering(allNotes);
         const sortedNotes = sortNotes(normalizedNotes, null);
-        const pendingContent = await getPendingContentByNote();
+        const [pendingContent, notToWrite] = await Promise.all([
+          getPendingContentByNote(),
+          notesNotToWrite(),
+        ]);
         const reconciled = mergeLocalWithServer(
           sortedNotes,
           cachedNotes,
           newUserId,
           authenticated,
           pendingContent,
+          notToWrite,
         );
         // A queued edit whose cached copy was overwritten (e.g. by another tab's
         // refresh racing the close) still wins over the server; the drain below
-        // pushes it.
+        // pushes it. Notes an editor owns are left to that editor.
         const { notes: mergedNotes } = protectUnsyncedLocal(
           reconciled,
           [],
           pendingContent,
+          notToWrite,
         );
 
         // Commit — never a blind replace: mergedNotes was built from data read

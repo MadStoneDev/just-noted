@@ -81,6 +81,15 @@ export function reconcileNotes(
       continue;
     }
 
+    // Different text, but not text this device typed and hasn't confirmed —
+    // just an older cached copy (the note was edited on another device since).
+    // The server is simply newer: take it. Pushing it back would make a
+    // "(conflicted copy)" of stale text.
+    if (!localNote.localEdit) {
+      merged.push(serverNote);
+      continue;
+    }
+
     // The local copy holds text the server doesn't. Same rule as every other
     // background write (utils/background-conflict): the local version is the
     // base the text was edited from.
@@ -231,6 +240,14 @@ export function protectUnsyncedLocal(
   serverNotes: CombinedNote[],
   localNotes: CombinedNote[],
   pending: Map<string, PendingContent>,
+  /**
+   * Notes an editor owns (in any tab) or with a save in flight. Their cached /
+   * queued text is that editor's own write-ahead copy, which its autosave
+   * uploads — pushing it from here would be a second writer racing that save
+   * (the source of spurious conflicted copies). They get the server copy; the
+   * store keeps the editor's live text through the in-flight rules.
+   */
+  notToWrite: ReadonlySet<string> = new Set(),
 ): ProtectResult {
   const localMap = new Map(localNotes.map((n) => [n.id, n]));
   const toPush: CombinedNote[] = [];
@@ -238,6 +255,7 @@ export function protectUnsyncedLocal(
 
   const notes = serverNotes.map((serverNote) => {
     if (serverNote.deletedAt) return serverNote;
+    if (notToWrite.has(serverNote.id)) return serverNote;
 
     const queued = pending.get(serverNote.id);
     if (queued) {
@@ -257,6 +275,9 @@ export function protectUnsyncedLocal(
 
     const local = localMap.get(serverNote.id);
     if (!local || local.deletedAt) return serverNote;
+    // Only text this device typed and no landed save has confirmed is worth
+    // protecting; any other differing copy is a stale cache (see reconcileNotes).
+    if (!local.localEdit) return serverNote;
     if (ver(local) < ver(serverNote)) return serverNote;
     if (!contentDiffers(local, serverNote)) return serverNote;
     // Same guard as the load path: an emptied local copy never blanks text.

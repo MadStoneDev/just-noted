@@ -22,6 +22,9 @@ const pend = (entries: Record<string, string>) =>
     Object.entries(entries).map(([id, content]) => [id, { content, goal: 0, goalType: "" }]),
   );
 
+// Cached copies here are text this device typed and hasn't confirmed.
+const typed = (o: Record<string, unknown>) => mk({ localEdit: 1, ...o });
+
 describe("protectUnsyncedLocal — refresh never clobbers unsynced local edits", () => {
   it("keeps queued content over a stale server copy and asks for a drain", () => {
     const server = [mk({ id: "a", content: "old", version: 3 })];
@@ -68,7 +71,7 @@ describe("protectUnsyncedLocal — refresh never clobbers unsynced local edits",
 
   it("keeps and pushes a newer cached edit at the same base version", () => {
     const server = [mk({ id: "a", content: "before", version: 2 })];
-    const local = [mk({ id: "a", content: "before and after", version: 2 })];
+    const local = [typed({ id: "a", content: "before and after", version: 2 })];
     const r = protectUnsyncedLocal(server, local, new Map());
     expect(r.notes[0].content).toBe("before and after");
     expect(r.toPush.map((n) => n.id)).toEqual(["a"]);
@@ -104,3 +107,17 @@ describe("protectUnsyncedLocal — refresh never clobbers unsynced local edits",
     expect(r.notes).toEqual([]);
   });
 });
+
+describe("protectUnsyncedLocal — notes an editor owns", () => {
+  it("never pushes or substitutes an owned note's cached text; it takes the server copy", () => {
+    const server = [mk({ id: "o1", content: "server text", version: 4 })];
+    const local = [typed({ id: "o1", content: "editor write-ahead (newer)", version: 4 })];
+    const owned = protectUnsyncedLocal(server, local, new Map(), new Set(["o1"]));
+    expect(owned.toPush).toEqual([]);
+    expect(owned.notes[0].content).toBe("server text");
+    // Same inputs, not owned: the cached text is protected and pushed, as before.
+    const free = protectUnsyncedLocal(server, local, new Map());
+    expect(free.toPush.map((n) => n.id)).toEqual(["o1"]);
+  });
+});
+

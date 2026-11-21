@@ -31,7 +31,7 @@ import {
 } from "@/types/combined-notes";
 import { generateNoteId } from "@/utils/general/notes";
 import { withNoteLock, broadcastNoteUpdate, broadcastNoteDeleted, broadcastNotesChanged } from "@/utils/cross-tab";
-import { saveNoteToLocal, saveAllNotesToLocal, deleteLocalNote } from "@/utils/notes-idb-cache";
+import { saveNoteToLocal, saveAllNotesToLocal, deleteLocalNote, setLocalNoteVersion } from "@/utils/notes-idb-cache";
 import {
   enqueue,
   dropQueuedOps,
@@ -862,7 +862,10 @@ export function useNotesOperations(
       setEditing(noteId, false);
 
       optimisticUpdateNote(noteId, { content, goal, goal_type: goalType, contentFormat: "markdown" });
-      saveNoteToLocal({ ...targetNote, content, goal, goal_type: goalType, contentFormat: "markdown", updatedAt: Date.now() }).catch(() => {});
+      saveNoteToLocal(
+        { ...targetNote, content, goal, goal_type: goalType, contentFormat: "markdown", updatedAt: Date.now() },
+        { localEdit: true },
+      ).catch(() => {});
       // What this full-content save replaces in the offline queue once it lands
       // (see dropSupersededUpdates below): this tab's earlier entries from the
       // same base. The base is the version the text was edited from.
@@ -925,6 +928,7 @@ export function useNotesOperations(
               // no copy. Compared with the same normalisation as the save no-op.
               if (sameNoteContent(r.current.content, content)) {
                 optimisticUpdateNote(noteId, { version: r.current.version });
+                setLocalNoteVersion(noteId, r.current.version, content).catch(() => {});
                 setSaveError(noteId, false);
                 return { success: true, version: r.current.version };
               }
@@ -941,6 +945,9 @@ export function useNotesOperations(
               setSaveError(noteId, false);
               if (typeof r.version === "number") {
                 optimisticUpdateNote(noteId, { version: r.version });
+                // Keep the cache's version in step (it was written with the
+                // pre-save version above) — see setLocalNoteVersion.
+                setLocalNoteVersion(noteId, r.version, content).catch(() => {});
               }
             } else {
               setSaveError(noteId, true);
@@ -1117,14 +1124,10 @@ export function useNotesOperations(
       if (!targetNote) return;
 
       optimisticUpdateNote(noteId, { content, goal, goal_type: goalType, contentFormat: "markdown" });
-      saveNoteToLocal({
-        ...targetNote,
-        content,
-        goal,
-        goal_type: goalType,
-        contentFormat: "markdown",
-        updatedAt: Date.now(),
-      }).catch(() => {});
+      saveNoteToLocal(
+        { ...targetNote, content, goal, goal_type: goalType, contentFormat: "markdown", updatedAt: Date.now() },
+        { localEdit: true }, // unconfirmed until a save carrying it lands
+      ).catch(() => {});
       // One copy id for both writes of this edit: if the server has moved on,
       // the keepalive save and the later queue replay make ONE conflicted copy.
       const baseVersion = opts.baseVersion ?? targetNote.version;

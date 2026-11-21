@@ -25,6 +25,14 @@ export interface CombinedNote {
   // last version it saw and sends it as the base on each save; the server does a
   // compare-and-set and increments. Defaults to 1 for new/legacy records.
   version?: number;
+  /**
+   * IndexedDB cache only: set when this device wrote text that hasn't been
+   * confirmed by a landed save yet (the editor's write-ahead / tab-close copy),
+   * cleared when the save carrying that text lands. A cached copy WITHOUT it is
+   * just a cache — if it differs from the server, the server is newer (another
+   * device edited it) and it is never pushed or turned into a conflicted copy.
+   */
+  localEdit?: number;
 }
 
 // Redis note format (matches your current Redis structure)

@@ -48,3 +48,28 @@ export function resolveWrite(params: {
   }
   return { kind: "conflict", serverVersion };
 }
+
+/**
+ * Editor side: the base version the open editor should save against after the
+ * store reports a note version (`incoming`).
+ *
+ * A higher version whose content equals what the editor's base already holds
+ * (normalised: line endings and trailing whitespace / blank lines ignored) is
+ * our own earlier save coming back — e.g. the cache painted the editor one
+ * version behind the server. Adopting it as the base keeps the next save a
+ * plain update instead of a "(conflicted copy)" of our own text. Anything
+ * else (lower, equal, or genuinely different text) leaves the base alone; a
+ * real concurrent edit still takes the conflict path.
+ */
+export function baseAfterIncoming(params: {
+  base: number | null | undefined;
+  baseContent: string | null | undefined;
+  incomingVersion: number | null | undefined;
+  incomingContent: string | null | undefined;
+  same: (a?: string | null, b?: string | null) => boolean;
+}): number | null | undefined {
+  const { base, baseContent, incomingVersion, incomingContent, same } = params;
+  if (typeof incomingVersion !== "number") return base;
+  if (typeof base === "number" && incomingVersion <= base) return base;
+  return same(baseContent, incomingContent) ? incomingVersion : base;
+}
