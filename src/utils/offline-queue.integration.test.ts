@@ -399,3 +399,58 @@ describe("versioned queue entries (real IDB)", () => {
     });
   });
 });
+
+async function allOps(): Promise<{ payload: { noteId: string; type: string } }[]> {
+  const { OFFLINE_QUEUE_DB_NAME, OFFLINE_QUEUE_DB_VERSION, OFFLINE_QUEUE_STORE_NAME } = await import(
+    "@/constants/app"
+  );
+  const db = await new Promise<IDBDatabase>((resolve, reject) => {
+    const r = indexedDB.open(OFFLINE_QUEUE_DB_NAME, OFFLINE_QUEUE_DB_VERSION);
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+  const ops = await new Promise<any[]>((resolve, reject) => {
+    const req = db.transaction(OFFLINE_QUEUE_STORE_NAME, "readonly").objectStore(OFFLINE_QUEUE_STORE_NAME).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  db.close();
+  return ops;
+}
+
+describe("dropUpdatesQueuedSince — an edit undone after its save failed (real IDB)", () => {
+  it("drops this tab's updates queued since the confirmed save, and nothing else", async () => {
+    const { dropUpdatesQueuedSince, getPendingContentByNote, queueClock } = await import("./offline-queue");
+    await enqueue(upd("u-1", "before the confirmed save", 3)); // older: not ours to judge
+    const confirmedAt = queueClock(); // the confirmed save started here
+    await enqueue(upd("u-1", "saved text + typo (failed save)", 4));
+    await enqueue(upd("u-1", "saved text + more typo (failed retry)", 4)); // replaces the one above
+    await enqueue(upd("u-other", "another note", 4));
+    await putForeignOp({
+      id: "op_foreign_u1",
+      payload: upd("u-1", "typed in another tab", 4),
+      timestamp: Date.now() + 1000,
+      retryCount: 0,
+      lastAttempt: null,
+      origin: OTHER_TAB,
+    });
+    await enqueue({ type: "updateTitle", noteId: "u-1", source: "supabase", userId: "u", title: "t" });
+
+    expect(await dropUpdatesQueuedSince("u-1", confirmedAt)).toBe(1);
+
+    const left = await allOps();
+    const u1 = left.filter((o) => o.payload.noteId === "u-1");
+    expect(u1.map((o) => (o.payload as { content?: string; title?: string }).content ?? o.payload.type).sort()).toEqual(
+      ["before the confirmed save", "typed in another tab", "updateTitle"].sort(),
+    );
+    expect((await getPendingContentByNote()).get("u-other")?.content).toBe("another note");
+  });
+
+  it("is a no-op when nothing was queued since", async () => {
+    const { dropUpdatesQueuedSince, queueClock } = await import("./offline-queue");
+    await enqueue(upd("u-2", "older", 3));
+    expect(await dropUpdatesQueuedSince("u-2", queueClock())).toBe(0);
+    expect(await getQueueSize()).toBe(1);
+  });
+});
+

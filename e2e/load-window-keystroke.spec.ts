@@ -19,6 +19,9 @@ import { adminClient } from "./fixtures/admin";
 //     must not come back from the IndexedDB write-ahead copy on reload.
 // (d) a toolbar button (no key or input event on the editor) clicked in the
 //     first second is an edit too and must survive a reload.
+// (e) an edit whose save FAILED, then deleted back to the saved text: its
+//     offline-queue entry is dropped, so restoring the network can't push the
+//     deleted text, and no conflicted copy appears.
 
 const MAIN = 'main[aria-label="Note editor"]';
 const EDITOR = `${MAIN} .ProseMirror`;
@@ -45,6 +48,43 @@ async function idbContent(page: Page, noteId: string): Promise<string | null> {
       }),
     noteId,
   );
+}
+
+/** This note's content updates waiting in the offline queue. */
+async function queuedUpdates(page: Page, noteId: string): Promise<string[]> {
+  return page.evaluate(
+    (id) =>
+      new Promise<string[]>((resolve) => {
+        const req = indexedDB.open("OfflineQueueDB");
+        req.onerror = () => resolve([]);
+        req.onsuccess = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains("operations")) { db.close(); resolve([]); return; }
+          const all = db.transaction("operations", "readonly").objectStore("operations").getAll();
+          all.onsuccess = () => {
+            resolve(
+              (all.result as { payload: { type: string; noteId: string; content?: string } }[])
+                .filter((o) => o.payload.noteId === id && o.payload.type === "update")
+                .map((o) => o.payload.content ?? ""),
+            );
+            db.close();
+          };
+          all.onerror = () => { resolve([]); db.close(); };
+        };
+      }),
+    noteId,
+  );
+}
+
+/** Make every server action fail at the network until the returned undo runs. */
+async function failServerActions(page: Page): Promise<() => Promise<void>> {
+  const handler = async (route: import("@playwright/test").Route) => {
+    const req = route.request();
+    if (req.method() === "POST" && req.headers()["next-action"]) return route.abort("internetdisconnected");
+    return route.continue();
+  };
+  await page.route("**/*", handler);
+  return () => page.unroute("**/*", handler);
 }
 
 /** Timestamps (performance.now) of each editor mount and of each key pressed in it. */
@@ -239,6 +279,37 @@ function cases(mode: () => Mode) {
       expect(norm(await m.serverContent(id)), "server after reload").toBe(tc.md);
     });
   }
+
+  test("(e) a failed save, then deleted back to the saved text: nothing is pushed later", async ({ page }) => {
+    test.setTimeout(120_000);
+    const m = mode();
+    await instrument(page);
+    const id = await seedStoredNote(page, m);
+    await page.locator(`[data-note-card="${id}"]`).click();
+    await expect(page.locator(EDITOR)).toContainText(STORED);
+    await page.waitForTimeout(2000); // past the load window, ownership settled
+
+    const restore = await failServerActions(page);
+    await page.locator(EDITOR).click();
+    await page.keyboard.press("End");
+    await page.keyboard.type(" ZZ");
+    await expect(saveStatus(page), "the save fails").toHaveText("Not saved", { timeout: 15_000 });
+    await expect.poll(async () => (await queuedUpdates(page, id)).map(norm), { timeout: 10_000 }).toContain(`${STORED} ZZ`);
+
+    for (let i = 0; i < 3; i++) await page.keyboard.press("Backspace");
+    await expect(page.locator(EDITOR)).toHaveText(STORED);
+    await expect(saveStatus(page), "status settles").toHaveText(m.savedLabel, { timeout: 10_000 });
+    await expect.poll(() => queuedUpdates(page, id), { timeout: 5_000 }).toEqual([]);
+    expect(norm(await idbContent(page, id)), "IndexedDB").toBe(STORED);
+
+    await restore();
+    await page.waitForTimeout(3000);
+    await reopen(page, id);
+    await page.waitForTimeout(3000); // any queue replay the startup makes
+    expect(norm(await page.locator(EDITOR).innerText()), "editor after reload").toBe(STORED);
+    expect(norm(await m.serverContent(id)), "server after reload").toBe(STORED);
+    expect(await queuedUpdates(page, id), "queue after reload").toEqual([]);
+  });
 }
 
 test.describe("keystrokes right after a note opens — local (guest) note", () => {

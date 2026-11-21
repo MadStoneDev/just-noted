@@ -897,3 +897,26 @@ export async function dropQueuedOps(noteId: string): Promise<void> {
   const count = await countOps();
   notifySubscribers(count);
 }
+
+/**
+ * The editor's text went back to what its last confirmed save put on the
+ * server (an edit typed, its save failed, then deleted). The content updates
+ * this tab queued for the note since that save are all for the undone text:
+ * drop them, so a later replay can't push it. Only this tab's entries, and
+ * only updates (a queued create or another tab's entry is not ours to judge).
+ * `since` is the confirmed save's start, from queueClock().
+ */
+export async function dropUpdatesQueuedSince(noteId: string, since: number): Promise<number> {
+  let dropped = 0;
+  try {
+    for (const o of await getOpsByNoteId(noteId)) {
+      if (o.payload.type !== "update" || o.origin !== TAB_ID || o.timestamp <= since) continue;
+      await deleteOp(o.id);
+      dropped++;
+    }
+    if (dropped) notifySubscribers(await countOps());
+  } catch {
+    /* best effort — a lingering entry replays as a CAS write */
+  }
+  return dropped;
+}

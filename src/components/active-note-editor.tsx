@@ -12,7 +12,7 @@ import { colorForUser } from "@/hooks/use-presence";
 import { exportNote, EXPORT_FORMATS } from "@/utils/export-note";
 import { useNotesStore, useNotebooks, useNoteById } from "@/stores/notes-store";
 import { useAutoSave } from "@/hooks/use-auto-save";
-import { saveNoteToLocal } from "@/utils/notes-idb-cache";
+import { saveNoteToLocal, getLocalNote } from "@/utils/notes-idb-cache";
 import { decideEditorChange } from "@/utils/editor-save-decision";
 import { decideNoteSwitch, readNoteSwitchContext } from "@/utils/note-switch-focus";
 import { useNoteStatistics } from "@/hooks/use-note-statistics";
@@ -57,7 +57,13 @@ import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import VersionHistoryPanel from "@/components/version-history-panel";
 import ChatDrawer from "@/components/chat-drawer";
 import { noteChatAvailable } from "@/app/actions/chatActions";
-import { subscribeProblem, getPendingContentByNote, replayQueuedFor } from "@/utils/offline-queue";
+import {
+  subscribeProblem,
+  getPendingContentByNote,
+  replayQueuedFor,
+  queueClock,
+  dropUpdatesQueuedSince,
+} from "@/utils/offline-queue";
 import {
   acquireNoteOwnership,
   registerEditorHandle,
@@ -559,6 +565,14 @@ export function NoteEditor({
   // its lastSavedRef), so the editor's idea of clean and the autosave's idea of
   // what still needs saving can never disagree.
   const lastSavedContentRef = useRef(note.content);
+  // The text known to be on the server, and when (queueClock) the save that
+  // put it there started: set by each save that lands, and at ownership grant
+  // when nothing for this note is queued or cached as an unsynced local edit.
+  // Null while that is unknown. An edit back to exactly this text after a
+  // failed save drops what was queued since (see handleContentChange). With
+  // any other baseline (never confirmed: the text may itself be unsynced) the
+  // queue is left alone.
+  const confirmedSaveRef = useRef<{ at: number; content: string } | null>(null);
   // Milkdown parses the stored Markdown and serialises it back on mount; that
   // round-trip can change the bytes without changing meaning and is emitted via
   // onChange. It is NOT a user edit, so we adopt it as the clean baseline (see
@@ -701,6 +715,7 @@ export function NoteEditor({
     async (newContent: string) => {
       await writerReadyRef.current!.promise;
       if (newContent === lastSavedContentRef.current) return true;
+      const startedAt = queueClock();
 
       setIsSaving(true);
       setSaveState("saving");
@@ -731,6 +746,7 @@ export function NoteEditor({
           }
         }
         lastSavedContentRef.current = newContent;
+        confirmedSaveRef.current = { at: startedAt, content: newContent };
         setSaveState("clean");
 
         // Save version snapshot every 5 minutes
@@ -897,23 +913,41 @@ export function NoteEditor({
       if (decision.adoptBaseline) {
         // content === lastSavedContentRef keeps the "clean" invariant, so the
         // auto-save flush (which shares this ref) sees nothing to save.
+        // The same text, re-serialised: still the confirmed one if it was.
+        const confirmed = confirmedSaveRef.current;
+        if (confirmed && confirmed.content === lastSavedContentRef.current) {
+          confirmedSaveRef.current = { ...confirmed, content: value };
+        }
         lastSavedContentRef.current = value;
         return;
       }
       if (decision.backToBaseline) {
-        // An edit undone before its save went out (typed and deleted, say).
-        // Drop what is still pending for it: the autosave (it would no-op and
-        // leave "Saving…" up for good) and the IndexedDB write-ahead copy (it
-        // holds the undone text marked as a local edit, which the next load
-        // would push back to the server). A save already in flight is left to
-        // finish: useAutoSave sees the text changed under it and saves this one.
-        if (saveStateRef.current === "dirty" && savesInFlightRef.current.size === 0) {
+        // An edit undone before its save went out (typed and deleted, say), or
+        // after its save failed. Drop what is still pending for it: the
+        // autosave (it would no-op and leave "Saving…" up for good), the
+        // IndexedDB write-ahead copy (it holds the undone text marked as a
+        // local edit, which the next load would push back to the server) and,
+        // when this text is the last confirmed save's, the offline-queue
+        // entries queued since (a later replay would push the undone text). A
+        // save already in flight is left to finish: useAutoSave sees the text
+        // changed under it and saves this one.
+        const state = saveStateRef.current;
+        if ((state === "dirty" || state === "error") && savesInFlightRef.current.size === 0) {
+          const confirmed = confirmedSaveRef.current;
+          const onConfirmed = !!confirmed && sameNoteContent(confirmed.content, value);
+          // After a failed save the baseline may itself be unsynced (it was
+          // never confirmed here): keep the queue and the "Not saved" state.
+          if (state === "error" && !onConfirmed) return;
           cancelSave();
           if (localPersistTimerRef.current) {
             clearTimeout(localPersistTimerRef.current);
             localPersistTimerRef.current = null;
           }
           writeLocal(value, false);
+          if (onConfirmed) {
+            dropUpdatesQueuedSince(note.id, confirmed!.at).catch(() => {});
+            useNotesStore.getState().setSaveError(note.id, false);
+          }
           setSaveState("clean");
           useNotesStore.getState().setEditing(note.id, false); // as a landed save does
         }
@@ -991,7 +1025,16 @@ export function NoteEditor({
   const settlePendingEdits = useCallback(async (): Promise<{ content: string; base: number } | null> => {
     try {
       const p = (await getPendingContentByNote()).get(note.id);
-      if (!p) return null;
+      if (!p) {
+        // Nothing queued and no unsynced local copy: the text we opened is the
+        // server's. Entries queued from here on are this editor's.
+        const live = useNotesStore.getState().notes.find((n) => n.id === note.id);
+        const cached = await getLocalNote(note.id);
+        if (!live?.localEdit && !cached?.localEdit && confirmedSaveRef.current === null) {
+          confirmedSaveRef.current = { at: queueClock(), content: lastSavedContentRef.current };
+        }
+        return null;
+      }
       if (sameNoteContent(p.content, latestValueRef.current)) return null;
       const live = useNotesStore.getState().notes.find((n) => n.id === note.id);
       const onVersion = live?.version ?? baseVersionRef.current;
