@@ -40,6 +40,14 @@ describe("IndexedDB cache — localEdit mark", () => {
     expect((await getLocalNote("n1"))?.localEdit).toBeGreaterThan(0);
   });
 
+  it("a numeric mark is restored exactly, over a different write-ahead copy", async () => {
+    await saveNoteToLocal(note({ content: "offline text" }), { localEdit: true });
+    await saveNoteToLocal(note({ content: "offline textx" }), { localEdit: true });
+    await saveNoteToLocal(note({ content: "offline text" }), { localEdit: 1234 });
+    expect((await getLocalNote("n1"))?.localEdit).toBe(1234);
+    expect((await getLocalNote("n1"))?.content).toBe("offline text");
+  });
+
   it("a landed save carrying the cached text clears the mark and raises the version", async () => {
     await saveNoteToLocal(note({ content: "typed here" }), { localEdit: true });
     await setLocalNoteVersion("n1", 3, "typed here\n");

@@ -107,3 +107,31 @@ export function decideEditorChange(input: EditorChangeInput): EditorChangeDecisi
   // A real edit.
   return { adoptBaseline: false, persist: true, backToBaseline: false };
 }
+
+/**
+ * The cached copy's `localEdit` mark once the editor's text is back on its
+ * baseline before a save went out (typed and deleted, say). Writing the
+ * baseline back over the write-ahead copy must not lose whether that text is
+ * on the server:
+ *   - the text this editor saw confirmed by a landed save → clear (`false`);
+ *   - the text the editor opened on → its mark as it was at open: unsynced
+ *     stays unsynced (the exact stamp, or `true` when only "unsynced" is
+ *     known), synced stays clean (`false`);
+ *   - any other text (never confirmed here) → `true`: keep it unsynced.
+ * Returns `false` to clear, `true` for a fresh mark, a number to restore it.
+ */
+export function localEditForReturn(input: {
+  value: string;
+  /** Text of the last save this editor saw land, or null when none is known. */
+  confirmedContent: string | null;
+  /** The text the editor opened on (re-keyed by its load re-serialisation). */
+  openingContent: string;
+  /** The cached copy's mark at open: false = synced, true/number = unsynced. */
+  openingMark: number | boolean;
+  same: (a: string, b: string) => boolean;
+}): number | boolean {
+  const { value, confirmedContent, openingContent, openingMark, same } = input;
+  if (confirmedContent !== null && same(confirmedContent, value)) return false;
+  if (same(openingContent, value)) return openingMark;
+  return true;
+}

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { decideEditorChange, isEditingInputEvent, LOAD_EMISSION_WINDOW_MS } from "./editor-save-decision";
+import { decideEditorChange, isEditingInputEvent, localEditForReturn, LOAD_EMISSION_WINDOW_MS } from "./editor-save-decision";
+import { sameNoteContent } from "./notes-utils";
 
 // A note with headings, lists, bold, inline code and links — the kind of
 // content whose Milkdown round-trip re-serialises to slightly different bytes.
@@ -186,5 +187,69 @@ describe("isEditingInputEvent", () => {
     expect(isEditingInputEvent({ type: "keydown", key: "a", metaKey: true })).toBe(false);
     expect(isEditingInputEvent({ type: "focus" })).toBe(false);
     expect(isEditingInputEvent({ type: "pointerdown" })).toBe(false);
+  });
+});
+
+// Back on the baseline before a save went out: which localEdit mark the cached
+// copy gets. Clearing it for text that never synced makes that text look synced
+// (never uploaded, later replaced by the older server copy).
+describe("localEditForReturn", () => {
+  const base = { same: sameNoteContent, confirmedContent: null as string | null };
+
+  it("opened on unsynced text: the exact mark from open comes back", () => {
+    expect(
+      localEditForReturn({ ...base, value: "offline text", openingContent: "offline text", openingMark: 1234 }),
+    ).toBe(1234);
+  });
+
+  it("opened on unsynced text with no stamp known: still unsynced", () => {
+    expect(
+      localEditForReturn({ ...base, value: "offline text", openingContent: "offline text", openingMark: true }),
+    ).toBe(true);
+  });
+
+  it("opened on synced text: stays clean", () => {
+    expect(
+      localEditForReturn({ ...base, value: "server text", openingContent: "server text", openingMark: false }),
+    ).toBe(false);
+  });
+
+  it("text this editor saw land: cleared, even if it opened unsynced", () => {
+    expect(
+      localEditForReturn({
+        ...base,
+        value: "saved here",
+        confirmedContent: "saved here",
+        openingContent: "offline text",
+        openingMark: 1234,
+      }),
+    ).toBe(false);
+    expect(
+      localEditForReturn({
+        ...base,
+        value: "offline text",
+        confirmedContent: "offline text",
+        openingContent: "offline text",
+        openingMark: 1234,
+      }),
+    ).toBe(false);
+  });
+
+  it("any other text never confirmed here: kept unsynced", () => {
+    expect(
+      localEditForReturn({
+        ...base,
+        value: "something else",
+        confirmedContent: "saved here",
+        openingContent: "server text",
+        openingMark: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("compares through `same` (trailing whitespace / line endings forgiven)", () => {
+    expect(
+      localEditForReturn({ ...base, value: "offline text\r\n", openingContent: "offline text", openingMark: 99 }),
+    ).toBe(99);
   });
 });

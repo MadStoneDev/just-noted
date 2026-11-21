@@ -13,7 +13,7 @@ import { exportNote, EXPORT_FORMATS } from "@/utils/export-note";
 import { useNotesStore, useNotebooks, useNoteById } from "@/stores/notes-store";
 import { useAutoSave } from "@/hooks/use-auto-save";
 import { saveNoteToLocal, getLocalNote } from "@/utils/notes-idb-cache";
-import { decideEditorChange } from "@/utils/editor-save-decision";
+import { decideEditorChange, localEditForReturn } from "@/utils/editor-save-decision";
 import { decideNoteSwitch, readNoteSwitchContext } from "@/utils/note-switch-focus";
 import { useNoteStatistics } from "@/hooks/use-note-statistics";
 import { CombinedNote } from "@/types/combined-notes";
@@ -573,6 +573,27 @@ export function NoteEditor({
   // any other baseline (never confirmed: the text may itself be unsynced) the
   // queue is left alone.
   const confirmedSaveRef = useRef<{ at: number; content: string } | null>(null);
+  // The text this editor opened on, and the cached copy's localEdit mark for
+  // it at open (read before this editor writes anything): false = synced,
+  // true/number = unsynced. An edit back to the opening text that was never
+  // confirmed here puts that mark back (see localEditForReturn): deleting a
+  // typed character must not make unsynced text look synced.
+  const openingContentRef = useRef(note.content);
+  const openingMarkRef = useRef<Promise<number | boolean> | null>(null);
+  useEffect(() => {
+    const opened = note.content;
+    const storeMark = note.localEdit;
+    openingMarkRef.current = getLocalNote(note.id)
+      .then((cached): number | boolean => {
+        if (cached && sameNoteContent(cached.content, opened)) return cached.localEdit || storeMark || false;
+        // No copy, or a different one: we can't tell this text is on the
+        // server, so keep it unsynced.
+        return storeMark || true;
+      })
+      .catch(() => storeMark || true);
+    // Once per mount (the editor is keyed by note id): the state at open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Milkdown parses the stored Markdown and serialises it back on mount; that
   // round-trip can change the bytes without changing meaning and is emitted via
   // onChange. It is NOT a user edit, so we adopt it as the clean baseline (see
@@ -818,7 +839,7 @@ export function NoteEditor({
   // moment's typing even if the cloud save hasn't fired yet.
   const localPersistTimerRef = useRef<NodeJS.Timeout | null>(null);
   const writeLocal = useCallback(
-    (value: string, localEdit: boolean) => {
+    (value: string, localEdit: boolean | number) => {
       const { optimisticUpdateNote, notes } = useNotesStore.getState();
       optimisticUpdateNote(note.id, { content: value, contentFormat: "markdown" });
       // The store's copy as of NOW: a save that landed since this timer was set
@@ -918,6 +939,7 @@ export function NoteEditor({
         if (confirmed && confirmed.content === lastSavedContentRef.current) {
           confirmedSaveRef.current = { ...confirmed, content: value };
         }
+        if (openingContentRef.current === lastSavedContentRef.current) openingContentRef.current = value;
         lastSavedContentRef.current = value;
         return;
       }
@@ -931,6 +953,10 @@ export function NoteEditor({
         // entries queued since (a later replay would push the undone text). A
         // save already in flight is left to finish: useAutoSave sees the text
         // changed under it and saves this one.
+        // The cached copy goes back to this text with the right mark: cleared
+        // only for text this editor saw land; the opening text gets its mark
+        // from open (unsynced stays unsynced); queue entries from before open
+        // are never touched.
         const state = saveStateRef.current;
         if ((state === "dirty" || state === "error") && savesInFlightRef.current.size === 0) {
           const confirmed = confirmedSaveRef.current;
@@ -943,7 +969,20 @@ export function NoteEditor({
             clearTimeout(localPersistTimerRef.current);
             localPersistTimerRef.current = null;
           }
-          writeLocal(value, false);
+          const confirmedContent = onConfirmed ? confirmed!.content : null;
+          const openingContent = openingContentRef.current;
+          void (openingMarkRef.current ?? Promise.resolve(true)).then((openingMark) =>
+            writeLocal(
+              value,
+              localEditForReturn({
+                value,
+                confirmedContent,
+                openingContent,
+                openingMark,
+                same: sameNoteContent,
+              }),
+            ),
+          );
           if (onConfirmed) {
             dropUpdatesQueuedSince(note.id, confirmed!.at).catch(() => {});
             useNotesStore.getState().setSaveError(note.id, false);

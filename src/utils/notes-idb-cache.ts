@@ -47,9 +47,14 @@ function getDB(): Promise<IDBDatabase> {
  * `localEdit`; any other write keeps an existing mark only while the cached text
  * is unchanged (so a store object can never carry a stale mark back in).
  */
-function forCache(note: CombinedNote, existing: CombinedNote | undefined, localEdit: boolean): CombinedNote {
+function forCache(
+  note: CombinedNote,
+  existing: CombinedNote | undefined,
+  localEdit: boolean | number,
+): CombinedNote {
   const { localEdit: _ignored, ...rest } = note;
   void _ignored;
+  if (typeof localEdit === "number") return { ...rest, localEdit };
   if (localEdit) return { ...rest, localEdit: Date.now() };
   if (existing?.localEdit && sameNoteContent(existing.content, note.content)) {
     return { ...rest, localEdit: existing.localEdit };
@@ -60,16 +65,20 @@ function forCache(note: CombinedNote, existing: CombinedNote | undefined, localE
 /**
  * Cache one note. `opts.localEdit` marks text this device typed that no landed
  * save has confirmed yet (the editor's write-ahead, the pre-save and tab-close
- * copies) — see CombinedNote.localEdit.
+ * copies) — see CombinedNote.localEdit. A number restores that exact mark (the
+ * editor putting back the mark its opening text had).
  */
-export async function saveNoteToLocal(note: CombinedNote, opts: { localEdit?: boolean } = {}): Promise<void> {
+export async function saveNoteToLocal(
+  note: CombinedNote,
+  opts: { localEdit?: boolean | number } = {},
+): Promise<void> {
   try {
     const db = await getDB();
     const tx = db.transaction(IDB_CACHE_STORE_NAME, "readwrite");
     const store = tx.objectStore(IDB_CACHE_STORE_NAME);
     const req = store.get(note.id);
     req.onsuccess = () => {
-      store.put(forCache(note, req.result as CombinedNote | undefined, !!opts.localEdit));
+      store.put(forCache(note, req.result as CombinedNote | undefined, opts.localEdit ?? false));
       // Commit now rather than when the transaction goes idle: on a tab close
       // the page can be torn down before auto-commit, losing the last keystrokes.
       tx.commit?.();

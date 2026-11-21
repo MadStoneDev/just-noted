@@ -22,6 +22,10 @@ import { adminClient } from "./fixtures/admin";
 // (e) an edit whose save FAILED, then deleted back to the saved text: its
 //     offline-queue entry is dropped, so restoring the network can't push the
 //     deleted text, and no conflicted copy appears.
+// (f) text written offline (cached unsynced), the page reloaded still offline,
+//     then a character typed and deleted: the opened text is still unsynced
+//     (IndexedDB localEdit mark, queue entries kept), so once the network is
+//     back it reaches the server, with no conflicted copy.
 
 const MAIN = 'main[aria-label="Note editor"]';
 const EDITOR = `${MAIN} .ProseMirror`;
@@ -43,6 +47,24 @@ async function idbContent(page: Page, noteId: string): Promise<string | null> {
           const db = req.result;
           const get = db.transaction("notes", "readonly").objectStore("notes").get(id);
           get.onsuccess = () => { resolve(get.result?.content ?? null); db.close(); };
+          get.onerror = () => { resolve(null); db.close(); };
+        };
+      }),
+    noteId,
+  );
+}
+
+/** The cached copy's localEdit mark (unsynced text), or null when there is no copy. */
+async function idbLocalEdit(page: Page, noteId: string): Promise<number | false | null> {
+  return page.evaluate(
+    (id) =>
+      new Promise<number | false | null>((resolve) => {
+        const req = indexedDB.open("NotesCacheDB");
+        req.onerror = () => resolve(null);
+        req.onsuccess = () => {
+          const db = req.result;
+          const get = db.transaction("notes", "readonly").objectStore("notes").get(id);
+          get.onsuccess = () => { resolve(get.result ? (get.result.localEdit ?? false) : null); db.close(); };
           get.onerror = () => { resolve(null); db.close(); };
         };
       }),
@@ -85,6 +107,47 @@ async function failServerActions(page: Page): Promise<() => Promise<void>> {
   };
   await page.route("**/*", handler);
   return () => page.unroute("**/*", handler);
+}
+
+/**
+ * Offline as far as the app's data goes, while the page itself still loads (so
+ * it can be reloaded): server actions, the app's /api routes and every other
+ * origin (Supabase REST / auth / storage) fail at the network until the
+ * returned undo runs. The tab-close keepalive save (fetch on pagehide) isn't
+ * seen by request routing, so the page's own fetch refuses /api calls too,
+ * across reloads, while the sessionStorage flag is set.
+ */
+const OFFLINE_FLAG = "__e2eOffline";
+async function goOffline(page: Page): Promise<() => Promise<void>> {
+  const appOrigin = new URL(page.url()).origin;
+  const handler = async (route: import("@playwright/test").Route) => {
+    const req = route.request();
+    if (req.method() === "POST" && req.headers()["next-action"]) return route.abort("internetdisconnected");
+    const url = new URL(req.url());
+    if (url.origin !== appOrigin || url.pathname.startsWith("/api/")) return route.abort("internetdisconnected");
+    return route.continue();
+  };
+  const patchFetch = (flag: string) => {
+    const w = window as unknown as { __e2eFetchPatched?: boolean };
+    if (w.__e2eFetchPatched) return;
+    w.__e2eFetchPatched = true;
+    const real = window.fetch.bind(window);
+    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+      const href = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (sessionStorage.getItem(flag) === "1" && new URL(href, location.href).pathname.startsWith("/api/")) {
+        return Promise.reject(new TypeError("Failed to fetch"));
+      }
+      return real(input, init);
+    };
+  };
+  await page.addInitScript(patchFetch, OFFLINE_FLAG);
+  await page.evaluate(patchFetch, OFFLINE_FLAG);
+  await page.evaluate((flag) => sessionStorage.setItem(flag, "1"), OFFLINE_FLAG);
+  await page.context().route("**/*", handler);
+  return async () => {
+    await page.context().unroute("**/*", handler);
+    await page.evaluate((flag) => sessionStorage.removeItem(flag), OFFLINE_FLAG);
+  };
 }
 
 /** Timestamps (performance.now) of each editor mount and of each key pressed in it. */
@@ -309,6 +372,62 @@ function cases(mode: () => Mode) {
     expect(norm(await page.locator(EDITOR).innerText()), "editor after reload").toBe(STORED);
     expect(norm(await m.serverContent(id)), "server after reload").toBe(STORED);
     expect(await queuedUpdates(page, id), "queue after reload").toEqual([]);
+  });
+
+  test("(f) offline text, reloaded offline, a character typed and deleted: still reaches the server", async ({ page }) => {
+    test.setTimeout(150_000);
+    const m = mode();
+    await instrument(page);
+    const id = await seedStoredNote(page, m);
+    const OFFLINE = `${STORED} written offline`;
+
+    // Offline: the edit is cached unsynced and its save queued.
+    const restore = await goOffline(page);
+    await page.locator(`[data-note-card="${id}"]`).click();
+    await expect(page.locator(EDITOR)).toContainText(STORED);
+    await page.waitForTimeout(2000); // past the load window, ownership settled
+    await page.locator(EDITOR).click();
+    await page.keyboard.press("End");
+    await page.keyboard.type(" written offline", { delay: 20 });
+    await expect(saveStatus(page), "the save fails").toHaveText("Not saved", { timeout: 15_000 });
+    await expect.poll(async () => norm(await idbContent(page, id))).toBe(OFFLINE);
+    expect(await idbLocalEdit(page, id), "cached copy is unsynced").toBeTruthy();
+    const queuedAtOpen = (await queuedUpdates(page, id)).map(norm);
+    console.log(`[load-window] (f) queued before reload: ${JSON.stringify(queuedAtOpen)}`);
+
+    // Reload, still offline: the note opens on its unsynced cached text.
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "All Notes" })).toBeVisible();
+    await page.locator(`[data-note-card="${id}"]`).click();
+    await expect(page.locator(EDITOR)).toContainText(OFFLINE, { timeout: 20_000 });
+    await page.waitForTimeout(2500); // past the load window, ownership settled
+    const queuedAfterReload = (await queuedUpdates(page, id)).map(norm);
+    console.log(`[load-window] (f) queued after reload: ${JSON.stringify(queuedAfterReload)}`);
+
+    // One character typed and deleted before its save goes out.
+    await page.locator(EDITOR).click();
+    await page.keyboard.press("End");
+    await page.keyboard.type("x");
+    await page.waitForTimeout(900); // the 500ms IndexedDB write-ahead has run; the 2s autosave hasn't
+    await page.keyboard.press("Backspace");
+    await expect(page.locator(EDITOR)).toHaveText(OFFLINE);
+    await page.waitForTimeout(3000);
+    expect(norm(await idbContent(page, id)), "IndexedDB").toBe(OFFLINE);
+    expect.soft(await idbLocalEdit(page, id), "still unsynced after the delete-back").toBeTruthy();
+    expect.soft((await queuedUpdates(page, id)).map(norm), "queue entries from open kept").toEqual(queuedAfterReload);
+    expect(norm(await m.serverContent(id)), "server still has the old text").toBe(STORED);
+
+    // Network back: the offline text reaches the server.
+    await restore();
+    await reopen(page, id);
+    await expect.poll(async () => norm(await m.serverContent(id)), { timeout: 20_000 }).toBe(OFFLINE);
+    expect(norm(await page.locator(EDITOR).innerText()), "editor after reload").toBe(OFFLINE);
+    await page.waitForTimeout(2000);
+    await page.reload(); // a later refresh must not bring the older server copy back
+    await expect(page.getByRole("heading", { name: "All Notes" })).toBeVisible();
+    await page.locator(`[data-note-card="${id}"]`).click();
+    await expect(page.locator(EDITOR)).toContainText(OFFLINE, { timeout: 20_000 });
+    expect(norm(await m.serverContent(id)), "server after a later refresh").toBe(OFFLINE);
   });
 }
 
