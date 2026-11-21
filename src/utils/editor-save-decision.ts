@@ -16,9 +16,9 @@
 // Once the user has typed, pasted, dropped or pressed an editing key, any
 // emission carries their edit and is persisted, however soon after mount it
 // lands (a keystroke in the first second used to be adopted as the baseline
-// and silently dropped). The time window stays as an outer bound only, for
-// changes that come without an input event on the editor (a toolbar button):
-// those count as edits once the editor has been open a second.
+// and silently dropped). Edits applied by code on the user's behalf (toolbar,
+// slash menu, link popover, task checkbox, version restore) report input the
+// same way before they apply. The time window stays as an outer bound only.
 // An empty (new) note has no stored content to re-serialise, so its first
 // emission is a genuine keystroke and is always persisted.
 

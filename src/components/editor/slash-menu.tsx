@@ -30,6 +30,8 @@ import {
 interface SlashMenuProps {
   getEditor: () => Editor | undefined;
   containerRef: React.RefObject<HTMLElement | null>;
+  /** Called before a command is applied (it is user input; see MilkdownEditor.onUserInput). */
+  onBeforeEdit?: () => void;
 }
 
 interface SlashItem {
@@ -124,7 +126,7 @@ const SLASH_ITEMS: SlashItem[] = [
   },
 ];
 
-export default function SlashMenu({ getEditor, containerRef }: SlashMenuProps) {
+export default function SlashMenu({ getEditor, containerRef, onBeforeEdit }: SlashMenuProps) {
   const [visible, setVisible] = useState(false);
   const [filter, setFilter] = useState("");
   const [pos, setPos] = useState({ x: 0, y: 0 });
@@ -148,6 +150,7 @@ export default function SlashMenu({ getEditor, containerRef }: SlashMenuProps) {
     (item: SlashItem) => {
       const editor = getEditor();
       if (!editor) return;
+      onBeforeEdit?.();
 
       // Delete the "/" and any filter text from the editor
       try {
@@ -174,7 +177,7 @@ export default function SlashMenu({ getEditor, containerRef }: SlashMenuProps) {
 
       close();
     },
-    [getEditor, close],
+    [getEditor, close, onBeforeEdit],
   );
 
   useEffect(() => {

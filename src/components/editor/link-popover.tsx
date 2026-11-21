@@ -18,9 +18,11 @@ import {
 interface LinkPopoverProps {
   getEditor: () => Editor | undefined;
   containerRef: React.RefObject<HTMLElement | null>;
+  /** Called before an edit is applied (it is user input; see MilkdownEditor.onUserInput). */
+  onBeforeEdit?: () => void;
 }
 
-export default function LinkPopover({ getEditor, containerRef }: LinkPopoverProps) {
+export default function LinkPopover({ getEditor, containerRef, onBeforeEdit }: LinkPopoverProps) {
   const [visible, setVisible] = useState(false);
   const [editing, setEditing] = useState(false);
   const [href, setHref] = useState("");
@@ -64,6 +66,7 @@ export default function LinkPopover({ getEditor, containerRef }: LinkPopoverProp
   const handleSave = useCallback(() => {
     const editor = getEditor();
     if (!editor || !anchorEl) return;
+    onBeforeEdit?.();
 
     try {
       editor.action((ctx) => {
@@ -86,11 +89,12 @@ export default function LinkPopover({ getEditor, containerRef }: LinkPopoverProp
 
     setHref(editHref);
     setEditing(false);
-  }, [getEditor, anchorEl, editHref]);
+  }, [getEditor, anchorEl, editHref, onBeforeEdit]);
 
   const handleRemove = useCallback(() => {
     const editor = getEditor();
     if (!editor || !anchorEl) return;
+    onBeforeEdit?.();
 
     try {
       editor.action((ctx) => {
@@ -110,7 +114,7 @@ export default function LinkPopover({ getEditor, containerRef }: LinkPopoverProp
     } catch {}
 
     setVisible(false);
-  }, [getEditor, anchorEl]);
+  }, [getEditor, anchorEl, onBeforeEdit]);
 
   if (!visible) return null;
 

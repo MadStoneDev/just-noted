@@ -451,6 +451,13 @@ function MilkdownEditorInner({
     } catch {}
   }, [readOnly, get]);
 
+  // Edits applied by code on the user's behalf (toolbar, slash menu, link
+  // popover, task checkbox) are user input too: report them before applying,
+  // or one made in the first second is taken for the load re-serialisation.
+  const reportProgrammaticInput = useCallback(() => {
+    onUserInputRef.current?.();
+  }, []);
+
   // Report real input (capture phase: ahead of ProseMirror's own handlers, so
   // ahead of the change they emit).
   useEffect(() => {
@@ -679,6 +686,7 @@ function MilkdownEditorInner({
 
     const editor = get();
     if (!editor) return;
+    reportProgrammaticInput();
 
     try {
       editor.action((ctx: any) => {
@@ -702,7 +710,7 @@ function MilkdownEditorInner({
         }
       });
     } catch {}
-  }, [get]);
+  }, [get, reportProgrammaticInput]);
 
   return (
     <div
@@ -714,19 +722,19 @@ function MilkdownEditorInner({
     >
       {!readOnly && (
         <>
-          <SlashMenu getEditor={get} containerRef={containerRef} />
-          <LinkPopover getEditor={get} containerRef={containerRef} />
+          <SlashMenu getEditor={get} containerRef={containerRef} onBeforeEdit={reportProgrammaticInput} />
+          <LinkPopover getEditor={get} containerRef={containerRef} onBeforeEdit={reportProgrammaticInput} />
         </>
       )}
       <Milkdown />
       {!readOnly &&
         (toolbarContainer ? (
           createPortal(
-            <DockedToolbar getEditor={get} containerRef={containerRef} />,
+            <DockedToolbar getEditor={get} containerRef={containerRef} onBeforeEdit={reportProgrammaticInput} />,
             toolbarContainer,
           )
         ) : (
-          <DockedToolbar getEditor={get} containerRef={containerRef} />
+          <DockedToolbar getEditor={get} containerRef={containerRef} onBeforeEdit={reportProgrammaticInput} />
         ))}
     </div>
   );

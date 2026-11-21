@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Editor } from "@milkdown/core";
 import { editorViewCtx } from "@milkdown/core";
 import { callCommand } from "@milkdown/utils";
@@ -132,13 +132,23 @@ export interface FormatActions {
 export function useFormatCommands(
   getEditor: () => Editor | undefined,
   containerRef: React.RefObject<HTMLElement | null>,
+  /**
+   * Called before every command is applied: a toolbar click is user input, so
+   * the caller ends its load window (see MilkdownEditor.onUserInput). Without
+   * it, a change made in the first second after mount was taken for the load
+   * re-serialisation and never saved.
+   */
+  onBeforeEdit?: () => void,
 ): { active: ActiveState; actions: FormatActions } {
   const [active, setActive] = useState<ActiveState>(EMPTY_ACTIVE);
+  const onBeforeEditRef = useRef(onBeforeEdit);
+  onBeforeEditRef.current = onBeforeEdit;
 
   const withView = useCallback(
     (fn: (view: EditorView, state: EditorState) => void) => {
       const editor = getEditor();
       if (!editor) return;
+      onBeforeEditRef.current?.();
       try {
         editor.action((ctx) => {
           const view = ctx.get(editorViewCtx);
@@ -153,6 +163,7 @@ export function useFormatCommands(
     (cmd: Parameters<typeof callCommand>[0], payload?: unknown) => {
       const editor = getEditor();
       if (!editor) return;
+      onBeforeEditRef.current?.();
       try {
         editor.action(callCommand(cmd, payload));
       } catch {}

@@ -32,14 +32,16 @@ import { HIGHLIGHT_COLORS } from "./highlight-plugin";
 interface DockedToolbarProps {
   getEditor: () => Editor | undefined;
   containerRef: React.RefObject<HTMLElement | null>;
+  /** Called before each command is applied (it is user input; see useFormatCommands). */
+  onBeforeEdit?: () => void;
 }
 
 /**
  * Persistent formatting bar docked to the bottom of the editor (desktop + mobile).
  * Reachable with no selection, and reflects the caret's current formatting.
  */
-export default function DockedToolbar({ getEditor, containerRef }: DockedToolbarProps) {
-  const { active, actions } = useFormatCommands(getEditor, containerRef);
+export default function DockedToolbar({ getEditor, containerRef, onBeforeEdit }: DockedToolbarProps) {
+  const { active, actions } = useFormatCommands(getEditor, containerRef, onBeforeEdit);
   // The swatch popover is rendered in a portal (the toolbar's own overflow-x
   // scroll container would otherwise clip it), positioned above the button.
   const [hlPos, setHlPos] = useState<{ left: number; bottom: number } | null>(null);

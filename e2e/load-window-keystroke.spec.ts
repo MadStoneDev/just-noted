@@ -17,6 +17,8 @@ import { adminClient } from "./fixtures/admin";
 // (c) is the same "back to the stored text" edit made outside the load window,
 //     before the 2s autosave fires. It must settle too, and the reverted text
 //     must not come back from the IndexedDB write-ahead copy on reload.
+// (d) a toolbar button (no key or input event on the editor) clicked in the
+//     first second is an edit too and must survive a reload.
 
 const MAIN = 'main[aria-label="Note editor"]';
 const EDITOR = `${MAIN} .ProseMirror`;
@@ -58,6 +60,11 @@ async function instrument(page: Page) {
     }).observe(document, { childList: true, subtree: true });
     document.addEventListener("keydown", (e) => {
       if ((e.target as Element | null)?.closest?.(".ProseMirror")) w.__lw.keys.push({ key: e.key, t: performance.now() });
+    }, true);
+    // Toolbar clicks, logged under the button's aria-label.
+    document.addEventListener("click", (e) => {
+      const b = (e.target as Element | null)?.closest?.("button[aria-label]");
+      if (b) w.__lw.keys.push({ key: `button:${b.getAttribute("aria-label")}`, t: performance.now() });
     }, true);
   });
 }
@@ -187,6 +194,51 @@ function cases(mode: () => Mode) {
     expect(norm(await idbContent(page, id)), "IndexedDB after reload").toBe(STORED);
     expect(norm(await m.serverContent(id)), "server after reload").toBe(STORED);
   });
+
+  // Toolbar commands. Heading 1 needs only the caret; Bold needs the text
+  // selected (select-all is not an editing key, so the window stays open).
+  const toolbarCases = [
+    { button: "Heading 1", select: false, md: `# ${STORED}`, el: "h1" },
+    { button: "Bold", select: true, md: `**${STORED}**`, el: "strong" },
+  ];
+  for (const tc of toolbarCases) {
+    test(`(d) ${tc.button} from the toolbar in the first second survives a reload`, async ({ page }) => {
+      test.setTimeout(90_000);
+      const m = mode();
+      await instrument(page);
+      const id = await seedStoredNote(page, m);
+      // The consent banner sits over the docked toolbar.
+      const decline = page.getByRole("button", { name: "Decline" }).first();
+      if (await decline.isVisible()) await decline.click();
+      const mountsBefore = await page.evaluate(() => (window as any).__lw.mounts.length);
+      await page.locator(`[data-note-card="${id}"]`).click();
+      const ed = page.locator(EDITOR);
+      await expect(ed).toContainText(STORED);
+      if (tc.select) {
+        await ed.click();
+        await page.keyboard.press("Control+a");
+      }
+      await page.getByRole("button", { name: tc.button, exact: true }).click();
+      const ms = await page.evaluate(({ before, key }) => {
+        const lw = (window as any).__lw;
+        const mount = lw.mounts[lw.mounts.length - 1];
+        const press = [...lw.keys].reverse().find((k: { key: string }) => k.key === key);
+        return lw.mounts.length > before && press ? press.t - mount : Number.POSITIVE_INFINITY;
+      }, { before: mountsBefore, key: `button:${tc.button}` });
+      console.log(`[load-window] (d) ${tc.button} clicked ${Math.round(ms)}ms after the editor mounted`);
+      test.skip(ms >= LOAD_WINDOW_MS, `click landed ${Math.round(ms)}ms after mount — load window not exercised`);
+      await expect(ed.locator(tc.el)).toHaveText(STORED);
+
+      await expect.poll(async () => norm(await m.serverContent(id)), { timeout: 15_000 }).toBe(tc.md);
+      await expect(saveStatus(page)).toHaveText(m.savedLabel, { timeout: 10_000 });
+      expect(norm(await idbContent(page, id)), "IndexedDB before reload").toBe(tc.md);
+
+      await reopen(page, id);
+      await expect(page.locator(EDITOR).locator(tc.el), "editor after reload").toHaveText(STORED);
+      expect(norm(await idbContent(page, id)), "IndexedDB after reload").toBe(tc.md);
+      expect(norm(await m.serverContent(id)), "server after reload").toBe(tc.md);
+    });
+  }
 }
 
 test.describe("keystrokes right after a note opens — local (guest) note", () => {

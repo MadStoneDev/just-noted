@@ -572,15 +572,22 @@ export function NoteEditor({
   // fallback — it's re-stamped accurately from the editor's own ready signal
   // (handleEditorReady), so a slow lazy-load can't push the emission past the
   // window and make opening a note look like an edit.
+  // A remount made by replaceContent (version restore, copy from the other
+  // pane) IS the user's input: the mount it creates starts with input seen, so
+  // its first emission (the new text) is an edit, never the load emission.
+  const editorRemountKeyRef = useRef(editorRemountKey);
+  editorRemountKeyRef.current = editorRemountKey;
+  const inputCarriedToKeyRef = useRef<number | null>(null);
+  const inputSeenAtMount = () => inputCarriedToKeyRef.current === editorRemountKeyRef.current;
   useEffect(() => {
     awaitingLoadEmissionRef.current = (lastSavedContentRef.current ?? "").trim().length > 0;
-    editorInputSeenRef.current = false;
+    editorInputSeenRef.current = inputSeenAtMount();
     mountTimeRef.current = Date.now();
   }, [editorRemountKey]);
   const handleEditorReady = useCallback(() => {
     mountTimeRef.current = Date.now();
     awaitingLoadEmissionRef.current = (lastSavedContentRef.current ?? "").trim().length > 0;
-    editorInputSeenRef.current = false;
+    editorInputSeenRef.current = inputSeenAtMount();
   }, []);
   const toast = useToast();
 
@@ -888,12 +895,6 @@ export function NoteEditor({
       awaitingLoadEmissionRef.current = false;
 
       if (decision.adoptBaseline) {
-        // After replaceContent's remount the first emission is that new text,
-        // which is an edit still to be saved — not a clean baseline.
-        if (replacedContentRef.current) {
-          replacedContentRef.current = false;
-          return;
-        }
         // content === lastSavedContentRef keeps the "clean" invariant, so the
         // auto-save flush (which shares this ref) sees nothing to save.
         lastSavedContentRef.current = value;
@@ -929,7 +930,6 @@ export function NoteEditor({
   );
 
   // ── Ownership: one upload path per note (utils/note-ownership) ──────────
-  const replacedContentRef = useRef(false);
 
   /** Put `value` in the editor as an edit; the autosave uploads it. */
   const replaceContent = useCallback(
@@ -939,8 +939,12 @@ export function NoteEditor({
       setContent(value);
       setContentFormat("markdown");
       setLatestContent(value);
-      replacedContentRef.current = true;
-      setEditorRemountKey((k) => k + 1); // Milkdown is mount-only
+      // Milkdown is mount-only. The new mount starts with input seen (see
+      // inputSeenAtMount), so its first emission is saved, never adopted.
+      setEditorRemountKey((k) => {
+        inputCarriedToKeyRef.current = k + 1;
+        return k + 1;
+      });
       setSaveState("dirty");
       useNotesStore.getState().setEditing(note.id, true);
       persistLocal(value);
