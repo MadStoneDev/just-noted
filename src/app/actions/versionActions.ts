@@ -2,7 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { getUserTier } from "@/lib/subscription";
-import { PLANS, autosaveTrimCount } from "@/lib/plans";
+import { PLANS, autosaveTrimCount, versionTrimEnabled } from "@/lib/plans";
 
 async function getAuthenticatedUser() {
   const supabase = await createClient();
@@ -28,7 +28,9 @@ export async function saveVersion(
     // the window. On downgrade the cap simply drops, so a former Scribe's oldest
     // autosaves are trimmed back toward 50 gradually as new autosaves arrive
     // (nothing is deleted up front).
-    if (reason === "autosave") {
+    // Paused by default (see versionTrimEnabled): nothing is trimmed until
+    // VERSION_HISTORY_TRIM_ENABLED=true.
+    if (reason === "autosave" && versionTrimEnabled()) {
       const tier = await getUserTier(supabase, userId);
       const cap = PLANS[tier].limits.autosaveVersionCap;
 

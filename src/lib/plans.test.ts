@@ -5,6 +5,7 @@ import {
   downgradeEffects,
   autosaveTrimCount,
   isUnlimited,
+  versionTrimEnabled,
 } from "@/lib/plans";
 import { getLimits } from "@/lib/subscription";
 import {
@@ -106,6 +107,18 @@ describe("autosaveTrimCount — version cap (50 Draft / 200 Scribe)", () => {
     expect(autosaveTrimCount(199, 200)).toBe(0);
     expect(autosaveTrimCount(200, 200)).toBe(1);
     expect(autosaveTrimCount(250, 200)).toBe(51);
+  });
+});
+
+describe("versionTrimEnabled — trimming paused unless explicitly enabled", () => {
+  it("off when unset or anything but \"true\"", () => {
+    expect(versionTrimEnabled({})).toBe(false);
+    for (const v of ["", "false", "0", "1", "TRUE", "yes"]) {
+      expect(versionTrimEnabled({ VERSION_HISTORY_TRIM_ENABLED: v })).toBe(false);
+    }
+  });
+  it("on only for \"true\"", () => {
+    expect(versionTrimEnabled({ VERSION_HISTORY_TRIM_ENABLED: "true" })).toBe(true);
   });
 });
 

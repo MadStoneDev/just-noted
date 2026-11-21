@@ -151,6 +151,18 @@ export function autosaveTrimCount(existingCount: number, cap: number): number {
 }
 
 /**
+ * Whether autosave version trimming runs at all. PAUSED unless
+ * VERSION_HISTORY_TRIM_ENABLED is exactly "true": notes damaged by the old
+ * cleanCorruptedMarkdown escape stripping still need their older versions as
+ * restore candidates, and trimming deletes the oldest first. While paused,
+ * history only grows (nothing is deleted); setting the flag later resumes the
+ * cap, which trims back toward it gradually as new autosaves arrive.
+ */
+export function versionTrimEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return env.VERSION_HISTORY_TRIM_ENABLED === "true";
+}
+
+/**
  * Row model for the Draft-vs-Scribe comparison table, generated from the config
  * so the pricing page and Plan & Usage never diverge. Each cell is either a
  * boolean (rendered as a tick/dash) or a string.
