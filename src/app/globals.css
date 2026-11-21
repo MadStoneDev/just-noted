@@ -683,10 +683,20 @@ summary {
   font-size: 0.875em;
 }
 
-/* Task lists — Milkdown uses li[data-item-type="task"][data-checked] */
-.milkdown ul:has(> li[data-item-type="task"]) {
-  list-style: none;
+/* Task lists — Milkdown uses li[data-item-type="task"][data-checked].
+   A list may mix bullets and tasks (valid GFM: tasks are list items). Only a
+   list made entirely of tasks drops the bullet gutter; in a mixed list the
+   plain items keep their bullets and each checkbox sits in the bullet gutter. */
+.milkdown ul:has(> li[data-item-type="task"]):not(:has(> li:not([data-item-type="task"]))) {
   padding-left: 0;
+}
+
+.milkdown ul:has(> li:not([data-item-type="task"])) > li[data-item-type="task"] {
+  padding-left: 0;
+}
+
+.milkdown ul:has(> li:not([data-item-type="task"])) > li[data-item-type="task"]::before {
+  left: -1.4rem;
 }
 
 .milkdown li[data-item-type="task"] {

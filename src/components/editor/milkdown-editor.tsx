@@ -28,6 +28,11 @@ import {
 } from "y-prosemirror";
 import { registerAnchorApi, type NoteAnchor } from "@/lib/note-anchor-bridge";
 import { highlight } from "./highlight-plugin";
+import {
+  cleanCorruptedMarkdown,
+  markdownStringifyOptions,
+  stripEmptyParagraphBreaks,
+} from "./markdown-io";
 import DockedToolbar from "./docked-toolbar";
 import SlashMenu from "./slash-menu";
 import LinkPopover from "./link-popover";
@@ -286,54 +291,6 @@ function b64ToBytes(b64: string): Uint8Array {
   return out;
 }
 
-function cleanCorruptedMarkdown(text: string): string {
-  if (!text) return text;
-  let cleaned = text;
-
-  // Strip backslash escapes
-  let prev = "";
-  while (cleaned !== prev) {
-    prev = cleaned;
-    cleaned = cleaned.replace(/\\([*\[\]#>_`~|\-])/g, "$1");
-  }
-
-  // Only fix single-line corruption: if content has list markers but
-  // virtually NO newlines, split them onto separate lines.
-  const hasNewlines = cleaned.includes("\n");
-  if (!hasNewlines) {
-    const listMarkerCount = (cleaned.match(/[*\-]\s*\[[ x]\]/gi) || []).length;
-    if (listMarkerCount > 2) {
-      cleaned = cleaned.replace(/\s+([*\-])\s*\[( |x)\]\s*/gi, "\n- [$2] ");
-      cleaned = cleaned.replace(/^\n+/, "");
-    }
-  }
-
-  return cleaned;
-}
-
-/**
- * Milkdown's commonmark preset bundles `remark-preserve-empty-line`, which
- * serialises every blank line the user types between paragraphs as a standalone
- * `<br />` node. That literal `<br />` then leaks into stored markdown, exports
- * and shared-note HTML (the design brief calls this out as a bug: paragraph
- * breaks must be real markdown newlines, never `<br />`).
- *
- * We normalise at the single point markdown leaves the editor: drop standalone
- * `<br />` lines (each was an empty paragraph — the surrounding blank lines
- * already encode the paragraph break), neutralise any stray inline `<br>` to a
- * newline, then collapse 3+ blank lines to a single blank line.
- */
-function stripEmptyParagraphBreaks(md: string): string {
-  if (!md || md.indexOf("<br") === -1) return md;
-  const withoutStandalone = md
-    .split("\n")
-    .filter((line) => !/^\s*<br\s*\/?>\s*$/i.test(line))
-    .join("\n");
-  return withoutStandalone
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/\n{3,}/g, "\n\n");
-}
-
 // Records the loaded doc when the view mounts, as the baseline a synchronous
 // flush compares against (so an untouched note never flushes a "change").
 function seedEmittedDoc(ref: React.MutableRefObject<ProseNode | null>) {
@@ -403,10 +360,7 @@ function MilkdownEditorInner({
         // In collab mode the Yjs document is the source of truth; seed via the
         // provider instead of the default value to avoid a double-insert.
         ctx.set(defaultValueCtx, collabEnabled ? "" : initialMarkdown);
-        ctx.set(remarkStringifyOptionsCtx, {
-          bullet: "-",
-          listItemIndent: "one",
-        });
+        ctx.set(remarkStringifyOptionsCtx, markdownStringifyOptions);
         ctx.set(indentConfig.key, {
           type: "space" as const,
           size: 2,
@@ -686,10 +640,13 @@ function MilkdownEditorInner({
     const li = target.closest("li[data-item-type='task']") as HTMLElement | null;
     if (!li) return;
 
-    // Only toggle if click is in the checkbox area (left padding)
+    // Only toggle if click is in the checkbox area: the item's left padding in
+    // an all-task list, or the bullet gutter left of the item in a mixed list
+    // (where the item has no padding; see globals.css).
     const rect = li.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
-    if (clickX > 28) return; // past the checkbox area
+    const padded = parseFloat(getComputedStyle(li).paddingLeft) > 0;
+    if (clickX > (padded ? 28 : 0)) return; // past the checkbox area
 
     e.preventDefault();
     e.stopPropagation();
