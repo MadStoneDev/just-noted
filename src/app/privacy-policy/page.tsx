@@ -82,7 +82,7 @@ export default async function PrivacyPolicyPage() {
             </span>
           </h1>
           <p className="mt-3 text-[var(--color-text-secondary)]">
-            <span className="font-medium">Last updated:</span> October 3, 2026
+            <span className="font-medium">Last updated:</span> November 20, 2026
           </p>
 
           {/* Who we are */}
@@ -220,8 +220,8 @@ export default async function PrivacyPolicyPage() {
           </p>
           <ul className="mt-3 space-y-2 list-disc pl-5">
             <li>
-              They are stored in your browser and on our servers (Upstash,
-              Sydney), identified by a random anonymous ID kept in your browser.
+              They are stored in your browser and on our own server in Canada,
+              identified by a random anonymous ID kept in your browser.
               They are stored on our servers so they are still there when you come
               back.
             </li>
@@ -261,7 +261,7 @@ export default async function PrivacyPolicyPage() {
                   "Accounts, cloud notes, version history",
                   "Canada and Australia (Sydney)",
                 ],
-                ["Upstash", "Local notes, security rate limits", "Australia (Sydney)"],
+                ["Our server (Valkey)", "Local notes, security rate limits", "Canada"],
                 ["Cloudflare R2", "Chat media and temporary account exports", "Oceania"],
                 ["Stripe", "Scribe payments", "United States and other countries"],
                 ["Resend", "Account and export emails", "United States"],
