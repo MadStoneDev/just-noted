@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import DeviceNotesSection from "@/components/settings/device-notes-section";
+import RemovedAccountNotesSection from "@/components/settings/removed-account-notes-section";
 import { createClient } from "@/utils/supabase/client";
 import { uploadAvatar } from "@/app/actions/avatarActions";
 import { compressImage } from "@/utils/image/compress";
@@ -644,6 +645,7 @@ export default function SettingsView({ onClose, initialSection }: SettingsViewPr
             <BillingSection />
           ) : section === "Sync & data" ? (
             <div className="space-y-8">
+              <RemovedAccountNotesSection />
               <DataRetentionSection />
               <AccountExportSection />
               <DeviceNotesSection />

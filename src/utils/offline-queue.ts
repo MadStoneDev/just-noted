@@ -19,9 +19,10 @@ import {
   cloudAccountFor,
   needsCloudAccountTag,
   legacyOpOwner,
+  removedAccountIds,
   deviceUserId,
 } from "./offline-queue-guard";
-import { cachedCloudOwners } from "./notes-idb-cache";
+import { cachedCloudOwners, clearAccountNotes } from "./notes-idb-cache";
 import { sameNoteContent } from "./notes-utils";
 import { conflictStamp } from "./background-conflict";
 import { TAB_ID } from "./cross-tab";
@@ -785,6 +786,35 @@ export async function clearAccountOps(accountId: string): Promise<number> {
   }
   notifySubscribers(await countOps());
   return dropped;
+}
+
+/**
+ * Unsynced cloud notes parked for accounts that are no longer on this device
+ * (removed from the account list, not signed in): per account, the notes with
+ * an entry waiting. They'd replay if that account signed in here again;
+ * Settings → Sync & data offers to discard them, never automatically.
+ */
+export async function removedAccountsParked(onDevice: Iterable<string>): Promise<Map<string, Set<string>>> {
+  const parked = await parkedNotesByAccount();
+  const ids = removedAccountIds(parked.keys(), onDevice, getActiveSupabaseUser(), deviceUserId());
+  return new Map(ids.map((id) => [id, parked.get(id)!]));
+}
+
+/**
+ * Discard what a removed account left parked: its queue entries and its cached
+ * copies (untagged copies and everything else stay). Re-checks at the moment
+ * of the discard, so an account added back meanwhile keeps its entries.
+ * Returns how many notes' edits were dropped.
+ */
+export async function discardRemovedAccountsParked(onDevice: Iterable<string>): Promise<number> {
+  const removed = await removedAccountsParked(onDevice);
+  let notes = 0;
+  for (const [accountId, ids] of removed) {
+    await clearAccountOps(accountId);
+    await clearAccountNotes(accountId, { includeUntagged: false });
+    notes += ids.size;
+  }
+  return notes;
 }
 
 // B7: cloud ops queued without an account tag: blank (before ops were

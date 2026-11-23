@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   legacyOpOwner,
+  removedAccountIds,
   shouldSyncOp,
   needsCloudUserTag,
   setActiveSupabaseUser,
@@ -95,5 +96,16 @@ describe("legacyOpOwner — whose untagged queue entry is it", () => {
     expect(legacyOpOwner("", "", DEVICE)).toBeNull();
     expect(legacyOpOwner(DEVICE, DEVICE, DEVICE)).toBeNull();
     expect(legacyOpOwner(DEVICE, "acct-A", DEVICE)).toBe("acct-A");
+  });
+});
+
+describe("removedAccountIds — parked entries of accounts no longer on this device", () => {
+  it("counts only real accounts that are neither signed in nor in the device list", () => {
+    const parked = ["acct-gone", "acct-B", "acct-A", "", "device-1", "acct-gone2"];
+    expect(removedAccountIds(parked, ["acct-B"], "acct-A", "device-1")).toEqual(["acct-gone", "acct-gone2"]);
+  });
+  it("signed out: an account still in the device list is not removed", () => {
+    expect(removedAccountIds(["acct-A"], ["acct-A"], null, "device-1")).toEqual([]);
+    expect(removedAccountIds(["acct-A"], [], null, "device-1")).toEqual(["acct-A"]);
   });
 });

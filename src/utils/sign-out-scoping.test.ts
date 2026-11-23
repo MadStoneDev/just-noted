@@ -31,6 +31,8 @@ import {
   queuedNoteIdsForAccount,
   parkedNotesByAccount,
   clearAccountOps,
+  removedAccountsParked,
+  discardRemovedAccountsParked,
 } from "./offline-queue";
 import { setActiveSupabaseUser, getLastSupabaseUser } from "./offline-queue-guard";
 import {
@@ -313,5 +315,57 @@ describe("a sign-out the user chose", () => {
     const res = await completeSignOut(supabase, "acct-A", { scope: "global" });
     expect(res.ok).toBe(false);
     expect(await queuedNoteIdsForAccount("acct-A")).toEqual(new Set(["a1"])); // nothing cleared
+  });
+});
+
+describe("a removed account's parked notes (Settings → Sync & data)", () => {
+  async function park(account: string, noteId: string, text: string) {
+    setActiveSupabaseUser(account);
+    await cloudEdit(noteId, text);
+    await saveNoteToLocal(note({ id: noteId, source: "supabase", author: account, content: text }), { localEdit: true });
+  }
+
+  it("lists only accounts no longer on the device; discarding drops just their entries and cached copies", async () => {
+    await park("acct-gone", "g1", "gone 1");
+    await park("acct-gone", "g2", "gone 2");
+    await park("acct-B", "b1", "B's, still on the device");
+    // An untagged cached copy and a device-id entry: nobody's known account.
+    await putRawOp({
+      id: "op_legacy",
+      payload: { type: "update", noteId: "u1", source: "supabase", userId: DEVICE, content: "legacy", goal: 0, goalType: "" },
+      timestamp: Date.now(),
+      retryCount: 0,
+      lastAttempt: null,
+    });
+    setActiveSupabaseUser(null);
+    await saveNoteToLocal(note({ id: "u1", source: "supabase", author: DEVICE, content: "legacy" }));
+    setActiveSupabaseUser("acct-A");
+
+    const removed = await removedAccountsParked(["acct-A", "acct-B"]);
+    expect(removed).toEqual(new Map([["acct-gone", new Set(["g1", "g2"])]]));
+
+    // Nothing is deleted until asked.
+    expect(await queuedNoteIdsForAccount("acct-gone")).toEqual(new Set(["g1", "g2"]));
+
+    expect(await discardRemovedAccountsParked(["acct-A", "acct-B"])).toBe(2);
+    expect(await queuedNoteIdsForAccount("acct-gone")).toEqual(new Set());
+    expect(await getLocalNote("g1")).toBeUndefined();
+    expect(await getLocalNote("g2")).toBeUndefined();
+    // Everyone else's kept.
+    expect(await queuedNoteIdsForAccount("acct-B")).toEqual(new Set(["b1"]));
+    expect(await getQueueSize()).toBe(2); // b1 + the legacy entry
+    setActiveSupabaseUser("acct-B");
+    expect((await getLocalNote("b1"))?.content).toBe("B's, still on the device");
+    setActiveSupabaseUser("acct-A");
+    expect(await getLocalNote("u1")).toBeDefined();
+    expect(await removedAccountsParked(["acct-A", "acct-B"])).toEqual(new Map());
+  });
+
+  it("an account added back before the discard keeps its entries", async () => {
+    await park("acct-gone", "g1", "gone");
+    setActiveSupabaseUser("acct-A");
+    expect((await removedAccountsParked(["acct-A"])).size).toBe(1);
+    expect(await discardRemovedAccountsParked(["acct-A", "acct-gone"])).toBe(0);
+    expect(await queuedNoteIdsForAccount("acct-gone")).toEqual(new Set(["g1"]));
   });
 });

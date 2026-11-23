@@ -123,3 +123,24 @@ export function legacyOpOwner(
   const real = (id: string | null | undefined) => (id && id !== device ? id : null);
   return real(serverAuthor) ?? real(cachedOwner);
 }
+
+/**
+ * Accounts with parked cloud entries that are no longer on this device: not
+ * signed in, not in the device's account list. Untagged entries (blank or the
+ * device id) aren't any known account's, so they never count here.
+ */
+export function removedAccountIds(
+  parkedAccounts: Iterable<string>,
+  onDevice: Iterable<string>,
+  active: string | null,
+  device: string | null,
+): string[] {
+  const known = new Set(onDevice);
+  if (active) known.add(active);
+  const out: string[] = [];
+  for (const id of parkedAccounts) {
+    if (!id || id === device || known.has(id) || out.includes(id)) continue;
+    out.push(id);
+  }
+  return out;
+}

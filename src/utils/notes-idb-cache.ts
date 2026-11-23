@@ -240,12 +240,18 @@ export async function deleteLocalNote(id: string): Promise<void> {
 }
 
 /**
- * Drop one account's cached cloud copies (and untagged cloud copies, which were
- * that account's while it was signed in). Local notes and other accounts'
- * copies stay. Only for a sign-out the user chose. Returns how many went.
+ * Drop one account's cached cloud copies (and, unless `includeUntagged` is
+ * false, untagged cloud copies, which were that account's while it was signed
+ * in). Local notes and other accounts' copies stay. Only for a sign-out the
+ * user chose, or discarding a removed account's notes (untagged kept: they
+ * aren't that account's). Returns how many went.
  */
-export async function clearAccountNotes(accountId: string): Promise<number> {
+export async function clearAccountNotes(
+  accountId: string,
+  opts: { includeUntagged?: boolean } = {},
+): Promise<number> {
   if (!accountId) return 0;
+  const includeUntagged = opts.includeUntagged ?? true;
   let dropped = 0;
   try {
     const db = await getDB();
@@ -255,7 +261,7 @@ export async function clearAccountNotes(accountId: string): Promise<number> {
     r.onsuccess = () => {
       for (const n of r.result as CombinedNote[]) {
         const owner = ownerOf(n);
-        if (owner === accountId || owner === "") {
+        if (owner === accountId || (includeUntagged && owner === "")) {
           store.delete(n.id);
           dropped++;
         }
