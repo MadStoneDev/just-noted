@@ -271,6 +271,36 @@ export async function clearAccountNotes(accountId: string): Promise<number> {
   return dropped;
 }
 
+/**
+ * Per note id, the account its cached cloud copy belongs to ("" when unknown:
+ * cached untagged by an older build). Notes not cached, or local, are absent.
+ * Reads every copy, whichever account it belongs to.
+ */
+export async function cachedCloudOwners(noteIds: Iterable<string>): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const wanted = new Set(noteIds);
+  if (wanted.size === 0) return out;
+  try {
+    const db = await getDB();
+    const tx = db.transaction(IDB_CACHE_STORE_NAME, "readonly");
+    const r = tx.objectStore(IDB_CACHE_STORE_NAME).getAll();
+    await new Promise<void>((resolve, reject) => {
+      r.onsuccess = () => {
+        for (const n of r.result as CombinedNote[]) {
+          if (!wanted.has(n.id)) continue;
+          const owner = ownerOf(n);
+          if (owner !== null) out.set(n.id, owner);
+        }
+        resolve();
+      };
+      r.onerror = () => reject(r.error);
+    });
+  } catch (error) {
+    console.error("Failed to read cached note owners:", error);
+  }
+  return out;
+}
+
 /** Wipes the WHOLE cache, local notes included. Not for sign-out. */
 export async function clearLocalNotes(): Promise<void> {
   try {

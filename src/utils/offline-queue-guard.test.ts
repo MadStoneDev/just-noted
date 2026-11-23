@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
+  legacyOpOwner,
   shouldSyncOp,
   needsCloudUserTag,
   setActiveSupabaseUser,
@@ -77,5 +78,22 @@ describe("active-user holder", () => {
     // still-queued op is refused under B's session.
     setActiveSupabaseUser("userB");
     expect(shouldSyncOp(opFromA, getActiveSupabaseUser())).toBe(false);
+  });
+});
+
+describe("legacyOpOwner — whose untagged queue entry is it", () => {
+  const DEVICE = "device-1";
+  it("the server's author wins", () => {
+    expect(legacyOpOwner("acct-B", "acct-A", DEVICE)).toBe("acct-B");
+  });
+  it("falls back to the cached copy's account", () => {
+    expect(legacyOpOwner(undefined, "acct-A", DEVICE)).toBe("acct-A");
+    expect(legacyOpOwner(null, "acct-A", DEVICE)).toBe("acct-A");
+  });
+  it("blank or the device id is no answer: unknown (stays parked)", () => {
+    expect(legacyOpOwner(undefined, undefined, DEVICE)).toBeNull();
+    expect(legacyOpOwner("", "", DEVICE)).toBeNull();
+    expect(legacyOpOwner(DEVICE, DEVICE, DEVICE)).toBeNull();
+    expect(legacyOpOwner(DEVICE, "acct-A", DEVICE)).toBe("acct-A");
   });
 });

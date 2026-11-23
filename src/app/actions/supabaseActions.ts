@@ -41,6 +41,37 @@ async function getAuthenticatedUser() {
 }
 
 // ===========================
+// LEGACY QUEUE ENTRIES
+// ===========================
+const NOTE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Owners of the given notes, as far as this session may read them (RLS: its
+ * own notes), trashed ones included. For offline-queue entries queued by older
+ * builds without an account tag: the client replays one only for the account
+ * that owns its note. Notes this session can't read are simply absent — it
+ * learns nothing about other accounts' notes.
+ */
+export const getCloudNoteOwners = async (
+  noteIds: string[],
+): Promise<{ success: true; owners: Record<string, string> } | { success: false; error: string }> => {
+  try {
+    const ids = [...new Set(noteIds)].filter((id) => typeof id === "string" && NOTE_ID_RE.test(id)).slice(0, 500);
+    const { supabase } = await getAuthenticatedUser();
+    if (ids.length === 0) return { success: true, owners: {} };
+    const { data, error } = await supabase.from("notes").select("id, author").in("id", ids);
+    if (error) return { success: false, error: error.message };
+    const owners: Record<string, string> = {};
+    for (const row of (data ?? []) as { id: string; author: string | null }[]) {
+      if (row.author) owners[row.id] = row.author;
+    }
+    return { success: true, owners };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Failed to look up note owners" };
+  }
+};
+
+// ===========================
 // NOTE OPERATIONS
 // ===========================
 export const createNote = async (newNote: Partial<CombinedNote>) => {

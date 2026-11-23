@@ -10,6 +10,7 @@ import {
   updateNote as updateSupabaseNote,
   updateNoteTitle as updateSupabaseNoteTitle,
   createNote as createSupabaseNote,
+  getCloudNoteOwners,
 } from "@/app/actions/supabaseActions";
 import type { RedisNote, CombinedNote } from "@/types/combined-notes";
 import {
@@ -17,8 +18,10 @@ import {
   getActiveSupabaseUser,
   cloudAccountFor,
   needsCloudAccountTag,
+  legacyOpOwner,
   deviceUserId,
 } from "./offline-queue-guard";
+import { cachedCloudOwners } from "./notes-idb-cache";
 import { sameNoteContent } from "./notes-utils";
 import { conflictStamp } from "./background-conflict";
 import { TAB_ID } from "./cross-tab";
@@ -784,26 +787,54 @@ export async function clearAccountOps(accountId: string): Promise<number> {
   return dropped;
 }
 
-// B7: backfill for cloud ops queued without an account tag: blank (before ops
-// were account-scoped) or carrying the device id (before cloud ops were tagged
-// with the Supabase account id rather than the store's device-level userId).
-// Neither can pass the cross-account guard, so they'd sit in the queue forever.
-// Tag them with the currently signed-in account, which matches the behaviour
-// before the guard, where any queued op flushed under whatever session was
-// active. Cheap, and runs on every signed-in load. Returns how many were tagged.
+// B7: cloud ops queued without an account tag: blank (before ops were
+// account-scoped) or carrying the device id (before cloud ops were tagged with
+// the Supabase account id rather than the store's device-level userId). The
+// device id is shared by every account on this device, so such an op is NOT
+// simply adopted by whoever signs in next: it's tagged with the account that
+// owns its note, by the server's say (the note's author, where this session can
+// see it) or else the cached copy's account. Then the guard replays it for that
+// account only, and parks it for any other. An op whose owner can't be told
+// stays untagged, which the guard never sends; it's looked at again on the next
+// signed-in load. Runs on every signed-in load and sign-in, before the queue
+// drains. Returns how many were tagged.
+export interface LegacyOwnerLookups {
+  device?: string | null;
+  /** Note id → author, for the notes this session can see; null when the server can't be asked. */
+  serverOwners?: (noteIds: string[]) => Promise<Map<string, string> | null>;
+  /** Note id → the account its cached copy belongs to ("" when unknown). */
+  cachedOwners?: (noteIds: string[]) => Promise<Map<string, string>>;
+}
+
+async function askServerForOwners(noteIds: string[]): Promise<Map<string, string> | null> {
+  try {
+    const res = await getCloudNoteOwners(noteIds);
+    return res.success ? new Map(Object.entries(res.owners)) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function migrateUntaggedCloudOps(
   currentUserId: string | null,
-  device: string | null = deviceUserId(),
+  lookups: LegacyOwnerLookups = {},
 ): Promise<number> {
   if (!currentUserId) return 0;
-  const ops = await getAllOps();
+  const device = lookups.device === undefined ? deviceUserId() : lookups.device;
+  const legacy = (await getAllOps()).filter((op) => needsCloudAccountTag(op.payload, device));
+  if (legacy.length === 0) return 0;
+  const noteIds = [...new Set(legacy.map((op) => op.payload.noteId))];
+  const [server, cached] = await Promise.all([
+    (lookups.serverOwners ?? askServerForOwners)(noteIds).catch(() => null),
+    (lookups.cachedOwners ?? cachedCloudOwners)(noteIds).catch(() => new Map<string, string>()),
+  ]);
   let fixed = 0;
-  for (const op of ops) {
-    if (needsCloudAccountTag(op.payload, device)) {
-      (op.payload as { userId: string }).userId = currentUserId;
-      await putOp(op);
-      fixed += 1;
-    }
+  for (const op of legacy) {
+    const owner = legacyOpOwner(server?.get(op.payload.noteId), cached.get(op.payload.noteId), device);
+    if (!owner) continue; // unknown: stays parked
+    (op.payload as { userId: string }).userId = owner;
+    await putOp(op);
+    fixed += 1;
   }
   if (fixed > 0) notifySubscribers(await countOps());
   return fixed;

@@ -16,6 +16,7 @@ vi.mock("@/app/actions/supabaseActions", () => ({
   updateNotePrivacyStatus: vi.fn(async () => ({ success: true })),
   updateNoteCollapsedStatus: vi.fn(async () => ({ success: true })),
   deleteNote: vi.fn(async () => ({ success: true })),
+  getCloudNoteOwners: vi.fn(async () => ({ success: true, owners: {} })),
 }));
 
 import {
@@ -99,46 +100,102 @@ describe("processQueue — B7 cross-account guard (real IDB)", () => {
   });
 });
 
-describe("migrateUntaggedCloudOps — legacy backfill (real IDB)", () => {
-  it("backfills untagged cloud ops so they flush under the current account", async () => {
-    // Written as an older build left it: enqueue() now tags cloud ops itself.
-    await putForeignOp({
-      id: "op_legacy1",
-      payload: {
-        type: "update",
-        noteId: "legacy1",
-        source: "supabase",
-        userId: "", // legacy op with no account tag
-        content: "x",
-        goal: 0,
-        goalType: "",
-      },
+describe("migrateUntaggedCloudOps — legacy entries replay only for their note's owner (real IDB)", () => {
+  const DEVICE = "device-1";
+  const legacyOp = (noteId: string, userId: string) =>
+    putForeignOp({
+      id: `op_${noteId}`,
+      payload: { type: "update", noteId, source: "supabase", userId, content: `x-${noteId}`, goal: 0, goalType: "" },
       timestamp: Date.now(),
       retryCount: 0,
       lastAttempt: null,
     });
+  const owners = (m: Record<string, string>) => async () => new Map(Object.entries(m));
+  const sent = () => mockedUpdate.mock.calls.map((c) => c[0]);
 
-    // Before migration: signed in as userA, the untagged op is skipped by the guard.
+  it("an entry whose note the server says is ours is tagged and flushes", async () => {
+    await legacyOp("legacy1", ""); // blank tag
+    await legacyOp("legacy2", DEVICE); // device-id tag
+
+    // Untagged: the guard skips it.
     setActiveSupabaseUser("userA");
     await processQueue();
     expect(mockedUpdate).not.toHaveBeenCalled();
-    expect(await getQueueSize()).toBe(1);
 
-    // One-time migration tags it with the current user; now it flushes.
-    const fixed = await migrateUntaggedCloudOps("userA");
-    expect(fixed).toBe(1);
+    const fixed = await migrateUntaggedCloudOps("userA", {
+      device: DEVICE,
+      serverOwners: owners({ legacy1: "userA", legacy2: "userA" }),
+      cachedOwners: owners({}),
+    });
+    expect(fixed).toBe(2);
     await processQueue();
-    expect(mockedUpdate).toHaveBeenCalledWith("legacy1", "x", 0, "", {
+    expect(mockedUpdate).toHaveBeenCalledWith("legacy1", "x-legacy1", 0, "", {
       queuedAt: expect.any(Number),
       conflictCopy: expect.objectContaining({ id: expect.any(String) }),
     });
+    expect(sent()).toContain("legacy2");
     expect(await getQueueSize()).toBe(0);
+  });
+
+  it("another account's note: tagged with its owner and parked, never sent under this session", async () => {
+    await legacyOp("theirs", DEVICE);
+    setActiveSupabaseUser("userA");
+    await migrateUntaggedCloudOps("userA", {
+      device: DEVICE,
+      serverOwners: owners({ theirs: "userB" }), // shared with A, owned by B
+      cachedOwners: owners({ theirs: "userA" }), // the server wins
+    });
+    await processQueue();
+    expect(sent()).not.toContain("theirs");
+    expect(await getQueueSize()).toBe(1);
+
+    // B signs in on this device: it replays for B.
+    setActiveSupabaseUser("userB");
+    await processQueue();
+    expect(sent()).toContain("theirs");
+    expect(await getQueueSize()).toBe(0);
+  });
+
+  it("server unreachable: the cached copy's account decides", async () => {
+    await legacyOp("mine", DEVICE);
+    await legacyOp("cachedB", DEVICE);
+    setActiveSupabaseUser("userA");
+    const fixed = await migrateUntaggedCloudOps("userA", {
+      device: DEVICE,
+      serverOwners: async () => null,
+      cachedOwners: owners({ mine: "userA", cachedB: "userB" }),
+    });
+    expect(fixed).toBe(2);
+    await processQueue();
+    expect(sent()).toEqual(["mine"]);
+    expect(await getQueueSize()).toBe(1);
+  });
+
+  it("owner unknown (not visible on the server, no tagged cached copy): stays parked and untagged", async () => {
+    await legacyOp("orphan", DEVICE);
+    await legacyOp("orphan2", "");
+    setActiveSupabaseUser("userA");
+    const fixed = await migrateUntaggedCloudOps("userA", {
+      device: DEVICE,
+      serverOwners: owners({}),
+      cachedOwners: owners({ orphan: "" }), // cached untagged by an older build
+    });
+    expect(fixed).toBe(0);
+    await processQueue();
+    expect(mockedUpdate).not.toHaveBeenCalled();
+    expect(await getQueueSize()).toBe(2);
+
+    // A later load, the owner now known: it's tagged then.
+    expect(
+      await migrateUntaggedCloudOps("userA", { device: DEVICE, serverOwners: owners({ orphan: "userA" }), cachedOwners: owners({}) }),
+    ).toBe(1);
   });
 
   it("is a no-op with no active user, and leaves already-tagged ops alone", async () => {
     await cloudUpdate("tagged1", "userA");
-    expect(await migrateUntaggedCloudOps(null)).toBe(0);
-    expect(await migrateUntaggedCloudOps("userB")).toBe(0); // tagged1 already has userA
+    const lookups = { device: DEVICE, serverOwners: owners({ tagged1: "userB" }), cachedOwners: owners({}) };
+    expect(await migrateUntaggedCloudOps(null, lookups)).toBe(0);
+    expect(await migrateUntaggedCloudOps("userB", lookups)).toBe(0); // tagged1 already has userA
   });
 });
 

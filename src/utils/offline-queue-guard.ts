@@ -100,9 +100,26 @@ export function cloudAccountFor(userId: string | null | undefined): string {
  * A cloud op not tagged with an account: blank (queued before ops were
  * account-scoped) or tagged with the device id (queued before ops carried the
  * account id). The device id is the same for every account on the device, so
- * the guard can't tell whose it is; the next signed-in account adopts it, as
- * before account tagging.
+ * the guard can't tell whose it is until its owner is looked up
+ * (legacyOpOwner).
  */
 export function needsCloudAccountTag(op: SyncOpIdentity, device: string | null): boolean {
   return op.source === "supabase" && (!op.userId || (!!device && op.userId === device));
+}
+
+/**
+ * The account a legacy (untagged) cloud op belongs to, or null when that can't
+ * be told. The server's owner of the note wins (its `author`, when this session
+ * can see the row); otherwise the account the cached copy of the note belongs
+ * to. Blank or the device id is no answer. Never "whoever is signed in": an op
+ * whose owner is unknown stays parked, so it can't be written into the wrong
+ * account.
+ */
+export function legacyOpOwner(
+  serverAuthor: string | null | undefined,
+  cachedOwner: string | null | undefined,
+  device: string | null,
+): string | null {
+  const real = (id: string | null | undefined) => (id && id !== device ? id : null);
+  return real(serverAuthor) ?? real(cachedOwner);
 }

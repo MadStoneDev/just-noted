@@ -17,6 +17,7 @@ vi.mock("@/app/actions/supabaseActions", () => ({
   updateNotePrivacyStatus: vi.fn(async () => ({ success: true })),
   updateNoteCollapsedStatus: vi.fn(async () => ({ success: true })),
   deleteNote: vi.fn(async () => ({ success: true })),
+  getCloudNoteOwners: vi.fn(async () => ({ success: true, owners: {} })),
 }));
 
 import {
@@ -169,19 +170,30 @@ describe("queue entries are keyed to the account", () => {
     expect(await getQueueSize()).toBe(2);
   });
 
-  it("an entry tagged with the device id by an older build is adopted by the signed-in account", async () => {
+  it("an entry tagged with the device id by an older build goes to the account its cached note belongs to", async () => {
     // Older builds tagged cloud ops with the device id, as left in IndexedDB.
-    await putRawOp({
-      id: "op_old1",
-      payload: { type: "update", noteId: "old1", source: "supabase", userId: DEVICE, content: "legacy", goal: 0, goalType: "" },
-      timestamp: Date.now(),
-      retryCount: 0,
-      lastAttempt: null,
-    });
-    expect(await queuedNoteIdsForAccount("acct-A")).toEqual(new Set());
+    for (const id of ["old1", "old2", "old3"]) {
+      await putRawOp({
+        id: `op_${id}`,
+        payload: { type: "update", noteId: id, source: "supabase", userId: DEVICE, content: "legacy", goal: 0, goalType: "" },
+        timestamp: Date.now(),
+        retryCount: 0,
+        lastAttempt: null,
+      });
+    }
+    // Cached copies: old1 is A's, old2 is B's; old3 isn't cached. (The mocked
+    // server sees none of them.)
     setActiveSupabaseUser("acct-A");
-    expect(await migrateUntaggedCloudOps("acct-A")).toBe(1);
+    await saveNoteToLocal(note({ id: "old1", source: "supabase", author: DEVICE }));
+    setActiveSupabaseUser("acct-B");
+    await saveNoteToLocal(note({ id: "old2", source: "supabase", author: DEVICE }));
+
+    setActiveSupabaseUser("acct-A");
+    expect(await queuedNoteIdsForAccount("acct-A")).toEqual(new Set());
+    expect(await migrateUntaggedCloudOps("acct-A")).toBe(2);
     expect(await queuedNoteIdsForAccount("acct-A")).toEqual(new Set(["old1"]));
+    expect(await queuedNoteIdsForAccount("acct-B")).toEqual(new Set(["old2"]));
+    expect(await getSendableQueueSize()).toBe(1); // old3: owner unknown, parked
   });
 
   it("processQueue({ now }) retries an entry that is still waiting out its backoff", async () => {

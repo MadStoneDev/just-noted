@@ -462,8 +462,9 @@ export function useNotesSync() {
 
         setAuthenticated(authenticated);
         // B7: cloud ops queued without an account tag (blank, or the device id
-        // older builds used) are adopted by this account, as they'd have flushed
-        // under it before the guard. Before the first queue drain.
+        // older builds used) are tagged with the account that owns their note
+        // (server, else cached copy); unknown owner → stays parked. Before the
+        // first queue drain.
         if (authenticated) {
           try {
             await migrateUntaggedCloudOps(sessionUserId);
@@ -633,8 +634,14 @@ export function useNotesSync() {
 
         if (hasInitialisedRef.current && wasAuthenticated !== nowAuthenticated) {
           await refreshNotes();
-          // Back from a sign-out: send what was parked for this account.
-          if (nowAuthenticated) processQueue().catch(() => {});
+          // Back from a sign-out: send what was parked for this account (and
+          // legacy entries whose note turns out to be this account's).
+          if (nowAuthenticated) {
+            migrateUntaggedCloudOps(session.user.id)
+              .catch(() => 0)
+              .then(() => processQueue())
+              .catch(() => {});
+          }
 
           // Clean up empty default notes when logging in
           if (!wasAuthenticated && nowAuthenticated) {
