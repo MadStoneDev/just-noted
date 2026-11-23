@@ -434,7 +434,6 @@ test.describe("signed-in", () => {
       await expect.poll(() => cloudVersion(id), { timeout: 15_000 }).not.toBeNull(); // create landed
       await page.waitForTimeout(2500); // let the initial save settle
       const v0 = await cloudVersion(id);
-      const notesBefore = await cloudNoteCount(acc.id);
 
       const marker = `e2e-cloud-close-${Date.now()}`;
       await editor(page).click();
@@ -444,7 +443,7 @@ test.describe("signed-in", () => {
 
       await expect.poll(() => cloudContent(id), { timeout: 15_000 }).toContain(marker);
       expect(await cloudVersion(id)).toBeGreaterThan(v0 ?? 0);
-      expect(await cloudNoteCount(acc.id)).toBe(notesBefore); // no conflicted copy
+      expect(await cloudNotesWith(acc.id, marker)).toBe(1); // one note holds it: no conflicted copy
 
       // …and the next load shows it.
       const again = await context.newPage();
@@ -532,7 +531,7 @@ test.describe("signed-in", () => {
       await expect.poll(() => currentHandle(page)).toBe(b.handle);
       await page.waitForTimeout(3000); // give any queued op time to (wrongly) replay
       await expect(page.getByText(marker)).toHaveCount(0);
-      expect(await cloudNoteCount(b.id)).toBe(0);
+      expect(await cloudNotesWith(b.id, marker)).toBe(0); // A's edit never landed under B
     });
   });
 
@@ -678,12 +677,15 @@ async function cloudRow(id: string) {
 }
 const cloudContent = async (id: string) => (await cloudRow(id))?.content ?? "";
 const cloudVersion = async (id: string) => (await cloudRow(id))?.version ?? null;
-async function cloudNoteCount(userId: string): Promise<number> {
+// Notes of this account holding `marker`. Scoped to the marker, not the whole
+// account: parallel specs create notes for the same seeded accounts.
+async function cloudNotesWith(userId: string, marker: string): Promise<number> {
   const { count } = await adminClient()
     .from("notes")
     .select("id", { count: "exact", head: true })
     .eq("author", userId)
-    .is("deleted_at", null);
+    .is("deleted_at", null)
+    .ilike("content", `%${marker}%`);
   return count ?? 0;
 }
 
