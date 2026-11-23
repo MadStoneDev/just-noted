@@ -4,10 +4,11 @@ import React, { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { getAccounts, switchToAccount, isOffline, OFFLINE_SWITCH_MESSAGE, type DeviceAccount } from "@/utils/accounts";
 import { useToast } from "@/components/ui/toast";
-import { getQueueSize } from "@/utils/offline-queue";
+import { getSendableQueueSize } from "@/utils/offline-queue";
 import { useNotesStore } from "@/stores/notes-store";
 import { AccountSwitchModal, AccountSwitchTransition } from "@/components/account-switch-modal";
 import { Avatar } from "@/components/ui/avatar";
+import { useSignOut } from "@/components/sign-out-dialog";
 import { IconPlus, IconLogout, IconCheck, IconHelpCircle, IconX } from "@tabler/icons-react";
 
 // Mobile "You" drawer (bottom sheet). Same account logic as AccountMenu, but a
@@ -51,22 +52,25 @@ export function MobileAccountDrawer({ open, onClose }: { open: boolean; onClose:
 
   const doSwitch = useCallback(async (a: DeviceAccount) => {
     if (isOffline()) { showError(OFFLINE_SWITCH_MESSAGE); return; }
-    const pending = await getQueueSize();
+    const pending = await getSendableQueueSize();
     const localOnly = useNotesStore.getState().notes.filter((n) => !n.deletedAt && n.source === "redis").length;
     const hasOpenShared = typeof document !== "undefined" && !!document.querySelector('[aria-label="Shared note"]');
     if (pending === 0 && localOnly === 0 && !hasOpenShared) { await commitSwitch(a); return; }
     setConfirmTarget(a);
   }, [commitSwitch, showError]);
 
-  const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
-    window.location.href = "/";
-  }, [supabase]);
+  const { signOut, dialog: signOutDialog } = useSignOut({
+    onSignedOut: () => {
+      window.location.href = "/";
+    },
+    onError: showError,
+  });
 
   const hasOpenShared = typeof document !== "undefined" && !!document.querySelector('[aria-label="Shared note"]');
 
   return (
     <>
+      {signOutDialog}
       {switching && <AccountSwitchTransition target={switching} />}
       {confirmTarget && (
         <AccountSwitchModal

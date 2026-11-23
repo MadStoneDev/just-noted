@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // The flush step drains the offline queue; keep it inert here.
 vi.mock("@/utils/offline-queue", () => ({
   processQueue: vi.fn(async () => {}),
-  getQueueSize: vi.fn(async () => 0),
+  getSendableQueueSize: vi.fn(async () => 0),
 }));
 
 import { switchToAccount, OFFLINE_SWITCH_MESSAGE, type DeviceAccount } from "./accounts";

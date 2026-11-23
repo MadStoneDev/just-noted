@@ -8,6 +8,7 @@ import ActiveNoteEditor, { NoteEditor } from "@/components/active-note-editor";
 import NotePicker from "@/components/notes/note-picker";
 import { MobileTabBar, MobileEditorNav, MobileFab, type MobileTab } from "@/components/mobile-chrome";
 import { MobileAccountDrawer } from "@/components/mobile-account-drawer";
+import { SignedOutNotice } from "@/components/signed-out-notice";
 import HelpModal from "@/components/help-modal";
 import SearchModal from "@/components/search-modal";
 import TrashView from "@/components/trash-view";
@@ -709,6 +710,7 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
       </div>
 
       <MobileAccountDrawer open={showAccountDrawer} onClose={() => setShowAccountDrawer(false)} />
+      <SignedOutNotice />
 
       {/* Mobile FAB — new note, shown on the notes list only (not the Shared
           list, where a new note makes no sense and it covers the rows). */}

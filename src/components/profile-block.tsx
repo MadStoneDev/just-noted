@@ -10,7 +10,7 @@ import { useToast } from "@/components/ui/toast";
 import { uploadAvatar } from "@/app/actions/avatarActions";
 import { ensureOwnAuthor } from "@/app/actions/authorActions";
 import { compressImage } from "@/utils/image/compress";
-import { processQueue } from "@/utils/offline-queue";
+import { useSignOut } from "@/components/sign-out-dialog";
 import { Avatar } from "@/components/ui/avatar";
 
 interface ProfileBlockProps {
@@ -354,20 +354,12 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
     showError,
   ]);
 
-  // Handle logout
-  const handleLogout = useCallback(async () => {
-    // Flush any mounted editor's pending edits and drain queued offline writes
-    // to the cloud BEFORE signing out — once signed out, cloud writes fail auth
-    // and the auth listener wipes the local cache + queue.
-    try {
-      window.dispatchEvent(new Event("justnoted:flush"));
-      await processQueue();
-    } catch {
-      // Best-effort; proceed with logout regardless.
-    }
-    await supabase.auth.signOut();
-    router.push("/");
-  }, [supabase, router]);
+  // Handle logout: open editors are flushed and this account's queued edits
+  // synced first; unsynced edits hold the sign-out (see sign-out-dialog).
+  const { signOut: handleLogout, dialog: signOutDialog } = useSignOut({
+    onSignedOut: () => router.push("/"),
+    onError: showError,
+  });
 
   // Handle tab change
   const handleTabChange = useCallback((tab: "profile" | "shared") => {
@@ -388,6 +380,7 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
 
   return (
     <div>
+      {signOutDialog}
       <div>
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">

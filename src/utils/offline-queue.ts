@@ -12,7 +12,13 @@ import {
   createNote as createSupabaseNote,
 } from "@/app/actions/supabaseActions";
 import type { RedisNote, CombinedNote } from "@/types/combined-notes";
-import { shouldSyncOp, getActiveSupabaseUser, needsCloudUserTag } from "./offline-queue-guard";
+import {
+  shouldSyncOp,
+  getActiveSupabaseUser,
+  cloudAccountFor,
+  needsCloudAccountTag,
+  deviceUserId,
+} from "./offline-queue-guard";
 import { sameNoteContent } from "./notes-utils";
 import { conflictStamp } from "./background-conflict";
 import { TAB_ID } from "./cross-tab";
@@ -378,8 +384,20 @@ function withCopyId<T extends QueuedOperationPayload>(payload: T): T {
   return payload;
 }
 
+/**
+ * A cloud op is tagged with the ACCOUNT it belongs to (the Supabase user id),
+ * not the device id callers pass as `userId`: that tag is what keeps it parked
+ * for its account across a sign-out or an account switch (offline-queue-guard).
+ * Local (Redis) ops keep the device id, which the server action needs.
+ */
+function withAccount<T extends QueuedOperationPayload>(payload: T): T {
+  if (payload.source !== "supabase") return payload;
+  const userId = cloudAccountFor(payload.userId);
+  return userId === payload.userId ? payload : { ...payload, userId };
+}
+
 export async function enqueue(input: QueuedOperationPayload): Promise<void> {
-  const payload = withCopyId(input);
+  const payload = withAccount(withCopyId(input));
   const noteId = payload.noteId;
 
   // Rule 2: Delete wins — remove all other ops for this noteId
@@ -453,6 +471,7 @@ export async function enqueue(input: QueuedOperationPayload): Promise<void> {
 // ===========================
 
 let processing = false;
+let currentPass: Promise<void> | null = null;
 
 function throwIfFailed(result: { success: boolean; error?: string }, fallback: string): void {
   if (!result.success) {
@@ -581,12 +600,33 @@ export async function replayQueuedFor(noteId: string): Promise<void> {
   notifySubscribers(await countOps());
 }
 
-export async function processQueue(): Promise<void> {
-  if (processing) return;
+export interface ProcessQueueOptions {
+  /**
+   * Try every sendable op now, even one still waiting out its backoff, and if a
+   * pass is already running, wait for it and then run one more. For a caller
+   * that needs to know what is still unsent afterwards (sign-out).
+   */
+  now?: boolean;
+}
+
+export async function processQueue(opts: ProcessQueueOptions = {}): Promise<void> {
+  while (processing) {
+    if (!opts.now) return;
+    await currentPass?.catch(() => {});
+  }
   if (typeof navigator !== "undefined" && !navigator.onLine) return;
 
   processing = true;
+  const pass = runPass(opts);
+  currentPass = pass;
+  try {
+    await pass;
+  } finally {
+    if (currentPass === pass) currentPass = null;
+  }
+}
 
+async function runPass(opts: ProcessQueueOptions): Promise<void> {
   try {
     const ops = (await getAllOps()).sort((a, b) => a.timestamp - b.timestamp);
     const now = Date.now();
@@ -612,7 +652,7 @@ export async function processQueue(): Promise<void> {
       if (!shouldSyncOp(op.payload, getActiveSupabaseUser())) continue;
 
       // Respect exponential backoff for previously-failed ops.
-      if (op.retryCount > 0 && op.lastAttempt) {
+      if (!opts.now && op.retryCount > 0 && op.lastAttempt) {
         const waitLeft = backoffMs(op.retryCount) - (now - op.lastAttempt);
         if (waitLeft > 0) {
           blocked.add(noteId);
@@ -672,23 +712,94 @@ export async function getQueueSize(): Promise<number> {
   }
 }
 
+/**
+ * Ops this session can send: local ones plus the signed-in account's cloud
+ * ones. Another account's parked ops can't sync here, so they never count as
+ * "still syncing" (and never hold up an account switch); the signed-out notice
+ * reports them instead.
+ */
+export async function getSendableQueueSize(): Promise<number> {
+  try {
+    const active = getActiveSupabaseUser();
+    return (await getAllOps()).filter((o) => shouldSyncOp(o.payload, active)).length;
+  } catch {
+    return 0;
+  }
+}
+
 export async function clearQueue(): Promise<void> {
   await clearAllOps();
   notifySubscribers(0);
 }
 
-// B7: one-time backfill for legacy cloud ops queued before ops were account-scoped.
-// They carry no userId and so would never pass the cross-account guard (and would
-// sit in the queue forever). Tag them with the currently signed-in user, which
-// matches the pre-guard behaviour where any queued op flushed under whatever
-// session was active. The caller gates this to run once per device after deploy.
-// Returns how many ops were tagged.
-export async function migrateUntaggedCloudOps(currentUserId: string | null): Promise<number> {
+/** Notes with a cloud op queued for this account (and not yet sent). */
+export async function queuedNoteIdsForAccount(accountId: string): Promise<Set<string>> {
+  const ids = new Set<string>();
+  if (!accountId) return ids;
+  try {
+    for (const op of await getAllOps()) {
+      if (op.payload.source === "supabase" && op.payload.userId === accountId) ids.add(op.payload.noteId);
+    }
+  } catch {
+    /* unreadable queue: nothing we can count */
+  }
+  return ids;
+}
+
+/**
+ * Cloud edits parked for accounts that aren't signed in right now: per account,
+ * the notes with an op waiting for it to sign back in.
+ */
+export async function parkedNotesByAccount(): Promise<Map<string, Set<string>>> {
+  const out = new Map<string, Set<string>>();
+  const active = getActiveSupabaseUser();
+  try {
+    for (const op of await getAllOps()) {
+      const p = op.payload;
+      if (p.source !== "supabase" || shouldSyncOp(p, active)) continue;
+      if (!out.has(p.userId)) out.set(p.userId, new Set());
+      out.get(p.userId)!.add(p.noteId);
+    }
+  } catch {
+    /* unreadable queue */
+  }
+  return out;
+}
+
+/**
+ * Drop this account's cloud ops, and nothing else: local (guest) ops and other
+ * accounts' parked ops stay. Only for a sign-out the user chose (and confirmed,
+ * if edits were unsynced). Returns how many were dropped.
+ */
+export async function clearAccountOps(accountId: string): Promise<number> {
+  if (!accountId) return 0;
+  let dropped = 0;
+  for (const op of await getAllOps()) {
+    if (op.payload.source === "supabase" && op.payload.userId === accountId) {
+      await deleteOp(op.id);
+      dropped++;
+    }
+  }
+  notifySubscribers(await countOps());
+  return dropped;
+}
+
+// B7: backfill for cloud ops queued without an account tag: blank (before ops
+// were account-scoped) or carrying the device id (before cloud ops were tagged
+// with the Supabase account id rather than the store's device-level userId).
+// Neither can pass the cross-account guard, so they'd sit in the queue forever.
+// Tag them with the currently signed-in account, which matches the behaviour
+// before the guard, where any queued op flushed under whatever session was
+// active. Cheap, and runs on every signed-in load. Returns how many were tagged.
+export async function migrateUntaggedCloudOps(
+  currentUserId: string | null,
+  device: string | null = deviceUserId(),
+): Promise<number> {
   if (!currentUserId) return 0;
   const ops = await getAllOps();
   let fixed = 0;
   for (const op of ops) {
-    if (needsCloudUserTag(op.payload)) {
+    if (needsCloudAccountTag(op.payload, device)) {
       (op.payload as { userId: string }).userId = currentUserId;
       await putOp(op);
       fixed += 1;
@@ -741,7 +852,7 @@ export function warmQueueConnection(): void {
  * warm connection isn't open yet.
  */
 export function enqueueContentNow(input: QueuedUpdateOp): void {
-  const payload = withCopyId(input);
+  const payload = withAccount(withCopyId(input));
   const db = leaveDb;
   if (!db) {
     warmQueueConnection();
@@ -809,6 +920,10 @@ export async function getPendingContentByNote(): Promise<Map<string, PendingNote
   } catch {
     return result;
   }
+  // Another account's cloud edits are parked, not pending here: they must not
+  // put that account's text into this session's notes (or its cache).
+  const active = getActiveSupabaseUser();
+  ops = ops.filter((o) => shouldSyncOp(o.payload, active));
   const deleted = new Set(ops.filter((o) => o.payload.type === "delete").map((o) => o.payload.noteId));
   for (const op of ops.sort((a, b) => a.timestamp - b.timestamp)) {
     const p = op.payload;

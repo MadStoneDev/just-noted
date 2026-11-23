@@ -40,6 +40,7 @@ import DeleteAccountModal from "@/components/delete-account-modal";
 import AccountExportSection from "@/components/settings/account-export-section";
 import NotificationPrefsSection from "@/components/settings/notification-prefs-section";
 import SecuritySection from "@/components/settings/security-section";
+import { useSignOut } from "@/components/sign-out-dialog";
 import EditorPrefsSection from "@/components/settings/editor-prefs-section";
 import { getTrashState, setScribeRetentionDays } from "@/app/actions/supabaseActions";
 import { SCRIBE_RETENTION_OPTIONS, DRAFT_RETENTION_DAYS } from "@/lib/retention";
@@ -233,11 +234,21 @@ function DeviceAccountsSection() {
     };
   }, []);
 
+  // The current account goes through the guarded sign-out (unsynced edits sync
+  // first). Another stored account only leaves the device list: its parked
+  // edits and cached notes stay for when it signs in again.
+  const signingOutRef = React.useRef<string | null>(null);
+  const { signOut: signOutCurrent, dialog: signOutDialog } = useSignOut({
+    onSignedOut: () => {
+      if (signingOutRef.current) removeAccount(signingOutRef.current);
+      window.location.href = "/";
+    },
+    onError: showError,
+  });
   const signOutHere = async (a: DeviceAccount) => {
     if (a.id === currentId) {
-      await supabase.auth.signOut();
-      removeAccount(a.id);
-      window.location.href = "/";
+      signingOutRef.current = a.id;
+      await signOutCurrent();
       return;
     }
     removeAccount(a.id);
@@ -256,6 +267,7 @@ function DeviceAccountsSection() {
 
   return (
     <div>
+      {signOutDialog}
       <div className="mb-1 text-[13px] font-semibold text-[var(--color-ink-1)]">Accounts on this device</div>
       <p className="mb-3 text-[11.5px] text-[var(--color-ink-5)]">
         Switch between accounts without signing in each time. Up to {MAX_ACCOUNTS} on one device.

@@ -56,7 +56,21 @@ export interface MintedSession {
 
 // Mint a fresh session for an account. Fresh per test on purpose: GoTrue rotates
 // refresh tokens, so sharing one session across parallel tests would revoke it.
+// A magic link is invalidated when another one is generated for the same
+// account, so two tests minting at the same moment can race: retry that.
 export async function mintSession(acc: SeededAccount): Promise<MintedSession> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await mintSessionOnce(acc);
+    } catch (e) {
+      const raced = /invalid or has expired/i.test(String((e as Error)?.message));
+      if (!raced || attempt >= 4) throw e;
+      await new Promise((r) => setTimeout(r, 200 + Math.random() * 600));
+    }
+  }
+}
+
+async function mintSessionOnce(acc: SeededAccount): Promise<MintedSession> {
   const { data: link, error: linkErr } = await adminClient().auth.admin.generateLink({
     type: "magiclink",
     email: acc.email,

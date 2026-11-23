@@ -33,6 +33,12 @@ export interface CombinedNote {
    * device edited it) and it is never pushed or turned into a conflicted copy.
    */
   localEdit?: number;
+  /**
+   * IndexedDB cache only, cloud notes: the account (Supabase user id) the
+   * cached copy belongs to. Another account's copies stay parked in the cache,
+   * unread, until that account signs in again (see notes-idb-cache).
+   */
+  account?: string;
 }
 
 // Redis note format (matches your current Redis structure)

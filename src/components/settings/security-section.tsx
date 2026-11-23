@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useToast } from "@/components/ui/toast";
+import { useSignOut } from "@/components/sign-out-dialog";
 
 export default function SecuritySection() {
   const { showSuccess, showError } = useToast();
@@ -21,12 +22,21 @@ export default function SecuritySection() {
     else { setPw(""); setPw2(""); showSuccess("Password updated."); }
   };
 
+  // Same guard as any chosen sign-out: this device's unsynced edits sync first.
+  const { signOut: startSignOutEverywhere, busy: signOutBusy, dialog: signOutDialog } = useSignOut({
+    scope: "global",
+    onSignedOut: () => {
+      window.location.href = "/get-access";
+    },
+    onError: () => showError("Couldn’t sign out everywhere."),
+  });
   const signOutEverywhere = async () => {
     setSigningOut(true);
-    const { error } = await createClient().auth.signOut({ scope: "global" });
-    setSigningOut(false);
-    if (error) showError("Couldn’t sign out everywhere.");
-    else window.location.href = "/get-access";
+    try {
+      await startSignOutEverywhere();
+    } finally {
+      setSigningOut(false);
+    }
   };
 
   const inputCls =
@@ -34,6 +44,7 @@ export default function SecuritySection() {
 
   return (
     <div className="space-y-8">
+      {signOutDialog}
       <p className="text-[12.5px] text-[var(--color-ink-4)] leading-relaxed">
         Notes are encrypted in transit and at rest. This is not end-to-end encryption.
       </p>
@@ -60,10 +71,10 @@ export default function SecuritySection() {
         </p>
         <button
           onClick={signOutEverywhere}
-          disabled={signingOut}
+          disabled={signingOut || signOutBusy}
           className="h-8 px-3 rounded-[var(--radius-7)] text-[12.5px] font-medium border border-[var(--color-border-control)] text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)] transition-colors disabled:opacity-50"
         >
-          {signingOut ? "Signing out…" : "Sign out everywhere"}
+          {signingOut || signOutBusy ? "Signing out…" : "Sign out everywhere"}
         </button>
       </div>
     </div>

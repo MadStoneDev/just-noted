@@ -1,5 +1,6 @@
 import { CombinedNote } from "@/types/combined-notes";
 import { sameNoteContent } from "@/utils/notes-utils";
+import { cloudAccountFor, deviceUserId, getActiveSupabaseUser } from "@/utils/offline-queue-guard";
 import {
   IDB_CACHE_DB_NAME,
   IDB_CACHE_DB_VERSION,
@@ -42,6 +43,32 @@ function getDB(): Promise<IDBDatabase> {
   return dbPromise;
 }
 
+// ── Account scoping ─────────────────────────────────────────────────────────
+//
+// One cache holds this device's local (guest) notes and the cloud notes of
+// every account that has used it. Reads and full rewrites see only local notes
+// plus the signed-in account's cloud notes; another account's cloud copies are
+// parked untouched until it signs in again. A sign-out never clears local notes
+// or other accounts' copies (clearAccountNotes only, after a chosen sign-out).
+
+/** Whose cloud copy this is: an account id, "" when unknown (cached before
+ *  copies were tagged), null for a local note (belongs to the device). */
+function ownerOf(rec: CombinedNote): string | null {
+  if (rec.source !== "supabase") return null;
+  if (rec.account) return rec.account;
+  const author = rec.author || "";
+  return author && author !== deviceUserId() ? author : "";
+}
+
+/** Visible to the session signed in as `active` (null = signed out). An
+ *  untagged cloud copy belongs to whoever is signed in, as before tagging. */
+function inScope(rec: CombinedNote, active: string | null): boolean {
+  const owner = ownerOf(rec);
+  if (owner === null) return true;
+  if (owner === "") return !!active;
+  return owner === active;
+}
+
 /**
  * The cached copy as it should be stored. Only an explicit local edit sets
  * `localEdit`; any other write keeps an existing mark only while the cached text
@@ -52,8 +79,14 @@ function forCache(
   existing: CombinedNote | undefined,
   localEdit: boolean | number,
 ): CombinedNote {
-  const { localEdit: _ignored, ...rest } = note;
+  const { localEdit: _ignored, account: _acc, ...base } = note;
   void _ignored;
+  void _acc;
+  // A cloud copy keeps the account it was first cached for; a new one takes the
+  // account signed in now (or, just after a sign-out, the one that was).
+  const tag = note.source === "supabase" ? existing?.account || note.account || cloudAccountFor(note.author) : "";
+  const account = tag && tag !== deviceUserId() ? tag : undefined;
+  const rest: CombinedNote = account ? { ...base, account } : base;
   if (typeof localEdit === "number") return { ...rest, localEdit };
   if (localEdit) return { ...rest, localEdit: Date.now() };
   if (existing?.localEdit && sameNoteContent(existing.content, note.content)) {
@@ -136,8 +169,11 @@ export async function saveAllNotesToLocal(
     // so it all stays inside the one transaction.
     const r = store.getAll();
     r.onsuccess = () => {
-      const byId = new Map((r.result as CombinedNote[]).map((n) => [n.id, n]));
-      store.clear();
+      const active = getActiveSupabaseUser();
+      const all = r.result as CombinedNote[];
+      const byId = new Map(all.map((n) => [n.id, n]));
+      // Replace this session's view only: other accounts' parked copies stay.
+      for (const n of all) if (inScope(n, active)) store.delete(n.id);
       for (const note of notes) {
         const prev = byId.get(note.id);
         if (prev?.localEdit && !sameNoteContent(prev.content, note.content)) store.put(prev);
@@ -159,8 +195,9 @@ export async function getAllLocalNotes(): Promise<CombinedNote[]> {
     const tx = db.transaction(IDB_CACHE_STORE_NAME, "readonly");
     const store = tx.objectStore(IDB_CACHE_STORE_NAME);
     const request = store.getAll();
+    const active = getActiveSupabaseUser();
     return await new Promise<CombinedNote[]>((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result as CombinedNote[]);
+      request.onsuccess = () => resolve((request.result as CombinedNote[]).filter((n) => inScope(n, active)));
       request.onerror = () => reject(request.error);
     });
   } catch (error) {
@@ -202,6 +239,39 @@ export async function deleteLocalNote(id: string): Promise<void> {
   }
 }
 
+/**
+ * Drop one account's cached cloud copies (and untagged cloud copies, which were
+ * that account's while it was signed in). Local notes and other accounts'
+ * copies stay. Only for a sign-out the user chose. Returns how many went.
+ */
+export async function clearAccountNotes(accountId: string): Promise<number> {
+  if (!accountId) return 0;
+  let dropped = 0;
+  try {
+    const db = await getDB();
+    const tx = db.transaction(IDB_CACHE_STORE_NAME, "readwrite");
+    const store = tx.objectStore(IDB_CACHE_STORE_NAME);
+    const r = store.getAll();
+    r.onsuccess = () => {
+      for (const n of r.result as CombinedNote[]) {
+        const owner = ownerOf(n);
+        if (owner === accountId || owner === "") {
+          store.delete(n.id);
+          dropped++;
+        }
+      }
+    };
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (error) {
+    console.error("Failed to clear account notes from IDB cache:", error);
+  }
+  return dropped;
+}
+
+/** Wipes the WHOLE cache, local notes included. Not for sign-out. */
 export async function clearLocalNotes(): Promise<void> {
   try {
     const db = await getDB();

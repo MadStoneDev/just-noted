@@ -101,14 +101,21 @@ describe("processQueue — B7 cross-account guard (real IDB)", () => {
 
 describe("migrateUntaggedCloudOps — legacy backfill (real IDB)", () => {
   it("backfills untagged cloud ops so they flush under the current account", async () => {
-    await enqueue({
-      type: "update",
-      noteId: "legacy1",
-      source: "supabase",
-      userId: "", // legacy op with no account tag
-      content: "x",
-      goal: 0,
-      goalType: "",
+    // Written as an older build left it: enqueue() now tags cloud ops itself.
+    await putForeignOp({
+      id: "op_legacy1",
+      payload: {
+        type: "update",
+        noteId: "legacy1",
+        source: "supabase",
+        userId: "", // legacy op with no account tag
+        content: "x",
+        goal: 0,
+        goalType: "",
+      },
+      timestamp: Date.now(),
+      retryCount: 0,
+      lastAttempt: null,
     });
 
     // Before migration: signed in as userA, the untagged op is skipped by the guard.
@@ -259,6 +266,9 @@ const upd = (noteId: string, content: string, baseVersion?: number) => ({
 });
 
 describe("versioned queue entries (real IDB)", () => {
+  // The entries belong to account "u", signed in (cloud pending content is
+  // only read for the signed-in account).
+  beforeEach(() => setActiveSupabaseUser("u"));
   it("replays as a background CAS write with a fixed copy id; a conflict is reported", async () => {
     const { subscribeConflicts } = await import("./offline-queue");
     setActiveSupabaseUser("u");
@@ -419,6 +429,7 @@ async function allOps(): Promise<{ payload: { noteId: string; type: string } }[]
 }
 
 describe("dropUpdatesQueuedSince — an edit undone after its save failed (real IDB)", () => {
+  beforeEach(() => setActiveSupabaseUser("u"));
   it("drops this tab's updates queued since the confirmed save, and nothing else", async () => {
     const { dropUpdatesQueuedSince, getPendingContentByNote, queueClock } = await import("./offline-queue");
     await enqueue(upd("u-1", "before the confirmed save", 3)); // older: not ours to judge

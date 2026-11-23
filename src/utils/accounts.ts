@@ -4,7 +4,7 @@
 // cookie is refreshed server-side. Client-side token storage is a deliberate
 // tradeoff for local multi-account.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { processQueue, getQueueSize } from "@/utils/offline-queue";
+import { processQueue, getSendableQueueSize } from "@/utils/offline-queue";
 
 // sessionStorage key for the account-switch hand-off marker. Survives the full
 // reload so the boot gate can keep the "Switching…" screen up until the new
@@ -125,7 +125,7 @@ async function flushBeforeSwitch(timeoutMs = 3000): Promise<void> {
     await Promise.race([Promise.allSettled(pending), deadline]);
   }
   try {
-    if ((await getQueueSize()) > 0) {
+    if ((await getSendableQueueSize()) > 0) {
       await Promise.race([processQueue(), deadline]);
     }
   } catch {}

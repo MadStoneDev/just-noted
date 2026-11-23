@@ -5,7 +5,7 @@ import { Dropdown } from "@/components/ds/dropdown";
 import { createClient } from "@/utils/supabase/client";
 import { getAccounts, switchToAccount, isOffline, OFFLINE_SWITCH_MESSAGE, type DeviceAccount } from "@/utils/accounts";
 import { useToast } from "@/components/ui/toast";
-import { getQueueSize } from "@/utils/offline-queue";
+import { getSendableQueueSize } from "@/utils/offline-queue";
 import { useNotesStore } from "@/stores/notes-store";
 import { AccountSwitchModal, AccountSwitchTransition } from "@/components/account-switch-modal";
 import {
@@ -15,6 +15,7 @@ import {
   IconSettings,
 } from "@tabler/icons-react";
 import { Avatar } from "@/components/ui/avatar";
+import { useSignOut } from "@/components/sign-out-dialog";
 
 // Account switcher popover (design surface 12). Switching swaps the Supabase
 // session and reloads. The blocking "unsynced work" modal and the transition
@@ -87,7 +88,7 @@ export default function AccountMenu() {
       showError(OFFLINE_SWITCH_MESSAGE);
       return;
     }
-    const pending = await getQueueSize();
+    const pending = await getSendableQueueSize();
     const localOnly = useNotesStore
       .getState()
       .notes.filter((n) => !n.deletedAt && n.source === "redis").length;
@@ -102,13 +103,16 @@ export default function AccountMenu() {
   const hasOpenShared =
     typeof document !== "undefined" && !!document.querySelector('[aria-label="Shared note"]');
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    window.location.href = "/";
-  };
+  const { signOut, dialog: signOutDialog } = useSignOut({
+    onSignedOut: () => {
+      window.location.href = "/";
+    },
+    onError: showError,
+  });
 
   return (
     <>
+    {signOutDialog}
     {switching && <AccountSwitchTransition target={switching} />}
     {confirmTarget && (
       <AccountSwitchModal

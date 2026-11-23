@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { getQueueSize, processQueue, subscribe } from "@/utils/offline-queue";
+import { getSendableQueueSize, processQueue, subscribe } from "@/utils/offline-queue";
 import { QUEUE_RETRY_INTERVAL } from "@/constants/app";
 
 interface OnlineStatus {
@@ -70,8 +70,10 @@ export function useOfflineQueue() {
 
   // Subscribe to queue size changes
   useEffect(() => {
-    getQueueSize().then(setPendingCount);
-    return subscribe((count) => setPendingCount(count));
+    // What this session can still send (another account's parked ops excluded).
+    const recount = () => void getSendableQueueSize().then(setPendingCount);
+    recount();
+    return subscribe(recount);
   }, []);
 
   // Process on offline→online transition

@@ -52,12 +52,57 @@ export function needsCloudUserTag(op: SyncOpIdentity): boolean {
 // time. This lives here rather than in offline-queue.ts so the pure guard above
 // and this trivial holder can be imported and tested without pulling in the
 // queue's IndexedDB / server-action dependencies.
+//
+// The id is the Supabase auth user id (the account), NOT the device id the
+// notes store calls `userId` (localStorage notes_user_id, the same for every
+// account on this device).
 let activeSupabaseUserId: string | null = null;
+// The account signed in most recently in this tab. Kept after a sign-out, so a
+// cloud write that fails just after the session ended (an open editor's save)
+// is still queued under the account it belongs to, and parked there.
+let lastSupabaseUserId: string | null = null;
 
 export function setActiveSupabaseUser(userId: string | null): void {
   activeSupabaseUserId = userId || null;
+  if (activeSupabaseUserId) lastSupabaseUserId = activeSupabaseUserId;
 }
 
 export function getActiveSupabaseUser(): string | null {
   return activeSupabaseUserId;
+}
+
+export function getLastSupabaseUser(): string | null {
+  return lastSupabaseUserId;
+}
+
+/** This device's guest id (localStorage notes_user_id), or null when unknown. */
+export function deviceUserId(): string | null {
+  try {
+    return typeof localStorage !== "undefined" ? localStorage.getItem("notes_user_id") : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The account a cloud op or cached cloud note belongs to, given the id it was
+ * written with. Callers pass the notes store's `userId`, which is the DEVICE id;
+ * for a cloud record that (or a blank) means "the account signed in now" (or,
+ * just after a sign-out, the one that was). A real account id is kept as is.
+ */
+export function cloudAccountFor(userId: string | null | undefined): string {
+  const device = deviceUserId();
+  if (userId && userId !== device) return userId;
+  return activeSupabaseUserId ?? lastSupabaseUserId ?? userId ?? "";
+}
+
+/**
+ * A cloud op not tagged with an account: blank (queued before ops were
+ * account-scoped) or tagged with the device id (queued before ops carried the
+ * account id). The device id is the same for every account on the device, so
+ * the guard can't tell whose it is; the next signed-in account adopts it, as
+ * before account tagging.
+ */
+export function needsCloudAccountTag(op: SyncOpIdentity, device: string | null): boolean {
+  return op.source === "supabase" && (!op.userId || (!!device && op.userId === device));
 }

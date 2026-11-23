@@ -19,7 +19,7 @@ import {
   redisToCombi,
   supabaseToCombi,
 } from "@/types/combined-notes";
-import { getAllLocalNotes, saveAllNotesToLocal, saveNoteToLocal, clearLocalNotes } from "@/utils/notes-idb-cache";
+import { getAllLocalNotes, saveAllNotesToLocal, saveNoteToLocal } from "@/utils/notes-idb-cache";
 import {
   LEGACY_COPY_BASE_VERSION,
   legacyCopyId,
@@ -27,7 +27,6 @@ import {
   markLegacyCacheChecked,
 } from "@/utils/legacy-cache";
 import {
-  clearQueue,
   processQueue,
   enqueue,
   migrateUntaggedCloudOps,
@@ -283,8 +282,9 @@ export function useNotesSync() {
               setTimeout(() => reject(new Error("Auth timeout")), AUTH_TIMEOUT)
             ),
           ]);
-          const nowAuthenticated = !!authResult.data?.user;
-          if (nowAuthenticated) {
+          const user = authResult.data?.user;
+          if (user) {
+            setActiveSupabaseUser(user.id);
             setAuthenticated(true);
           }
         } catch {
@@ -410,6 +410,28 @@ export function useNotesSync() {
         loadStartedAtRef.current ??= Date.now();
         const loadStartedAt = loadStartedAtRef.current;
 
+        // Who is signed in, from the local session (cookie) — race-free on a
+        // fresh load right after login, and no network round-trip. getUser()
+        // can time out or momentarily read as logged out, which would then load
+        // only guest notes and leave the shell stale until a manual refresh
+        // (the INITIAL_SESSION event fires before init completes, so the auth
+        // listener's reconcile is skipped). Server actions still enforce real
+        // auth via RLS, so trusting the local session for UI gating is safe.
+        // Read first: the cache and the queue show only this account's cloud
+        // notes (another account's are parked until it signs in again).
+        let sessionUserId: string | null = null;
+        try {
+          const { data } = await supabase.auth.getSession();
+          sessionUserId = data.session?.user?.id ?? null;
+        } catch {
+          // No readable session — proceed as unauthenticated.
+        }
+        const authenticated = !!sessionUserId;
+        // B7: tell the offline queue which account owns cloud ops right now, so a
+        // queued op from another account is never flushed under this session
+        // (the queue survives sign-outs and the account-switch reload).
+        setActiveSupabaseUser(sessionUserId);
+
         // STEP 0: Render IDB cache immediately for fast first paint. Notes
         // already in the store (created while the cache was being read, or
         // kept from an earlier attempt) win over their cached copies.
@@ -433,34 +455,13 @@ export function useNotesSync() {
           throw new Error("Failed to get user ID");
         }
 
-        // Determine auth from the local session (cookie), which is race-free on
-        // a fresh load right after login. getUser() makes a network round-trip
-        // that can time out or momentarily read as logged out, which would then
-        // load only guest notes and leave the shell stale until a manual refresh
-        // (the INITIAL_SESSION event fires before init completes, so the auth
-        // listener's reconcile is skipped). Server actions still enforce real
-        // auth via RLS, so trusting the local session for UI gating is safe.
-        let authenticated = false;
-        try {
-          const { data } = await supabase.auth.getSession();
-          authenticated = !!data.session?.user;
-        } catch {
-          // No readable session — proceed as unauthenticated.
-        }
         setAuthenticated(authenticated);
-        // B7: tell the offline queue which account owns cloud ops right now, so a
-        // queued op from a previously signed-in account is never flushed under
-        // this session (the queue survives the account-switch reload).
-        setActiveSupabaseUser(authenticated ? newUserId : null);
-        // B7: one-time backfill of legacy untagged cloud ops (queued before ops
-        // were account-scoped) so they flush under this account, as they would
-        // have pre-guard. Runs once per device, before the first queue drain.
-        if (authenticated && typeof window !== "undefined") {
+        // B7: cloud ops queued without an account tag (blank, or the device id
+        // older builds used) are adopted by this account, as they'd have flushed
+        // under it before the guard. Before the first queue drain.
+        if (authenticated) {
           try {
-            if (!localStorage.getItem("jn_queue_usertag_migrated_v1")) {
-              await migrateUntaggedCloudOps(newUserId);
-              localStorage.setItem("jn_queue_usertag_migrated_v1", "1");
-            }
+            await migrateUntaggedCloudOps(sessionUserId);
           } catch {}
         }
 
@@ -615,15 +616,19 @@ export function useNotesSync() {
         const wasAuthenticated = useNotesStore.getState().isAuthenticated;
         const nowAuthenticated = !!session?.user;
 
+        // The queue and the cache follow the account: on a sign-out (expired or
+        // revoked session, failed token refresh, or chosen) that account's
+        // queued edits and cached notes are PARKED, never wiped — they're
+        // simply out of scope while it's signed out, and replay through the CAS
+        // when it signs back in. A chosen sign-out clears that account's data
+        // itself, after syncing or the user's say-so (utils/sign-out.ts).
+        setActiveSupabaseUser(session?.user?.id ?? null);
         setAuthenticated(nowAuthenticated);
 
         if (hasInitialisedRef.current && wasAuthenticated !== nowAuthenticated) {
-          // Clear IDB cache and offline queue on logout to prevent data leaking to next user
-          if (wasAuthenticated && !nowAuthenticated) {
-            clearLocalNotes().catch(() => {});
-            clearQueue().catch(() => {});
-          }
           await refreshNotes();
+          // Back from a sign-out: send what was parked for this account.
+          if (nowAuthenticated) processQueue().catch(() => {});
 
           // Clean up empty default notes when logging in
           if (!wasAuthenticated && nowAuthenticated) {
