@@ -1,7 +1,7 @@
 // src/hooks/use-notes-sync.ts
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { useNotesStore } from "@/stores/notes-store";
 import { createClient } from "@/utils/supabase/client";
 import { getUserId } from "@/utils/general/notes";
@@ -203,6 +203,10 @@ export function useNotesSync() {
   const isInitializingRef = useRef(false);
   const loadStartedAtRef = useRef<number | null>(null);
   const isMounted = useRef(true);
+  // The signed-in Supabase account (auth user id), or null. NOT the store's
+  // `userId`, which is this device's guest id (the same for every account here)
+  // and never matches a cloud note's `author`.
+  const [accountId, setAccountId] = useState<string | null>(null);
   const initRetryCount = useRef(0);
   const initRetryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const noteFlushFunctionsRef = useRef<Map<string, () => void>>(new Map());
@@ -431,6 +435,7 @@ export function useNotesSync() {
         // queued op from another account is never flushed under this session
         // (the queue survives sign-outs and the account-switch reload).
         setActiveSupabaseUser(sessionUserId);
+        setAccountId(sessionUserId);
 
         // STEP 0: Render IDB cache immediately for fast first paint. Notes
         // already in the store (created while the cache was being read, or
@@ -623,6 +628,7 @@ export function useNotesSync() {
         // when it signs back in. A chosen sign-out clears that account's data
         // itself, after syncing or the user's say-so (utils/sign-out.ts).
         setActiveSupabaseUser(session?.user?.id ?? null);
+        setAccountId(session?.user?.id ?? null);
         setAuthenticated(nowAuthenticated);
 
         if (hasInitialisedRef.current && wasAuthenticated !== nowAuthenticated) {
@@ -656,9 +662,11 @@ export function useNotesSync() {
     };
   }, [supabase, refreshNotes, setAuthenticated, syncFromBackend, recalculateNotebookCounts]);
 
-  // Supabase Realtime — listen for cross-device changes to cloud notes
+  // Supabase Realtime — listen for cross-device changes to cloud notes.
+  // Filtered on the ACCOUNT id: a cloud note's `author` is the Supabase user
+  // id. (RLS scopes the stream to rows this session may read either way.)
   useEffect(() => {
-    if (!isAuthenticated || !userId) return;
+    if (!isAuthenticated || !accountId) return;
 
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -670,7 +678,7 @@ export function useNotesSync() {
           event: "*",
           schema: "public",
           table: "notes",
-          filter: `author=eq.${userId}`,
+          filter: `author=eq.${accountId}`,
         },
         (payload: any) => {
           if (!isMounted.current) return;
@@ -728,7 +736,7 @@ export function useNotesSync() {
       if (reconnectTimer) clearTimeout(reconnectTimer);
       supabase.removeChannel(channel);
     };
-  }, [supabase, isAuthenticated, userId]);
+  }, [supabase, isAuthenticated, accountId]);
 
   // Cross-device freshness (local/Redis notes have no realtime channel): poll
   // faster while the tab is VISIBLE, pause while hidden, and refresh immediately
