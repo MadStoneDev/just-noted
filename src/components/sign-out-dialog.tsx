@@ -36,13 +36,30 @@ export function useSignOut(opts: {
   const optsRef = useRef(opts);
   optsRef.current = opts;
 
-  const finish = useCallback(async (accountId: string | null) => {
+  // `discardUnsynced`: the user chose "Sign out anyway". Otherwise
+  // completeSignOut re-counts and refuses if anything unsynced turned up.
+  const finish = useCallback(async (accountId: string | null, discardUnsynced = false) => {
     setPhase({ kind: "signing-out" });
     const supabase = createClient();
-    const res = await completeSignOut(supabase, accountId, { scope: optsRef.current.scope });
+    const res = await completeSignOut(supabase, accountId, {
+      scope: optsRef.current.scope,
+      discardUnsynced,
+    });
+    if (res.unsynced) {
+      setPhase({ kind: "failed", count: res.unsynced });
+      return;
+    }
     if (!res.ok) {
       setPhase({ kind: "idle" });
       optsRef.current.onError?.(res.error || "Couldn’t sign out.");
+      return;
+    }
+    setPhase({ kind: "idle" });
+    // Offline, a page load would only show the browser's offline page: the app
+    // is already signed out in place (SIGNED_OUT), so the caller's navigation
+    // waits for the connection.
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      window.addEventListener("online", () => optsRef.current.onSignedOut(), { once: true });
       return;
     }
     optsRef.current.onSignedOut();
@@ -55,10 +72,12 @@ export function useSignOut(opts: {
     const supabase = createClient();
     const accountId = await currentAccountId(supabase);
     accountRef.current = accountId;
-    // An open editor's unsaved text goes out (or into the queue) first.
-    await flushOpenEditors();
+    // An open editor's unsaved text goes out (or into the queue) first; an
+    // editor that couldn't save or queue it counts as unsynced.
+    const flush = await flushOpenEditors();
     if (me !== run.current) return;
-    const count = await unsyncedNoteCount(accountId);
+    const count = await unsyncedNoteCount(accountId, flush);
+    if (me !== run.current) return;
     if (count === 0 || !accountId) return finish(accountId);
 
     setPhase({ kind: "syncing", count });
@@ -75,7 +94,7 @@ export function useSignOut(opts: {
 
   const signOutAnyway = useCallback(() => {
     run.current++;
-    return finish(accountRef.current);
+    return finish(accountRef.current, true);
   }, [finish]);
 
   const dialog =

@@ -1,6 +1,15 @@
 ﻿import { useCallback, useRef, useEffect, type MutableRefObject } from "react";
 import { DEBOUNCE_DELAY } from "@/constants/app";
 
+// A save that has failed (and given up its quick retries) is tried again on
+// every sign the connection may be back — the browser going online, the tab
+// becoming visible or focused — and, while the content stays unsaved, on a
+// slow timer: 30 s, doubling to at most 5 min. Each of these starts a fresh
+// round of retries. Without them an open note's offline edit sat unsaved after
+// reconnecting: the queue doesn't replay a note an editor owns.
+export const DIRTY_RETRY_BASE_MS = 30_000;
+export const DIRTY_RETRY_MAX_MS = 5 * 60_000;
+
 export function useAutoSave(
   noteContent: string,
   saveFunction: (content: string, isManual?: boolean) => Promise<boolean | void>,
@@ -57,6 +66,62 @@ export function useAutoSave(
   const retryCountRef = useRef(0);
   const MAX_RETRIES = 3;
 
+  const isDirty = useCallback(
+    () => latestContentRef.current !== lastSavedContentRef.current,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  // Retry a failed save later (see DIRTY_RETRY_BASE_MS). executeSaveRef: the
+  // triggers below outlive executeSave's identity.
+  const executeSaveRef = useRef<() => Promise<void>>(async () => {});
+  const dirtyTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const dirtyDelayRef = useRef(DIRTY_RETRY_BASE_MS);
+  const clearDirtyRetry = () => {
+    if (dirtyTimerRef.current) clearTimeout(dirtyTimerRef.current);
+    dirtyTimerRef.current = null;
+    dirtyDelayRef.current = DIRTY_RETRY_BASE_MS;
+  };
+  const retryDirtyNow = () => {
+    if (!isDirty()) {
+      clearDirtyRetry(); // saved meanwhile: the next failure starts at 30 s again
+      return;
+    }
+    if (saveInProgressRef.current) return;
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+    if (dirtyTimerRef.current) clearTimeout(dirtyTimerRef.current);
+    dirtyTimerRef.current = null;
+    retryCountRef.current = 0; // a fresh round of retries
+    void executeSaveRef.current();
+  };
+  const scheduleDirtyRetry = () => {
+    if (!isDirty() || dirtyTimerRef.current) return;
+    const delay = dirtyDelayRef.current;
+    dirtyDelayRef.current = Math.min(delay * 2, DIRTY_RETRY_MAX_MS);
+    dirtyTimerRef.current = setTimeout(() => {
+      dirtyTimerRef.current = null;
+      retryDirtyNow();
+      // Still offline (retryDirtyNow skipped): keep the timer going.
+      if (isDirty() && !saveInProgressRef.current) scheduleDirtyRetry();
+    }, delay);
+  };
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") retryDirtyNow();
+    };
+    window.addEventListener("online", retryDirtyNow);
+    window.addEventListener("focus", retryDirtyNow);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("online", retryDirtyNow);
+      window.removeEventListener("focus", retryDirtyNow);
+      document.removeEventListener("visibilitychange", onVisible);
+      if (dirtyTimerRef.current) clearTimeout(dirtyTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const executeSave = useCallback(async () => {
     const contentToSave = latestContentRef.current;
 
@@ -102,6 +167,9 @@ export function useAutoSave(
       // If we exhausted retries, reset counter so next user edit can try again
       if (result === false) {
         retryCountRef.current = 0;
+        scheduleDirtyRetry();
+      } else {
+        clearDirtyRetry();
       }
     } catch (error) {
       console.error("Auto-save failed:", error);
@@ -111,6 +179,7 @@ export function useAutoSave(
       savePromiseRef.current = null;
     }
   }, [saveFunction]);
+  executeSaveRef.current = executeSave;
 
   const debouncedSave = useCallback(() => {
     // Clear existing timeout
@@ -153,6 +222,7 @@ export function useAutoSave(
         // Same rule as executeSave: an explicit false is a failed save — the
         // content stays unsaved (and, with a shared baseline, the caller dirty).
         if (result !== false) lastSavedContentRef.current = contentToSave;
+        else scheduleDirtyRetry();
       } catch (error) {
         console.error("Flush save failed:", error);
       } finally {
@@ -220,5 +290,6 @@ export function useAutoSave(
     flushSave,
     cancelSave,
     setLatestContent,
+    isDirty,
   };
 }

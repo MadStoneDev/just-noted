@@ -951,10 +951,12 @@ export function useNotesOperations(
               }
             } else {
               setSaveError(noteId, true);
-              enqueue({
+              // Awaited: a caller that flushes before acting on the queue (a
+              // sign-out counting unsynced notes) must find this entry there.
+              await enqueue({
                 type: "update", noteId, source: targetNote.source, userId, content, goal, goalType,
                 baseVersion,
-              });
+              }).catch(() => {});
             }
             return r;
           }
@@ -981,10 +983,10 @@ export function useNotesOperations(
       } catch (error) {
         console.error("Failed to save note content, queuing for retry:", error);
         setSaveError(noteId, true);
-        enqueue({
+        await enqueue({
           type: "update", noteId, source: targetNote.source, userId, content, goal, goalType,
           baseVersion: attemptBase,
-        });
+        }).catch(() => {});
         return { success: false };
       } finally {
         setSaving(noteId, false);

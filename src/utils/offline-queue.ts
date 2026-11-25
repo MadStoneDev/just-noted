@@ -22,7 +22,7 @@ import {
   removedAccountIds,
   deviceUserId,
 } from "./offline-queue-guard";
-import { cachedCloudOwners, clearAccountNotes } from "./notes-idb-cache";
+import { cachedCloudOwners, clearAccountNotes, confirmLocalEditIfLanded } from "./notes-idb-cache";
 import { sameNoteContent } from "./notes-utils";
 import { conflictStamp } from "./background-conflict";
 import { TAB_ID } from "./cross-tab";
@@ -400,74 +400,108 @@ function withAccount<T extends QueuedOperationPayload>(payload: T): T {
   return userId === payload.userId ? payload : { ...payload, userId };
 }
 
-export async function enqueue(input: QueuedOperationPayload): Promise<void> {
-  const payload = withAccount(withCopyId(input));
-  const noteId = payload.noteId;
-
+/**
+ * The queue's collapse rules for one note, applied to the ops already queued
+ * for it: what to delete, what to rewrite (a create absorbing an update), and
+ * whether `payload` is still added as a new op. Pure, so enqueue() can apply it
+ * inside one transaction.
+ */
+function collapseInto(
+  existing: QueuedOperation[],
+  payload: QueuedOperationPayload,
+): { remove: string[]; rewrite: QueuedOperation[]; add: boolean } {
   // Rule 2: Delete wins — remove all other ops for this noteId
-  if (payload.type === "delete") {
-    await deleteOpsByNoteId(noteId);
-  } else {
-    // Rule 3: If there's a queued create for the same noteId and we're doing an update,
-    // merge update data into the create op
-    const existing = await getOpsByNoteId(noteId);
+  if (payload.type === "delete") return { remove: existing.map((o) => o.id), rewrite: [], add: true };
 
-    const createOp = existing.find((op) => op.payload.type === "create");
-    if (createOp && payload.type === "update") {
-      // Merge content/goal into the create op's note payload
-      const createPayload = createOp.payload as QueuedCreateOp;
-      const note = createPayload.note as unknown as Record<string, unknown>;
+  // Rule 3: a queued create absorbs a later content/title update.
+  const createOp = existing.find((op) => op.payload.type === "create");
+  if (createOp && (payload.type === "update" || payload.type === "updateTitle")) {
+    const note = (createOp.payload as QueuedCreateOp).note as unknown as Record<string, unknown>;
+    if (payload.type === "update") {
       note.content = payload.content;
       note.goal = payload.goal;
       note.goal_type = payload.goalType;
-      await putOp(createOp);
-
-      const count = await countOps();
-      notifySubscribers(count);
-      return;
-    }
-
-    if (createOp && payload.type === "updateTitle") {
-      const createPayload = createOp.payload as QueuedCreateOp;
-      const note = createPayload.note as unknown as Record<string, unknown>;
+    } else {
       note.title = payload.title;
-      await putOp(createOp);
-
-      const count = await countOps();
-      notifySubscribers(count);
-      return;
     }
-
-    // Rule 1: Same noteId + same type → replace older (content updates: only
-    // one made from the same base — see replacesUpdate)
-    for (const op of existing) {
-      if (op.payload.type !== payload.type) continue;
-      if (
-        payload.type === "update" &&
-        !replacesUpdate(op.payload as QueuedUpdateOp, payload)
-      ) {
-        continue;
-      }
-      await deleteOp(op.id);
-      if (payload.type !== "update") break;
-    }
+    return { remove: [], rewrite: [createOp], add: false };
   }
 
-  // Add new op
-  const timestamp = nextTimestamp();
-  const op: QueuedOperation = {
-    id: `op_${timestamp}_${Math.random().toString(36).slice(2, 11)}`,
-    payload,
-    timestamp,
-    retryCount: 0,
-    lastAttempt: null,
-    origin: TAB_ID,
-  };
+  // Rule 1: Same noteId + same type → replace older (content updates: only
+  // one made from the same base — see replacesUpdate)
+  const remove: string[] = [];
+  for (const op of existing) {
+    if (op.payload.type !== payload.type) continue;
+    if (payload.type === "update" && !replacesUpdate(op.payload as QueuedUpdateOp, payload)) continue;
+    remove.push(op.id);
+    if (payload.type !== "update") break;
+  }
+  return { remove, rewrite: [], add: true };
+}
 
-  await putOp(op);
+// Queue writes still in flight. Callers often enqueue without awaiting (a
+// failed save, a create made offline); settleQueueWrites() lets a reader that
+// must see every entry — the sign-out's unsynced count — wait for them.
+const writesInFlight = new Set<Promise<void>>();
 
-  const count = await countOps();
-  notifySubscribers(count);
+/** Wait for every enqueue() started so far to be written (or to fail). */
+export async function settleQueueWrites(): Promise<void> {
+  while (writesInFlight.size) await Promise.allSettled([...writesInFlight]);
+}
+
+/**
+ * Queue an op. Reading the note's queued ops, collapsing and writing happen in
+ * ONE readwrite transaction, so no reader ever sees the note's older entry
+ * gone and the new one not yet there (a sign-out counting in that gap saw
+ * nothing unsynced and cleared the edit).
+ */
+export function enqueue(input: QueuedOperationPayload): Promise<void> {
+  const run = enqueueAtomic(input);
+  writesInFlight.add(run);
+  run.then(
+    () => writesInFlight.delete(run),
+    () => writesInFlight.delete(run),
+  );
+  return run;
+}
+
+async function enqueueAtomic(input: QueuedOperationPayload): Promise<void> {
+  const payload = withAccount(withCopyId(input));
+  const db = await openDB();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(OFFLINE_QUEUE_STORE_NAME, "readwrite");
+    const store = tx.objectStore(OFFLINE_QUEUE_STORE_NAME);
+    const req = store.index("noteId").getAll(IDBKeyRange.only(payload.noteId));
+    req.onsuccess = () => {
+      const { remove, rewrite, add } = collapseInto(req.result as QueuedOperation[], payload);
+      for (const id of remove) store.delete(id);
+      for (const op of rewrite) store.put(op);
+      if (add) {
+        const timestamp = nextTimestamp();
+        store.put({
+          id: `op_${timestamp}_${Math.random().toString(36).slice(2, 11)}`,
+          payload,
+          timestamp,
+          retryCount: 0,
+          lastAttempt: null,
+          origin: TAB_ID,
+        } satisfies QueuedOperation);
+      }
+    };
+    tx.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
+    };
+    tx.onabort = () => {
+      db.close();
+      reject(tx.error);
+    };
+  });
+  notifySubscribers(await countOps());
 }
 
 // ===========================
@@ -494,6 +528,9 @@ async function executeOp(payload: QueuedOperationPayload, queuedAt: number): Pro
       } else {
         throwIfFailed(await createSupabaseNote(note as CombinedNote), "Create failed");
       }
+      // The cached copy of a note made offline is on the server now.
+      const made = (note as { content?: unknown }).content;
+      if (typeof made === "string") await confirmLocalEditIfLanded(noteId, made);
       break;
     }
     case "update": {
@@ -518,6 +555,10 @@ async function executeOp(payload: QueuedOperationPayload, queuedAt: number): Pro
       throwIfFailed(r, "Update failed");
       if (r.conflicted) {
         conflictListeners.forEach((cb) => cb(payload));
+      } else {
+        // Landed as the note's text: a cached copy holding exactly it is
+        // confirmed (no longer unsynced writing a sign-out must keep).
+        await confirmLocalEditIfLanded(noteId, content);
       }
       break;
     }
@@ -811,7 +852,7 @@ export async function discardRemovedAccountsParked(onDevice: Iterable<string>): 
   let notes = 0;
   for (const [accountId, ids] of removed) {
     await clearAccountOps(accountId);
-    await clearAccountNotes(accountId, { includeUntagged: false });
+    await clearAccountNotes(accountId, { includeUntagged: false, keepLocalEdits: false });
     notes += ids.size;
   }
   return notes;

@@ -43,7 +43,13 @@ import {
   clearLocalNotes,
   clearAccountNotes,
 } from "./notes-idb-cache";
-import { completeSignOut, syncAccountBeforeSignOut, unsyncedNoteCount } from "./sign-out";
+import {
+  clearAccountData,
+  completeSignOut,
+  flushOpenEditors,
+  syncAccountBeforeSignOut,
+  unsyncedNoteCount,
+} from "./sign-out";
 import { updateNote } from "@/app/actions/supabaseActions";
 import { noteOperation } from "@/app/actions/notes";
 
@@ -245,9 +251,17 @@ describe("the note cache is scoped to the account", () => {
     expect(await ids()).toEqual(["b1", "g1"]);
   });
 
+  it("clearAccountNotes keeps an unsynced (localEdit) copy unless told to drop it", async () => {
+    await seed();
+    expect(await clearAccountNotes("acct-A")).toBe(1); // a1 goes; a-new (made offline) stays
+    setActiveSupabaseUser("acct-A");
+    expect(await ids()).toEqual(["a-new", "g1"]);
+    expect((await getLocalNote("a-new"))?.localEdit).toBeGreaterThan(0);
+  });
+
   it("clearAccountNotes drops that account's cloud copies only", async () => {
     await seed();
-    expect(await clearAccountNotes("acct-A")).toBe(2);
+    expect(await clearAccountNotes("acct-A", { keepLocalEdits: false })).toBe(2);
     setActiveSupabaseUser("acct-A");
     expect(await ids()).toEqual(["g1"]);
     setActiveSupabaseUser("acct-B");
@@ -266,12 +280,14 @@ describe("a sign-out the user chose", () => {
     setActiveSupabaseUser("acct-A");
     await cloudEdit("a1", "A unsynced");
     await localEdit("l1", "guest unsynced");
-    await saveNoteToLocal(note({ id: "a1", source: "supabase", author: "acct-A" }), { localEdit: true });
+    await saveNoteToLocal(note({ id: "a1", source: "supabase", author: "acct-A", content: "A unsynced" }), { localEdit: true });
     await saveNoteToLocal(note({ id: "g1", source: "redis" }), { localEdit: true });
     mockedNoteOp.mockImplementation(async () => ({ success: false, error: "keep guest op queued" }) as any);
 
     expect(await unsyncedNoteCount("acct-A")).toBe(1);
     expect(await syncAccountBeforeSignOut("acct-A", { gapMs: 0 })).toBe(0);
+    // The replay landed exactly the cached text: that copy is confirmed.
+    expect((await getLocalNote("a1"))?.localEdit).toBeUndefined();
     expect(mockedUpdate).toHaveBeenCalledWith("a1", "A unsynced", 0, "", expect.objectContaining({ baseVersion: 1 }));
 
     const supabase = fakeSupabase();
@@ -306,6 +322,9 @@ describe("a sign-out the user chose", () => {
     const supabase = fakeSupabase({ name: "AuthRetryableFetchError", message: "Failed to fetch" });
     expect(await completeSignOut(supabase, "acct-A")).toEqual({ ok: true });
     expect(cookies).toEqual(["sb-x-auth-token.0=; Max-Age=0; path=/"]);
+    // With the cookie gone, supabase-js is asked again: it signs out locally
+    // (no session to revoke) and emits SIGNED_OUT — no page load needed.
+    expect(supabase.auth.signOut).toHaveBeenNthCalledWith(2, { scope: "local" });
   });
 
   it("'sign out everywhere' offline fails instead of pretending", async () => {
@@ -367,5 +386,102 @@ describe("a removed account's parked notes (Settings → Sync & data)", () => {
     expect((await removedAccountsParked(["acct-A"])).size).toBe(1);
     expect(await discardRemovedAccountsParked(["acct-A", "acct-gone"])).toBe(0);
     expect(await queuedNoteIdsForAccount("acct-gone")).toEqual(new Set(["g1"]));
+  });
+});
+
+// f4 (release smoke test): offline, a line typed into a cloud note and a
+// sign-out within a second. The flushed save queued the line AFTER the count
+// had read the queue (0), so the sign-out cleared the account's data, line
+// included, without a dialog.
+describe("f4: nothing unsynced is lost to a sign-out", () => {
+  const fakeSupabase = (error: { name: string; message: string } | null = null) =>
+    ({ auth: { signOut: vi.fn(async () => ({ error })) } }) as any;
+
+  it("the count waits for a queue write still in flight (enqueue not awaited by its caller)", async () => {
+    setActiveSupabaseUser("acct-A");
+    void cloudEdit("a1", "typed offline"); // a failed save's fire-and-forget enqueue
+    expect(await unsyncedNoteCount("acct-A")).toBe(1);
+  });
+
+  it("replacing a note's queued edit is atomic: a concurrent reader never sees it missing", async () => {
+    setActiveSupabaseUser("acct-A");
+    await cloudEdit("a1", "first");
+    const reads: number[] = [];
+    const replace = cloudEdit("a1", "second"); // same base: replaces "first"
+    for (let i = 0; i < 20; i++) reads.push((await queuedNoteIdsForAccount("acct-A")).size);
+    await replace;
+    expect(reads.every((n) => n === 1)).toBe(true);
+    expect((await getPendingContentByNote()).get("a1")?.content).toBe("second");
+  });
+
+  it("an open editor still dirty after its flush counts; one whose flush times out counts as unknown, not zero", async () => {
+    setActiveSupabaseUser("acct-A");
+    const target = new EventTarget();
+    vi.stubGlobal("window", Object.assign(target, { setTimeout }));
+    const editor = (e: Event) => {
+      const d = (e as CustomEvent).detail;
+      d.register(Promise.resolve().then(() => d.dirty("a1", "supabase")));
+    };
+    const guestEditor = (e: Event) => {
+      const d = (e as CustomEvent).detail;
+      d.register(Promise.resolve().then(() => d.dirty("g1", "redis"))); // guest: survives sign-out
+    };
+    target.addEventListener("justnoted:flush-saves", editor);
+    target.addEventListener("justnoted:flush-saves", guestEditor);
+    const flush = await flushOpenEditors();
+    expect([...flush.dirtyCloudNotes]).toEqual(["a1"]);
+    expect(await unsyncedNoteCount("acct-A", flush)).toBe(1);
+    target.removeEventListener("justnoted:flush-saves", editor);
+    target.removeEventListener("justnoted:flush-saves", guestEditor);
+
+    const hung = (e: Event) => (e as CustomEvent).detail.register(new Promise(() => {}));
+    target.addEventListener("justnoted:flush-saves", hung);
+    const stuck = await flushOpenEditors(20);
+    expect(stuck.timedOut).toBe(true);
+    expect(await unsyncedNoteCount("acct-A", stuck)).toBe(1);
+  });
+
+  it("clearAccountData without 'sign out anyway' keeps every queue entry and localEdit copy, parked for the account", async () => {
+    setActiveSupabaseUser("acct-A");
+    await cloudEdit("a1", "unsynced");
+    await saveNoteToLocal(note({ id: "a1", source: "supabase", author: "acct-A", content: "unsynced" }), { localEdit: true });
+    await saveNoteToLocal(note({ id: "a2", source: "supabase", author: "acct-A" })); // synced copy
+    setActiveSupabaseUser(null);
+
+    await clearAccountData("acct-A");
+    expect(await queuedNoteIdsForAccount("acct-A")).toEqual(new Set(["a1"]));
+    expect((await parkedNotesByAccount()).get("acct-A")).toEqual(new Set(["a1"]));
+    expect((await getLocalNote("a1"))?.localEdit).toBeGreaterThan(0);
+    expect(await getLocalNote("a2")).toBeUndefined(); // synced copies still go
+
+    await clearAccountData("acct-A", { discardUnsynced: true });
+    expect(await queuedNoteIdsForAccount("acct-A")).toEqual(new Set());
+    expect(await getLocalNote("a1")).toBeUndefined();
+  });
+
+  it("completeSignOut re-counts: an edit that turned up after the count refuses the sign-out and touches nothing", async () => {
+    setActiveSupabaseUser("acct-A");
+    await saveNoteToLocal(note({ id: "a1", source: "supabase", author: "acct-A", content: "late" }), { localEdit: true });
+    void cloudEdit("a1", "late"); // still in flight when the sign-out completes
+    const supabase = fakeSupabase();
+    expect(await completeSignOut(supabase, "acct-A")).toEqual({ ok: false, unsynced: 1 });
+    expect(supabase.auth.signOut).not.toHaveBeenCalled();
+    expect(await queuedNoteIdsForAccount("acct-A")).toEqual(new Set(["a1"]));
+    expect((await getLocalNote("a1"))?.localEdit).toBeGreaterThan(0);
+  });
+
+  it("offline, 'sign out anyway' (discardUnsynced) is the only way the account's unsynced edit goes", async () => {
+    setActiveSupabaseUser("acct-A");
+    await cloudEdit("a1", "lost by choice");
+    await saveNoteToLocal(note({ id: "a1", source: "supabase", author: "acct-A", content: "lost by choice" }), { localEdit: true });
+    await localEdit("l1", "guest unsynced");
+    installBrowser(false);
+    vi.stubGlobal("document", { cookie: "" });
+    const supabase = fakeSupabase({ name: "AuthRetryableFetchError", message: "Failed to fetch" });
+    expect(await completeSignOut(supabase, "acct-A")).toEqual({ ok: false, unsynced: 1 });
+    expect(await completeSignOut(supabase, "acct-A", { discardUnsynced: true })).toEqual({ ok: true });
+    expect(await queuedNoteIdsForAccount("acct-A")).toEqual(new Set());
+    expect(await getLocalNote("a1")).toBeUndefined();
+    expect(await getQueueSize()).toBe(1); // the guest edit stays
   });
 });

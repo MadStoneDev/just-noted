@@ -804,7 +804,7 @@ export function NoteEditor({
   // save-on-leave so keystrokes still inside the editor's ~300ms of change
   // debouncing reach handleContentChange instead of dying with the editor.
   const editorFlushRef = useRef<(() => void) | null>(null);
-  const { debouncedSave, flushSave, cancelSave, setLatestContent } = useAutoSave(
+  const { debouncedSave, flushSave, cancelSave, setLatestContent, isDirty } = useAutoSave(
     content,
     saveContent,
     undefined,
@@ -824,14 +824,22 @@ export function NoteEditor({
   useEffect(() => {
     const onFlush = (e: Event) => {
       const detail = (e as CustomEvent).detail as
-        | { register?: (p: Promise<unknown>) => void }
+        | {
+            register?: (p: Promise<unknown>) => void;
+            dirty?: (noteId: string, source?: string) => void;
+          }
         | undefined;
-      const p = Promise.resolve(flushSave());
+      // A failed save is queued before flushSave settles; text that is still
+      // unsaved after it (the save threw before queueing, or couldn't start)
+      // is reported so a sign-out never counts it as synced.
+      const p = Promise.resolve(flushSave()).finally(() => {
+        if (isDirty()) detail?.dirty?.(note.id, noteSource);
+      });
       if (detail && typeof detail.register === "function") detail.register(p);
     };
     window.addEventListener("justnoted:flush-saves", onFlush);
     return () => window.removeEventListener("justnoted:flush-saves", onFlush);
-  }, [flushSave]);
+  }, [flushSave, isDirty, note.id, noteSource]);
 
   // Immediate local persistence (Phase 0 — local-first): keep the store + IDB
   // cache within ~0.5s of the latest keystroke, decoupled from the 2s cloud

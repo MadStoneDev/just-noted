@@ -156,6 +156,34 @@ export async function setLocalNoteVersion(id: string, version: number, landedCon
   }
 }
 
+/**
+ * A queued write carrying `landedContent` reached the server: if that is
+ * exactly the cached text, the copy is confirmed, so its localEdit mark goes.
+ * The version is left alone (a replay doesn't always report it); a cached text
+ * newer than what landed keeps its mark.
+ */
+export async function confirmLocalEditIfLanded(id: string, landedContent: string): Promise<void> {
+  try {
+    const db = await getDB();
+    const tx = db.transaction(IDB_CACHE_STORE_NAME, "readwrite");
+    const store = tx.objectStore(IDB_CACHE_STORE_NAME);
+    const req = store.get(id);
+    req.onsuccess = () => {
+      const cur = req.result as CombinedNote | undefined;
+      if (!cur?.localEdit || !sameNoteContent(cur.content, landedContent)) return;
+      const next: CombinedNote = { ...cur };
+      delete next.localEdit;
+      store.put(next);
+    };
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (error) {
+    console.error("Failed to confirm cached note:", error);
+  }
+}
+
 export async function saveAllNotesToLocal(
   notes: CombinedNote[],
 ): Promise<void> {
@@ -245,13 +273,18 @@ export async function deleteLocalNote(id: string): Promise<void> {
  * in). Local notes and other accounts' copies stay. Only for a sign-out the
  * user chose, or discarding a removed account's notes (untagged kept: they
  * aren't that account's). Returns how many went.
+ *
+ * Copies marked localEdit (text not yet confirmed by the server) stay too,
+ * unless `keepLocalEdits` is false: only an explicit choice to lose unsynced
+ * writing ("Sign out anyway", discarding a removed account's notes) passes it.
  */
 export async function clearAccountNotes(
   accountId: string,
-  opts: { includeUntagged?: boolean } = {},
+  opts: { includeUntagged?: boolean; keepLocalEdits?: boolean } = {},
 ): Promise<number> {
   if (!accountId) return 0;
   const includeUntagged = opts.includeUntagged ?? true;
+  const keepLocalEdits = opts.keepLocalEdits ?? true;
   let dropped = 0;
   try {
     const db = await getDB();
@@ -262,6 +295,7 @@ export async function clearAccountNotes(
       for (const n of r.result as CombinedNote[]) {
         const owner = ownerOf(n);
         if (owner === accountId || (includeUntagged && owner === "")) {
+          if (keepLocalEdits && n.localEdit) continue;
           store.delete(n.id);
           dropped++;
         }

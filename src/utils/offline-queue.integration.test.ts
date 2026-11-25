@@ -248,11 +248,13 @@ describe("leave-path queue helpers (real IDB)", () => {
   });
 
   it("dropSupersededUpdates removes only this note's updates queued before the save", async () => {
-    const { dropSupersededUpdates } = await import("./offline-queue");
+    const { dropSupersededUpdates, queueClock } = await import("./offline-queue");
     await cloudUpdate("leave-4", "u");
     await cloudUpdate("leave-4b", "u"); // another note: never touched
     await enqueue({ type: "updateTitle", noteId: "leave-4", source: "supabase", userId: "u", title: "t" });
-    const landed = { startedAt: Date.now(), content: "something else" };
+    // A save marks its start on the queue's clock (as the app does), not
+    // Date.now(): ops queued in a burst can be stamped ahead of the wall clock.
+    const landed = { startedAt: queueClock(), content: "something else" };
     await dropSupersededUpdates("leave-4", landed);
     expect(await getQueueSize()).toBe(2); // the title op + the other note's update
     await dropSupersededUpdates("leave-4", landed);
