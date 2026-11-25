@@ -126,6 +126,6 @@ export async function submitSuggestion(
     is_public: false,
     created_by: user.id,
   } as any);
-  if (error) return { success: false, error: "Couldn't submit — please try again." };
+  if (error) return { success: false, error: "Couldn't submit. Please try again." };
   return { success: true };
 }

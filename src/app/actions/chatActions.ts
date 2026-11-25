@@ -98,7 +98,7 @@ export async function sendChatMessage(
   if (!(await ownerCanCollaborate(svc, noteId))) return { success: false, error: "Chat is read-only" };
 
   const rl = await checkRateLimit(uid, `chat:${noteId}`, SEND_LIMIT, SEND_WINDOW_MS);
-  if (!rl.allowed) return { success: false, error: "You're sending messages too fast — slow down a moment." };
+  if (!rl.allowed) return { success: false, error: "You're sending messages too fast. Slow down a moment." };
 
   // Only store a well-formed anchor with a bounded quote.
   const anchorValue =
@@ -133,7 +133,7 @@ export async function requestChatMediaUpload(
   if (!(await isParticipant(svc, noteId, uid))) return { ok: false, error: "You don't have access to this chat" };
   if (!(await ownerCanCollaborate(svc, noteId))) return { ok: false, error: "Chat is read-only" };
   const rl = await checkRateLimit(uid, `chat:${noteId}`, SEND_LIMIT, SEND_WINDOW_MS);
-  if (!rl.allowed) return { ok: false, error: "You're sending messages too fast — slow down a moment." };
+  if (!rl.allowed) return { ok: false, error: "You're sending messages too fast. Slow down a moment." };
 
   const key = `${CHAT_PREFIX}${noteId}/${crypto.randomUUID()}.${v.ext}`;
   try {

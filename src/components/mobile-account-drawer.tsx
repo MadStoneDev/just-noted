@@ -46,7 +46,7 @@ export function MobileAccountDrawer({ open, onClose }: { open: boolean; onClose:
     const res = await switchToAccount(supabase, a); // reloads on success
     if (!res.ok) {
       setSwitching(null); setBusy(false); setAccounts(getAccounts());
-      showError(res.offline ? OFFLINE_SWITCH_MESSAGE : "That session expired — sign in again to reconnect it.");
+      showError(res.offline ? OFFLINE_SWITCH_MESSAGE : "That session expired. Sign in again to reconnect it.");
     }
   }, [supabase, showError]);
 
@@ -129,7 +129,7 @@ export function MobileAccountDrawer({ open, onClose }: { open: boolean; onClose:
               <div className="flex-1 min-w-0 text-left">
                 <div className="text-[14px] text-[var(--color-ink-1)] truncate">@{a.handle || "account"}</div>
                 <div className={`text-[11px] font-[family-name:var(--font-meta)] truncate ${a.sessionValid ? "text-[var(--color-ink-5)]" : "text-[var(--color-warn)]"}`}>
-                  {a.sessionValid ? a.email : "session expired — sign in"}
+                  {a.sessionValid ? a.email : "session expired: sign in"}
                 </div>
               </div>
             </button>

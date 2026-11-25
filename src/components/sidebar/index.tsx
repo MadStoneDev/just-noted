@@ -596,7 +596,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
           finalCoverType = "custom";
           finalCoverValue = uploadedUrl;
         } else {
-          throw new Error("Upload failed — check browser console for details.");
+          throw new Error("Upload failed. Check the browser console for details.");
         }
       }
 
@@ -1445,7 +1445,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
         const statusDesc = saving
           ? "Your latest changes are being saved right now."
           : conflict
-            ? "Two versions of this note diverged — open it to review and merge."
+            ? "Two versions of this note diverged. Open it to review and merge."
             : isCloud
               ? "This note is saved to your account and backed up across your devices."
               : "This note is saved in this browser on this device only.";
@@ -1458,7 +1458,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 <div className="flex items-start gap-2.5">
                   <span className="w-2 h-2 rounded-full shrink-0 mt-1.5" style={{ backgroundColor: statusColor }} />
                   <p>
-                    <span className="font-medium text-[var(--color-ink-1)]">{statusLabel}</span> — {statusDesc}
+                    <span className="font-medium text-[var(--color-ink-1)]">{statusLabel}</span>: {statusDesc}
                   </p>
                 </div>
 
@@ -1468,7 +1468,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 <div className="flex items-start gap-2">
                   <IconDeviceDesktop size={16} className="mt-0.5 text-[var(--color-warning)] shrink-0" />
                   <p>
-                    <span className="font-medium text-[var(--color-ink-1)]">Local</span> — kept only in this
+                    <span className="font-medium text-[var(--color-ink-1)]">Local</span>: kept only in this
                     browser on this device. Fast and private, but it won't show up on your other devices and
                     can be lost if you clear site data.
                   </p>
@@ -1476,13 +1476,13 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 <div className="flex items-start gap-2">
                   <IconCloud size={16} className="mt-0.5 text-[var(--color-info)] shrink-0" />
                   <p>
-                    <span className="font-medium text-[var(--color-ink-1)]">Cloud</span> — synced to your
+                    <span className="font-medium text-[var(--color-ink-1)]">Cloud</span>: synced to your
                     account, so it's backed up and available on every device you sign in to. Needs a free
                     account.
                   </p>
                 </div>
                 <p className="text-[12px] text-[var(--color-ink-5)]">
-                  Moving a note keeps its title and content — it only changes where it's stored.
+                  Moving a note keeps its title and content. It only changes where it's stored.
                 </p>
 
                 {/* Action: move storage (or sign in, if Cloud needs an account) */}

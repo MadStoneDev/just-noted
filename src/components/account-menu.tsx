@@ -78,7 +78,7 @@ export default function AccountMenu() {
       setSwitching(null);
       setBusy(false);
       setAccounts(getAccounts());
-      showError(res.offline ? OFFLINE_SWITCH_MESSAGE : "That session expired — sign in again to reconnect it.");
+      showError(res.offline ? OFFLINE_SWITCH_MESSAGE : "That session expired. Sign in again to reconnect it.");
     }
   };
 
@@ -161,7 +161,7 @@ export default function AccountMenu() {
             <div className="flex-1 min-w-0 text-left">
               <div className="text-[13px] text-[var(--color-ink-1)] truncate">@{a.handle || "account"}</div>
               <div className={`text-[10.5px] font-[family-name:var(--font-meta)] truncate ${a.sessionValid ? "text-[var(--color-ink-5)]" : "text-[var(--color-warn)]"}`}>
-                {a.sessionValid ? a.email : "session expired — sign in"}
+                {a.sessionValid ? a.email : "session expired: sign in"}
               </div>
             </div>
             {i < 9 && (

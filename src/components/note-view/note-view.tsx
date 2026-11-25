@@ -123,9 +123,9 @@ export default function NoteView({
   const wideLevel: WideLevel = wideDefault ? "all" : noteWide ? "one" : "off";
   const wideTooltip =
     wideLevel === "all"
-      ? "Wide view (all notes) — click to reset"
+      ? "Wide view (all notes). Click to reset."
       : wideLevel === "one"
-        ? "Wide view (this note) — click to apply to all"
+        ? "Wide view (this note). Click to apply to all."
         : "Wide view";
   const cycleWide = useCallback(() => {
     if (wideDefault) {

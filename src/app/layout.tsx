@@ -53,7 +53,7 @@ export const metadata = {
         url: "/JustNoted_OG.jpg",
         width: 1200,
         height: 630,
-        alt: "JustNoted — distraction-free note taking",
+        alt: "JustNoted: distraction-free note taking",
       },
     ],
     locale: "en_US",

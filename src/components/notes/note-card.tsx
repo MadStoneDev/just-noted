@@ -74,7 +74,7 @@ function NoteCard({
   const statusTitle = saving
     ? "Saving…"
     : conflict
-      ? "Conflicted copy — review"
+      ? "Conflicted copy: review"
       : local
         ? "Saved on this device"
         : "Saved to cloud";

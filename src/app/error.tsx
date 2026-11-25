@@ -39,7 +39,7 @@ export default function Error({ error, reset }: ErrorProps) {
         </h1>
 
         <p className="text-sm text-[var(--color-text-secondary)] mb-6 leading-relaxed">
-          We hit an unexpected error. Your notes are safe — try refreshing.
+          We hit an unexpected error. Your notes are safe. Try refreshing.
         </p>
 
         {process.env.NODE_ENV === "development" && (

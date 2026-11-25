@@ -19,11 +19,11 @@ export async function openUpgradeCheckout(interval: BillingInterval): Promise<st
     case "already_scribe":
       return "You already have Scribe.";
     case "billing_issue":
-      return "There's a problem with your current subscription — open Manage billing to fix it.";
+      return "There's a problem with your current subscription. Open Manage billing to fix it.";
     case "not_signed_in":
       return "Sign in to upgrade.";
     case "not_configured":
-      return "Checkout isn’t available yet — billing is still being set up.";
+      return "Checkout isn’t available yet. Billing is still being set up.";
     default:
       return "Couldn’t start checkout. Please try again.";
   }

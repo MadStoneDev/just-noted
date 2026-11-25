@@ -13,7 +13,7 @@ export default function GlobalFooter() {
         href={`/`}
         className={`hover:text-[var(--color-accent)] font-semibold transition-all duration-300 ease-in-out`}
       >
-        Just Noted
+        JustNoted
       </Link>
       .{" "}
       <Link

@@ -157,7 +157,7 @@ export default function VersionHistoryPanel({ noteId, open, onClose, onRestore }
                 className="px-4 py-2 border-b border-[var(--color-border-secondary)] flex items-center gap-1.5 text-[10px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
               >
                 <IconSparkles size={12} className="shrink-0" />
-                Filter history by date range — a Scribe feature
+                Filter history by date range (a Scribe feature)
               </a>
             ))}
             <div className="flex-1 overflow-y-auto scrollbar-thin">

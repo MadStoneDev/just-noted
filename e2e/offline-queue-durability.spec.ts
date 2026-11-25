@@ -399,7 +399,7 @@ test.describe("sign-out never wipes unsynced writing", () => {
     await revokeSession(page);
     await expect(accountButton(page), "signed out").toBeHidden({ timeout: 20_000 });
     await expect(page.getByTestId("signed-out-notice")).toContainText(
-      "You’ve been signed out — sign in to sync 1 unsaved note",
+      "You’ve been signed out. Sign in to sync 1 unsaved note",
       { timeout: 15_000 },
     );
 
@@ -417,7 +417,7 @@ test.describe("sign-out never wipes unsynced writing", () => {
     await restore();
     await page.reload();
     await expect(page.getByRole("heading", { name: "All Notes" })).toBeVisible();
-    await expect(page.getByTestId("signed-out-notice")).toContainText("sign in to sync 1 unsaved note");
+    await expect(page.getByTestId("signed-out-notice")).toContainText("Sign in to sync 1 unsaved note");
     await page.waitForTimeout(2000);
     expect(await queuedTexts(page, id), "still parked after a signed-out reload").toContain(EXPECTED);
     expect(norm(await cloudServerContent(id)), "server untouched").toBe("cloud before revoke");
@@ -461,7 +461,7 @@ test.describe("sign-out never wipes unsynced writing", () => {
     // second, explicit step. Cancel here keeps everything too.
     await clickSignOut(page);
     await expect(dialog).toContainText("Couldn’t sync 1 note", { timeout: 20_000 });
-    await expect(dialog.getByRole("button", { name: "Sign out anyway — 1 unsaved note will be lost" })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Sign out anyway (1 unsaved note will be lost)" })).toBeVisible();
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toHaveCount(0);
     expect(await isSignedInCookie(page), "still signed in").toBe(true);

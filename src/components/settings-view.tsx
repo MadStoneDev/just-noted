@@ -262,7 +262,7 @@ function DeviceAccountsSection() {
     if (!res.ok) {
       setBusyId(null);
       setAccounts(getAccounts());
-      showError(res.error && res.offline ? res.error : "That session expired — sign in again to reconnect it.");
+      showError(res.error && res.offline ? res.error : "That session expired. Sign in again to reconnect it.");
     }
   };
 
@@ -300,7 +300,7 @@ function DeviceAccountsSection() {
                   {isCurrent && <IconCheck size={13} className="text-[var(--color-accent-text)] shrink-0" />}
                 </div>
                 <div className={`text-[10.5px] font-[family-name:var(--font-meta)] truncate ${a.sessionValid ? "text-[var(--color-ink-5)]" : "text-[var(--color-warn)]"}`}>
-                  {a.sessionValid ? a.email : "session expired — sign in"}
+                  {a.sessionValid ? a.email : "session expired: sign in"}
                 </div>
               </div>
               {!isCurrent && a.sessionValid && (
@@ -612,7 +612,7 @@ export default function SettingsView({ onClose, initialSection }: SettingsViewPr
                   })}
                 </div>
                 <p className="mt-2 text-[12px] text-[var(--color-ink-5)]">
-                  Changes the editor body and title only — the rest of the app stays as is.
+                  Changes the editor body and title only. The rest of the app stays as is.
                 </p>
               </div>
 

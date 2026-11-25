@@ -15,9 +15,9 @@ import {
 } from "@tabler/icons-react";
 
 export const metadata = {
-  title: "JustNoted — Distraction-Free Note Taking",
+  title: "JustNoted | Distraction-Free Note Taking",
   description:
-    "A minimalist markdown note-taking app. Write, organize, share. No distractions.",
+    "A minimalist markdown note-taking app. Write, organise, share. No distractions.",
 };
 
 export default async function WelcomePage() {
@@ -40,14 +40,14 @@ export default async function WelcomePage() {
           </h1>
           <p className="mt-4 text-lg text-[var(--color-text-secondary)] max-w-lg mx-auto leading-relaxed">
             A minimalist markdown editor that stays out of your way.
-            Organize with notebooks, sync across devices, share with anyone.
+            Organise with notebooks, sync across devices, share with anyone.
           </p>
           <div className="mt-8 flex items-center justify-center gap-3">
             <Link
               href="/get-access"
               className="px-6 py-2.5 text-sm font-medium bg-[var(--color-accent)] text-[var(--color-text-on-accent)] hover:bg-[var(--color-accent-hover)] rounded-[var(--radius-md)] transition-colors"
             >
-              Get Started — Free
+              Get Started Free
             </Link>
             <Link
               href="/"
@@ -80,7 +80,7 @@ export default async function WelcomePage() {
             <Feature
               icon={<IconNotebook size={20} />}
               title="Notebooks & tags"
-              description="Organize notes into notebooks with custom covers. Set word goals and track progress."
+              description="Organise notes into notebooks with custom covers. Set word goals and track progress."
             />
             <Feature
               icon={<IconMoon size={20} />}
@@ -100,12 +100,12 @@ export default async function WelcomePage() {
             <Feature
               icon={<IconLock size={20} />}
               title="Privacy first"
-              description="Your notes are yours. Encrypted in transit and at rest. Mark any note local-only and it never leaves your device."
+              description="Your notes are yours. Encrypted in transit. Local notes need no account and aren't linked to one."
             />
             <Feature
               icon={<IconPencil size={20} />}
               title="Distraction free"
-              description="No menus, no chrome. Just you and your words. Focus mode hides everything."
+              description="No menus, no clutter. Focus mode hides everything."
             />
           </div>
         </section>

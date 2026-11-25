@@ -1938,16 +1938,16 @@ export function NoteEditor({
               {locked ? (
                 <span className="text-[var(--color-ink-4)]" title="Reconciling your notes with the server…">Syncing your notes…</span>
               ) : editingElsewhere ? (
-                <span className="text-[var(--color-ink-4)]" title="This note is open in another tab. Edit it there, or close it there to edit here — this tab follows along.">Editing in another tab</span>
+                <span className="text-[var(--color-ink-4)]" title="This note is open in another tab. Edit it there, or close it there to edit here. This tab follows along.">Editing in another tab</span>
               ) : timedOut ? (
                 // The 5s load-lock timed out: the editor is unlocked so you can
                 // type on your cached copy, but this is slowness, not a failure —
                 // keep "Syncing…" until it finishes or genuinely fails (F1).
-                <span className="text-[var(--color-ink-4)]" title="Still syncing — you can edit now; your changes save as soon as it finishes.">Syncing…</span>
+                <span className="text-[var(--color-ink-4)]" title="Still syncing. You can edit now; your changes save as soon as it finishes.">Syncing…</span>
               ) : syncProblem ? (
                 <span className="text-[var(--color-warn)]" title="You're connected, but syncing is failing. Your changes are safe on this device and will sync once it clears.">Sync problem</span>
               ) : saveState === "error" ? (
-                <span className="text-[var(--color-warn)]" title="Your last edit hasn't been saved yet — it's queued and will retry">Not saved</span>
+                <span className="text-[var(--color-warn)]" title="Your last edit hasn't been saved yet. It's queued and will retry.">Not saved</span>
               ) : saveState === "saving" || saveState === "dirty" ? (
                 <span className="text-[var(--color-ink-4)]">Saving…</span>
               ) : noteSource === "supabase" ? (

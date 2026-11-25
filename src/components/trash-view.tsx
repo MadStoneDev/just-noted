@@ -189,8 +189,8 @@ export default function TrashView({ onClose }: TrashViewProps) {
             </h2>
             <p className="mt-2 text-[13.5px] leading-[1.55] text-[var(--color-ink-4)]">
               Without an account, a deleted note is gone for good right away.
-              Create a free account and deleted notes wait in Trash for 30 days —
-              no credit card needed.
+              Create a free account and deleted notes wait in Trash for 30 days.
+              No credit card needed.
             </p>
             <a
               href="/get-access"

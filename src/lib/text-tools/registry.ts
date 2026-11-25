@@ -168,7 +168,7 @@ export const TOOLS: ToolMeta[] = [
     cardDescription: "Preview a link on Facebook, LinkedIn, X, Slack and iMessage.",
     mobileDescription: "Preview how a link looks when shared.",
     howItWorks: [
-      "Paste a public URL and we fetch the page, read its Open Graph and Twitter Card tags, and show how the link would look when it's shared. Nothing is stored — no cache, no log of what you tested.",
+      "Paste a public URL and we fetch the page, read its Open Graph and Twitter Card tags, and show how the link would look when it's shared. Nothing is stored: no cache, no log of what you tested.",
       "Open Graph is a set of <meta> tags (og:title, og:description, og:image and friends) that tell Facebook, LinkedIn, Slack and others what to show. Twitter Cards do the same for X. When they're missing, platforms guess from your title and the first image on the page, which rarely looks as good.",
       "The checklist flags what's missing or off, in the order worth fixing: a title that's too long, an image smaller than 1200×630 or the wrong shape, a missing card type. The previews are neutral approximations: real platforms vary, but the proportions and cut-off points match.",
     ],

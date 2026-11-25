@@ -54,7 +54,7 @@ export const VALID_GOAL_TYPES = ["words", "characters", ""] as const;
 export type GoalType = (typeof VALID_GOAL_TYPES)[number];
 
 // Note Defaults
-export const DEFAULT_NOTE_TITLE = "Just Noted";
+export const DEFAULT_NOTE_TITLE = "JustNoted";
 export const DEFAULT_WORD_COUNT_WPM = 225; // Average reading speed
 
 // Status Messages

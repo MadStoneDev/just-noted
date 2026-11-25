@@ -22,13 +22,13 @@ type FormData = z.infer<typeof FormSchema>;
 // ===========================
 
 const FUNNY_ERRORS = [
-  "Oops! Our carrier pigeons got lost in the digital storm. Please try again.",
+  "Our carrier pigeons got lost in the digital storm. Please try again.",
   "Well, this is awkward... Our email elves are on coffee break. Mind trying again?",
-  "Houston, we have a problem! Your message got sucked into a black hole. One more try?",
+  "Houston, we have a problem. Your message got sucked into a black hole. One more try?",
   "Message transmission intercepted by space cats. They're not sharing. Try again?",
   "Our email hamsters fell off their wheels. Give them another chance to run?",
   "The internet gnomes misplaced your message. They're very sorry. Try again?",
-  "Email machine went 'boop-beep' instead of 'beep-boop'. Please re-submit!",
+  "Email machine went 'boop-beep' instead of 'beep-boop'. Please re-submit.",
   "Your message tried to swim across the internet but forgot its floaties. Another go?",
   "That's odd... our system hiccupped while sending. Care to try again?",
   "Email delivery status: it's complicated. Let's give it another shot, shall we?",
@@ -43,16 +43,16 @@ function getRandomErrorMessage(): string {
 // ===========================
 
 const EMAIL_CONFIG = {
-  FROM: "Just Noted <hello@justnoted.app>",
+  FROM: "JustNoted <hello@justnoted.app>",
   TO_ADMIN: "hello@justnoted.app",
-  NO_REPLY: "Just Noted <no-reply@justnoted.app>",
+  NO_REPLY: "JustNoted <no-reply@justnoted.app>",
 } as const;
 
 // ===========================
 // EMAIL TEMPLATES (HTML)
 // ===========================
 
-// Shared branded shell: a centered white card on a soft ground, a "Just Noted"
+// Shared branded shell: a centered white card on a soft ground, a "JustNoted"
 // serif wordmark, and a quiet footer. `content` is the inner body HTML.
 function emailShell(opts: { preheader: string; content: string; maxWidth?: number }): string {
   const { preheader, content, maxWidth = 520 } = opts;
@@ -72,7 +72,7 @@ function emailShell(opts: { preheader: string; content: string; maxWidth?: numbe
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:${maxWidth}px;background:#ffffff;border:1px solid #ececec;border-radius:14px;">
           <tr>
             <td style="padding:32px 36px 0;">
-              <span style="font-family:'Playfair Display',Georgia,'Times New Roman',serif;font-size:22px;font-weight:700;color:#03BFB5;letter-spacing:-0.01em;">Just Noted</span>
+              <span style="font-family:'Playfair Display',Georgia,'Times New Roman',serif;font-size:22px;font-weight:700;color:#03BFB5;letter-spacing:-0.01em;">JustNoted</span>
             </td>
           </tr>
           <tr>
@@ -84,7 +84,7 @@ function emailShell(opts: { preheader: string; content: string; maxWidth?: numbe
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:${maxWidth}px;">
           <tr>
             <td align="center" style="padding:18px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#9aa0a0;">
-              Just Noted &middot; <a href="https://justnoted.app" style="color:#9aa0a0;text-decoration:underline;">justnoted.app</a>
+              JustNoted &middot; <a href="https://justnoted.app" style="color:#9aa0a0;text-decoration:underline;">justnoted.app</a>
             </td>
           </tr>
         </table>
@@ -101,7 +101,7 @@ function getAdminEmailHtml(name: string, email: string, score: number | undefine
     preheader: `New contact message from ${escapeHtml(name)}`,
     content: `
       <p style="margin:0 0 4px;font-size:17px;font-weight:600;">New contact message</p>
-      <p style="margin:0 0 22px;color:#6b6b6b;font-size:14px;">Sent through the Just Noted contact form.</p>
+      <p style="margin:0 0 22px;color:#6b6b6b;font-size:14px;">Sent through the JustNoted contact form.</p>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">
         <tr>
           <td style="padding:10px 0;border-bottom:1px solid #eef1f1;color:#6b6b6b;width:110px;vertical-align:top;">From</td>
@@ -124,16 +124,16 @@ function getAdminEmailHtml(name: string, email: string, score: number | undefine
 
 function getUserConfirmationHtml(_email: string): string {
   return emailShell({
-    preheader: "Thanks for reaching out — we've got your message.",
+    preheader: "Thanks for reaching out. We've got your message.",
     content: `
       <p style="margin:0 0 16px;">Hi,</p>
       <p style="margin:0 0 16px;">Thanks for reaching out. We've got your message and we'll get back to you as soon as we can.</p>
       <p style="margin:0 0 24px;">In the meantime, feel free to keep writing.</p>
       <p style="margin:0 0 28px;">
-        <a href="https://justnoted.app" style="display:inline-block;background:#03BFB5;color:#ffffff;padding:11px 22px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Open Just Noted</a>
+        <a href="https://justnoted.app" style="display:inline-block;background:#03BFB5;color:#ffffff;padding:11px 22px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Open JustNoted</a>
       </p>
-      <p style="margin:0 0 16px;color:#6b6b6b;font-size:14px;">If you didn't contact Just Noted, you can safely ignore this email — no action is needed.</p>
-      <p style="margin:0;">Best regards,<br>Just Noted</p>
+      <p style="margin:0 0 16px;color:#6b6b6b;font-size:14px;">If you didn't contact JustNoted, you can safely ignore this email.</p>
+      <p style="margin:0;">Best regards,<br>JustNoted</p>
     `,
   });
 }
@@ -240,7 +240,7 @@ async function sendAdminEmail(
         from: EMAIL_CONFIG.FROM,
         to: [EMAIL_CONFIG.TO_ADMIN],
         reply_to: email,
-        subject: `Just Noted Contact: ${name}`,
+        subject: `JustNoted Contact: ${name}`,
         html: getAdminEmailHtml(name, email, score, message),
       }),
     });
@@ -275,7 +275,7 @@ async function sendUserEmail(apiKey: string, userEmail: string): Promise<void> {
       from: EMAIL_CONFIG.FROM,
       to: [userEmail],
       reply_to: "no-reply@justnoted.app",
-      subject: "Thank you for contacting Just Noted!",
+      subject: "Thanks for contacting JustNoted",
       html: getUserConfirmationHtml(userEmail),
     }),
   });

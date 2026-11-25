@@ -93,7 +93,7 @@ export const PLANS = {
       currency: "AUD",
       interval: "month",
       display: "A$7/month",
-      gstNote: "No GST is charged — RAVENCI Solutions isn't registered for GST.",
+      gstNote: "No GST is charged. RAVENCI Solutions isn't registered for GST.",
       // 10 × the monthly price: two months free.
       yearly: { amount: 70, display: "A$70/year", savingsNote: "2 months free" },
     },
@@ -116,7 +116,7 @@ export const PLANS = {
     highlights: [
       "Everything in Draft",
       "Unlimited notebooks",
-      "Live collaboration — share notes others can edit",
+      "Live collaboration: share notes others can edit",
       "60 or 90-day trash recovery",
       "200 versions of history per note",
       "Date range filter in version history",
@@ -143,7 +143,7 @@ export function downgradeEffects(): string[] {
   const d = PLANS.draft;
   return [
     "Nothing is deleted.",
-    `Your notebooks stay — you just can't create new ones past ${d.limits.maxNotebooks}.`,
+    `Your notebooks stay, but you can't create new ones past ${d.limits.maxNotebooks}.`,
     "People you shared notes with for editing become view-only (their access returns if you upgrade again).",
     `Version history is kept and trims back toward ${d.limits.autosaveVersionCap} per note over time as you edit.`,
     `Trash keeps a ${d.retention.trashDays}-day window measured from your downgrade date.`,

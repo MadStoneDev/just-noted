@@ -14,7 +14,7 @@ export async function handleAuth(formData: FormData): Promise<AuthResponse> {
 
   if (!email) {
     return {
-      error: "Oops! No email? Try again.",
+      error: "Please enter your email.",
       success: false,
     };
   }

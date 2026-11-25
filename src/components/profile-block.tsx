@@ -202,7 +202,7 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
                 avatarUrl: "",
               },
             });
-            showSuccess("Profile created successfully!");
+            showSuccess("Profile created.");
           }
         } else {
           console.error("Error checking for author:", checkError);

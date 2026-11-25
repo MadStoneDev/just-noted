@@ -4,7 +4,7 @@ import { Metadata } from "next";
 // view (Level 2) opens inside the app shell. Marker page; NoteWrapper reads the
 // :id from the path.
 export const metadata: Metadata = {
-  title: "Notebook — JustNoted",
+  title: "Notebook | JustNoted",
 };
 
 export default function NotebookViewPage() {

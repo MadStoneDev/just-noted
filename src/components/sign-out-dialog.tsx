@@ -139,7 +139,7 @@ export function useSignOut(opts: {
                 onClick={signOutAnyway}
                 className="h-9 px-4 rounded-[var(--radius-7)] text-[13px] font-semibold bg-[var(--color-danger)] text-white hover:opacity-90 transition-opacity"
               >
-                Sign out anyway — {notesLabel(phase.count).replace("note", "unsaved note")} will be lost
+                Sign out anyway ({notesLabel(phase.count).replace("note", "unsaved note")} will be lost)
               </button>
             )}
           </div>

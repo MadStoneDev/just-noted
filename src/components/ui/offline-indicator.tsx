@@ -25,7 +25,7 @@ export default function OfflineIndicator() {
       try { toasted = sessionStorage.getItem("jn_sync_problem_toasted") === "1"; } catch {}
       if (toasted) return;
       try { sessionStorage.setItem("jn_sync_problem_toasted", "1"); } catch {}
-      showError("Sync problem — your changes are saved on this device and will sync when it clears.");
+      showError("Sync problem. Your changes are saved on this device and will sync when it clears.");
     });
   }, [showError]);
 
@@ -67,7 +67,7 @@ export default function OfflineIndicator() {
       ) : (
         <>
           <IconWifiOff size={14} />
-          <span>Offline — changes saved locally</span>
+          <span>Offline: changes saved locally</span>
         </>
       )}
       <button

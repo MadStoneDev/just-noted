@@ -34,7 +34,7 @@ export async function grantManualScribe(
   ) {
     return {
       success: false,
-      error: "This account has a live Stripe subscription — cancel it in Stripe before granting Scribe manually.",
+      error: "This account has a live Stripe subscription. Cancel it in Stripe before granting Scribe manually.",
     };
   }
 
@@ -66,7 +66,7 @@ export async function revokeManualScribe(svc: Svc, userId: string, now: Date = n
   const source = (existing as { plan_source?: string } | null)?.plan_source;
   if (!existing) return { success: true }; // no row = already Draft
   if (source !== "manual") {
-    return { success: false, error: "This Scribe plan is billed through Stripe — cancel it in Stripe instead." };
+    return { success: false, error: "This Scribe plan is billed through Stripe. Cancel it in Stripe instead." };
   }
   const { error } = await svc
     .from("subscriptions")

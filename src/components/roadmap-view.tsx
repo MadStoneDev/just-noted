@@ -119,7 +119,7 @@ export default function RoadmapView() {
     const res = await submitSuggestion(sTitle, sBody, sCat);
     setSubmitting(false);
     if (res.success) {
-      showSuccess("Thanks! Your suggestion was sent for review.");
+      showSuccess("Thanks. Your suggestion was sent for review.");
       setShowSuggest(false);
     } else {
       showError(res.error || "Couldn't submit.");

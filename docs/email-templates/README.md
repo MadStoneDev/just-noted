@@ -1,4 +1,4 @@
-# Just Noted — email templates
+# JustNoted email templates
 
 Where every email the product sends comes from, and how to update it.
 
@@ -11,7 +11,7 @@ source-of-truth copy — keep them in sync.
 
 - **Where to paste:** Supabase Dashboard → Authentication → Email Templates →
   **Magic Link** → *Message body*.
-- **Subject line:** `{{ .Token }} — Your Just Noted login code`
+- **Subject line:** `{{ .Token }} is your JustNoted login code`
 - **Variables:** `{{ .Token }}` (6-digit code), `{{ .Email }}` (recipient).
 - **Expiry copy:** "valid for 1 hour" matches Supabase's default OTP expiry
   (3600s), set under Authentication → Providers → Email → OTP expiry. Update the
@@ -22,11 +22,11 @@ source-of-truth copy — keep them in sync.
 `src/app/actions/emailActions.ts`, both fired by `submitContactForm`:
 
 - **Admin notification** → `hello@justnoted.app` (`getAdminEmailHtml`), subject
-  `Just Noted Contact: {name}`.
+  `JustNoted Contact: {name}`.
 - **Auto-reply** → the sender (`getUserConfirmationHtml`), subject
-  `Thank you for contacting Just Noted!`.
+  `Thanks for contacting JustNoted`.
 
-Both share the branded `emailShell()` helper in that file (serif "Just Noted"
+Both share the branded `emailShell()` helper in that file (serif "JustNoted"
 wordmark, white card on a soft ground, teal accent). Edit the templates there.
 
 ## 3. Billing — **sent by Paddle**
@@ -36,7 +36,7 @@ webhook (`src/app/api/webhooks/paddle`) only processes events; it sends no email
 
 ## Brand notes
 
-- Wordmark: "Just Noted" in Playfair Display (serif), teal `#03BFB5`, with a
+- Wordmark: "JustNoted" in Playfair Display (serif), teal `#03BFB5`, with a
   Georgia/serif fallback (most email clients won't load the web font).
 - Ink `#1a1a1a`, muted `#6b6b6b`, hairline `#eef1f1`, ground `#f4f7f7`.
 - Table-based, inline styles, light-only — the norm for reliable email rendering.

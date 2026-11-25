@@ -67,7 +67,7 @@ export default function TheHowView() {
               How does JustNoted work?
             </h1>
             <p className="mt-1.5 text-[13px] text-[var(--color-ink-5)]">
-              A quick tour of the features — use what you need, ignore the rest.
+              A quick tour of the features. Use what you need, ignore the rest.
             </p>
           </div>
           <button
@@ -85,7 +85,7 @@ export default function TheHowView() {
             Creating &amp; Saving Notes
           </SectionHeading>
           <p>
-            Creating a note on <Brand /> couldn't be easier. When you first load the page, you'll
+            Creating a note on <Brand /> is easy. When you first load the page, you'll
             see an empty note waiting for your thoughts. Just start typing and, if you need another
             note, just click/tap the{" "}
             <Chip>
@@ -120,12 +120,12 @@ export default function TheHowView() {
             <Brand /> offers two types of notes to suit different needs:
           </p>
           <p>
-            <span className="font-semibold text-[var(--color-ink-1)]">Local Notes</span> are perfect
-            for quick, anonymous note-taking. They're automatically saved and tied to your specific
-            device and browser – no account required. These notes will be there when you return, as
-            long as you're using the same browser on the same device and haven't cleared your
-            browser data. Think of them as your private scratchpad that's always ready when you need
-            it.
+            <span className="font-semibold text-[var(--color-ink-1)]">Local Notes</span> are for quick,
+            anonymous note-taking. No account needed. They're saved on our server under a random ID
+            that lives in your browser and isn't linked to any account. They'll be there when you
+            come back on the same browser, unless you clear your browser data. A recovery key (in
+            Settings) lets you reach them from another browser. Local notes are deleted after 12
+            months without activity.
           </p>
           <p>
             <span className="font-semibold text-[var(--color-ink-1)]">Cloud Notes</span> require a
@@ -134,8 +134,8 @@ export default function TheHowView() {
             tied to your account and sync automatically.
           </p>
           <p>
-            Both types save automatically and work exactly the same way – the only difference is
-            where they're stored and from where you can access them.
+            Both types save automatically and work the same way. The only difference is
+            how you get to them: through your account, or through this browser.
           </p>
 
           <SectionHeading icon={<IconEdit size={18} strokeWidth={2} />}>
@@ -162,25 +162,26 @@ export default function TheHowView() {
             Downloading Your Notes
           </SectionHeading>
           <p>
-            Need to take your note elsewhere? Just click/tap the{" "}
+            To take your note elsewhere, click/tap the{" "}
             <Chip accent>
               <IconFileTypeTxt size={18} strokeWidth={2} />
             </Chip>{" "}
-            button to download your note as a simple .txt file. These files can be opened on
-            virtually any device, so your thoughts are always portable.
+            button to download your note as a simple .txt file. These files open on almost
+            any device.
           </p>
 
           <SectionHeading icon={<IconTrash size={18} strokeWidth={2} />}>
             Deleting Notes
           </SectionHeading>
           <p>
-            Once you're done with a note and don't need it anymore, click/tap the{" "}
+            Once you're done with a note, click/tap the{" "}
             <Chip>
               <IconTrash size={18} strokeWidth={2} />
             </Chip>{" "}
-            button. You'll get a quick confirmation (just to make sure you're certain), and then
-            it's gone forever. Really forever – I don't keep backups of deleted notes, whether
-            they're local or cloud.
+            button. Cloud notes go to Trash, where you can restore them for 30 days on Draft, or 60
+            or 90 days on Scribe. After that they're deleted for good. Local notes skip Trash and
+            are deleted straight away. I don't keep copies of deleted notes, apart from routine
+            server backups, which are overwritten within about 30 days.
           </p>
 
           <SectionHeading icon={<IconNotebook size={18} strokeWidth={2} />}>
@@ -194,13 +195,12 @@ export default function TheHowView() {
           <p>
             If you have a cloud account, you can create notebooks to group your notes together.
             Working on a novel? Make a notebook for it. Got a bunch of work notes? Another notebook.
-            You can even customise each notebook with different covers – solid colours, gradients, or
+            You can even customise each notebook with different covers: solid colours, gradients or
             photos. It's a small thing, but it helps you find what you're looking for at a glance.
           </p>
           <p>
-            Don't want to use notebooks? That's completely fine. Your notes will just live in "All
-            Notes" like they always have. The feature is there when you need it, invisible when you
-            don't 🤷‍♂️.
+            Notebooks are optional. Your notes will just live in "All Notes" like they always
+            have 🤷‍♂️.
           </p>
 
           <SectionHeading icon={<IconLayoutColumns size={18} strokeWidth={2} />}>
@@ -213,7 +213,7 @@ export default function TheHowView() {
           </p>
           <p>
             Split view fixes that. Click the split view button in the toolbar and your screen
-            divides in two – your current note on one side, a reference note on the other. You can
+            divides in two: your current note on one side, a reference note on the other. You can
             pick any note to reference, resize the panes however you like, and even switch between
             side-by-side or top-and-bottom layouts. When you're done, just close it and you're back
             to normal.
@@ -228,14 +228,14 @@ export default function TheHowView() {
             Table of Contents
           </SectionHeading>
           <p>
-            If you're writing something longer – maybe an article, a story, or just a really
-            detailed plan – the table of contents can help you navigate. It automatically picks up
+            If you're writing something longer (an article, a story, a detailed plan), the
+            table of contents can help you navigate. It automatically picks up
             any headings you've added to your note and lists them in a panel on the right.
           </p>
           <p>
             Click any heading in the list and you'll jump straight to it in your note. The current
-            section gets highlighted as you scroll, so you always know where you are. It's genuinely
-            useful for longer pieces, and completely ignorable for quick notes.
+            section gets highlighted as you scroll, so you always know where you are. Handy for
+            longer pieces, easy to ignore for quick notes.
           </p>
           <p>
             Toggle it with the{" "}
@@ -250,8 +250,7 @@ export default function TheHowView() {
             Bulk Actions
           </SectionHeading>
           <p>
-            Got a bunch of notes that need to move to a notebook? You don't have to do them one by
-            one. In the sidebar, there's a select mode that lets you tick multiple notes and move
+            You don't have to move notes to a notebook one by one. In the sidebar, there's a select mode that lets you tick multiple notes and move
             them all at once. Select what you need, pick the destination, done.
           </p>
 
@@ -259,7 +258,7 @@ export default function TheHowView() {
             Exporting Notebooks
           </SectionHeading>
           <p>
-            Sometimes you need to take your notes somewhere else – maybe you're backing up a
+            Sometimes you need to take your notes somewhere else. Maybe you're backing up a
             project, or you want to share a collection with someone. When you're viewing a notebook,
             you'll see an export button that lets you download all the notes in that notebook at
             once.
@@ -273,32 +272,28 @@ export default function TheHowView() {
             How Your Privacy Is Protected
           </SectionHeading>
           <p>
-            I built <Brand /> with privacy in mind. For local notes, no information about your
-            computer or browser is stored in the database. <Brand /> creates a randomly generated
-            code that serves as an anonymous token for your browser. This token is saved only in
-            your browser. When you return to <Brand />, it checks for this token to retrieve your
-            notes. (The word "Local" is not an indication of where the notes are saved but what type
-            of access you need to access them.)
+            I built <Brand /> with privacy in mind. Local notes aren't linked to an account or to
+            anything about you. On your first visit, <Brand /> creates a random ID and keeps it in
+            your browser. Your local notes are stored on our server under that ID, and your browser
+            uses it to fetch them when you come back. ("Local" describes how you reach the notes,
+            not where they're kept.)
           </p>
           <p>
-            <Brand /> knows nothing about your browser type or device for local notes – none of that
-            is tied to your notes. For cloud notes with an account, only your email and the notes
-            themselves are stored, nothing more.
+            <Brand /> doesn't attach your browser type or device to your local notes. For cloud
+            notes, your account needs only your email address.
           </p>
           <p>
-            Both local and cloud notes are stored in separate secure databases. Local notes use a
-            privacy-focused approach where your device signature never leaves your browser, while
-            cloud notes are securely tied to your account credentials.
+            Local and cloud notes are kept in separate databases. Local notes are filed under your
+            browser's random ID; cloud notes are tied to your account.
           </p>
           <p>
-            When you delete a note, whether local or cloud, it's permanently deleted with no backups
-            kept. Your data is yours, and when you say it's gone, it's truly gone.
+            When you delete a note, it's gone once it leaves Trash (local notes leave straight
+            away), and backups roll over within about 30 days.
           </p>
           <p>
-            For local notes, it's more likely that <Brand /> will create a separate
-            randomly-generated token for you (for example, if you clear your browser storage or
-            cache) than it is for anyone to ever see your notes. This is why cloud notes with an
-            account are recommended if you want guaranteed access across devices.
+            If you clear your browser data, your browser gets a new ID and loses the link to your
+            old local notes, unless you saved a recovery key. That's why a cloud account is better
+            if you want your notes on every device.
           </p>
           <p>
             If you haven't yet, please check out{" "}

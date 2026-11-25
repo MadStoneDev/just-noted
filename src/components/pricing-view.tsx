@@ -50,7 +50,7 @@ export default function PricingView() {
   // page is statically rendered, so no useSearchParams/Suspense needed.
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("checkout") === "success") {
-      showSuccess("Welcome to Scribe! It can take a few seconds to switch on.");
+      showSuccess("Welcome to Scribe. It can take a few seconds to switch on.");
     }
   }, []);
   // Coming back from Stripe with the Back button restores this page from the
@@ -194,13 +194,13 @@ export default function PricingView() {
                 </div>
                 {isScribe && !isCurrent && intervalUnavailable && (
                   <p className="mt-2 text-[11px] text-[var(--color-ink-5)]">
-                    {interval === "year" ? "Yearly" : "Monthly"} billing isn’t available right now — choose{" "}
+                    {interval === "year" ? "Yearly" : "Monthly"} billing isn’t available right now. Choose{" "}
                     {interval === "year" ? "Monthly" : "Yearly"} or try again later.
                   </p>
                 )}
                 {isScribe && !isCurrent && !checkoutConfigured && (
                   <p className="mt-2 text-[11px] text-[var(--color-ink-5)]">
-                    Checkout is being set up — the button goes live once billing is configured.
+                    Checkout is being set up. The button goes live once billing is configured.
                   </p>
                 )}
               </div>
@@ -224,7 +224,7 @@ export default function PricingView() {
           {[
             {
               q: "Monthly or yearly?",
-              a: `Pay ${PLANS.scribe.price.display}, or ${PLANS.scribe.price.yearly?.display} for the year — that’s two months free. You choose when you upgrade.`,
+              a: `Pay ${PLANS.scribe.price.display}, or ${PLANS.scribe.price.yearly?.display} for the year (two months free). You choose when you upgrade.`,
             },
             {
               q: "Can I cancel anytime?",
@@ -236,7 +236,7 @@ export default function PricingView() {
             },
             {
               q: "Are my notes ever locked behind a paywall?",
-              a: "No. Writing and keeping notes — including local notes on your device — is always free.",
+              a: "No. Writing and keeping notes, including local notes on your device, is always free.",
             },
             {
               q: "Is GST included?",

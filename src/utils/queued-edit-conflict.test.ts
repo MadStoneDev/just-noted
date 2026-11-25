@@ -140,7 +140,7 @@ describe("queued edit replay (Supabase)", () => {
     const [copy, ...more] = copies();
     expect(more).toHaveLength(0);
     expect(copy.content).toBe("milk, eggs (typed before the tab closed)");
-    expect(copy.title).toMatch(/^Shopping \(conflicted copy — .+\)$/);
+    expect(copy.title).toMatch(/^Shopping \(conflicted copy, .+\)$/);
     expect(copy).toMatchObject({ author: USER, version: 1, is_private: true, deleted_at: null });
   });
 
@@ -247,7 +247,7 @@ describe("queued edit replay (Redis CAS)", () => {
     expect(r).toMatchObject({ success: true, conflicted: true, version: 4 });
     expect(read(NOTE)).toMatchObject({ content: "remote", version: 4 });
     expect(read(spec.id)).toMatchObject({ content: "queued", version: 1 });
-    expect(read(spec.id).title).toMatch(/^Ideas \(conflicted copy — 11 Nov\)$/);
+    expect(read(spec.id).title).toMatch(/^Ideas \(conflicted copy, 11 Nov\)$/);
     await casUpdateNote("anon-1", NOTE, patch("queued"), 3, spec); // retry
     expect(field(KEY).size).toBe(2);
   });

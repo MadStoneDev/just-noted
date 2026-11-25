@@ -822,7 +822,7 @@ export function useNotesOperations(
       });
       const copy = cloneNote(source);
       copy.id = generateNoteId(useNotesStore.getState().notes.map((n) => n.id));
-      copy.title = `${baseTitle || "Untitled"} (conflicted copy — ${stamp})`;
+      copy.title = `${baseTitle || "Untitled"} (conflicted copy, ${stamp})`;
       copy.content = copyContent;
       copy.version = 1;
       copy.createdAt = Date.now();

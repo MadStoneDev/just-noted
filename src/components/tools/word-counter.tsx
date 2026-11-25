@@ -113,7 +113,7 @@ export default function WordCounter() {
           />
           <div className="flex items-center gap-3">
             <span className={`flex-1 min-w-0 font-[family-name:var(--font-meta)] text-[11.5px] ${overWords ? "text-[var(--color-warn)]" : "text-[var(--color-ink-4)]"}`}>
-              {overWords ? "Over 200,000 words — stats may lag." : "Stats update as you type · up to 200,000 words"}
+              {overWords ? "Over 200,000 words. Stats may lag." : "Stats update as you type · up to 200,000 words"}
             </span>
             <button
               type="button"

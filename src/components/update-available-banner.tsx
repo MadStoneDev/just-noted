@@ -94,7 +94,7 @@ export default function UpdateAvailableBanner() {
       <div className="pointer-events-auto flex items-center gap-3 w-full sm:w-auto sm:max-w-[460px] rounded-[var(--radius-12)] border border-[var(--color-hairline)] bg-[var(--color-panel-alt)] shadow-[0_16px_40px_rgba(0,0,0,.35)] px-4 py-2.5">
         <span className="flex-1 text-[13px] leading-snug text-[var(--color-ink-1)]">
           JustNoted was updated.
-          <span className="text-[var(--color-ink-4)]"> Refresh to get the latest — your note is saved first.</span>
+          <span className="text-[var(--color-ink-4)]"> Refresh to get the latest. Your note is saved first.</span>
         </span>
         <button
           onClick={refresh}

@@ -146,7 +146,7 @@ export default function BackupManager({
       const result = await restoreFromBackup(backupId);
       if (result.success && result.note) {
         showSuccess(
-          `Note "${result.note.title}" restored successfully! The note content has been updated.`,
+          `Note "${result.note.title}" restored. The note content has been updated.`,
         );
         // Refresh the backup list
         await loadAllBackups();
@@ -230,7 +230,7 @@ export default function BackupManager({
       URL.revokeObjectURL(url);
 
       showSuccess(
-        "Backup exported successfully! The file contains all your notes in readable format.",
+        "Backup exported. The file contains all your notes in readable format.",
       );
     } catch (error) {
       console.error("Export failed:", error);

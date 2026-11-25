@@ -49,7 +49,7 @@ const PERMISSION_LABEL: Record<LinkPermission, string> = {
   published: "Published",
 };
 const PERMISSION_HINT: Record<LinkPermission, string> = {
-  off: "No link — pick an access level to create one.",
+  off: "No link. Pick an access level to create one.",
   view: "Anyone with the link can read this note.",
   edit: "Signed-in visitors can edit. Anonymous editing isn't supported.",
   published: "Listed on your public page and indexable.",
@@ -85,7 +85,7 @@ export default function ShareNoteButton({
   // Friendly copy for the server's collaboration gate.
   const handleGateError = (err?: string, limit?: number): boolean => {
     if (err === "UPGRADE_REQUIRED") {
-      toast.showError("Collaboration is a Scribe feature — upgrade in Settings › Plan & usage.");
+      toast.showError("Collaboration is a Scribe feature. Upgrade in Settings › Plan & usage.");
       return true;
     }
     if (err === "COLLAB_LIMIT") {
@@ -214,7 +214,7 @@ export default function ShareNoteButton({
     const result = await sharingOperation({ operation: "stopSharing", noteId, currentUserId: userId });
     if (result.success) {
       emitSharesChanged();
-      toast.showSuccess(count > 0 ? `Stopped sharing — ${count} ${count === 1 ? "person" : "people"} lost access` : "Stopped sharing");
+      toast.showSuccess(count > 0 ? `Stopped sharing. ${count} ${count === 1 ? "person" : "people"} lost access` : "Stopped sharing");
       setOpen(false);
     }
   }, [noteId, userId, toast, info.users.length]);
@@ -284,7 +284,7 @@ export default function ShareNoteButton({
                     const gated = p === "edit" && !canCollaborate;
                     if (gated) {
                       return (
-                        <a key={p} href="/pricing?ref=share-edit" className="px-3 py-1.5 flex items-center gap-2 text-[12px] text-[var(--color-ink-5)] hover:text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)] transition-colors" title="Let people edit with Scribe — see plans">
+                        <a key={p} href="/pricing?ref=share-edit" className="px-3 py-1.5 flex items-center gap-2 text-[12px] text-[var(--color-ink-5)] hover:text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)] transition-colors" title="Let people edit with Scribe. See plans">
                           <span className="w-[13px]" />
                           Can edit
                           <span className="ml-auto text-[10px] font-[family-name:var(--font-meta)] px-1 rounded-[var(--radius-4)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]">Scribe</span>
@@ -367,7 +367,7 @@ export default function ShareNoteButton({
               >
                 <IconSparkles size={16} className="text-[var(--color-accent-text)] shrink-0" />
                 <span className="flex-1 min-w-0 text-[12.5px] leading-snug text-[var(--color-ink-2)]">
-                  <span className="font-semibold text-[var(--color-accent-text)]">Become a Scribe</span> to let people edit — real-time collaboration &amp; more.
+                  <span className="font-semibold text-[var(--color-accent-text)]">Become a Scribe</span> to let people edit (real-time collaboration &amp; more).
                 </span>
                 <span className="shrink-0 text-[12px] font-semibold text-[var(--color-accent-text)]">Upgrade</span>
               </button>

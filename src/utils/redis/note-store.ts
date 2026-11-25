@@ -68,7 +68,7 @@ const conflictTitle = (base: string) => {
   const stamp = new Date().toLocaleString(undefined, {
     day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
   });
-  return `${base || "Untitled"} (conflicted copy — ${stamp})`;
+  return `${base || "Untitled"} (conflicted copy, ${stamp})`;
 };
 
 // ── Lua ────────────────────────────────────────────────────────────────────

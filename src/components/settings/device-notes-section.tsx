@@ -98,8 +98,8 @@ export default function DeviceNotesSection() {
         <h3 className="text-[15px] font-semibold text-[var(--color-ink-1)]">Device notes</h3>
         <p className="mt-1 text-[13px] leading-[1.6] text-[var(--color-ink-4)]">
           Local notes live only on this device. A recovery key lets you reach them on another
-          browser, or get them back if this browser&apos;s data is cleared. Keep it somewhere safe —
-          anyone with it can read your device notes.
+          browser, or get them back if this browser&apos;s data is cleared. Keep it somewhere safe.
+          Anyone with it can read your device notes.
         </p>
       </div>
 
@@ -108,7 +108,7 @@ export default function DeviceNotesSection() {
         {shownKey ? (
           <div className="space-y-2">
             <div className="text-[12px] text-[var(--color-warn)]">
-              Save this now — it won&apos;t be shown again. Regenerate to get a new one.
+              Save this now. It won&apos;t be shown again. Regenerate to get a new one.
             </div>
             <div className="flex items-center gap-2">
               <code className="flex-1 select-all rounded-[var(--radius-6)] bg-[var(--color-raised-soft)] px-3 py-2 font-mono text-[14px] tracking-wide text-[var(--color-ink-1)]">
@@ -128,7 +128,7 @@ export default function DeviceNotesSection() {
               {exists === null
                 ? "Checking…"
                 : exists
-                  ? "A recovery key already exists for this device. It's stored as a hash, so it can't be shown again — regenerate to create a new one."
+                  ? "A recovery key already exists for this device. It's stored as a hash, so it can't be shown again. Regenerate to create a new one."
                   : "No recovery key yet."}
             </div>
             <button

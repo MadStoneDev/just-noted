@@ -161,10 +161,10 @@ function SuggestionsPanel() {
           setItems((prev) => (prev ?? []).filter((it) => it.id !== id));
           showSuccess(kind === "approve" ? "Published to the roadmap." : "Declined.");
         } else {
-          showError("Action failed — try again.");
+          showError("Action failed. Try again.");
         }
       } catch {
-        showError("Action failed — try again.");
+        showError("Action failed. Try again.");
       } finally {
         setBusy((s) => {
           const n = new Set(s);
@@ -235,10 +235,10 @@ function UsersPanel() {
     setBusy((s) => new Set(s).add(id));
     try {
       const res = await fn();
-      if (!res.success) showError(res.error || "Action failed — try again.");
+      if (!res.success) showError(res.error || "Action failed. Try again.");
       return res.success;
     } catch {
-      showError("Action failed — try again.");
+      showError("Action failed. Try again.");
       return false;
     } finally {
       setBusy((s) => {
@@ -476,7 +476,7 @@ function NotesPanel() {
       if (res.success) {
         setNotes((prev) => (prev ?? []).map((n) => (n.id === id ? { ...n, deleted_at: deleted ? new Date().toISOString() : null } : n)));
       } else {
-        showError("Action failed — try again.");
+        showError("Action failed. Try again.");
       }
     },
     [showError],
@@ -496,7 +496,7 @@ function NotesPanel() {
         />
         <button type="submit" className="h-9 px-3 rounded-[var(--radius-8)] text-[12.5px] font-medium border border-[var(--color-border-control)] text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)]">Search</button>
       </form>
-      <p className="text-[11.5px] text-[var(--color-ink-5)]">Metadata only — note content isn't shown here. Newest 100.</p>
+      <p className="text-[11.5px] text-[var(--color-ink-5)]">Metadata only. Note content isn't shown here. Newest 100.</p>
 
       {notes === null ? (
         <div className="space-y-2">{[0, 1, 2].map((i) => <div key={i} className="skeleton h-11 w-full rounded-[var(--radius-9)]" />)}</div>

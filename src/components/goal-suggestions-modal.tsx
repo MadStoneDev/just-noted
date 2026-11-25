@@ -187,7 +187,7 @@ export default function GoalSuggestionsModal({ open, onClose, onSelect }: GoalSu
               </p>
               <p className="text-[10px] text-[var(--color-text-tertiary)] mt-0.5">
                 {preset.max
-                  ? `${preset.min.toLocaleString()} – ${preset.max.toLocaleString()} ${tab}`
+                  ? `${preset.min.toLocaleString()}–${preset.max.toLocaleString()} ${tab}`
                   : `${preset.min.toLocaleString()} ${tab}`}
                 {preset.description && ` · ${preset.description}`}
               </p>

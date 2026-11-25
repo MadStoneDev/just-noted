@@ -11,10 +11,10 @@ import { countWordsInContent } from "@/utils/word-count";
 // Generate metadata
 export const metadata: Metadata = {
   title: "My Profile - JustNoted",
-  description: "Your profile on JustNoted - Distraction-Free Note Taking",
+  description: "Your JustNoted profile",
   openGraph: {
     title: "My Profile - JustNoted",
-    description: "Your profile on JustNoted - Distraction-Free Note Taking",
+    description: "Your JustNoted profile",
     images: [
       {
         url: "/JustNoted_OG.jpg",
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "My Profile - JustNoted",
-    description: "Your profile on JustNoted - Distraction-Free Note Taking",
+    description: "Your JustNoted profile",
     images: ["/JustNoted_OG.jpg"],
     creator: "@justnoted",
   },

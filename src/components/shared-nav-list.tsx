@@ -548,7 +548,7 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
             value={linkInput}
             onChange={(e) => setLinkInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAddLink()}
-            placeholder="Paste a link — justnoted.app/n/…"
+            placeholder="Paste a justnoted.app/n/… link"
             className="flex-1 h-9 px-3 text-[12.5px] bg-[var(--color-raised-soft)] border border-transparent rounded-[var(--radius-8)] text-[var(--color-ink-1)] placeholder:text-[var(--color-ink-5)] focus:border-[var(--color-accent-fill)] focus:bg-[var(--color-raised)] focus:outline-none transition-colors"
           />
           <button

@@ -172,11 +172,11 @@ export default function BillingSection() {
             </div>
             <p className="mt-0.5 text-[12px] text-[var(--color-ink-5)]">
               {!isPaid
-                ? "Note-taking and sharing — free forever."
+                ? "Note-taking and sharing, free forever."
                 : billingState === "manual"
                   ? compUntil
                     ? `Complimentary until ${new Date(compUntil).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}`
-                    : "Complimentary — no billing to manage."
+                    : "Complimentary. No billing to manage."
                   : billingState === "billing_issue"
                     ? "There's a problem with your billing record."
                     : [
@@ -216,7 +216,7 @@ export default function BillingSection() {
           after (lapsed Draft). Manual/billing-issue accounts have no self-serve
           cancel, so it's not shown for them. */}
       {isPaid && billingState === "ok" && <DowngradeSummary title="If you cancel, here's what changes" />}
-      {lapsed && <DowngradeSummary title="You're on Draft now — what changed" />}
+      {lapsed && <DowngradeSummary title="You're on Draft now: what changed" />}
 
       {/* Usage */}
       <div>
@@ -242,7 +242,7 @@ export default function BillingSection() {
             Become a Scribe
           </div>
           <ul className="mt-2 space-y-1 text-[12.5px] text-[var(--color-ink-2)]">
-            {["Share notes others can edit — with live collaboration", "Unlimited notebooks"].map((f) => (
+            {["Share notes others can edit, with live collaboration", "Unlimited notebooks"].map((f) => (
               <li key={f} className="flex items-center gap-1.5">
                 <IconCheck size={13} className="text-[var(--color-accent-text)] shrink-0" />
                 {f}
@@ -264,12 +264,12 @@ export default function BillingSection() {
           </div>
           {(checkout.month || checkout.year) && !checkout[interval] && (
             <p className="mt-2 text-[11px] text-[var(--color-ink-5)]">
-              {interval === "year" ? "Yearly" : "Monthly"} billing isn’t available right now — choose{" "}
+              {interval === "year" ? "Yearly" : "Monthly"} billing isn’t available right now. Choose{" "}
               {interval === "year" ? "Monthly" : "Yearly"} or try again later.
             </p>
           )}
           {!checkout.month && !checkout.year && (
-            <p className="mt-2 text-[11px] text-[var(--color-ink-5)]">Checkout is being set up — the button will be live once billing is configured.</p>
+            <p className="mt-2 text-[11px] text-[var(--color-ink-5)]">Checkout is being set up. The button will be live once billing is configured.</p>
           )}
         </div>
       )}

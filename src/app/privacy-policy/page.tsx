@@ -5,9 +5,9 @@ import GlobalFooter from "@/components/global-footer";
 import { createClient } from "@/utils/supabase/server";
 
 export const metadata = {
-  title: "Privacy Policy - Just Noted",
+  title: "Privacy Policy | JustNoted",
   description:
-    "What JustNoted collects, why, where it's stored, and what you can do about it — in plain English.",
+    "What JustNoted collects, why, where it's stored, and what you can do about it, in plain English.",
 };
 
 const H2 =
@@ -297,7 +297,7 @@ export default async function PrivacyPolicyPage() {
             <a href="/tools" className={A}>justnoted.app/tools</a>{" "}
             run entirely in your browser. The slug generator, case converter, word
             counter and search-result preview never send the text you type
-            anywhere &mdash; it stays on your device.
+            anywhere. It stays on your device.
           </p>
           <p className="mt-3">
             The one exception is the{" "}
@@ -306,7 +306,7 @@ export default async function PrivacyPolicyPage() {
             <span className="font-medium">public web address you enter</span> (and
             its preview image) and reads the page&apos;s tags. We don&apos;t store
             the address or the result, we don&apos;t keep a log of what was tested,
-            and we only fetch public websites &mdash; private and internal addresses
+            and we only fetch public websites. Private and internal addresses
             are refused. Requests are rate-limited by IP to prevent abuse.
           </p>
 

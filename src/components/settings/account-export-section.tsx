@@ -51,7 +51,7 @@ export default function AccountExportSection() {
     try { anonId = localStorage.getItem("notes_user_id"); } catch {}
     const r = await requestAccountExport(format, anonId);
     setBusy(false);
-    if (r.success) { showSuccess("Preparing your export — we’ll email you when it’s ready."); load(); }
+    if (r.success) { showSuccess("Preparing your export. We’ll email you when it’s ready."); load(); }
     else showError(r.error || "Couldn’t start the export.");
   };
 
@@ -77,7 +77,7 @@ export default function AccountExportSection() {
     <div>
       <h2 className="text-[13.5px] font-semibold text-[var(--color-ink-1)] mb-1">Export your data</h2>
       <p className="text-[12.5px] text-[var(--color-ink-4)] leading-relaxed mb-1">
-        Download a complete copy of your account — notes, notebooks, tags, version history and
+        Download a complete copy of your account: notes, notebooks, tags, version history and
         account details. We’ll email you when it’s ready; the download requires being signed in and
         stays available for 7 days. You can request one export every 48 hours.
       </p>

@@ -44,14 +44,14 @@ export default function TheWhatView() {
             solution for distraction-free note-taking.
           </p>
           <p>
-            That's it 🤷‍♂️. That's why I made <Brand />, but if you're looking for a bit more detail
-            then, by all means, please read on.
+            That's it 🤷‍♂️. That's why I made <Brand />, but if you're looking for a bit more detail,
+            read on.
           </p>
           <p>
             I created <Brand /> because I was constantly frustrated with the lack of simple
             note-taking options out there. Hear me out, I know there are a million and one different
             note-taking apps and websites but not like what I was looking for. I wanted something
-            that just works – you visit the page and immediately start typing. No messing around
+            that just works: you visit the page and immediately start typing. No messing around
             with logins, no waiting for pages to load, none of that stuff that gets in the way when
             you just need to write something down quickly.
           </p>
@@ -59,7 +59,7 @@ export default function TheWhatView() {
             With <Brand />, I made sure to include features that actually matter. You can see your
             word and character counts as you type, and create unlimited notes without any
             restrictions. Your notes are saved automatically, and you can choose how you want to
-            access them – keep notes local that you don't need everywhere you go, or create a free
+            access them. Keep notes local that you don't need everywhere you go, or create a free
             account to sync your notes across all your devices. If you're wondering how I made this
             work, or you're worried about your privacy, check out{" "}
             <button
@@ -81,23 +81,22 @@ export default function TheWhatView() {
           <p>
             I looked everywhere for something this straightforward that wouldn't force me to create
             an account or pay for features I didn't need 🙄. When I couldn't find it, I decided to
-            build it myself. That's how <Brand /> was born – my answer to overcomplicated
+            build it myself. That's how <Brand /> was born: my answer to overcomplicated
             note-taking apps. And while you can now create an account if you want your notes
             everywhere, you still don't have to. The choice is yours.
           </p>
           <p>
-            Now, I'll be honest – since launching <Brand />, I've added a few extra features.
+            Now, I'll be honest. Since launching <Brand />, I've added a few extra features.
             Notebooks to organise your notes, a split view to reference one note while writing
-            another, even a table of contents for longer pieces. But here's the thing: you don't
-            have to use any of it. If all you want is a blank page to type on, that's exactly what
+            another, even a table of contents for longer pieces. But you don't have to
+            use any of it. If all you want is a blank page to type on, that's exactly what
             you'll get. The extras are there if you need them, tucked away until you don't. <Brand />{" "}
             can be as simple or as organised as you want it to be 👌.
           </p>
           <p>
             Do you have any ideas of how I can improve <Brand />? Are you saying it's not perfect?
-            🤨 Yeah, fair enough 😆. Alright, shoot me an email and let me know your ideas. I would
-            love for this project to serve as many people as possible while remaining simple and
-            intuitive 🙌.
+            🤨 Yeah, fair enough 😆. Alright, shoot me an email and let me know your ideas. I'd love it
+            to help as many people as possible while staying simple 🙌.
           </p>
         </div>
       </div>

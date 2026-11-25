@@ -52,7 +52,7 @@ export function SignedOutNotice() {
       <div className="pointer-events-auto flex items-center gap-3 w-full sm:w-auto sm:max-w-[520px] rounded-[var(--radius-12)] border border-[var(--color-warn-tint-border)] bg-[var(--color-warn-tint)] shadow-[0_16px_40px_rgba(0,0,0,.25)] px-4 py-2.5">
         <IconCloudOff size={17} className="text-[var(--color-warn)] shrink-0" />
         <span className="flex-1 text-[13px] leading-snug text-[var(--color-ink-1)]">
-          You’ve been signed out — sign in to sync {notes}.
+          You’ve been signed out. Sign in to sync {notes}.
           {parked.email && <span className="text-[var(--color-ink-4)]"> ({parked.email})</span>}
         </span>
         <a

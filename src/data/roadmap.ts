@@ -40,7 +40,7 @@ export const ROADMAP: RoadmapGroup[] = [
       {
         title: "Richer shared notes",
         blurb:
-          "Export, print and version history on every shared note — not just your own.",
+          "Export, print and version history on every shared note, not just your own.",
       },
       {
         title: "Smarter conversations",
@@ -59,12 +59,12 @@ export const ROADMAP: RoadmapGroup[] = [
       },
       {
         title: "Unlimited notebooks on Scribe",
-        blurb: "Organise as much as you like — no notebook cap on Scribe.",
+        blurb: "Organise as much as you like. No notebook cap on Scribe.",
       },
       {
         title: "A safer Trash",
         blurb:
-          "Deleted notes wait in Trash before they're gone — 30 days on Draft, up to 90 on Scribe.",
+          "Deleted notes wait in Trash before they're gone: 30 days on Draft, up to 90 on Scribe.",
       },
       {
         title: "Cleaner shared notes",
@@ -74,7 +74,7 @@ export const ROADMAP: RoadmapGroup[] = [
       {
         title: "“Update ready” prompt",
         blurb:
-          "When a new version ships, we'll offer a refresh — and save your note first.",
+          "When a new version ships, we'll offer a refresh and save your note first.",
       },
     ],
   },

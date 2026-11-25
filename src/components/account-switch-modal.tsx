@@ -58,7 +58,7 @@ export function AccountSwitchModal({
               </div>
               <div className="mt-0.5 text-[12px] leading-snug text-[var(--color-ink-4)]">
                 {isOnline
-                  ? "Hang on — these finish uploading before the switch so nothing is lost."
+                  ? "Hang on. These finish uploading before the switch so nothing is lost."
                   : `They're saved on this device and upload to @${currentHandle || "this account"} once you're back online.`}
               </div>
             </div>

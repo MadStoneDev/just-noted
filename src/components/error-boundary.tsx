@@ -75,12 +75,12 @@ export class NotesErrorBoundary extends React.Component<
 
             {/* Title */}
             <h2 className="text-2xl font-semibold text-[var(--color-text-primary)] mb-2">
-              Oops! Something went wrong
+              Something went wrong
             </h2>
 
             {/* Description */}
             <p className="text-[var(--color-text-secondary)] mb-6">
-              Don't worry — your notes are safe and automatically saved. Try
+              Your notes are safe and saved automatically. Try
               refreshing the page to continue where you left off.
             </p>
 

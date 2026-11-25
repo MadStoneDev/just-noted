@@ -94,7 +94,7 @@ export function conflictStamp(at: Date = new Date()): string {
 }
 
 export function conflictCopyTitle(baseTitle: string | null | undefined, stamp: string): string {
-  return `${baseTitle || "Untitled"} (conflicted copy — ${stamp})`;
+  return `${baseTitle || "Untitled"} (conflicted copy, ${stamp})`;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

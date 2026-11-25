@@ -129,7 +129,7 @@ test.describe("f4: chosen sign-out while offline, two accounts on the device", (
 
     const dialog = page.getByTestId("sign-out-dialog");
     await expect(dialog, "the sign-out is held for the unsynced line").toBeVisible({ timeout: 10_000 });
-    await expect(dialog.getByRole("button", { name: "Sign out anyway — 1 unsaved note will be lost" })).toBeVisible({
+    await expect(dialog.getByRole("button", { name: "Sign out anyway (1 unsaved note will be lost)" })).toBeVisible({
       timeout: 20_000,
     });
     expect(navs, "no page load while the dialog is up").toEqual([]);
@@ -162,7 +162,7 @@ test.describe("f4: chosen sign-out while offline, two accounts on the device", (
     await accountButton(page).click();
     await page.getByRole("button", { name: `Sign out of @${a.handle}` }).click();
     const dialog = page.getByTestId("sign-out-dialog");
-    const anyway = dialog.getByRole("button", { name: "Sign out anyway — 1 unsaved note will be lost" });
+    const anyway = dialog.getByRole("button", { name: "Sign out anyway (1 unsaved note will be lost)" });
     await expect(anyway).toBeVisible({ timeout: 20_000 });
     await anyway.click();
 

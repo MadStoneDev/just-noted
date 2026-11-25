@@ -17,7 +17,7 @@ export async function sendEmail(opts: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "Just Noted <hello@justnoted.app>",
+        from: "JustNoted <hello@justnoted.app>",
         to: [opts.to],
         subject: opts.subject,
         html: opts.html,
