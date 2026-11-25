@@ -18,6 +18,7 @@ import {
   createNote as createSupabaseNote,
   getNotesByUserId as getSupabaseNotesByUserId,
   getNoteById as getSupabaseNoteById,
+  restoreNote as restoreSupabaseNote,
 } from "@/app/actions/supabaseActions";
 import {
   NoteSource,
@@ -38,7 +39,11 @@ import {
   enqueueContentNow,
   dropSupersededUpdates,
   queueClock,
+  deleteAlreadyDone,
 } from "@/utils/offline-queue";
+import { getActiveSupabaseUser } from "@/utils/offline-queue-guard";
+import { editorHandleFor } from "@/utils/note-ownership";
+import { markPendingDelete, clearPendingDelete, isPendingDelete } from "@/utils/pending-deletes";
 import { sendLeaveSave } from "@/utils/leave-save";
 import { conflictStamp } from "@/utils/background-conflict";
 import { v4 as uuidv4 } from "uuid";
@@ -223,7 +228,7 @@ export function useNotesOperations(
   // Update Pin Status
   const updatePinStatus = useCallback(
     async (noteId: string, isPinned: boolean) => {
-      if (!userId) return;
+      if (!userId || isPendingDelete(noteId)) return;
 
       const targetNote = notes.find((note) => note.id === noteId);
       if (!targetNote) return;
@@ -273,7 +278,7 @@ export function useNotesOperations(
   // Update Privacy Status
   const updatePrivacyStatus = useCallback(
     async (noteId: string, isPrivate: boolean) => {
-      if (!userId) return;
+      if (!userId || isPendingDelete(noteId)) return;
 
       const targetNote = notes.find((note) => note.id === noteId);
       if (!targetNote) return;
@@ -654,120 +659,153 @@ export function useNotesOperations(
     refreshNotes,
   ]);
 
-  // Tracks notes whose deferred (10s) backend delete has actually started firing.
-  // Undo before this point means the note was never deleted server-side, so
-  // restore must NOT re-create it (that caused duplicate-key/create errors).
-  const backendDeleteStartedRef = useRef<Set<string>>(new Set());
+  // The server delete call of each note deleted in this undo window, and how it
+  // ended: "deleted" (the server has it deleted) or "queued" (it failed and the
+  // offline queue will retry it). An undo waits for it, so a delete can never
+  // land after the restore.
+  const deleteCallsRef = useRef<Map<string, Promise<"deleted" | "queued">>>(new Map());
+  // Declared further down; restoreNote reaches them through these.
+  const saveNoteContentRef = useRef<NotesOperations["saveNoteContent"]>(async () => ({ success: false }));
+  const refreshSingleNoteRef = useRef<NotesOperations["refreshSingleNote"]>(async () => null);
 
-  // Delete Note with Undo support
+  // Delete a note. It is deleted on the server straight away (Supabase: soft
+  // delete into Trash; guest: removed) — the 10s toast is only the window in
+  // which Undo can restore it, and nothing that ends the toast (✕, a second
+  // delete, leaving the page) cancels the delete. Until the server has
+  // confirmed it, the note is a pending delete (utils/pending-deletes): every
+  // list rebuild keeps it hidden and nothing may write to it.
   const deleteNote = useCallback(
     async (noteId: string) => {
       if (!userId) return;
 
-      const targetNote = notes.find((note) => note.id === noteId);
-      if (!targetNote) return;
+      const store = useNotesStore.getState();
+      const live = store.notes.find((note) => note.id === noteId);
+      if (!live || live.deletedAt) return;
 
-      const activeNotes = notes.filter((n) => !n.deletedAt);
-
-      const { setRecentlyDeleted, clearRecentlyDeleted } = useNotesStore.getState();
-
-      // Drop any queued create/update ops for this note first. Otherwise a
-      // pending create (e.g. from a note made while briefly offline) replays on
-      // the next processQueue cycle and resurrects the note minutes after it was
-      // deleted. If the user undoes, restoreNote re-creates it fresh anyway.
-      dropQueuedOps(noteId).catch(() => {});
-
-      // Optimistic soft-delete (sets deletedAt, filtered from view)
-      optimisticDeleteNote(noteId);
-      // Tell this browser's other tabs immediately (no realtime for local notes).
-      broadcastNoteDeleted(noteId);
-
-      // Select next note if the deleted one was active
-      const { activeNoteId, setActiveNoteId, getFilteredNotes } = useNotesStore.getState();
-      if (activeNoteId === noteId) {
-        const remaining = getFilteredNotes();
-        if (remaining.length > 0) {
-          const deletedIndex = activeNotes.findIndex((n) => n.id === noteId);
-          const nextIndex = Math.min(deletedIndex, remaining.length - 1);
-          setActiveNoteId(remaining[nextIndex]?.id ?? remaining[0].id);
-        } else {
-          setActiveNoteId(null);
-        }
+      // What Undo brings back: the note as it is on screen, including keystrokes
+      // still inside the open editor's debounce. Nothing from here on is saved.
+      let latest = live.content;
+      try {
+        const handle = editorHandleFor(noteId);
+        if (handle) latest = handle.currentContent();
+      } catch {
+        /* no editor: the store copy is the latest */
       }
+      const snapshot: CombinedNote = { ...live, content: latest };
 
-      // Update IDB cache with deletedAt
-      saveNoteToLocal({ ...targetNote, deletedAt: Date.now(), updatedAt: Date.now() }).catch(() => {});
+      // 1. From here nothing can write to it (saves, retries, queued edits,
+      //    background pushes) or bring it back (refresh, realtime, reconcile).
+      //    Durable, so a reload during the window keeps it hidden too.
+      markPendingDelete({
+        id: noteId,
+        source: live.source,
+        account: live.source === "supabase" ? getActiveSupabaseUser() : null,
+        at: Date.now(),
+      });
+      // 2. Nothing already queued for it replays onto it (offline edits, a create).
+      dropQueuedOps(noteId).catch(() => {});
+      // Its editor's edits are moot now; a lingering "editing" mark would also
+      // hold off refreshes.
+      store.setEditing(noteId, false);
 
-      // Set up undo - will auto-clear after 10 seconds
-      const timeoutId = setTimeout(async () => {
-        // Mark that the deferred delete has begun — from here on, an undo must
-        // re-create the note rather than assume it still exists server-side.
-        backendDeleteStartedRef.current.add(noteId);
-        // Actually delete from backend after timeout
+      // 3. Hide it here and in this browser's other tabs, and move the editor
+      //    on: the note at the same place in the list, else the empty state.
+      const visibleBefore = store.getFilteredNotes();
+      const position = Math.max(0, visibleBefore.findIndex((n) => n.id === noteId));
+      optimisticDeleteNote(noteId);
+      broadcastNoteDeleted(noteId);
+      const after = useNotesStore.getState();
+      if (after.activeNoteId === noteId) {
+        const remaining = after.getFilteredNotes();
+        after.setActiveNoteId(
+          remaining.length > 0 ? remaining[Math.min(position, remaining.length - 1)].id : null,
+        );
+      }
+      saveNoteToLocal({ ...snapshot, deletedAt: Date.now(), updatedAt: Date.now() }).catch(() => {});
+
+      // 4. Delete on the server now; on failure the offline queue retries it.
+      const call = (async (): Promise<"deleted" | "queued"> => {
         try {
           const result =
-            targetNote.source === "redis"
+            live.source === "redis"
               ? await noteOperation("redis", { operation: "delete", userId, noteId })
               : await deleteSupabaseNote(noteId);
-
-          if (result?.success) {
-            // Server delete confirmed — drop the IDB tombstone so it can't linger
+          if (result?.success || deleteAlreadyDone(result)) {
+            // The cached tombstone has done its job. The pending mark stays
+            // until a fetched list shows the note gone (a fetch read before
+            // this landed may still be on its way in).
             deleteLocalNote(noteId).catch(() => {});
-          } else {
-            // Server reported failure without throwing — queue for retry
-            console.error("Delete returned failure, queuing for retry:", (result as { error?: string })?.error);
-            enqueue({ type: "delete", noteId, source: targetNote.source, userId });
+            return "deleted";
           }
+          console.error("Delete returned failure, queuing for retry:", (result as { error?: string })?.error);
         } catch (error) {
           console.error("Failed to delete note, queuing for retry:", error);
-          enqueue({
-            type: "delete",
-            noteId,
-            source: targetNote.source,
-            userId,
-          });
         }
-        clearRecentlyDeleted();
-        backendDeleteStartedRef.current.delete(noteId);
-      }, 10000);
+        await enqueue({ type: "delete", noteId, source: live.source, userId }).catch(() => {});
+        return "queued";
+      })();
+      deleteCallsRef.current.set(noteId, call);
 
-      setRecentlyDeleted(targetNote, timeoutId);
+      // 5. The undo window. Ending it only hides the toast.
+      const timeoutId = setTimeout(() => {
+        deleteCallsRef.current.delete(noteId);
+        const s = useNotesStore.getState();
+        if (s.recentlyDeleted?.note.id === noteId) s.clearRecentlyDeleted();
+      }, 10000);
+      store.setRecentlyDeleted(snapshot, timeoutId);
     },
-    [userId, notes, optimisticDeleteNote],
+    [userId, optimisticDeleteNote],
   );
 
-  // Restore deleted note (called when undo is clicked)
+  // Undo the last delete: put the note back exactly as it was on screen.
   const restoreNote = useCallback(async () => {
-    const { recentlyDeleted, restoreDeletedNote: restoreFromStore } = useNotesStore.getState();
+    const { recentlyDeleted, clearRecentlyDeleted, reinstateNote } = useNotesStore.getState();
     if (!recentlyDeleted || !userId) return;
 
-    const noteId = recentlyDeleted.note.id;
-    const restoredNote = restoreFromStore();
-    if (!restoredNote) return;
-    // Other tabs may have dropped it on the delete broadcast — have them refresh.
+    const snapshot: CombinedNote = { ...recentlyDeleted.note, deletedAt: null };
+    const noteId = snapshot.id;
+    clearRecentlyDeleted();
+
+    // Let the delete call settle first, so it can't land after the restore.
+    const outcome = (await deleteCallsRef.current.get(noteId)) ?? "deleted";
+    deleteCallsRef.current.delete(noteId);
+    // A delete that's still queued is simply cancelled.
+    if (outcome === "queued") await dropQueuedOps(noteId).catch(() => {});
+    await clearPendingDelete(noteId);
+
+    reinstateNote(snapshot);
+    saveNoteToLocal(snapshot).catch(() => {});
+    // Other tabs dropped it on the delete broadcast — have them re-read.
     broadcastNotesChanged();
 
-    // Common case: undo happened before the deferred backend delete fired, so
-    // the note was never deleted server-side. restoreFromStore already cleared
-    // the local tombstone — just re-persist locally and stop. Re-creating here
-    // would duplicate a row that still exists (the original bug).
-    if (!backendDeleteStartedRef.current.has(noteId)) {
-      saveNoteToLocal(restoredNote).catch(() => {});
-      return;
-    }
-
-    // Race case: undo landed while/after the deferred delete began, so re-create.
-    backendDeleteStartedRef.current.delete(noteId);
+    // Once the server has it back (and only then, so this restore's own save
+    // never races an editor), reopen it if nothing else is open.
+    const reopen = () => {
+      const s = useNotesStore.getState();
+      if (!s.activeNoteId) s.setActiveNoteId(noteId);
+    };
     try {
-      if (restoredNote.source === "redis") {
-        await noteOperation("redis", {
-          operation: "create",
-          userId,
-          note: combiToRedis(restoredNote),
-        });
-      } else {
-        await createSupabaseNote(restoredNote);
+      if (snapshot.source === "supabase") {
+        // Out of Trash (also harmless if the queued delete never ran).
+        const r = await restoreSupabaseNote(noteId);
+        if (!r?.success) throw new Error(r?.error || "Restore failed");
       }
+      // Adopt the server's copy (its version), then — when the server doesn't
+      // have the guest note any more — put it back as it was.
+      const server = await refreshSingleNoteRef.current(noteId);
+      if (!server) {
+        if (snapshot.source !== "redis") throw new Error("Restored note not found");
+        const r = await noteOperation("redis", { operation: "create", userId, note: combiToRedis(snapshot) });
+        if (!r?.success) throw new Error((r as { error?: string })?.error || "Restore failed");
+        reopen();
+        return;
+      }
+      // Text typed just before the delete that never reached the server: save
+      // it now, through the normal versioned save.
+      if (!sameNoteContent(server.content, snapshot.content)) {
+        await saveNoteContentRef.current(noteId, snapshot.content, snapshot.goal ?? 0, snapshot.goal_type ?? "");
+      }
+      reopen();
     } catch (error) {
       console.error("Failed to restore note:", error);
       await refreshNotes();
@@ -778,7 +816,7 @@ export function useNotesOperations(
   // conflict never discards either side. Returns the new note id.
   const createConflictedCopy = useCallback(
     async (source: CombinedNote, baseTitle: string, copyContent: string): Promise<string | null> => {
-      if (!userId) return null;
+      if (!userId || isPendingDelete(source.id)) return null;
       const stamp = new Date().toLocaleString(undefined, {
         day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
       });
@@ -810,7 +848,7 @@ export function useNotesOperations(
   // from view, and follow the active note across.
   const salvageDeletedEdit = useCallback(
     async (source: CombinedNote, content: string): Promise<string | null> => {
-      if (!userId) return null;
+      if (!userId || isPendingDelete(source.id)) return null;
       const copy = cloneNote(source);
       copy.id = generateNoteId(useNotesStore.getState().notes.map((n) => n.id));
       copy.title = `${source.title || "Untitled"} (recovered)`;
@@ -850,6 +888,12 @@ export function useNotesOperations(
       opts?: { projection?: boolean; baseVersion?: number },
     ) => {
       if (!userId) return { success: false };
+      // Deleted here: nothing more is saved to it (an editor's last flush or
+      // retry). Reported as done so the editor stops retrying.
+      if (isPendingDelete(noteId)) {
+        useNotesStore.getState().setEditing(noteId, false);
+        return { success: true };
+      }
 
       const targetNote = useNotesStore.getState().notes.find((note) => note.id === noteId);
       if (!targetNote) {
@@ -905,6 +949,13 @@ export function useNotesOperations(
                 baseVersion,
                 projection: opts?.projection,
               });
+            }
+
+            // Deleted here while this save was on its way: its answer is moot —
+            // no copy, no retry (the delete is sent after it).
+            if (isPendingDelete(noteId)) {
+              setSaveError(noteId, false);
+              return { success: true };
             }
 
             // The note was deleted elsewhere before this edit caught up. Never
@@ -999,6 +1050,7 @@ export function useNotesOperations(
   const saveNoteTitle = useCallback(
     async (noteId: string, title: string) => {
       if (!userId) return { success: false };
+      if (isPendingDelete(noteId)) return { success: true }; // deleted here
 
       // Read notes from store directly to avoid stale closure
       const currentNotes = useNotesStore.getState().notes;
@@ -1060,6 +1112,7 @@ export function useNotesOperations(
   const refreshSingleNote = useCallback(
     async (noteId: string): Promise<CombinedNote | null> => {
       if (!userId) return null;
+      if (isPendingDelete(noteId)) return null; // server data would show it live
 
       const currentNotes = useNotesStore.getState().notes;
       const targetNote = currentNotes.find((note) => note.id === noteId);
@@ -1088,7 +1141,7 @@ export function useNotesOperations(
           }
         }
 
-        if (updatedNote) {
+        if (updatedNote && !isPendingDelete(noteId)) {
           optimisticUpdateNote(noteId, updatedNote);
           return updatedNote;
         }
@@ -1121,7 +1174,7 @@ export function useNotesOperations(
       goalType: "" | "words" | "characters",
       opts: { baseVersion?: number; closing: boolean },
     ) => {
-      if (!userId) return;
+      if (!userId || isPendingDelete(noteId)) return;
       const targetNote = useNotesStore.getState().notes.find((note) => note.id === noteId);
       if (!targetNote) return;
 
@@ -1156,6 +1209,9 @@ export function useNotesOperations(
     },
     [userId, isAuthenticated, optimisticUpdateNote],
   );
+
+  saveNoteContentRef.current = saveNoteContent;
+  refreshSingleNoteRef.current = refreshSingleNote;
 
   return useMemo(() => ({
     addNote,

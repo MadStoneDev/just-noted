@@ -6,8 +6,11 @@ import { IconTrash, IconArrowBackUp, IconX } from "@tabler/icons-react";
 
 const UNDO_TIMEOUT = 10000; // 10 seconds to undo
 
-export default function UndoDeleteToast() {
-  const { recentlyDeleted, restoreDeletedNote, clearRecentlyDeleted } = useNotesStore();
+// The note is already deleted on the server when this shows; the toast is
+// only the window in which Undo can restore it. ✕ just hides the toast.
+export default function UndoDeleteToast({ onUndo }: { onUndo: () => void | Promise<void> }) {
+  const recentlyDeleted = useNotesStore((s) => s.recentlyDeleted);
+  const clearRecentlyDeleted = useNotesStore((s) => s.clearRecentlyDeleted);
   const [progress, setProgress] = useState(100);
   const [isVisible, setIsVisible] = useState(false);
 
@@ -35,7 +38,7 @@ export default function UndoDeleteToast() {
   }, [recentlyDeleted]);
 
   const handleUndo = () => {
-    restoreDeletedNote();
+    void onUndo();
   };
 
   const handleDismiss = () => {
@@ -45,7 +48,10 @@ export default function UndoDeleteToast() {
   if (!isVisible || !recentlyDeleted) return null;
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
+    // The toast layer (z-[10050], as the other toasts): above the consent
+    // banner, the update banner and every other fixed bottom bar, so Undo and
+    // ✕ are always clickable.
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[10050] animate-slide-up">
       <div className="relative bg-[var(--color-bg-elevated)] border border-[var(--color-border-primary)] text-[var(--color-text-primary)] px-4 py-3 rounded-[var(--radius-xl)] shadow-lg flex items-center gap-3 min-w-[280px] max-w-sm">
         <IconTrash size={16} className="text-[var(--color-danger)] flex-shrink-0" />
         <p className="flex-1 text-sm truncate">

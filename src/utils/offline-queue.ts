@@ -27,6 +27,7 @@ import { sameNoteContent } from "./notes-utils";
 import { conflictStamp } from "./background-conflict";
 import { TAB_ID } from "./cross-tab";
 import { notesNotToWrite } from "./note-ownership";
+import { isPendingDelete } from "./pending-deletes";
 import { v4 as uuidv4 } from "uuid";
 import {
   OFFLINE_QUEUE_DB_NAME,
@@ -456,6 +457,10 @@ export async function settleQueueWrites(): Promise<void> {
  * nothing unsynced and cleared the edit).
  */
 export function enqueue(input: QueuedOperationPayload): Promise<void> {
+  // Nothing is queued onto a note this device deleted (a late save, a retry, a
+  // tab-hide write-ahead): it would replay onto the deleted note. Its delete is
+  // the only op it can still have. See utils/pending-deletes.
+  if (input.type !== "delete" && isPendingDelete(input.noteId)) return Promise.resolve();
   const run = enqueueAtomic(input);
   writesInFlight.add(run);
   run.then(
@@ -599,14 +604,22 @@ async function executeOp(payload: QueuedOperationPayload, queuedAt: number): Pro
       break;
     }
     case "delete": {
-      if (source === "redis") {
-        throwIfFailed(await noteOperation("redis", { operation: "delete", userId, noteId }), "Delete failed");
-      } else {
-        throwIfFailed(await deleteSupabaseNote(noteId), "Delete failed");
-      }
+      const r =
+        source === "redis"
+          ? await noteOperation("redis", { operation: "delete", userId, noteId })
+          : await deleteSupabaseNote(noteId);
+      // Already gone on the server is a delete that's done, not a failure to
+      // retry forever (e.g. the first attempt landed but its answer was lost).
+      if (!deleteAlreadyDone(r)) throwIfFailed(r, "Delete failed");
       break;
     }
   }
+}
+
+/** A delete answered "not found": the note is already gone on the server. */
+export function deleteAlreadyDone(r: { success?: boolean; error?: string } | null | undefined): boolean {
+  if (!r || r.success) return false;
+  return r.error === "Note not found" || r.error === "not_found";
 }
 
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -689,6 +702,12 @@ async function runPass(opts: ProcessQueueOptions): Promise<void> {
     for (const op of ops) {
       const noteId = op.payload.noteId;
       if (blocked.has(noteId)) continue;
+      // Deleted on this device: only its delete may still go out (an older
+      // entry would replay onto the deleted note).
+      if (op.payload.type !== "delete" && isPendingDelete(noteId)) {
+        await deleteOp(op.id);
+        continue;
+      }
       if (op.payload.type === "update" && notToWrite.has(noteId)) continue;
 
       // B7: never send another account's cloud op under the current session.
@@ -954,6 +973,7 @@ export function warmQueueConnection(): void {
  * warm connection isn't open yet.
  */
 export function enqueueContentNow(input: QueuedUpdateOp): void {
+  if (isPendingDelete(input.noteId)) return; // see enqueue()
   const payload = withAccount(withCopyId(input));
   const db = leaveDb;
   if (!db) {

@@ -6,6 +6,7 @@ import { Notebook } from "@/types/notebook";
 import { Tag } from "@/types/tag";
 import { TocHeading } from "@/lib/toc-parser";
 import { filterAndSortNotes } from "@/lib/filter-notes";
+import { hidePendingDeletes, isPendingDelete } from "@/utils/pending-deletes";
 
 // Deleted note with timestamp for undo functionality
 interface DeletedNote {
@@ -146,6 +147,9 @@ interface NotesStore {
   setRecentlyDeleted: (note: CombinedNote | null, timeoutId?: NodeJS.Timeout) => void;
   clearRecentlyDeleted: () => void;
   restoreDeletedNote: () => CombinedNote | null;
+  /** Undo a delete: show `note` again (replacing its tombstone, or adding it
+   *  back if a refresh already dropped it). */
+  reinstateNote: (note: CombinedNote) => void;
 
   // ========== Tags Actions ==========
   setTags: (tags: Tag[]) => void;
@@ -298,6 +302,9 @@ export const useNotesStore = create<NotesStore>()(
     },
 
     setEditing: (noteId, editing) => {
+      // A deleted note is never "being edited" (a closing editor's last emission
+      // must not hold off refreshes — see utils/pending-deletes).
+      if (editing && isPendingDelete(noteId)) return;
       const { isEditing } = get();
       const currentValue = isEditing.has(noteId);
       if (editing === currentValue) return;
@@ -535,6 +542,19 @@ export const useNotesStore = create<NotesStore>()(
       return restoredNote;
     },
 
+    reinstateNote: (note) => {
+      set((state) => {
+        const restored = { ...note, deletedAt: null };
+        const has = state.notes.some((n) => n.id === note.id);
+        return {
+          notes: has
+            ? state.notes.map((n) => (n.id === note.id ? restored : n))
+            : [restored, ...state.notes],
+          lastUpdateTimestamp: Date.now(),
+        };
+      });
+    },
+
     // ========== Tags Actions ==========
     setTags: (tags) => set({ tags }),
     addTag: (tag) => set((state) => ({ tags: [...state.tags, tag] })),
@@ -576,14 +596,18 @@ export const useNotesStore = create<NotesStore>()(
     setTagsLoading: (tagsLoading) => set({ tagsLoading }),
 
     // ========== Sync ==========
+    // Both commits keep notes this device deleted hidden until the server has
+    // confirmed the delete — server data read before (or racing) the delete
+    // still has them live. See utils/pending-deletes.
     syncFromBackend: (notes) => {
       set({
-        notes,
+        notes: hidePendingDeletes(notes),
         lastUpdateTimestamp: Date.now(),
       });
     },
 
-    mergeWithBackend: (backendNotes) => {
+    mergeWithBackend: (incoming) => {
+      const backendNotes = hidePendingDeletes(incoming);
       set((state) => {
         const { isSaving, isEditing } = state;
         const inFlight = (id: string) => isSaving.has(id) || isEditing.has(id);
@@ -615,9 +639,9 @@ export const useNotesStore = create<NotesStore>()(
         );
 
         return {
-          notes: inFlightLocalOnly.length
-            ? [...mergedNotes, ...inFlightLocalOnly]
-            : mergedNotes,
+          notes: hidePendingDeletes(
+            inFlightLocalOnly.length ? [...mergedNotes, ...inFlightLocalOnly] : mergedNotes,
+          ),
           lastUpdateTimestamp: Date.now(),
         };
       });

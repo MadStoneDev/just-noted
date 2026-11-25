@@ -36,7 +36,16 @@ import {
 } from "@/utils/offline-queue";
 import { conflictStamp } from "@/utils/background-conflict";
 import { v4 as uuidv4 } from "uuid";
-import { setActiveSupabaseUser } from "@/utils/offline-queue-guard";
+import { setActiveSupabaseUser, getActiveSupabaseUser } from "@/utils/offline-queue-guard";
+import {
+  isPendingDelete,
+  loadPendingDeletes,
+  pendingDeletes,
+  settlePendingDeletes,
+  clearPendingDelete,
+  notePendingDeleteFromOtherTab,
+  dropPendingDeleteHints,
+} from "@/utils/pending-deletes";
 import { notesNotToWrite, editorHandleFor } from "@/utils/note-ownership";
 import { reconcileNotes, protectUnsyncedLocal, keepChangesMadeDuringLoad, type PendingContent } from "@/utils/notes-merge";
 import { subscribeNoteUpdates } from "@/utils/cross-tab";
@@ -153,6 +162,8 @@ async function pushNoteToServer(
   isAuthenticated: boolean,
   override: { baseVersion?: number; copyId?: string } = {},
 ): Promise<boolean> {
+  // Never a background write onto a note deleted here (utils/pending-deletes).
+  if (isPendingDelete(note.id)) return true;
   try {
     const cas = {
       baseVersion: override.baseVersion ?? note.version ?? 1,
@@ -182,6 +193,37 @@ async function pushNoteToServer(
   }
 }
 
+
+/**
+ * Settle this device's pending deletes against a fresh server list (see
+ * settlePendingDeletes): clear the confirmed ones, queue the delete again for
+ * ones the server still has live. `graceMs` 0 = nothing can be in flight.
+ */
+function finishPendingDeletes(
+  serverNotes: CombinedNote[],
+  fetched: { redis: boolean; supabase: boolean },
+  graceMs?: number,
+): void {
+  const pending = pendingDeletes();
+  if (pending.length === 0) return;
+  const { confirmed, resend } = settlePendingDeletes(
+    pending,
+    serverNotes,
+    fetched,
+    getActiveSupabaseUser(),
+    Date.now(),
+    graceMs,
+  );
+  for (const id of confirmed) clearPendingDelete(id).catch(() => {});
+  if (resend.length === 0) return;
+  const uid = useNotesStore.getState().userId;
+  if (!uid) return;
+  Promise.all(
+    resend.map((e) => enqueue({ type: "delete", noteId: e.id, source: e.source, userId: uid }).catch(() => {})),
+  )
+    .then(() => processQueue())
+    .catch(() => {});
+}
 
 export function useNotesSync() {
   const supabase = createClient();
@@ -296,6 +338,9 @@ export function useNotesSync() {
         }
       }
 
+      // Another tab may have deleted (or undone a delete of) a note since.
+      await loadPendingDeletes();
+
       // Snapshot the store as the fetch starts: anything the user does while it
       // is in flight (e.g. Ctrl+J) is laid back over the result at commit — see
       // keepChangesMadeDuringLoad.
@@ -336,6 +381,14 @@ export function useNotesSync() {
       // (closing its editor mid-session). An empty starter note persisting is
       // fine; a note vanishing under the user is not (see never-auto-delete).
       const cleanedNotes = freshNotes;
+
+      // Deletes made here: confirmed once this list no longer has them live;
+      // re-sent if it still does long after the call (the commit keeps them
+      // hidden either way).
+      finishPendingDeletes(
+        [...(redisNotes ?? []), ...(supabaseNotes ?? [])],
+        { redis: redisNotes !== null, supabase: supabaseNotes !== null && useNotesStore.getState().isAuthenticated },
+      );
 
       const normalisedNotes = normaliseOrdering(cleanedNotes);
       const serverSorted = sortNotes(normalisedNotes, null);
@@ -440,6 +493,9 @@ export function useNotesSync() {
         // STEP 0: Render IDB cache immediately for fast first paint. Notes
         // already in the store (created while the cache was being read, or
         // kept from an earlier attempt) win over their cached copies.
+        // Deletes not yet confirmed by the server stay hidden from the first
+        // paint on (a reload during the delete window).
+        await loadPendingDeletes();
         const cachedNotes = await getAllLocalNotes();
         if (cachedNotes.length > 0) {
           const inStore = useNotesStore.getState().notes;
@@ -505,6 +561,14 @@ export function useNotesSync() {
         }
 
         localStorage.setItem(HAS_INITIALISED_KEY, "true");
+
+        // Deletes made before this load: confirmed, or sent again now (nothing
+        // can still be in flight after a reload). The queue drain below sends.
+        finishPendingDeletes(
+          [...(redisOk ? redisNotes : []), ...(supabaseOk ? supabaseNotes : [])],
+          { redis: redisOk, supabase: authenticated && supabaseOk },
+          0,
+        );
 
         // NOTE: we deliberately do NOT delete "empty default" notes on startup
         // any more. That cleanup deleted a note server-side and then overwrote
@@ -698,6 +762,9 @@ export function useNotesSync() {
             // Skip if we're currently editing or saving this note (our own write)
             if (isEditing.has(updated.id) || isSaving.has(updated.id)) return;
 
+            // Deleted here: the server's row is still live until our delete lands.
+            if (isPendingDelete(updated.id)) return;
+
             const combiNote = supabaseToCombi(updated);
             const existing = notes.find((n) => n.id === updated.id);
             if (!existing) return;
@@ -712,6 +779,7 @@ export function useNotesSync() {
             const inserted = payload.new as SupabaseNote;
             // Skip if we already have this note (our own create)
             if (notes.some((n) => n.id === inserted.id)) return;
+            if (isPendingDelete(inserted.id)) return;
 
             const combiNote = supabaseToCombi(inserted);
             optimisticAddNote(combiNote);
@@ -839,13 +907,19 @@ export function useNotesSync() {
       const store = useNotesStore.getState();
 
       if (msg.kind === "changed") {
-        // Restore / empty-trash / transfer: refresh data only (no layout change).
+        // Restore / empty-trash / transfer / an undone delete: that tab's
+        // pending-delete record is the truth now (refreshNotes re-reads it).
+        dropPendingDeleteHints();
+        // Refresh data only (no layout change).
         if (!(store.isEditing.size > 0 || store.isSaving.size > 0)) refreshNotes();
         return;
       }
 
       if (msg.kind === "deleted") {
         if (!msg.noteId) return;
+        // Hidden here too until the server confirms (our own refresh may read
+        // the note live before that tab's delete lands).
+        notePendingDeleteFromOtherTab(msg.noteId);
         // Don't yank a note out from under active editing here.
         if (store.isEditing.has(msg.noteId) || store.isSaving.has(msg.noteId)) return;
         store.removeNote(msg.noteId);

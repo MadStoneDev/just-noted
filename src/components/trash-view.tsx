@@ -1,5 +1,6 @@
 "use client";
 
+import { clearPendingDelete } from "@/utils/pending-deletes";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   getTrashedNotes,
@@ -96,6 +97,9 @@ export default function TrashView({ onClose }: TrashViewProps) {
   );
 
   const handleRestore = useCallback(async (noteId: string) => {
+    // A delete made here moments ago may still be pending (hidden until the
+    // server confirms): restoring settles it.
+    await clearPendingDelete(noteId);
     const result = await restoreNote(noteId);
     if (result.success) {
       setAllNotes((prev) => prev.filter((n) => n.id !== noteId));
@@ -106,7 +110,10 @@ export default function TrashView({ onClose }: TrashViewProps) {
   const handleRestoreAll = useCallback(async () => {
     setBusy(true);
     const ids = notes.map((n) => n.id);
-    for (const id of ids) await restoreNote(id);
+    for (const id of ids) {
+      await clearPendingDelete(id);
+      await restoreNote(id);
+    }
     setAllNotes((prev) => prev.filter((n) => !ids.includes(n.id)));
     setBusy(false);
     broadcastNotesChanged();

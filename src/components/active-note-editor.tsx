@@ -105,15 +105,20 @@ export default function ActiveNoteEditor({
   // other note updates (realtime, a background poll, typing in a different tab).
   // The list itself is reached non-reactively through getState(); `noteCount` is
   // the only whole-list signal we still need to react to, and it changes rarely.
-  const note = useNoteById(activeNoteId) ?? null;
-  const splitNote = useNoteById(splitNoteId) ?? null;
+  // A deleted note (tombstone, kept in the list until the server confirms) is
+  // never shown: the editor closes the moment it's deleted.
+  const activeRaw = useNoteById(activeNoteId);
+  const splitRaw = useNoteById(splitNoteId);
+  const note = activeRaw && !activeRaw.deletedAt ? activeRaw : null;
+  const splitNote = splitRaw && !splitRaw.deletedAt ? splitRaw : null;
   const noteCount = useNotesStore((s) => s.notes.length);
 
-  // Auto-select: restore last opened note, or pick most recent
+  // Auto-select: restore last opened note, or pick most recent — live notes
+  // only (picking a tombstone re-opened a note right after it was deleted).
   useEffect(() => {
     if (activeNoteId || noteCount === 0) return;
 
-    const notes = useNotesStore.getState().notes;
+    const notes = useNotesStore.getState().notes.filter((n) => !n.deletedAt);
     const lastId = localStorage.getItem(LAST_NOTE_KEY);
     if (lastId && notes.find((n) => n.id === lastId)) {
       setActiveNoteId(lastId);
