@@ -82,7 +82,7 @@ export default async function PrivacyPolicyPage() {
             </span>
           </h1>
           <p className="mt-3 text-[var(--color-text-secondary)]">
-            <span className="font-medium">Last updated:</span> November 20, 2026
+            <span className="font-medium">Last updated:</span> 20 Nov 2026
           </p>
 
           {/* Who we are */}

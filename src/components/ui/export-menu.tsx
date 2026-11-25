@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { useEscapeLayer } from "@/utils/escape-stack";
 import { CombinedNote } from "@/types/combined-notes";
 import {
   IconDownload,
@@ -22,6 +23,7 @@ type ExportFormat = "txt" | "md" | "html" | "json";
 export default function ExportMenu({ note, className = "" }: ExportMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  useEscapeLayer(isOpen, () => setIsOpen(false));
 
   // Close menu when clicking outside
   useEffect(() => {

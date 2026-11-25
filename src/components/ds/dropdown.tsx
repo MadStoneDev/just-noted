@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useEscapeLayer } from "@/utils/escape-stack";
 import {
   useFloating,
   autoUpdate,
@@ -58,7 +59,10 @@ export function Dropdown({
   });
 
   const click = useClick(context);
-  const dismiss = useDismiss(context);
+  // Escape goes through the shared layer stack (utils/escape-stack) so only the
+  // topmost layer closes; floating-ui's own Escape handler would race it.
+  const dismiss = useDismiss(context, { escapeKey: false });
+  useEscapeLayer(isOpen, () => setIsOpen(false));
   const role = useRole(context, { role: "menu" });
 
   const { getReferenceProps, getFloatingProps } = useInteractions([

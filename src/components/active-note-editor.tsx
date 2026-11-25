@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useCallback, useState, useRef, useEffect, useLayoutEffect, useMemo } from "react";
+import { Shortcut } from "@/components/ui/shortcut";
+import { useShortcut } from "@/utils/shortcut-label";
 
 const LAST_NOTE_KEY = "justnoted_last_note";
 import LazyTextBlock from "@/components/lazy-text-block";
@@ -343,7 +345,7 @@ function EmptyState({ onNewNote }: { onNewNote: () => void }) {
           Nothing open yet
         </h2>
         <p className="mt-2 text-[13.5px] leading-[1.55] text-[var(--color-ink-4)]">
-          Pick a note from the sidebar, or press ⌘N to start a new one.
+          Pick a note from the sidebar, or press <Shortcut keys={["Mod", "J"]} /> to start a new one.
         </p>
         <button
           onClick={onNewNote}
@@ -378,6 +380,7 @@ export function NoteEditor({
   onChangeSplitNote?: () => void;
   scrollRef?: React.RefObject<HTMLDivElement | null>;
 }) {
+  const { sc: shortcutLabel } = useShortcut();
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
   const [contentFormat, setContentFormat] = useState(note.contentFormat || "html");
@@ -1842,7 +1845,7 @@ export function NoteEditor({
         overflow={
           <button
             onClick={() => setCommandOpen(true)}
-            title="Actions (Ctrl+Shift+M)"
+            title={`Actions (${shortcutLabel("Mod", "Shift", "M")})`}
             className={`flex w-8 ${barButtonClass(noteIsShared)}`}
           >
             <IconDots size={16} />
@@ -2158,7 +2161,7 @@ export function NoteEditor({
             </div>
           ))}
           <p className="text-[10px] text-[var(--color-text-tertiary)] pt-3">
-            Keyboard: <kbd className="px-1 py-px bg-[var(--color-bg-tertiary)] rounded text-[10px] font-mono">Ctrl+B</kbd> bold · <kbd className="px-1 py-px bg-[var(--color-bg-tertiary)] rounded text-[10px] font-mono">Ctrl+I</kbd> italic · <kbd className="px-1 py-px bg-[var(--color-bg-tertiary)] rounded text-[10px] font-mono">Ctrl+Z</kbd> undo
+            Keyboard: <kbd className="px-1 py-px bg-[var(--color-bg-tertiary)] rounded text-[10px] font-mono"><Shortcut keys={["Mod", "B"]} /></kbd> bold · <kbd className="px-1 py-px bg-[var(--color-bg-tertiary)] rounded text-[10px] font-mono"><Shortcut keys={["Mod", "I"]} /></kbd> italic · <kbd className="px-1 py-px bg-[var(--color-bg-tertiary)] rounded text-[10px] font-mono"><Shortcut keys={["Mod", "Z"]} /></kbd> undo
           </p>
         </div>
       </Modal>

@@ -13,6 +13,9 @@ interface DeletedNote {
   note: CombinedNote;
   deletedAt: number;
   timeoutId?: NodeJS.Timeout;
+  /** Undo was tried and failed; the toast offers another try and stays until
+   *  then (or until dismissed). */
+  restoreFailed?: boolean;
 }
 
 // Active notebook filter type: null = "All Notes", "loose" = unassigned notes, uuid = specific notebook
@@ -144,7 +147,7 @@ interface NotesStore {
   optimisticReorderNotes: (notes: CombinedNote[]) => void;
 
   // ========== Undo Delete ==========
-  setRecentlyDeleted: (note: CombinedNote | null, timeoutId?: NodeJS.Timeout) => void;
+  setRecentlyDeleted: (note: CombinedNote | null, timeoutId?: NodeJS.Timeout, opts?: { restoreFailed?: boolean }) => void;
   clearRecentlyDeleted: () => void;
   restoreDeletedNote: () => CombinedNote | null;
   /** Undo a delete: show `note` again (replacing its tombstone, or adding it
@@ -492,7 +495,7 @@ export const useNotesStore = create<NotesStore>()(
     },
 
     // ========== Undo Delete ==========
-    setRecentlyDeleted: (note, timeoutId) => {
+    setRecentlyDeleted: (note, timeoutId, opts) => {
       const { recentlyDeleted } = get();
       // Clear previous timeout if exists
       if (recentlyDeleted?.timeoutId) {
@@ -505,6 +508,7 @@ export const useNotesStore = create<NotesStore>()(
             note,
             deletedAt: Date.now(),
             timeoutId,
+            restoreFailed: !!opts?.restoreFailed,
           },
         });
       } else {

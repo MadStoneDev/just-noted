@@ -4,16 +4,10 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { IconX } from "@tabler/icons-react";
 import type { NotificationView } from "@/lib/notifications";
+import { formatWhen } from "@/utils/format-date";
 
 function relTime(iso: string): string {
-  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h`;
-  const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d`;
-  return new Date(iso).toLocaleDateString("en-AU", { month: "short", day: "numeric" });
+  return formatWhen(iso, { time: true });
 }
 
 interface NotificationsViewProps {
@@ -23,6 +17,15 @@ interface NotificationsViewProps {
   onMarkAll: () => void;
   onClearAll: () => void;
   onClose: () => void;
+  /** Open a shared note (href /n/<shortcode>) in the shell, with the rail and
+   *  sidebar switched to Shared. Without it the item just navigates. */
+  onOpenShared?: (shortcode: string) => void;
+}
+
+/** The shortcode of a notification that points at a note (/n/<shortcode>). */
+export function noteShortcodeFromHref(href: string | null): string | null {
+  const m = href?.match(/^\/n\/([^/?#]+)$/);
+  return m ? decodeURIComponent(m[1]) : null;
 }
 
 // Notifications as a real main-area view (like Trash) — selecting Notifications
@@ -36,12 +39,16 @@ export default function NotificationsView({
   onMarkAll,
   onClearAll,
   onClose,
+  onOpenShared,
 }: NotificationsViewProps) {
   const router = useRouter();
 
   const onItem = (n: NotificationView) => {
     if (!n.isRead) onRead(n.id);
-    if (n.href) {
+    const shortcode = noteShortcodeFromHref(n.href);
+    if (shortcode && onOpenShared) {
+      onOpenShared(shortcode);
+    } else if (n.href) {
       router.push(n.href);
       onClose();
     }

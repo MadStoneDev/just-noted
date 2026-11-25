@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useEscapeLayer } from "@/utils/escape-stack";
 import { createPortal } from "react-dom";
 import {
   IconSearch,
@@ -155,6 +156,13 @@ export function CommandPalette({ open, onClose, page }: CommandPaletteProps) {
     setActiveIndex(0);
   }, []);
 
+  // Escape steps back a page, then closes. It goes through the layer stack so
+  // it works whatever has focus and never reaches a layer underneath.
+  useEscapeLayer(open, () => {
+    if (stack.length > 1) goBack();
+    else onClose();
+  });
+
   const select = useCallback(
     (item: CommandItem | undefined) => {
       if (!item || item.disabled) return;
@@ -205,10 +213,6 @@ export function CommandPalette({ open, onClose, page }: CommandPaletteProps) {
     } else if (e.key === "Enter") {
       e.preventDefault();
       select(flatItems[activeIndex]);
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      if (stack.length > 1) goBack();
-      else onClose();
     } else if (e.key === "Backspace" && query === "" && stack.length > 1) {
       e.preventDefault();
       goBack();

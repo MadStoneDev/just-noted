@@ -27,6 +27,7 @@ import {
 } from "@tabler/icons-react";
 import { Modal, ConfirmModal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
+import { formatDateTime } from "@/utils/format-date";
 
 interface BackupEntry {
   id: string;
@@ -92,9 +93,7 @@ export default function BackupManager({
   }, [state.allBackups]);
 
   // Memoized date formatter
-  const formatDate = useCallback((timestamp: number) => {
-    return new Date(timestamp).toLocaleString();
-  }, []);
+  const formatDate = useCallback((timestamp: number) => formatDateTime(timestamp), []);
 
   // Load all backups
   const loadAllBackups = useCallback(async () => {

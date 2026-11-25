@@ -1,20 +1,42 @@
 import type { ContentFormat } from "@/types/combined-notes";
 import { stripEmptyLineMarkers } from "@/utils/empty-line-marker";
 
+// Named entities seen in note content (the editor, Turndown output, pasted
+// web text). Anything else named is left as written.
+const NAMED_ENTITIES: Record<string, string> = {
+  nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'",
+  lsquo: "\u2018", rsquo: "\u2019", ldquo: "\u201C", rdquo: "\u201D",
+  ndash: "\u2013", mdash: "\u2014", hellip: "\u2026", bull: "\u2022", middot: "\u00B7",
+  copy: "\u00A9", reg: "\u00AE", trade: "\u2122", deg: "\u00B0", times: "\u00D7",
+  euro: "\u20AC", pound: "\u00A3", cent: "\u00A2", zwj: "\u200D", zwnj: "\u200C",
+  ensp: " ", emsp: " ", thinsp: " ",
+};
+
+/**
+ * Decode HTML character references (&nbsp; &amp; &#39; &#x27; &rsquo; …) to
+ * text, for previews and search. One pass, so "&amp;lt;" becomes "&lt;", not
+ * "<". A non-breaking space becomes a plain space. No DOM allocation.
+ */
+export function decodeHtmlEntities(text: string): string {
+  if (!text.includes("&")) return text;
+  return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]*);/gi, (whole, ref: string) => {
+    if (ref[0] === "#") {
+      const code = ref[1] === "x" || ref[1] === "X" ? parseInt(ref.slice(2), 16) : parseInt(ref.slice(1), 10);
+      if (!Number.isFinite(code) || code < 0 || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff)) return whole;
+      return code === 0xa0 ? " " : String.fromCodePoint(code);
+    }
+    return NAMED_ENTITIES[ref.toLowerCase()] ?? whole;
+  });
+}
+
 /**
  * Fast regex-based HTML → plain text.
  * Safe to call on every keystroke (no DOM allocation).
  */
 export function stripHtmlToText(html: string): string {
-  return html
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/\s+/g, " ")
+  // Tags first, then entities: an escaped "&lt;b&gt;" is text and stays "<b>".
+  return decodeHtmlEntities(html.replace(/<[^>]*>/g, " "))
+    .replace(/[\s\u00a0]+/g, " ")
     .trim();
 }
 
@@ -39,7 +61,8 @@ export function stripMarkdownToText(markdown: string): string {
     .replace(/==([^=]*)==/g, "$1")         // highlight
     .replace(/`([^`]*)`/g, "$1")           // inline code
     .replace(/<\/?[^>]+>/g, "")            // remaining HTML tags
-    .replace(/\s+/g, " ")
+    .replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]*);/gi, (m) => decodeHtmlEntities(m)) // entities (after tags)
+    .replace(/[\s\u00a0]+/g, " ")
     .trim();
 }
 

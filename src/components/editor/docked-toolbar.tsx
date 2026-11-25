@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { useShortcut } from "@/utils/shortcut-label";
+import { useEscapeLayer } from "@/utils/escape-stack";
 import { createPortal } from "react-dom";
 import type { Editor } from "@milkdown/core";
 import {
@@ -41,10 +43,12 @@ interface DockedToolbarProps {
  * Reachable with no selection, and reflects the caret's current formatting.
  */
 export default function DockedToolbar({ getEditor, containerRef, onBeforeEdit }: DockedToolbarProps) {
+  const { sc } = useShortcut();
   const { active, actions } = useFormatCommands(getEditor, containerRef, onBeforeEdit);
   // The swatch popover is rendered in a portal (the toolbar's own overflow-x
   // scroll container would otherwise clip it), positioned above the button.
   const [hlPos, setHlPos] = useState<{ left: number; bottom: number } | null>(null);
+  useEscapeLayer(hlPos !== null, () => setHlPos(null));
   const hlBtnRef = useRef<HTMLButtonElement>(null);
   const hlPopRef = useRef<HTMLDivElement>(null);
 
@@ -88,10 +92,10 @@ export default function DockedToolbar({ getEditor, containerRef, onBeforeEdit }:
       onMouseDown={(e) => e.preventDefault()}
     >
       <div className="flex flex-nowrap items-center md:justify-center gap-px px-1.5 py-1 overflow-x-auto scrollbar-thin">
-        <button className={cls(active.strong)} onClick={actions.bold} title="Bold (Ctrl+B)" aria-label="Bold" aria-pressed={active.strong}>
+        <button className={cls(active.strong)} onClick={actions.bold} title={`Bold (${sc("Mod", "B")})`} aria-label="Bold" aria-pressed={active.strong}>
           <IconBold />
         </button>
-        <button className={cls(active.emphasis)} onClick={actions.italic} title="Italic (Ctrl+I)" aria-label="Italic" aria-pressed={active.emphasis}>
+        <button className={cls(active.emphasis)} onClick={actions.italic} title={`Italic (${sc("Mod", "I")})`} aria-label="Italic" aria-pressed={active.emphasis}>
           <IconItalic />
         </button>
         <button className={cls(active.strike)} onClick={actions.strike} title="Strikethrough" aria-label="Strikethrough" aria-pressed={active.strike}>

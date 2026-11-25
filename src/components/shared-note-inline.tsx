@@ -19,6 +19,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { useToast } from "@/components/ui/toast";
 import NoteView from "@/components/note-view/note-view";
 import type { NoteViewModel, NoteCaps, NoteOps } from "@/components/note-view/types";
+import { formatDate } from "@/utils/format-date";
 
 interface SharedNoteInlineProps {
   shortcode: string;
@@ -86,7 +87,13 @@ export default function SharedNoteInline({ shortcode, onClose, onToggleSplit }: 
   const shareLink = typeof window !== "undefined" ? `${window.location.origin}/n/${shortcode}` : "";
   const copyLink = () => { navigator.clipboard.writeText(shareLink); toast.showSuccess("Link copied"); };
 
+  // Only the latest fetch may set state. Switching notes while one is loading
+  // let the earlier response land last: its "no access" (or a request the
+  // navigation aborted) showed "Can't access note" over a note you can open.
+  const fetchSeq = useRef(0);
   const fetchNote = async (pw?: string | null) => {
+    const seq = ++fetchSeq.current;
+    const current = () => seq === fetchSeq.current;
     setLoading(true);
 
     // Resolve the viewer's identity (for presence name + colour) in parallel
@@ -103,6 +110,7 @@ export default function SharedNoteInline({ shortcode, onClose, onToggleSplit }: 
           .eq("id", userData.user.id)
           .single();
         const username = (a as any)?.username ?? null;
+        if (!current()) return;
         setMe({ name: username || "Someone", color: colorForUser(userData.user.id) });
       } catch {}
     })();
@@ -114,6 +122,7 @@ export default function SharedNoteInline({ shortcode, onClose, onToggleSplit }: 
         currentUsername: null,
         password: pw || null,
       })) as any;
+      if (!current()) return;
 
       if (result.success && result.note) {
         setNote(result.note);
@@ -135,9 +144,9 @@ export default function SharedNoteInline({ shortcode, onClose, onToggleSplit }: 
         setError(result.error || "Failed to load note");
       }
     } catch {
-      setError("An unexpected error occurred");
+      if (current()) setError("An unexpected error occurred");
     } finally {
-      setLoading(false);
+      if (current()) setLoading(false);
     }
   };
 
@@ -216,8 +225,6 @@ export default function SharedNoteInline({ shortcode, onClose, onToggleSplit }: 
     setSubmitting(false);
   };
 
-  const formatDate = (d: string) =>
-    new Date(d).toLocaleDateString("en-AU", { year: "numeric", month: "short", day: "numeric" });
 
   const readOnlyHeader = (
     <div className="flex items-center justify-between px-4 md:px-8 h-12 flex-none border-b border-[var(--color-hairline)]">

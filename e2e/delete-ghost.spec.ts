@@ -319,6 +319,36 @@ async function undoRestoresLatestText(page: Page, mode: Mode) {
   await expect(page.locator("[data-note-card]").filter({ hasText: marker })).toHaveCount(1);
 }
 
+// Guest Undo that fails (offline: the note can't be re-created on the server,
+// which already deleted it): the snapshot is kept, the toast says "Couldn't
+// restore. Try again." and stays, and Try again (back online) restores the note
+// with its text. Before, the failure refreshed the list and the note was lost.
+async function failedUndoKeepsGuestNote(page: Page) {
+  const anon = captureAnonId(page);
+  const marker = `ghost-undo-fail-${Date.now()}`;
+  const id = await newNoteWith(page, marker);
+  await expect.poll(() => liveOnServer("guest", anon.get, id), { timeout: 15_000 }).toBe(true);
+  await deleteFromSidebar(page, id);
+  await expect(card(page, id)).toHaveCount(0, { timeout: 1000 });
+  await expect.poll(() => liveOnServer("guest", anon.get, id), { timeout: 15_000 }).toBe(false);
+
+  await page.context().setOffline(true);
+  await toast(page).getByRole("button", { name: "Undo" }).click();
+  const failed = page.getByRole("alert").filter({ hasText: "Couldn't restore. Try again." });
+  await expect(failed).toBeVisible();
+  await expect(card(page, id)).toHaveCount(0);
+  // It stays: no 10s countdown on a failed restore.
+  await page.waitForTimeout(11_000);
+  await expect(failed).toBeVisible();
+
+  await page.context().setOffline(false);
+  await failed.getByRole("button", { name: "Try again" }).click();
+  await expect(card(page, id)).toBeVisible();
+  await expect(card(page, id)).toContainText(marker);
+  await expect.poll(() => serverContent("guest", anon.get, id), { timeout: 15_000 }).toContain(marker);
+  await expect(page.getByText("Couldn't restore. Try again.")).toHaveCount(0);
+}
+
 async function serverContent(mode: Mode, anon: () => string | null, id: string): Promise<string> {
   if (mode === "guest") {
     const url = e2eFileEnv().VALKEY_URL || process.env.VALKEY_URL || "redis://127.0.0.1:6380";
@@ -377,6 +407,13 @@ test.describe("delete never comes back — guest (Valkey)", () => {
     await page.goto("/");
     await waitForApp(page);
     await undoRestoresLatestText(page, "guest");
+  });
+
+  test("an undo that fails keeps the note and offers Try again", async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.goto("/");
+    await waitForApp(page);
+    await failedUndoKeepsGuestNote(page);
   });
 });
 

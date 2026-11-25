@@ -1,4 +1,5 @@
 import { CombinedNote } from "@/types/combined-notes";
+import { formatDate } from "@/utils/format-date";
 
 export interface ManuscriptExportOptions {
   notebookName: string;
@@ -123,7 +124,7 @@ async function exportManuscriptAsPDF(
   doc.setFont("helvetica", "normal");
   doc.setTextColor(120, 120, 120);
   doc.text(
-    `${notes.length} section${notes.length !== 1 ? "s" : ""} · ${new Date().toLocaleDateString()}`,
+    `${notes.length} section${notes.length !== 1 ? "s" : ""} · ${formatDate(new Date())}`,
     pageWidth / 2,
     currentY + 10,
     { align: "center" },

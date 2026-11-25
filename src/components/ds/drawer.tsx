@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { IconX } from "@tabler/icons-react";
+import { useEscapeLayer } from "@/utils/escape-stack";
 import { cn } from "@/lib/utils";
 import { IconButton } from "./icon-button";
 import { Button } from "./button";
@@ -75,6 +76,9 @@ export function Drawer({
   // parent re-render re-runs the effect and yanks focus back to the first field.
   const requestCloseRef = useRef(requestClose);
   requestCloseRef.current = requestClose;
+  // A non-dismissable drawer still takes the Escape (and does nothing), so it
+  // can't fall through to whatever is underneath.
+  useEscapeLayer(open, requestClose);
 
   useEffect(() => {
     if (open) {
@@ -96,10 +100,6 @@ export function Drawer({
     document.body.style.overflow = "hidden";
 
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        requestCloseRef.current();
-        return;
-      }
       if (e.key !== "Tab" || !contentRef.current) return;
 
       const focusable = contentRef.current.querySelectorAll<HTMLElement>(

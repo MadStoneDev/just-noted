@@ -29,6 +29,7 @@ import { ConfirmModal } from "@/components/ds/modal";
 import { useToast } from "@/components/ui/toast";
 import { Avatar } from "@/components/ui/avatar";
 import type { ChatMessageView } from "@/lib/chat";
+import { formatWhen } from "@/utils/format-date";
 
 // Fetches a short-lived presigned URL for a message's media and refreshes it
 // before it expires, so long-open chats never show a broken attachment.
@@ -67,15 +68,7 @@ interface NoteChatPanelProps {
 }
 
 function relativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h`;
-  const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d`;
-  return new Date(iso).toLocaleDateString("en-AU", { month: "short", day: "numeric" });
+  return formatWhen(iso, { time: true });
 }
 
 function MessageRow({
@@ -336,6 +329,7 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
       e.preventDefault();
       submit();
     } else if (e.key === "Escape" && editing) {
+      e.preventDefault(); // handled: don't also step out of the view
       setEditing(null);
       setText("");
     }

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useEscapeLayer } from "@/utils/escape-stack";
 import { saveSharedNotesByLinks, type SaveLinkResult } from "@/app/actions/sharing";
 import {
   IconX,
@@ -40,6 +41,7 @@ export default function AddSharedDrawer({ open, onClose, onAdded }: AddSharedDra
       setMode("single");
     }, 300);
   };
+  useEscapeLayer(open, close);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

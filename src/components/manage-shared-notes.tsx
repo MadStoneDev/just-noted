@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useEscapeLayer } from "@/utils/escape-stack";
 import { createClient } from "@/utils/supabase/client";
 import {
   IconLink,
@@ -16,6 +17,7 @@ import {
   IconRefresh,
 } from "@tabler/icons-react";
 import { sharingOperation } from "@/app/actions/sharing";
+import { formatDate } from "@/utils/format-date";
 
 interface SharedNote {
   id: string;
@@ -125,6 +127,9 @@ function ConfirmModal({
   isProcessing,
   variant = "danger",
 }: ConfirmModalProps) {
+  useEscapeLayer(isOpen, () => {
+    if (!isProcessing) onCancel();
+  });
   if (!isOpen) return null;
 
   const colorClasses =
@@ -175,6 +180,11 @@ export default function ManageSharedNotes({ userId }: { userId: string }) {
     null,
   );
   const [addUserModal, setAddUserModal] = useState<string | null>(null);
+  useEscapeLayer(addUserModal !== null, () => {
+    if (isProcessing) return;
+    setAddUserModal(null);
+    setNewUsername("");
+  });
   const [newUsername, setNewUsername] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -432,10 +442,6 @@ export default function ManageSharedNotes({ userId }: { userId: string }) {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString();
-  };
 
   useEffect(() => {
     if (userId) {

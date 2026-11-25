@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useEscapeLayer } from "@/utils/escape-stack";
+import { useShortcut } from "@/utils/shortcut-label";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
@@ -25,6 +27,7 @@ export default function HelpModal() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>("menu");
+  const { keys } = useShortcut();
 
   useEffect(() => {
     // Toggle: the Help button fires this event; tapping it again closes the modal.
@@ -39,17 +42,10 @@ export default function HelpModal() {
     return () => window.removeEventListener("justnoted:open-help", onOpen);
   }, []);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (view !== "menu") setView("menu");
-        else setOpen(false);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, view]);
+  useEscapeLayer(open, () => {
+    if (view !== "menu") setView("menu");
+    else setOpen(false);
+  });
 
   if (!open) return null;
 
@@ -115,7 +111,7 @@ export default function HelpModal() {
                 <li key={i} className="flex items-center justify-between gap-3 px-2.5 py-2 rounded-[var(--radius-8)] hover:bg-[var(--color-raised-soft)]">
                   <span className="text-[13px] text-[var(--color-ink-2)]">{s.description}</span>
                   <span className="flex items-center gap-1 shrink-0">
-                    {s.keys.map((k, j) => (
+                    {keys(...s.keys).map((k, j) => (
                       <kbd key={j} className="min-w-[20px] text-center text-[11px] font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)] border border-[var(--color-border-control)] bg-[var(--color-raised)] text-[var(--color-ink-3)]">
                         {k}
                       </kbd>

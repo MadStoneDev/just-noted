@@ -22,12 +22,16 @@ import { Dropdown, DropdownItem } from "@/components/ds/dropdown";
  * callers prefix `flex w-8` (icon button) or `hidden md:flex px-2` (wide), so the
  * display class never collides with the colour classes here.
  */
-export function barButtonClass(isShared: boolean): string {
-  return `h-8 items-center justify-center rounded-[var(--radius-6)] transition-colors ${
-    isShared
+export function barButtonClass(isShared: boolean, active = false): string {
+  // Active swaps the colour classes rather than appending one: two arbitrary
+  // `text-[…]` utilities on one element resolve by stylesheet order, not class
+  // order, so an appended accent colour lost to the base ink colour.
+  const colours = active
+    ? "bg-[var(--color-accent-subtle)] text-[var(--color-accent)]"
+    : isShared
       ? "text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)]"
-      : "text-[var(--color-ink-5)] hover:bg-[var(--color-raised-soft)]"
-  }`;
+      : "text-[var(--color-ink-5)] hover:bg-[var(--color-raised-soft)]";
+  return `h-8 items-center justify-center rounded-[var(--radius-6)] transition-colors ${colours}`;
 }
 
 interface NoteActionBarProps {
@@ -103,9 +107,9 @@ export default function NoteActionBar({
           <button
             onClick={wide.onCycle}
             title={wide.tooltip}
-            className={`hidden md:flex gap-1 ${wide.label ? "px-2" : "w-8"} ${btn} ${
-              wide.isWide && !isShared ? "text-[var(--color-accent)]" : ""
-            }`}
+            aria-pressed={wide.isWide}
+            data-testid="wide-toggle"
+            className={`hidden md:flex gap-1 ${wide.label ? "px-2" : "w-8"} ${barButtonClass(isShared, wide.isWide)}`}
           >
             <IconViewportWide size={16} />
             {wide.label && <span className="text-[11px] font-medium leading-none">{wide.label}</span>}
@@ -116,7 +120,8 @@ export default function NoteActionBar({
           <button
             onClick={markdown.onToggle}
             title={markdown.viewMode === "rendered" ? "View markdown source" : "View formatted"}
-            className={`flex w-8 ${btn} ${markdown.viewMode === "source" && !isShared ? "text-[var(--color-accent)]" : ""}`}
+            aria-pressed={markdown.viewMode === "source"}
+            className={`flex w-8 ${barButtonClass(isShared, markdown.viewMode === "source")}`}
           >
             <IconMarkdown size={16} />
           </button>

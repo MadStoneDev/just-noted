@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Shortcut } from "@/components/ui/shortcut";
 import { useRouter } from "next/navigation";
 import {
   IconCheck,
@@ -219,8 +220,7 @@ export default function TheHowView() {
             to normal.
           </p>
           <p>
-            Keyboard shortcut: <span className="font-medium text-[var(--color-ink-1)]">Ctrl+Shift+S</span>{" "}
-            (or <span className="font-medium text-[var(--color-ink-1)]">Cmd+Shift+S</span> on Mac)
+            Keyboard shortcut: <span className="font-medium text-[var(--color-ink-1)]"><Shortcut keys={["Mod", "Shift", "S"]} /></span>{" "}
             toggles it on and off.
           </p>
 
@@ -243,7 +243,7 @@ export default function TheHowView() {
               <IconList size={18} strokeWidth={2} />
             </Chip>{" "}
             button in the toolbar, or use{" "}
-            <span className="font-medium text-[var(--color-ink-1)]">Ctrl+Shift+T</span>.
+            <span className="font-medium text-[var(--color-ink-1)]"><Shortcut keys={["Mod", "Shift", "T"]} /></span>.
           </p>
 
           <SectionHeading icon={<IconCheckbox size={18} strokeWidth={2} />}>

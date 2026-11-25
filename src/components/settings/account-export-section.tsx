@@ -10,9 +10,10 @@ import {
   type ExportFormat,
 } from "@/app/actions/exportActions";
 import { useToast } from "@/components/ui/toast";
+import { formatDate } from "@/utils/format-date";
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
+  return formatDate(iso);
 }
 function fmtSize(n: number | null) {
   if (!n) return "";

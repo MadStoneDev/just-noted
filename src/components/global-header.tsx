@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import React, { useState, useCallback } from "react";
+import { useEscapeLayer } from "@/utils/escape-stack";
 
 import { User } from "@supabase/supabase-js";
 import {
@@ -33,6 +34,7 @@ export default function GlobalHeader({
   const [menuOpen, setMenuOpen] = useState(false);
 
   const closeMenu = useCallback(() => setMenuOpen(false), []);
+  useEscapeLayer(menuOpen, closeMenu);
 
   const navLinks = [
     { href: "/welcome", label: "About" },

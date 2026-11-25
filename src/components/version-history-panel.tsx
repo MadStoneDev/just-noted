@@ -1,10 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { useEscapeLayer } from "@/utils/escape-stack";
 import { getVersions } from "@/app/actions/versionActions";
 import { stripEmptyLineMarkers } from "@/utils/empty-line-marker";
 import { IconHistory, IconX, IconArrowBackUp, IconCalendar, IconSparkles } from "@tabler/icons-react";
 import { ConfirmModal } from "@/components/ds/modal";
+import { decodeHtmlEntities, stripContentToText } from "@/utils/html-utils";
+import { formatWhen } from "@/utils/format-date";
 
 interface Version {
   id: string;
@@ -22,15 +25,13 @@ interface VersionHistoryPanelProps {
 }
 
 function relativeTime(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString("en-AU", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  return formatWhen(dateStr, { time: true });
+}
+
+/** One-line plain-text snippet of a version (no markup, no raw entities). */
+function versionSnippet(v: Version): string {
+  const format = v.content_format === "html" || /<[a-z][\s\S]*>/i.test(v.content ?? "") ? "html" : "markdown";
+  return stripContentToText(v.content ?? "", format).slice(0, 100);
 }
 
 export default function VersionHistoryPanel({ noteId, open, onClose, onRestore }: VersionHistoryPanelProps) {
@@ -70,11 +71,22 @@ export default function VersionHistoryPanel({ noteId, open, onClose, onRestore }
 
   const previewVersion = previewId ? versions.find((v) => v.id === previewId) : null;
 
+  // Escape closes the panel (or, while the restore confirm is open, just the
+  // confirm: it registers after this and sits on top).
+  useEscapeLayer(open, onClose);
+
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="absolute inset-0 bg-[var(--color-bg-overlay)]" />
+    <div className="fixed inset-0 z-50 flex" role="dialog" aria-modal="true" aria-label="Version history">
+      {/* The backdrop is its own layer under the panel, so an outside click lands
+          here, never on the wrapper (a target === currentTarget check on the
+          wrapper never fired). */}
+      <div
+        className="absolute inset-0 bg-[var(--color-bg-overlay)]"
+        data-testid="version-history-backdrop"
+        onClick={onClose}
+      />
 
       <div className="relative ml-auto w-full max-w-md h-full bg-[var(--color-bg-elevated)] border-l border-[var(--color-border-secondary)] shadow-lg flex flex-col animate-slide-in-right">
         {/* Header */}
@@ -116,7 +128,7 @@ export default function VersionHistoryPanel({ noteId, open, onClose, onRestore }
               </div>
               <div className="flex-1 overflow-y-auto scrollbar-thin p-4">
                 <div className="milkdown text-sm whitespace-pre-wrap text-[var(--color-text-secondary)]">
-                  {stripEmptyLineMarkers(previewVersion.content ?? "", { keepLines: true })}
+                  {decodeHtmlEntities(stripEmptyLineMarkers(previewVersion.content ?? "", { keepLines: true }))}
                 </div>
               </div>
             </>
@@ -179,7 +191,7 @@ export default function VersionHistoryPanel({ noteId, open, onClose, onRestore }
                         <p className="text-[13px] font-medium text-[var(--color-text-primary)] truncate">{version.title}</p>
                         <p className="text-[10px] text-[var(--color-text-tertiary)] mt-0.5">{relativeTime(version.created_at)}</p>
                         <p className="text-[10px] text-[var(--color-text-tertiary)] truncate mt-1">
-                          {stripEmptyLineMarkers(version.content ?? "").slice(0, 100)}
+                          {versionSnippet(version)}
                         </p>
                       </button>
                     </li>

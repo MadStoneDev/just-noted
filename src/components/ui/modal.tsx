@@ -3,6 +3,7 @@
 
 import React, { useEffect, useCallback } from "react";
 import { IconX } from "@tabler/icons-react";
+import { useEscapeLayer } from "@/utils/escape-stack";
 
 interface ModalProps {
   isOpen: boolean;
@@ -23,25 +24,15 @@ export function Modal({
   className = "",
   size = "md",
 }: ModalProps) {
-  // Handle Escape key
+  useEscapeLayer(isOpen, onClose);
+
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
-        onClose();
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener("keydown", handleEscape);
-      // Prevent body scroll when modal is open
-      document.body.style.overflow = "hidden";
-    }
-
+    // Prevent body scroll when modal is open
+    if (isOpen) document.body.style.overflow = "hidden";
     return () => {
-      document.removeEventListener("keydown", handleEscape);
       document.body.style.overflow = "unset";
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   const handleBackdropClick = useCallback(
     (e: React.MouseEvent) => {

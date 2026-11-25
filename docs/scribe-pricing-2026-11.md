@@ -97,6 +97,12 @@ dashboard.
 5. **Customer Portal:** confirm plan switching is off (Settings → Billing →
    Customer portal → Subscriptions → "Customers can switch plans").
 
+## Post-deploy checks
+
+- Real purchase: 100%-off promo code (1 redemption), test account, Monthly.
+  Check Scribe turns on, Settings shows Renews … · A$7/month, cancel via
+  Manage billing works. Delete the coupon after.
+
 ## Checkout settings
 
 Set in `CHECKOUT_SETTINGS` (`src/lib/stripe-checkout.ts`):

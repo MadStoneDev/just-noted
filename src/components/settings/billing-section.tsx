@@ -11,6 +11,7 @@ import { getPortalUrl, getBillingState } from "@/app/actions/billingActions";
 import { useToast } from "@/components/ui/toast";
 import PlanComparison from "@/components/plan-comparison";
 import { IconCheck, IconSparkles, IconInfoCircle } from "@tabler/icons-react";
+import { formatDate } from "@/utils/format-date";
 
 const TIER_LABEL: Record<SubscriptionTier, string> = { draft: "Draft", scribe: "Scribe" };
 
@@ -175,13 +176,13 @@ export default function BillingSection() {
                 ? "Note-taking and sharing, free forever."
                 : billingState === "manual"
                   ? compUntil
-                    ? `Complimentary until ${new Date(compUntil).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}`
+                    ? `Complimentary until ${formatDate(compUntil)}`
                     : "Complimentary. No billing to manage."
                   : billingState === "billing_issue"
                     ? "There's a problem with your billing record."
                     : [
                         renews
-                          ? `${cancelAtEnd ? "Ends" : "Renews"} ${new Date(renews).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}`
+                          ? `${cancelAtEnd ? "Ends" : "Renews"} ${formatDate(renews)}`
                           : null,
                         priceDisplay,
                       ]

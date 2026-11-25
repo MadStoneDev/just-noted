@@ -1,20 +1,16 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useEscapeLayer } from "@/utils/escape-stack";
 import { createPortal } from "react-dom";
 import { IconX, IconLoader2, IconCopy, IconCheck } from "@tabler/icons-react";
 import { sharingOperation } from "@/app/actions/sharing";
+import { formatWhen } from "@/utils/format-date";
 
 interface Version { id: string; createdAt: string; author: string; content: string }
 
 function relTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.round(diff / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+  return formatWhen(iso, { time: true });
 }
 
 /**
@@ -38,11 +34,7 @@ export function SharedHistoryPanel({ shortcode, onClose }: { shortcode: string; 
     return () => { alive = false; };
   }, [shortcode]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  useEscapeLayer(true, onClose);
 
   const copy = (v: Version) => {
     navigator.clipboard.writeText(v.content);

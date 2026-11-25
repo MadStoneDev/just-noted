@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useEscapeLayer } from "@/utils/escape-stack";
 import { createPortal } from "react-dom";
 import { useNotesStore } from "@/stores/notes-store";
 import { stripContentToText } from "@/utils/html-utils";
@@ -25,22 +26,8 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
     }
   }, [open]);
 
-  // Close on Escape regardless of focus, and before the sidebar/global
-  // listeners see it. A capture-phase window listener fires ahead of those
-  // bubble-phase listeners, so stopping propagation here means Escape closes
-  // only the search — not the sidebar underneath it.
-  useEffect(() => {
-    if (!open) return;
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handleEscape, true);
-    return () => window.removeEventListener("keydown", handleEscape, true);
-  }, [open, onClose]);
+  // Escape closes only the search (the topmost layer), regardless of focus.
+  useEscapeLayer(open, onClose);
 
   const results = useMemo(() => {
     if (!query.trim()) return notes.slice(0, 8);

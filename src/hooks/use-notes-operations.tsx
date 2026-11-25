@@ -80,6 +80,7 @@ export interface NotesOperations {
   ) => void;
 }
 import { HAS_INITIALISED_KEY } from "@/constants/app";
+import { formatDateTime } from "@/utils/format-date";
 
 export function useNotesOperations(
   userId: string | null,
@@ -808,6 +809,18 @@ export function useNotesOperations(
       reopen();
     } catch (error) {
       console.error("Failed to restore note:", error);
+      if (snapshot.source === "redis") {
+        // The guest note is gone from the server (the delete went through), so
+        // this snapshot is the only copy: a refresh would drop it for good.
+        // Hide it again and keep the snapshot on the toast for another try.
+        markPendingDelete({ id: noteId, source: snapshot.source, account: null, at: Date.now() });
+        const s = useNotesStore.getState();
+        s.removeNote(noteId);
+        if (s.activeNoteId === noteId) s.setActiveNoteId(null);
+        saveNoteToLocal({ ...snapshot, deletedAt: Date.now(), updatedAt: Date.now() }).catch(() => {});
+        s.setRecentlyDeleted(snapshot, undefined, { restoreFailed: true });
+        return;
+      }
       await refreshNotes();
     }
   }, [userId, refreshNotes]);
@@ -817,9 +830,7 @@ export function useNotesOperations(
   const createConflictedCopy = useCallback(
     async (source: CombinedNote, baseTitle: string, copyContent: string): Promise<string | null> => {
       if (!userId || isPendingDelete(source.id)) return null;
-      const stamp = new Date().toLocaleString(undefined, {
-        day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
-      });
+      const stamp = formatDateTime(new Date());
       const copy = cloneNote(source);
       copy.id = generateNoteId(useNotesStore.getState().notes.map((n) => n.id));
       copy.title = `${baseTitle || "Untitled"} (conflicted copy, ${stamp})`;

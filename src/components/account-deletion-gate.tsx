@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { getAccountDeletionState, cancelAccountDeletion } from "@/app/actions/accountActions";
 import { useToast } from "@/components/ui/toast";
+import { formatDate } from "@/utils/format-date";
 
 // When the signed-in account is scheduled for deletion, this blocks the app with
 // a restore/confirm screen — hiding content during the grace window.
@@ -24,7 +25,7 @@ export default function AccountDeletionGate() {
   if (!pending) return null;
 
   const dateStr = purgeAt
-    ? new Date(purgeAt).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })
+    ? formatDate(purgeAt)
     : "";
 
   const restore = async () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEscapeLayer } from "@/utils/escape-stack";
 import {
   getSharedWithMe,
   getSharedByMe,
@@ -16,6 +17,7 @@ import {
 import { useToast } from "@/components/ui/toast";
 import { Avatar } from "@/components/ui/avatar";
 import { Dropdown, DropdownItem } from "@/components/ds/dropdown";
+import { isSharedItemActive, sharedTabFor } from "@/utils/shared-active";
 import { useNotesStore } from "@/stores/notes-store";
 import TagPicker from "@/components/tag-picker";
 import {
@@ -119,23 +121,40 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
 
   useEffect(() => { load(); }, [load]);
 
-  // On first load, surface the sub-tab that actually contains the open note so
-  // its active highlight is visible — otherwise a restored shared note that
-  // lives under "By me" or "Saved" looks unselected on the default "With me"
-  // tab. Runs once; later manual tab changes are left alone.
-  const autoTabRef = useRef(false);
+  // Surface the sub-tab that contains the open note so its highlight is
+  // visible: on first load (a restored shared note under "By me" or "Saved"),
+  // and again whenever a different shared note is opened from outside the list
+  // (a notification, a link). A note that isn't in the list yet (just shared
+  // with you) triggers one reload. Manual tab changes in between are left alone.
+  const autoTabKeyRef = useRef<string | null>(null);
+  const reloadedForRef = useRef<string | null>(null);
   useEffect(() => {
-    if (loading || autoTabRef.current) return;
-    autoTabRef.current = true;
-    const active = items.find((i) =>
-      i.source === "owned"
-        ? !!activeNoteId && i.noteId === activeNoteId
-        : !!activeShortcode && i.shortcode === activeShortcode,
-    );
-    if (active) {
-      setTab(active.source === "owned" ? "byme" : active.source === "saved" ? "saved" : "withme");
+    if (loading) return;
+    const key = activeShortcode ? `sc:${activeShortcode}` : `id:${activeNoteId ?? ""}`;
+    if (autoTabKeyRef.current === key) return;
+    // After the first load, only a newly opened shared note moves the tab;
+    // switching own notes (or closing the shared one) leaves it where it is.
+    if (autoTabKeyRef.current !== null && !activeShortcode) {
+      autoTabKeyRef.current = key;
+      return;
     }
-  }, [loading, items, activeShortcode, activeNoteId]);
+    const active = items.find((i) => isSharedItemActive(i, activeShortcode, activeNoteId));
+    if (!active && activeShortcode && reloadedForRef.current !== activeShortcode) {
+      reloadedForRef.current = activeShortcode;
+      load();
+      return;
+    }
+    autoTabKeyRef.current = key;
+    if (active) {
+      setTab(sharedTabFor(active.source));
+      if (active.hidden) setShowHidden(true);
+      requestAnimationFrame(() =>
+        document
+          .querySelector(`[data-shared-shortcode="${CSS.escape(active.shortcode)}"]`)
+          ?.scrollIntoView({ block: "nearest" }),
+      );
+    }
+  }, [loading, items, activeShortcode, activeNoteId, load]);
 
   const byTab = useMemo(() => {
     const src = tab === "withme" ? "granted" : tab === "byme" ? "owned" : "saved";
@@ -402,10 +421,7 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
               // Mirror the own-note list's active treatment: an owned note (By
               // me tab) matches the open note id; a granted/saved note matches
               // the open shared shortcode.
-              const isActive =
-                n.source === "owned"
-                  ? !!activeNoteId && n.noteId === activeNoteId
-                  : !!activeShortcode && n.shortcode === activeShortcode;
+              const isActive = isSharedItemActive(n, activeShortcode, activeNoteId);
               return (
               <div
                 key={n.source + n.shortcode}
@@ -429,6 +445,9 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
                 } ${dragShortcode === n.shortcode ? "opacity-40" : ""}`}
               >
                 <button
+                  data-shared-shortcode={n.shortcode}
+                  data-active={isActive ? "true" : undefined}
+                  aria-current={isActive ? "true" : undefined}
                   onClick={() => {
                     // An owned note opens in the owner's own editor — opening it
                     // via the shared-link path would check access as a recipient

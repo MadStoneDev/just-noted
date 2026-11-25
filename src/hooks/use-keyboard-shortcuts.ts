@@ -10,9 +10,9 @@ interface KeyboardShortcutsOptions {
   onSave?: () => void;
   onToggleSplitView?: () => void;
   onSearch?: () => void;
-  // Highest-priority Escape handler. Return true if it closed a layer (e.g. an
-  // open Settings/Trash view) so Escape stops there; return false to fall
-  // through to the default (close the sidebar).
+  // Escape with no popover, modal or drawer open (those take it first, through
+  // utils/escape-stack): steps back out of a view such as Settings or Trash.
+  // Escape never collapses the sidebar.
   onEscape?: () => boolean;
 }
 
@@ -23,7 +23,7 @@ export function useKeyboardShortcuts({
   onSearch,
   onEscape,
 }: KeyboardShortcutsOptions) {
-  const { toggleSidebar, setSidebarOpen, toggleToc } = useNotesStore();
+  const { toggleSidebar, toggleToc } = useNotesStore();
   // Ref so the global listener needn't re-register when onEscape's closure
   // changes each render (it captures the shell's current view state).
   const onEscapeRef = useRef(onEscape);
@@ -33,15 +33,13 @@ export function useKeyboardShortcuts({
     (e: KeyboardEvent) => {
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
 
-      // Escape hierarchy: a higher-priority layer first (Settings/Trash/etc.
-      // via onEscape), then fall through to closing the sidebar.
+      // Escape: open layers (popovers, modals, drawers) are closed by
+      // utils/escape-stack before this listener runs. An Escape something else
+      // already handled (the slash menu, the editor) is left alone.
       if (e.key === "Escape") {
-        if (onEscapeRef.current?.()) return;
-        const { sidebarOpen } = useNotesStore.getState();
-        if (sidebarOpen) {
-          setSidebarOpen(false);
-          return;
-        }
+        if (e.defaultPrevented) return;
+        onEscapeRef.current?.();
+        return;
       }
 
       // Ctrl/Cmd + Alt + key — note switching (E1). The target note's editor
@@ -134,7 +132,7 @@ export function useKeyboardShortcuts({
         }
       }
     },
-    [onNewNote, onSave, onToggleSplitView, onSearch, toggleSidebar, setSidebarOpen, toggleToc]
+    [onNewNote, onSave, onToggleSplitView, onSearch, toggleSidebar, toggleToc]
   );
 
   useEffect(() => {
@@ -143,17 +141,18 @@ export function useKeyboardShortcuts({
   }, [handleKeyDown]);
 }
 
-// Export a list of shortcuts for help display
+// Export a list of shortcuts for help display. "Mod" is ⌘ on Mac and Ctrl
+// elsewhere; render with utils/shortcut-label.
 export const KEYBOARD_SHORTCUTS = [
-  { keys: ["Ctrl", "J"], description: "Create new note" },
-  { keys: ["Ctrl", "S"], description: "Save current note" },
-  { keys: ["Ctrl", "K"], description: "Search all notes" },
-  { keys: ["Ctrl", "Shift", "F"], description: "Search all notes" },
-  { keys: ["Ctrl", "Shift", "M"], description: "Note command menu" },
-  { keys: ["Ctrl", "\\"], description: "Toggle sidebar" },
-  { keys: ["Ctrl", "Shift", "T"], description: "Table of Contents" },
-  { keys: ["Ctrl", "Shift", "S"], description: "Split view" },
-  { keys: ["Ctrl", "Alt", "1-9, 0"], description: "Jump to note 1-10" },
-  { keys: ["Ctrl", "Alt", "↑/↓"], description: "Previous/next note" },
-  { keys: ["Esc"], description: "Close sidebar/modal" },
+  { keys: ["Mod", "J"], description: "Create new note" },
+  { keys: ["Mod", "S"], description: "Save current note" },
+  { keys: ["Mod", "K"], description: "Search all notes" },
+  { keys: ["Mod", "Shift", "F"], description: "Search all notes" },
+  { keys: ["Mod", "Shift", "M"], description: "Note command menu" },
+  { keys: ["Mod", "\\"], description: "Toggle sidebar" },
+  { keys: ["Mod", "Shift", "T"], description: "Table of Contents" },
+  { keys: ["Mod", "Shift", "S"], description: "Split view" },
+  { keys: ["Mod", "Alt", "1-9, 0"], description: "Jump to note 1-10" },
+  { keys: ["Mod", "Alt", "↑/↓"], description: "Previous/next note" },
+  { keys: ["Esc"], description: "Close the open popover, modal or drawer" },
 ];

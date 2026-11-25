@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { useEscapeLayer } from "@/utils/escape-stack";
 import { useNotesStore } from "@/stores/notes-store";
 import { TAG_COLORS } from "@/types/tag";
 import {
@@ -30,6 +31,15 @@ export default function TagPicker({ noteId, assignedTagIds, onAssign, onRemove }
   );
   const menuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Escape leaves "new tag" first, then closes the picker.
+  useEscapeLayer(isOpen, () => {
+    if (isCreating) {
+      setIsCreating(false);
+      setNewName("");
+    } else {
+      setIsOpen(false);
+    }
+  });
 
   const tags = useNotesStore((s) => s.tags);
   const noteTagMap = useNotesStore((s) => s.noteTagMap);
@@ -139,10 +149,6 @@ export default function TagPicker({ noteId, assignedTagIds, onAssign, onRemove }
                   onChange={(e) => setNewName(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleCreateTag();
-                    if (e.key === "Escape") {
-                      setIsCreating(false);
-                      setNewName("");
-                    }
                   }}
                   placeholder="Tag name"
                   maxLength={50}

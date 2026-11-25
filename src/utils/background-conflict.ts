@@ -9,6 +9,7 @@
 // Kept pure so both server paths (Supabase, Redis) and the tests share it.
 
 import { sameNoteContent } from "@/utils/notes-utils";
+import { formatDateTime } from "@/utils/format-date";
 
 export type BackgroundWriteDecision =
   /** Server is still at the write's base: apply it as a normal CAS write. */
@@ -85,12 +86,7 @@ export interface ConflictCopySpec {
 export const CONFLICT_STAMP_MAX = 64;
 
 export function conflictStamp(at: Date = new Date()): string {
-  return at.toLocaleString(undefined, {
-    day: "numeric",
-    month: "short",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  return formatDateTime(at);
 }
 
 export function conflictCopyTitle(baseTitle: string | null | undefined, stamp: string): string {

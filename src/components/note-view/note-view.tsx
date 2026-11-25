@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
+import { Shortcut } from "@/components/ui/shortcut";
 import {
   IconLayoutColumns,
   IconDots,
@@ -462,9 +463,9 @@ export default function NoteView({
             </div>
           ))}
           <p className="text-[10px] text-[var(--color-ink-5)] pt-3">
-            Keyboard: <kbd className="px-1 py-px bg-[var(--color-raised-soft)] rounded text-[10px] font-mono">Ctrl+B</kbd> bold ·{" "}
-            <kbd className="px-1 py-px bg-[var(--color-raised-soft)] rounded text-[10px] font-mono">Ctrl+I</kbd> italic ·{" "}
-            <kbd className="px-1 py-px bg-[var(--color-raised-soft)] rounded text-[10px] font-mono">Ctrl+Z</kbd> undo
+            Keyboard: <kbd className="px-1 py-px bg-[var(--color-raised-soft)] rounded text-[10px] font-mono"><Shortcut keys={["Mod", "B"]} /></kbd> bold ·{" "}
+            <kbd className="px-1 py-px bg-[var(--color-raised-soft)] rounded text-[10px] font-mono"><Shortcut keys={["Mod", "I"]} /></kbd> italic ·{" "}
+            <kbd className="px-1 py-px bg-[var(--color-raised-soft)] rounded text-[10px] font-mono"><Shortcut keys={["Mod", "Z"]} /></kbd> undo
           </p>
         </div>
       </Modal>

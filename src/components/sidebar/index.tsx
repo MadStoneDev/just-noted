@@ -1,6 +1,9 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Shortcut } from "@/components/ui/shortcut";
+import { useShortcut } from "@/utils/shortcut-label";
+import { useEscapeLayer } from "@/utils/escape-stack";
 import { usePathname } from "next/navigation";
 import { useNotesStore } from "@/stores/notes-store";
 import { useShallow } from "zustand/react/shallow";
@@ -84,6 +87,7 @@ const RAIL_VIEW_KEY = "jn_sidebar_rail_view";
 const RAIL_VIEWS = ["notes", "notebooks", "tags", "shared"] as const;
 
 export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMoveNote, onOpenTrash, onNewNote, onOpenShared, onTogglePin, onTransferNote, activeShortcode, notificationsActive, notifUnread = 0, onOpenNotifications }: SidebarProps) {
+  const { sc: shortcutLabel } = useShortcut();
   // Id-scoped / shallow selector (B8/D13): subscribe to exactly the slices this
   // component reads, compared shallowly, so a store write the sidebar doesn't
   // care about (presence, chat unread, another note's content persist that only
@@ -399,22 +403,19 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
     }
   };
 
-  // Close sidebar on escape
+  // Escape closes the filter sheet (a fixed overlay). It never collapses the
+  // docked sidebar; below lg the open list is a drawer over the editor, and
+  // there Escape closes it like any other drawer.
+  useEscapeLayer(filterSheetOpen, () => setFilterSheetOpen(false));
+  const [overlayViewport, setOverlayViewport] = useState(false);
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      // Close the filter sheet first if it's open, otherwise the sidebar —
-      // the sheet is a fixed overlay and would otherwise orphan on screen.
-      if (filterSheetOpen) {
-        setFilterSheetOpen(false);
-      } else if (sidebarOpen) {
-        setSidebarOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [sidebarOpen, setSidebarOpen, filterSheetOpen]);
+    const mq = window.matchMedia("(max-width: 1023.98px)");
+    const sync = () => setOverlayViewport(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  useEscapeLayer(listOpen && overlayViewport, () => setSidebarOpen(false));
 
   // Never leave the fixed filter sheet on screen after the sidebar closes.
   useEffect(() => {
@@ -1048,7 +1049,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                       Nothing written yet
                     </h3>
                     <p className="mt-1.5 text-[12.5px] leading-[1.5] text-[var(--color-ink-4)]">
-                      Your notes will appear here, newest first. Press ⌘N to start one.
+                      Your notes will appear here, newest first. Press <Shortcut keys={["Mod", "J"]} /> to start one.
                     </p>
                     <button
                       onClick={onNewNote}
@@ -1127,7 +1128,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                       }`}
                     >
                       {shortcutKey !== null && !selectMode && (
-                        <span className="absolute top-1 right-1 text-[8px] font-mono text-[var(--color-ink-5)] opacity-0 group-hover/note:opacity-50 transition-opacity" title={`Ctrl+Alt+${shortcutKey}`}>
+                        <span className="absolute top-1 right-1 text-[8px] font-mono text-[var(--color-ink-5)] opacity-0 group-hover/note:opacity-50 transition-opacity" title={shortcutLabel("Mod", "Alt", String(shortcutKey))}>
                           {shortcutKey}
                         </span>
                       )}

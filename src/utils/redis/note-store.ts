@@ -22,6 +22,7 @@ import {
   conflictCopyTitle,
   type ConflictCopySpec,
 } from "@/utils/background-conflict";
+import { formatDateTime } from "@/utils/format-date";
 
 export const NOTES_HASH_PREFIX = "notes:";
 export const NOTES_BACKUP_PREFIX = "notes_backup:";
@@ -65,9 +66,7 @@ export async function getNotesRevision(userId: string): Promise<number> {
 }
 
 const conflictTitle = (base: string) => {
-  const stamp = new Date().toLocaleString(undefined, {
-    day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
-  });
+  const stamp = formatDateTime(new Date());
   return `${base || "Untitled"} (conflicted copy, ${stamp})`;
 };
 

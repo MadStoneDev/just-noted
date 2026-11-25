@@ -1,4 +1,5 @@
 import type { CombinedNote } from "@/types/combined-notes";
+import { formatDate } from "@/utils/format-date";
 
 function sanitizeFilename(name: string): string {
   return name
@@ -43,7 +44,7 @@ export function exportAllAsMarkdownFiles(notes: CombinedNote[]) {
   const content = notes
     .map((note) => {
       const header = `# ${note.title}\n\n`;
-      const meta = `> Created: ${new Date(note.createdAt).toLocaleDateString()} | Updated: ${new Date(note.updatedAt).toLocaleDateString()}\n\n`;
+      const meta = `> Created: ${formatDate(note.createdAt)} | Updated: ${formatDate(note.updatedAt)}\n\n`;
       const separator = "\n\n---\n\n";
       return header + meta + note.content + separator;
     })

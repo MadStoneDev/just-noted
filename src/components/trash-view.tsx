@@ -17,6 +17,7 @@ import { getCoverPreviewStyle } from "@/lib/notebook-covers";
 import { DEFAULT_SCRIBE_RETENTION_DAYS, recoverableUntilMs } from "@/lib/retention";
 import { IconX, IconTrash } from "@tabler/icons-react";
 import { ConfirmModal } from "@/components/ds/modal";
+import { formatWhen } from "@/utils/format-date";
 
 interface TrashViewProps {
   onClose: () => void;
@@ -25,12 +26,7 @@ interface TrashViewProps {
 const DAY = 86400000;
 
 function relativeTime(timestamp: number): string {
-  const days = Math.floor((Date.now() - timestamp) / DAY);
-  if (days < 1) return "today";
-  if (days === 1) return "yesterday";
-  if (days < 7) return `${days}d ago`;
-  if (days < 30) return `${Math.floor(days / 7)}w ago`;
-  return `${Math.floor(days / 30)}mo ago`;
+  return formatWhen(timestamp);
 }
 
 // Design handoff surface 10 — Trash as a real main-area view.

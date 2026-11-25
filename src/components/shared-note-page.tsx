@@ -26,6 +26,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Dropdown, DropdownItem } from "@/components/ds/dropdown";
 import { useToast } from "@/components/ui/toast";
 import { IconHistory, IconLink, IconDots } from "@tabler/icons-react";
+import { formatDate } from "@/utils/format-date";
 
 interface SharedNote {
   id: string;
@@ -129,14 +130,6 @@ export default function SharedNotePage({
 
   useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current); }, []);
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("en-AU", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
 
 
   const fetchNote = async (pw?: string | null) => {

@@ -24,6 +24,7 @@ import { readEditorFont, applyEditorFont, readEditorFontSize, applyEditorFontSiz
 import { captureCurrentAccount, SWITCH_MARKER_KEY, type SwitchMarker } from "@/utils/accounts";
 import { AccountSwitchTransition } from "@/components/account-switch-modal";
 import { createClient } from "@/utils/supabase/client";
+import { readLastShared, shortcodeToRestore, writeLastShared } from "@/utils/last-shared";
 import NotebookModal from "@/components/notebook-modal";
 import UndoDeleteToast from "@/components/ui/undo-toast";
 import OfflineIndicator from "@/components/ui/offline-indicator";
@@ -103,6 +104,10 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
   const [showTrash, setShowTrash] = useState(false);
   // Read-only shared note open in the main area (by shortcode)
   const [sharedShortcode, setSharedShortcode] = useState<string | null>(null);
+  // Set by openSharedFromNotification; the /n/ route sync applies it once the
+  // navigation lands (switch the rail + sidebar to Shared; on a phone, leave
+  // the full-width list closed so the opened note shows).
+  const revealSharedRef = useRef<{ shortcode: string; narrow: boolean } | null>(null);
   // Split view beside a shared note: one of the viewer's OWN notes (store id),
   // "pick" to choose, or null. Desktop only.
   const [sharedSplitNoteId, setSharedSplitNoteId] = useState<string | null>(null);
@@ -181,8 +186,15 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
       // + sidebar + the note in the main area), not the old standalone page.
       setShowTrash(false);
       setShowAccountDrawer(false);
-      setSharedShortcode(decodeURIComponent(sharedMatch[1]));
-      setSidebarOpen(true);
+      const sc = decodeURIComponent(sharedMatch[1]);
+      const reveal = revealSharedRef.current?.shortcode === sc ? revealSharedRef.current : null;
+      revealSharedRef.current = null;
+      setSharedShortcode(sc);
+      if (reveal) {
+        window.dispatchEvent(new Event("justnoted:show-shared"));
+        setMobileTab("shared");
+      }
+      setSidebarOpen(!reveal?.narrow);
     } else {
       setSidebarOpen(true);
     }
@@ -206,21 +218,33 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
   // Remember whether the main area last showed a shared note, and restore it on
   // reload. activeNoteId / justnoted_last_note only cover the user's own notes,
   // so without this a refresh drops a shared note back to the last own-note.
-  const sharedRestoredRef = useRef(false);
+  // Scoped to the account and only restored on "/" (utils/last-shared): this
+  // used to run after the route sync and replace a /n/ link's note with the
+  // last one, or with another account's note, which showed "Can't access note".
+  const [lastSharedAccount, setLastSharedAccount] = useState<string | null>(null);
   useEffect(() => {
-    try {
-      const sc = localStorage.getItem("justnoted_last_shared");
-      if (sc) setSharedShortcode(sc);
-    } catch {}
-    sharedRestoredRef.current = true;
+    let cancelled = false;
+    const pathAtLoad = window.location.pathname;
+    (async () => {
+      let account = "guest";
+      try {
+        const { data } = await createClient().auth.getSession();
+        account = data.session?.user?.id ?? "guest";
+      } catch {}
+      if (cancelled) return;
+      const sc = shortcodeToRestore(readLastShared(), account, pathAtLoad);
+      // Never over a note opened while the session was read.
+      if (sc && window.location.pathname === "/") setSharedShortcode((cur) => cur ?? sc);
+      setLastSharedAccount(account);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
   useEffect(() => {
-    if (!sharedRestoredRef.current) return; // don't clobber before the restore runs
-    try {
-      if (sharedShortcode) localStorage.setItem("justnoted_last_shared", sharedShortcode);
-      else localStorage.removeItem("justnoted_last_shared");
-    } catch {}
-  }, [sharedShortcode]);
+    if (!lastSharedAccount) return; // don't clobber before the restore runs
+    writeLastShared(sharedShortcode ? { shortcode: sharedShortcode, account: lastSharedAccount } : null);
+  }, [sharedShortcode, lastSharedAccount]);
   // Close any shared-note split when the shared note itself closes.
   useEffect(() => {
     if (!sharedShortcode) setSharedSplitNoteId(null);
@@ -367,6 +391,30 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
     router.push("/notebooks");
     setMobileTab("notebooks");
   }, [router]);
+
+  // A notification about a shared note: switch the rail and sidebar to Shared,
+  // open the note and let the Shared list highlight it (it matches on the
+  // shortcode). On a phone the note is shown, not the full-width list over it.
+  //
+  // Navigate first and change nothing else until the route lands: a server
+  // action started before router.push (the note fetch, the Shared list load)
+  // is aborted by the navigation and never resolves, leaving "Loading…".
+  const openSharedFromNotification = useCallback((shortcode: string) => {
+    const target = `/n/${encodeURIComponent(shortcode)}`;
+    revealSharedRef.current = { shortcode, narrow: window.innerWidth < 768 };
+    if (window.location.pathname === target) {
+      // Already on the link (the note was open before Notifications): the
+      // route sync won't run, so apply it here.
+      revealSharedRef.current = null;
+      setShowNotifications(false);
+      setSharedShortcode(shortcode);
+      window.dispatchEvent(new Event("justnoted:show-shared"));
+      setMobileTab("shared");
+      setSidebarOpen(window.innerWidth >= 768);
+      return;
+    }
+    router.push(target);
+  }, [router, setSidebarOpen]);
 
   const goShared = useCallback(() => {
     // Toggle: tapping Shared while its list is already open collapses the sidebar.
@@ -604,6 +652,7 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
               onMarkAll={() => notif.markAll()}
               onClearAll={() => notif.clearAll()}
               onClose={() => setShowNotifications(false)}
+              onOpenShared={openSharedFromNotification}
             />
           ) : notebookViewId ? (
             <NotebookView

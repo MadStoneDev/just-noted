@@ -243,9 +243,6 @@ export default function ShareNoteButton({
       >
         Stop sharing
       </button>
-      <span className="inline-flex items-center gap-1 text-[10px] font-[family-name:var(--font-meta)] text-[var(--color-ink-6)]">
-        <kbd className="px-1.5 py-0.5 rounded-[var(--radius-5)] border border-[var(--color-border-control)]">⇧⌘S</kbd>
-      </span>
     </div>
   );
 

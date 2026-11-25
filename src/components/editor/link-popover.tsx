@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useEscapeLayer } from "@/utils/escape-stack";
 import { createPortal } from "react-dom";
 import type { Editor } from "@milkdown/core";
 import { editorViewCtx } from "@milkdown/core";
@@ -29,6 +30,7 @@ export default function LinkPopover({ getEditor, containerRef, onBeforeEdit }: L
   const [editHref, setEditHref] = useState("");
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [anchorEl, setAnchorEl] = useState<HTMLAnchorElement | null>(null);
+  useEscapeLayer(editing, () => setEditing(false));
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -138,7 +140,6 @@ export default function LinkPopover({ getEditor, containerRef, onBeforeEdit }: L
               onChange={(e) => setEditHref(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSave();
-                if (e.key === "Escape") setEditing(false);
               }}
               className="w-48 h-7 px-2 text-xs bg-[var(--color-bg-primary)] border border-[var(--color-border-primary)] rounded-[var(--radius-sm)] text-[var(--color-text-primary)] focus:border-[var(--color-border-focus)] focus:outline-none"
               placeholder="https://"

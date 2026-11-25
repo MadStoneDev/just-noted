@@ -22,6 +22,7 @@ import {
   type AdminNote,
 } from "@/app/actions/adminActions";
 import { ROADMAP_STATUSES, type RoadmapStatusValue } from "@/types/roadmap";
+import { formatDate } from "@/utils/format-date";
 
 const STATUS_LABEL: Record<string, string> = {
   under_review: "Under review",
@@ -195,7 +196,7 @@ function SuggestionsPanel() {
               </div>
               {it.body && <div className="mt-1 text-[12.5px] leading-[1.55] text-[var(--color-ink-4)]">{it.body}</div>}
               <div className="mt-1.5 text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
-                {it.vote_count} vote{it.vote_count === 1 ? "" : "s"} · {new Date(it.created_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
+                {it.vote_count} vote{it.vote_count === 1 ? "" : "s"} · {formatDate(it.created_at)}
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -519,7 +520,7 @@ function NotesPanel() {
               </div>
               <span className="text-[12px] text-[var(--color-ink-3)] truncate">{n.owner || "—"}</span>
               <span className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
-                {n.updated_at ? new Date(n.updated_at).toLocaleDateString("en-AU", { day: "numeric", month: "short" }) : "—"}
+                {n.updated_at ? formatDate(n.updated_at) : "—"}
               </span>
               <div className="flex justify-end">
                 <button

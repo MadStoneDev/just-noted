@@ -12,6 +12,7 @@ import { ensureOwnAuthor } from "@/app/actions/authorActions";
 import { compressImage } from "@/utils/image/compress";
 import { useSignOut } from "@/components/sign-out-dialog";
 import { Avatar } from "@/components/ui/avatar";
+import { formatDate } from "@/utils/format-date";
 
 interface ProfileBlockProps {
   user: any;
@@ -27,7 +28,7 @@ function formatMemberSince(iso: string | null): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  return formatDate(d);
 }
 
 // State type

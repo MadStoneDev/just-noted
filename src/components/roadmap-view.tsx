@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useEscapeLayer } from "@/utils/escape-stack";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { IconX, IconChevronUp, IconPlus } from "@tabler/icons-react";
@@ -47,6 +48,7 @@ export default function RoadmapView() {
   const [items, setItems] = useState<RoadmapBoardItem[] | null>(null);
   const [voting, setVoting] = useState<Set<string>>(new Set());
   const [showSuggest, setShowSuggest] = useState(false);
+  useEscapeLayer(showSuggest, () => setShowSuggest(false));
   const [sTitle, setSTitle] = useState("");
   const [sBody, setSBody] = useState("");
   const [sCat, setSCat] = useState<"fix" | "feature" | null>(null);

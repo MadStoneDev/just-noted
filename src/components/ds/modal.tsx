@@ -6,6 +6,7 @@ import { IconX } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { IconButton } from "./icon-button";
 import { Button } from "./button";
+import { useEscapeLayer } from "@/utils/escape-stack";
 
 interface ModalProps {
   open: boolean;
@@ -28,16 +29,13 @@ export function Modal({
 }: ModalProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  useEscapeLayer(open, onClose);
 
   useEffect(() => {
     if (!open) return;
 
     previousFocusRef.current = document.activeElement as HTMLElement;
     document.body.style.overflow = "hidden";
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
 
     const handleTab = (e: KeyboardEvent) => {
       if (e.key !== "Tab" || !contentRef.current) return;
@@ -59,7 +57,6 @@ export function Modal({
       }
     };
 
-    document.addEventListener("keydown", handleEscape);
     document.addEventListener("keydown", handleTab);
 
     requestAnimationFrame(() => {
@@ -70,7 +67,6 @@ export function Modal({
     });
 
     return () => {
-      document.removeEventListener("keydown", handleEscape);
       document.removeEventListener("keydown", handleTab);
       document.body.style.overflow = "";
       previousFocusRef.current?.focus();

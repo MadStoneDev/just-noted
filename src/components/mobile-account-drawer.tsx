@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import { useEscapeLayer } from "@/utils/escape-stack";
 import { createClient } from "@/utils/supabase/client";
 import { getAccounts, switchToAccount, isOffline, OFFLINE_SWITCH_MESSAGE, type DeviceAccount } from "@/utils/accounts";
 import { useToast } from "@/components/ui/toast";
@@ -14,6 +15,8 @@ import { IconPlus, IconLogout, IconCheck, IconHelpCircle, IconX } from "@tabler/
 // Mobile "You" drawer (bottom sheet). Same account logic as AccountMenu, but a
 // full-width sheet suited to touch: switch / add / log out, plus Help.
 export function MobileAccountDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  // The sheet is lg:hidden; on desktop it never shows, so it mustn't eat Escape.
+  useEscapeLayer(open && typeof window !== "undefined" && !window.matchMedia("(min-width: 1024px)").matches, onClose);
   const supabase = createClient();
   const { showError } = useToast();
   const [accounts, setAccounts] = useState<DeviceAccount[]>([]);
