@@ -186,8 +186,7 @@ export default async function PrivacyPolicyPage() {
           {/* Encryption and access */}
           <h2 className={H2}>Your notes, encryption and access</h2>
           <p className="mt-3">
-            Your notes are encrypted in transit (HTTPS) and at rest on our
-            servers. They are <span className="font-medium">not</span> end-to-end
+            Your notes are encrypted in transit (HTTPS). They are <span className="font-medium">not</span> end-to-end
             encrypted. That means the people who run JustNoted could technically
             access stored notes, and we want you to know that plainly.
           </p>
@@ -422,7 +421,7 @@ export default async function PrivacyPolicyPage() {
           {/* Security */}
           <h2 className={H2}>Security</h2>
           <p className="mt-3">
-            We use HTTPS, encryption at rest, scrambled (hashed) passwords and
+            We use HTTPS, scrambled (hashed) passwords and
             recovery keys, regular backups and limited administrator access. No
             system is perfectly secure. If a data breach is likely to cause you
             serious harm, we&apos;ll tell you and, where required, the Office of the

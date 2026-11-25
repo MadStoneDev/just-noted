@@ -29,10 +29,10 @@ source-of-truth copy — keep them in sync.
 Both share the branded `emailShell()` helper in that file (serif "JustNoted"
 wordmark, white card on a soft ground, teal accent). Edit the templates there.
 
-## 3. Billing — **sent by Paddle**
+## 3. Billing — **sent by Stripe**
 
-Receipts, renewal/dunning, and subscription notices are sent by Paddle. Our
-webhook (`src/app/api/webhooks/paddle`) only processes events; it sends no email.
+Receipts, renewal/dunning, and subscription notices are sent by Stripe. Our
+webhook (`src/app/api/webhooks/stripe`) only processes events; it sends no email.
 
 ## Brand notes
 

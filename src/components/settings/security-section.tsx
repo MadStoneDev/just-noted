@@ -46,7 +46,7 @@ export default function SecuritySection() {
     <div className="space-y-8">
       {signOutDialog}
       <p className="text-[12.5px] text-[var(--color-ink-4)] leading-relaxed">
-        Notes are encrypted in transit and at rest. This is not end-to-end encryption.
+        Notes are encrypted in transit. This is not end-to-end encryption.
       </p>
 
       <div>
