@@ -4,9 +4,8 @@ New Scribe prices for new subscribers: **A$7/month** or **A$70/year** (two month
 free). The original A$5/month price is no longer sold, but the webhook still
 recognises it, so any subscription on it keeps Scribe.
 
-Checkout moved from the public Payment Link to **server-created Checkout
-Sessions** (`createScribeCheckout` in `src/app/actions/billingActions.ts`). The
-price comes from env, the signed-in account is attached server-side, and anyone
+Checkout uses **server-created Checkout Sessions** (`createScribeCheckout` in
+`src/app/actions/billingActions.ts`). The price comes from env, the signed-in account is attached server-side, and anyone
 who already has Scribe (including manual/comped accounts) is never sent to
 checkout.
 
@@ -14,11 +13,10 @@ checkout.
 
 | Var | Value | Notes |
 |---|---|---|
-| `STRIPE_SCRIBE_MONTHLY_PRICE_ID` | new A$7/month price | **new** — from the live prices script |
-| `STRIPE_SCRIBE_YEARLY_PRICE_ID` | new A$70/year price | **new** — from the live prices script |
+| `STRIPE_SCRIBE_MONTHLY_PRICE_ID` | A$7/month price (tax inclusive) | **new** — created in the dashboard |
+| `STRIPE_SCRIBE_YEARLY_PRICE_ID` | A$70/year price (tax inclusive) | **new** — created in the dashboard |
 | `STRIPE_SCRIBE_PRICE_ID` | original A$5 price | **unchanged — leave it set** (webhook recognition only) |
 | `NEXT_PUBLIC_APP_URL` | `https://justnoted.app` | already set; builds the success/cancel URLs |
-| `NEXT_PUBLIC_STRIPE_SCRIBE_PAYMENT_LINK` | — | no longer read; remove whenever |
 
 `STRIPE_SECRET_KEY` (a restricted `rk_live_` key) now needs **Checkout Sessions:
 Write** in addition to what it has (Subscriptions: Read, Customer portal: Write).
@@ -80,57 +78,38 @@ the "Manual Scribe" section below.
 
 ## Deploy order
 
-The live prices have to exist before the env vars can be filled in, so the
-prices script runs first. Creating prices is harmless: nothing can sell them
-until the app points at them.
+The live prices (A$7/month, A$70/year, tax inclusive) already exist in the
+dashboard.
 
-1. **Create the live prices** (you run this):
-   ```bash
-   STRIPE_LIVE_SECRET_KEY=sk_live_... node scripts/stripe-create-scribe-prices.mjs \
-     --live --from-price <current STRIPE_SCRIBE_PRICE_ID> --dry-run   # check first
-   STRIPE_LIVE_SECRET_KEY=sk_live_... node scripts/stripe-create-scribe-prices.mjs \
-     --live --from-price <current STRIPE_SCRIBE_PRICE_ID>
-   ```
-   It adds both prices to the existing Scribe product (the A$5 price's product),
-   copies that price's tax behaviour, and prints the two env lines. Re-running is
-   safe (lookup keys `scribe_aud_7_month`, `scribe_aud_70_year`). The key needs
-   Products + Prices write; the app's `rk_live_` key doesn't have that, so use a
-   full secret key or a separate restricted key.
-2. **Coolify env:** add `STRIPE_SCRIBE_MONTHLY_PRICE_ID` and
-   `STRIPE_SCRIBE_YEARLY_PRICE_ID`; keep `STRIPE_SCRIBE_PRICE_ID`; add Checkout
-   Sessions: Write to the app's restricted key.
-3. **SQL:** migration, then backfill preview (+ update if it returns rows).
+1. **Coolify env:** add `STRIPE_SCRIBE_MONTHLY_PRICE_ID` and
+   `STRIPE_SCRIBE_YEARLY_PRICE_ID` (the two live price ids); keep
+   `STRIPE_SCRIBE_PRICE_ID`; give the app's restricted key Checkout Sessions:
+   Write.
+2. **SQL:** migration, then backfill preview (+ update if it returns rows).
    Before the deploy: the new webhook writes `stripe_price_id`, and without the
    column every webhook would fail (Stripe retries for 3 days, so it would
    recover, but don't rely on it).
-4. **Deploy** `prelaunch/playwright-and-b7`.
-5. **Smoke test:** /pricing shows A$7/month ↔ A$70/year; a manual account
+3. **Deploy** `prelaunch/playwright-and-b7`.
+4. **Smoke test:** /pricing shows A$7/month ↔ A$70/year; a manual account
    shows "Complimentary" with no Upgrade button; a Draft account reaches Stripe
-   Checkout for each interval (cancel out on Stripe's page → back on /pricing).
-6. **Deactivate the old Payment Link** (Stripe → Payment Links → … →
-   Deactivate) so the A$5 price can't be bought from a saved link. Archiving the
-   A$5 price is optional; existing subscriptions on it keep renewing either way.
-7. **Customer Portal:** confirm plan switching is off (Settings → Billing →
+   Checkout for each interval with a promotion-code field (cancel out on
+   Stripe's page → back on /pricing).
+5. **Customer Portal:** confirm plan switching is off (Settings → Billing →
    Customer portal → Subscriptions → "Customers can switch plans").
 
-## Checkout settings carried over from the Payment Link
+## Checkout settings
 
-These couldn't be read from the live dashboard (no live access from the repo),
-so they're set to the values below in `CHECKOUT_SETTINGS`
-(`src/lib/stripe-checkout.ts`). Check each against the old Payment Link:
+Set in `CHECKOUT_SETTINGS` (`src/lib/stripe-checkout.ts`):
 
-| Setting | New Checkout Session | Check on the Payment Link |
-|---|---|---|
-| Automatic tax / GST | off | "Collect tax automatically" — expected off (not GST-registered) |
-| Billing address | `auto` (only when the card needs it) | "Collect customers' addresses" — if *required*, set `billingAddressCollection: "required"` |
-| Promotion codes | off | "Allow promotion codes" |
-| Success URL | `/pricing?checkout=success` (shows a welcome toast) | "After payment" — confirmation page or redirect? |
-| Cancel URL | `/pricing?checkout=cancelled` | (Payment Links have none) |
-| Free trial | none | Any trial days on the link? |
-| Phone / tax ID / custom fields / terms consent | none | Any of these enabled? |
+| Setting | Value |
+|---|---|
+| Automatic tax (Stripe Tax) | off — prices are tax inclusive |
+| Billing address | `auto` (only when the payment method needs it) |
+| Promotion codes | on |
+| Success URL | `/pricing?checkout=success` (shows a welcome toast) |
+| Cancel URL | `/pricing?checkout=cancelled` |
 
-Payment methods: Checkout Sessions use the account's dynamic payment methods,
-the same as Payment Links.
+Payment methods are the account's dynamic payment methods.
 
 ## Manual Scribe (grant / remove)
 

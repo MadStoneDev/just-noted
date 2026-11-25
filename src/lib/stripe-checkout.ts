@@ -8,17 +8,13 @@ import { checkoutPriceId } from "@/lib/stripe-prices";
 
 type Env = Record<string, string | undefined>;
 
-/**
- * Checkout settings carried over from the old Scribe Payment Link. Values that
- * couldn't be read from the dashboard are Stripe's defaults; check each against
- * the Payment Link before go-live (see the deploy notes).
- */
+/** Scribe Checkout Session settings (see docs/scribe-pricing-2026-11.md). */
 export const CHECKOUT_SETTINGS = {
-  // No GST: RAVENCI Solutions isn't registered, so Stripe Tax stays off.
+  // Stripe Tax stays off: the prices are set tax-inclusive in the dashboard.
   automaticTax: false,
   // Stripe's default: only collect a billing address when the payment method needs it.
   billingAddressCollection: "auto" as const,
-  allowPromotionCodes: false,
+  allowPromotionCodes: true,
   successPath: "/pricing?checkout=success",
   cancelPath: "/pricing?checkout=cancelled",
 };

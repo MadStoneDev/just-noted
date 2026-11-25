@@ -115,7 +115,7 @@ Milkdown (`src/components/editor/milkdown-editor.tsx`, ~676 lines) is ProseMirro
 
 ## 6. Payments — RevenueCat + entitlement
 
-The entitlement model is well-positioned for a second source. Today it's Stripe-only (Payment Links + Billing Portal), but the **read path is fully source-agnostic**: one pure, tested resolver `resolvePlanTier(row)` (`src/lib/subscription.ts`) reads `tier` (`draft|scribe`), `status`, `plan_source`, `comp_until`. No gating code calls Stripe. `plan_source` already exists (`CHECK IN ('stripe','manual')`).
+The entitlement model is well-positioned for a second source. Today it's Stripe-only (server-created Checkout Sessions + Billing Portal), but the **read path is fully source-agnostic**: one pure, tested resolver `resolvePlanTier(row)` (`src/lib/subscription.ts`) reads `tier` (`draft|scribe`), `status`, `plan_source`, `comp_until`. No gating code calls Stripe. `plan_source` already exists (`CHECK IN ('stripe','manual')`).
 
 Adding RevenueCat (per Decision 2 — single row, paid-is-paid):
 1. **Widen the `plan_source` CHECK** to allow `revenuecat`/`apple`/`google` (new migration) + add generic `external_customer_id`/`external_subscription_id` columns.

@@ -108,7 +108,7 @@ export type CheckoutResult =
 
 /**
  * Start a Scribe checkout for the signed-in user on the chosen interval. The
- * session is created here (not a public Payment Link) so the price comes from
+ * session is created here (not from a public link) so the price comes from
  * env, the account id can't be swapped, and accounts that are already Scribe —
  * including manual/comped ones — are never sent to checkout.
  */

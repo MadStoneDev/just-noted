@@ -41,13 +41,13 @@ describe("buildCheckoutParams — new subscribers get the new price", () => {
     expect(p.customer_email).toBeUndefined();
   });
 
-  it("applies the carried-over Payment Link settings", () => {
+  it("applies the checkout settings (promo codes on, tax off, address auto)", () => {
     const p = buildCheckoutParams({ interval: "month", userId: "u1", email: null, stripeCustomerId: null, env })!;
     expect(p.success_url).toBe(`https://justnoted.app${CHECKOUT_SETTINGS.successPath}`);
     expect(p.cancel_url).toBe(`https://justnoted.app${CHECKOUT_SETTINGS.cancelPath}`);
-    expect(p.automatic_tax).toEqual({ enabled: CHECKOUT_SETTINGS.automaticTax });
-    expect(p.billing_address_collection).toBe(CHECKOUT_SETTINGS.billingAddressCollection);
-    expect(!!p.allow_promotion_codes).toBe(CHECKOUT_SETTINGS.allowPromotionCodes);
+    expect(p.allow_promotion_codes).toBe(true);
+    expect(p.automatic_tax).toEqual({ enabled: false });
+    expect(p.billing_address_collection).toBe("auto");
   });
 });
 

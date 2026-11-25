@@ -39,5 +39,5 @@ sync work is deployed; the `note_ydoc` migration is applied.
 
 ## Billing (once Stripe is configured)
 - [ ] Settings › Plan & usage shows Draft/Scribe + usage meters.
-- [ ] "Upgrade to Scribe" opens the Stripe Payment Link.
+- [ ] "Upgrade to Scribe" (monthly and yearly) opens Stripe Checkout.
 - [ ] After paying, the webhook flips you to Scribe; "Manage" opens the portal.
