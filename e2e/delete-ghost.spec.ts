@@ -320,12 +320,14 @@ async function undoRestoresLatestText(page: Page, mode: Mode) {
 }
 
 // Guest Undo that fails (offline: the note can't be re-created on the server,
-// which already deleted it): the snapshot is kept, the toast says "Couldn't
-// restore. Try again." and stays, and Try again (back online) restores the note
-// with its text. Before, the failure refreshed the list and the note was lost.
-async function failedUndoKeepsGuestNote(page: Page) {
+// which already deleted it): the snapshot is kept in IndexedDB, the toast says
+// "Couldn't restore. Try again." and stays. Hiding the toast and reloading
+// don't lose it: the reload offers the retry again, and Try again (back online)
+// restores the note with its text. Before, the failure refreshed the list and
+// the note was lost.
+async function failUndo(page: Page, prefix: string) {
   const anon = captureAnonId(page);
-  const marker = `ghost-undo-fail-${Date.now()}`;
+  const marker = `${prefix}-${Date.now()}`;
   const id = await newNoteWith(page, marker);
   await expect.poll(() => liveOnServer("guest", anon.get, id), { timeout: 15_000 }).toBe(true);
   await deleteFromSidebar(page, id);
@@ -337,16 +339,48 @@ async function failedUndoKeepsGuestNote(page: Page) {
   const failed = page.getByRole("alert").filter({ hasText: "Couldn't restore. Try again." });
   await expect(failed).toBeVisible();
   await expect(card(page, id)).toHaveCount(0);
+  return { anon, marker, id, failed };
+}
+
+async function failedUndoKeepsGuestNote(page: Page) {
+  const { anon, marker, id, failed } = await failUndo(page, "ghost-undo-fail");
   // It stays: no 10s countdown on a failed restore.
   await page.waitForTimeout(11_000);
   await expect(failed).toBeVisible();
 
+  // Hiding the toast keeps the note; a reload offers the retry again.
+  await failed.getByRole("button", { name: /Hide/ }).click();
+  await expect(failed).toHaveCount(0);
   await page.context().setOffline(false);
+  await page.reload();
+  await waitForApp(page);
+  await expect(failed).toBeVisible();
+  await expect(card(page, id)).toHaveCount(0);
+
   await failed.getByRole("button", { name: "Try again" }).click();
   await expect(card(page, id)).toBeVisible();
   await expect(card(page, id)).toContainText(marker);
   await expect.poll(() => serverContent("guest", anon.get, id), { timeout: 15_000 }).toContain(marker);
   await expect(page.getByText("Couldn't restore. Try again.")).toHaveCount(0);
+  // Restored: nothing kept any more, so a reload doesn't offer it again.
+  await page.reload();
+  await waitForApp(page);
+  await expect(card(page, id)).toContainText(marker);
+  await page.waitForTimeout(1500);
+  await expect(page.getByText("Couldn't restore. Try again.")).toHaveCount(0);
+}
+
+// Discard is the explicit way to give the kept snapshot up: gone after a reload.
+async function failedUndoDiscard(page: Page) {
+  const { id, failed } = await failUndo(page, "ghost-undo-discard");
+  await page.context().setOffline(false);
+  await failed.getByRole("button", { name: "Discard" }).click();
+  await expect(failed).toHaveCount(0);
+  await page.reload();
+  await waitForApp(page);
+  await page.waitForTimeout(1500);
+  await expect(page.getByText("Couldn't restore. Try again.")).toHaveCount(0);
+  await expect(card(page, id)).toHaveCount(0);
 }
 
 async function serverContent(mode: Mode, anon: () => string | null, id: string): Promise<string> {
@@ -414,6 +448,13 @@ test.describe("delete never comes back — guest (Valkey)", () => {
     await page.goto("/");
     await waitForApp(page);
     await failedUndoKeepsGuestNote(page);
+  });
+
+  test("a failed undo's note is dropped only by Discard", async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.goto("/");
+    await waitForApp(page);
+    await failedUndoDiscard(page);
   });
 });
 

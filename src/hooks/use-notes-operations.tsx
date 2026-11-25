@@ -44,6 +44,7 @@ import {
 import { getActiveSupabaseUser } from "@/utils/offline-queue-guard";
 import { editorHandleFor } from "@/utils/note-ownership";
 import { markPendingDelete, clearPendingDelete, isPendingDelete } from "@/utils/pending-deletes";
+import { saveFailedRestore, removeFailedRestore, listFailedRestores } from "@/utils/failed-restores";
 import { sendLeaveSave } from "@/utils/leave-save";
 import { conflictStamp } from "@/utils/background-conflict";
 import { v4 as uuidv4 } from "uuid";
@@ -54,6 +55,8 @@ export interface NotesOperations {
   updatePrivacyStatus: (noteId: string, isPrivate: boolean) => Promise<void>;
   deleteNote: (noteId: string) => Promise<void>;
   restoreNote: () => Promise<void>;
+  /** Give up on a guest note whose Undo failed: drop its kept snapshot. */
+  discardFailedRestore: () => Promise<void>;
   saveNoteContent: (
     noteId: string,
     content: string,
@@ -798,6 +801,8 @@ export function useNotesOperations(
         if (snapshot.source !== "redis") throw new Error("Restored note not found");
         const r = await noteOperation("redis", { operation: "create", userId, note: combiToRedis(snapshot) });
         if (!r?.success) throw new Error((r as { error?: string })?.error || "Restore failed");
+        await removeFailedRestore(noteId).catch(() => {});
+        offerNextFailedRestore();
         reopen();
         return;
       }
@@ -805,6 +810,10 @@ export function useNotesOperations(
       // it now, through the normal versioned save.
       if (!sameNoteContent(server.content, snapshot.content)) {
         await saveNoteContentRef.current(noteId, snapshot.content, snapshot.goal ?? 0, snapshot.goal_type ?? "");
+      }
+      if (snapshot.source === "redis") {
+        await removeFailedRestore(noteId).catch(() => {});
+        offerNextFailedRestore();
       }
       reopen();
     } catch (error) {
@@ -818,12 +827,48 @@ export function useNotesOperations(
         s.removeNote(noteId);
         if (s.activeNoteId === noteId) s.setActiveNoteId(null);
         saveNoteToLocal({ ...snapshot, deletedAt: Date.now(), updatedAt: Date.now() }).catch(() => {});
+        // Durable until restored or discarded: dismissing the toast or a
+        // reload must not lose it (the next load offers the retry again).
+        await saveFailedRestore(snapshot, userId).catch((e) => console.error("Couldn't keep the note's snapshot:", e));
         s.setRecentlyDeleted(snapshot, undefined, { restoreFailed: true });
         return;
       }
       await refreshNotes();
     }
   }, [userId, refreshNotes]);
+
+  // Show the next kept snapshot (failed guest Undo), if any, on the toast.
+  const offerNextFailedRestore = useCallback(() => {
+    if (!userId) return;
+    listFailedRestores(userId)
+      .then((kept) => {
+        const s = useNotesStore.getState();
+        if (!kept.length || s.recentlyDeleted) return;
+        const next = kept[0].note;
+        markPendingDelete({ id: next.id, source: next.source, account: null, at: Date.now() });
+        s.setRecentlyDeleted(next, undefined, { restoreFailed: true });
+      })
+      .catch(() => {});
+  }, [userId]);
+
+  // On load (and on a guest id change), offer the retry for any kept snapshot.
+  useEffect(() => {
+    offerNextFailedRestore();
+  }, [offerNextFailedRestore]);
+
+  // The user gives up on a failed restore: the only explicit way the kept
+  // snapshot is dropped.
+  const discardFailedRestore = useCallback(async () => {
+    const s = useNotesStore.getState();
+    const rd = s.recentlyDeleted;
+    if (!rd?.restoreFailed) return;
+    const noteId = rd.note.id;
+    s.clearRecentlyDeleted();
+    await removeFailedRestore(noteId).catch(() => {});
+    await clearPendingDelete(noteId).catch(() => {});
+    deleteLocalNote(noteId).catch(() => {});
+    offerNextFailedRestore();
+  }, [offerNextFailedRestore]);
 
   // Create a "(conflicted copy)" note (same storage) holding `copyContent`, so a
   // conflict never discards either side. Returns the new note id.
@@ -1230,10 +1275,11 @@ export function useNotesOperations(
     updatePrivacyStatus,
     deleteNote,
     restoreNote,
+    discardFailedRestore,
     saveNoteContent,
     saveNoteTitle,
     refreshSingleNote,
     transferNote,
     persistForLeave,
-  }), [addNote, updatePinStatus, updatePrivacyStatus, deleteNote, restoreNote, saveNoteContent, saveNoteTitle, refreshSingleNote, transferNote, persistForLeave]);
+  }), [addNote, updatePinStatus, updatePrivacyStatus, deleteNote, restoreNote, discardFailedRestore, saveNoteContent, saveNoteTitle, refreshSingleNote, transferNote, persistForLeave]);
 }

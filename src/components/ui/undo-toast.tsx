@@ -8,7 +8,16 @@ const UNDO_TIMEOUT = 10000; // 10 seconds to undo
 
 // The note is already deleted on the server when this shows; the toast is
 // only the window in which Undo can restore it. ✕ just hides the toast.
-export default function UndoDeleteToast({ onUndo }: { onUndo: () => void | Promise<void> }) {
+// After a failed guest restore it offers Try again and Discard; the snapshot
+// is kept (utils/failed-restores) until one of them succeeds, so ✕ only hides
+// it and the next load offers it again.
+export default function UndoDeleteToast({
+  onUndo,
+  onDiscard,
+}: {
+  onUndo: () => void | Promise<void>;
+  onDiscard?: () => void | Promise<void>;
+}) {
   const recentlyDeleted = useNotesStore((s) => s.recentlyDeleted);
   const clearRecentlyDeleted = useNotesStore((s) => s.clearRecentlyDeleted);
   const [progress, setProgress] = useState(100);
@@ -72,10 +81,18 @@ export default function UndoDeleteToast({ onUndo }: { onUndo: () => void | Promi
           <IconArrowBackUp size={14} />
           {failed ? "Try again" : "Undo"}
         </button>
+        {failed && onDiscard && (
+          <button
+            onClick={() => void onDiscard()}
+            className="px-2.5 py-1 text-xs font-medium text-[var(--color-danger)] border border-[var(--color-border-primary)] rounded-[var(--radius-md)] hover:bg-[var(--color-hover)] transition-colors shrink-0"
+          >
+            Discard
+          </button>
+        )}
         <button
           onClick={handleDismiss}
           className="p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors shrink-0"
-          aria-label="Dismiss"
+          aria-label={failed ? "Hide (keeps the note for later)" : "Dismiss"}
         >
           <IconX size={14} />
         </button>

@@ -769,7 +769,7 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
 
       {/* Split view */}
 
-      <UndoDeleteToast onUndo={notesOperations.restoreNote} />
+      <UndoDeleteToast onUndo={notesOperations.restoreNote} onDiscard={notesOperations.discardFailedRestore} />
       <OfflineIndicator />
       <HelpModal />
       <SearchModal open={showSearch} onClose={() => setShowSearch(false)} />
