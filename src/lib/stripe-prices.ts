@@ -55,6 +55,18 @@ export function checkoutAvailability(env: Env = process.env): Record<BillingInte
 }
 
 /**
+ * Env vars a working checkout needs but are missing, so a half-configured
+ * deploy (e.g. monthly set, yearly not) is named in the server logs.
+ */
+export function missingCheckoutEnv(env: Env = process.env): string[] {
+  const missing: string[] = [];
+  if (!clean(env.STRIPE_SECRET_KEY)) missing.push("STRIPE_SECRET_KEY");
+  if (!clean(env.STRIPE_SCRIBE_MONTHLY_PRICE_ID)) missing.push("STRIPE_SCRIBE_MONTHLY_PRICE_ID");
+  if (!clean(env.STRIPE_SCRIBE_YEARLY_PRICE_ID)) missing.push("STRIPE_SCRIBE_YEARLY_PRICE_ID");
+  return missing;
+}
+
+/**
  * The price text for a subscriber's actual price, so someone on an older price
  * is never shown today's list price. Null when unknown (the UI then shows no
  * price rather than a wrong one).

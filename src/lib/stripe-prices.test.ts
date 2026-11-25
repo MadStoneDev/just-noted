@@ -3,6 +3,7 @@ import {
   isScribePriceId,
   checkoutPriceId,
   checkoutAvailability,
+  missingCheckoutEnv,
   priceDisplayFor,
   scribePriceIds,
   LEGACY_SCRIBE_PRICE_DISPLAY,
@@ -62,5 +63,15 @@ describe("priceDisplayFor — a subscriber sees their own price", () => {
   it("unknown or missing price shows nothing rather than a wrong price", () => {
     expect(priceDisplayFor("price_other", env)).toBeNull();
     expect(priceDisplayFor(null, env)).toBeNull();
+  });
+});
+
+describe("missingCheckoutEnv — names a half-configured deploy", () => {
+  it("nothing missing when fully configured", () => {
+    expect(missingCheckoutEnv(env)).toEqual([]);
+  });
+  it("names the yearly price when only monthly is set (the production bug)", () => {
+    expect(missingCheckoutEnv({ ...env, STRIPE_SCRIBE_YEARLY_PRICE_ID: undefined })).toEqual(["STRIPE_SCRIBE_YEARLY_PRICE_ID"]);
+    expect(missingCheckoutEnv({ ...env, STRIPE_SCRIBE_YEARLY_PRICE_ID: "  " })).toEqual(["STRIPE_SCRIBE_YEARLY_PRICE_ID"]);
   });
 });

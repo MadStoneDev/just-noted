@@ -250,18 +250,24 @@ export default function BillingSection() {
             ))}
           </ul>
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            <BillingIntervalToggle value={interval} onChange={setBillingInterval} available={checkout} />
+            <BillingIntervalToggle value={interval} onChange={setBillingInterval} />
             <span className="text-[13px] font-semibold text-[var(--color-ink-1)]">{scribePriceDisplay(interval)}</span>
           </div>
           <div className="mt-3">
             <button
               onClick={upgrade}
-              disabled={checkoutBusy}
+              disabled={checkoutBusy || ((checkout.month || checkout.year) && !checkout[interval])}
               className="h-9 px-4 rounded-[var(--radius-7)] text-[13px] font-semibold bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:opacity-90 transition-opacity disabled:opacity-60"
             >
               {checkoutBusy ? "Opening checkout…" : "Upgrade to Scribe"}
             </button>
           </div>
+          {(checkout.month || checkout.year) && !checkout[interval] && (
+            <p className="mt-2 text-[11px] text-[var(--color-ink-5)]">
+              {interval === "year" ? "Yearly" : "Monthly"} billing isn’t available right now — choose{" "}
+              {interval === "year" ? "Monthly" : "Yearly"} or try again later.
+            </p>
+          )}
           {!checkout.month && !checkout.year && (
             <p className="mt-2 text-[11px] text-[var(--color-ink-5)]">Checkout is being set up — the button will be live once billing is configured.</p>
           )}

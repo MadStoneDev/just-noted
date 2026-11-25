@@ -6,7 +6,7 @@ import { createClient, createServiceRoleClient } from "@/utils/supabase/server";
 import { resolvePlanTier, billingStateFor, type BillingState } from "@/lib/subscription";
 import type { SubscriptionTier } from "@/types/subscription";
 import type { BillingInterval } from "@/lib/plans";
-import { checkoutAvailability, priceDisplayFor } from "@/lib/stripe-prices";
+import { checkoutAvailability, missingCheckoutEnv, priceDisplayFor } from "@/lib/stripe-prices";
 import { buildCheckoutParams, checkoutBlockReason, type CheckoutBlock } from "@/lib/stripe-checkout";
 
 /**
@@ -36,6 +36,11 @@ export interface BillingStateResult {
  * (downgrade + hand back to Stripe) since there's no expiry cron.
  */
 export async function getBillingState(): Promise<BillingStateResult> {
+  const missing = missingCheckoutEnv();
+  if (missing.length > 0 && missing.length < 3) {
+    // Partly configured: some billing periods can't be bought. Name the gap.
+    console.error(`[billing] checkout misconfigured — missing env: ${missing.join(", ")}`);
+  }
   const empty: BillingStateResult = {
     authenticated: false,
     tier: "draft",

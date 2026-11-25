@@ -68,6 +68,9 @@ export default function PricingView() {
     if (err) { setCheckoutBusy(false); showError(err); }
   };
   const checkoutConfigured = checkout.month || checkout.year;
+  // The chosen period can't be bought (its price isn't configured) while the
+  // other one can: say so rather than starting a checkout that will fail.
+  const intervalUnavailable = checkoutConfigured && !checkout[interval];
 
   const manage = async () => {
     setBusy(true);
@@ -128,7 +131,7 @@ export default function PricingView() {
                 </div>
                 {isScribe && !isCurrent && (
                   <div className="mt-2">
-                    <BillingIntervalToggle value={interval} onChange={setBillingInterval} available={checkout} />
+                    <BillingIntervalToggle value={interval} onChange={setBillingInterval} />
                   </div>
                 )}
                 {plan.price.gstNote && (
@@ -170,7 +173,7 @@ export default function PricingView() {
                     ) : (
                       <button
                         onClick={upgrade}
-                        disabled={checkoutBusy}
+                        disabled={checkoutBusy || intervalUnavailable}
                         className="w-full h-9 rounded-[var(--radius-7)] text-[13px] font-semibold bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:opacity-90 transition-opacity disabled:opacity-60"
                       >
                         {checkoutBusy ? "Opening checkout…" : "Upgrade to Scribe"}
@@ -189,6 +192,12 @@ export default function PricingView() {
                     </a>
                   )}
                 </div>
+                {isScribe && !isCurrent && intervalUnavailable && (
+                  <p className="mt-2 text-[11px] text-[var(--color-ink-5)]">
+                    {interval === "year" ? "Yearly" : "Monthly"} billing isn’t available right now — choose{" "}
+                    {interval === "year" ? "Monthly" : "Yearly"} or try again later.
+                  </p>
+                )}
                 {isScribe && !isCurrent && !checkoutConfigured && (
                   <p className="mt-2 text-[11px] text-[var(--color-ink-5)]">
                     Checkout is being set up — the button goes live once billing is configured.
