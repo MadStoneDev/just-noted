@@ -2,20 +2,25 @@
 
 Where every email the product sends comes from, and how to update it.
 
-## 1. Login code (passwordless OTP) — **sent by Supabase**
+## 1. Auth emails (login code, invite, email change, etc.): **sent by our code (Resend)**
 
-Triggered by `supabase.auth.signInWithOtp` (`src/app/get-access/actions.ts`). The
-email itself is composed and sent by Supabase, so its template lives in the
-**Supabase dashboard**, not in this repo. `login-code.html` here is the
-source-of-truth copy — keep them in sync.
+Supabase Auth (self-hosted GoTrue) doesn't send email itself. Its Send Email
+hook POSTs every auth email to `src/app/api/auth/send-email-hook/route.ts`,
+which checks the Standard Webhooks signature, renders the email and sends it
+through Resend. There is no SMTP and nothing to paste into Supabase.
 
-- **Where to paste:** Supabase Dashboard → Authentication → Email Templates →
-  **Magic Link** → *Message body*.
-- **Subject line:** `{{ .Token }} is your JustNoted login code`
-- **Variables:** `{{ .Token }}` (6-digit code), `{{ .Email }}` (recipient).
-- **Expiry copy:** "valid for 1 hour" matches Supabase's default OTP expiry
-  (3600s), set under Authentication → Providers → Email → OTP expiry. Update the
-  wording if you change it.
+- **Templates:** `src/utils/email/templates/auth-emails.ts` (HTML and plain
+  text). The login-code email is the original `login-code.html` design.
+- **Which email for which action:** `buildAuthEmails` in
+  `src/utils/email/auth-hook.ts`. `magiclink`, `signup` and `email` all get the
+  login code (that's what `signInWithOtp` sends, `src/app/get-access/actions.ts`).
+  `invite`, `recovery` and `email_change` include a link to `/auth/confirm`.
+  `email_change` with secure email change on emails both the current and the
+  new address. The `*_notification` security notices are only sent if enabled
+  in GoTrue (`GOTRUE_MAILER_NOTIFICATIONS_*_ENABLED`).
+- **Expiry copy:** "valid for 1 hour" matches GoTrue's default OTP expiry
+  (`GOTRUE_MAILER_OTP_EXP=3600`). Update `OTP_EXPIRY_COPY` if you change it.
+- **Setup and rollback:** see "Auth emails" in the root `README.md`.
 
 ## 2. Contact form emails — **sent by our code (Resend)**
 
