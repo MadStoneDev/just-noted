@@ -14,29 +14,25 @@ Placeholders are in `<ANGLE_BRACKETS>`. Secrets are never typed on a command
 line: each step reads them into a shell variable with `read -rs` and passes them
 to the command through the environment.
 
-> ⚠ **Open decision before step c: copy pass 1 can lose guest edits.**
-> `scripts/copy-to-valkey.mjs` never overwrites what Valkey already has
-> (`SET NX` / `HSETNX`, "Valkey wins"). So with pass 1 before the deploy:
-> 1. Pass 1 copies guest note X (version 3) from Upstash into Valkey.
-> 2. The guest edits X on the old build. Upstash now holds version 4.
-> 3. After the deploy, pass 2 sees that Valkey already has X and skips it.
->    The server copy of X stays at version 3, and the version-4 edit exists only
->    in that guest's browser cache, if anywhere.
+> **Guest edits between the two copy passes (decided: option A).**
+> `scripts/copy-to-valkey.mjs` merges guest notes (`notes:*` hash fields that
+> exist on both sides) by `version`:
+> - Upstash has the higher version → Upstash's copy replaces Valkey's. This is
+>   a compare-and-set, so a write the app made in the meantime is never overwritten.
+> - Valkey has the higher version → Valkey's copy stays.
+> - Same version, different title or content → reported as a **conflict**. Nothing
+>   is chosen, and Valkey's copy stays. The report shows the key and note id, never the content.
+> - Same version, only metadata such as order differs → Valkey's copy stays, no conflict.
 >
-> A guest note deleted on the old build after pass 1 also comes back.
-> The longer the gap between c and d, the more of this there is.
+> The old build bumps `version` on every content, title and metadata edit, so an
+> edit made on the old build between pass 1 and the deploy wins in pass 2.
+> Reorders are the exception: `batchUpdateOrders` doesn't bump `version`. A
+> reorder made in that gap is lost. Everything else stays Valkey-wins, as before.
 >
-> Options:
-> - **(A) Fix the script first (recommended).** For `notes:*` hash fields that
->   exist on both sides, pass 2 takes the Upstash copy when its `version` is
->   higher than Valkey's. If the versions are equal but the content differs, it
->   reports a conflict instead of choosing. Small change, plus a test.
-> - **(B) Keep the script as is.** Run c immediately before d to keep the gap
->   to minutes, and accept the loss risk in that gap. The canary in step f shows
->   whether it happened.
-> - **(C) Skip pass 1's `--apply`** and only copy after the deploy. Guests
->   then load against an empty Valkey until pass 2 finishes. How the client
->   treats an empty server hash has not been verified, so this is not recommended.
+> **Accepted:** deletions are not copied. A guest note deleted on the old build
+> after pass 1 comes back after pass 2.
+>
+> Tested in `scripts/copy-to-valkey.test.mjs` (see a6).
 
 ---
 
@@ -103,7 +99,7 @@ than 30 minutes is marked `failed` and the user can retry.
 |---|---|---|---|
 | `VALKEY_URL` | **add** | before d | `redis://default:<VALKEY_PASSWORD>@<VALKEY_INTERNAL_HOST>:6379`. Runtime only, not a build variable: the client is lazy, so the build never connects. The old build ignores it. |
 | `SOURCE_REDIS_URL` | **add, temporary** | before d | Upstash **TCP** endpoint, not the REST URL: Upstash console → database → Connect → ioredis → `rediss://default:<password>@<name>.upstash.io:6379`. Used only by copy pass 2. Remove in h1. |
-| `VERSION_HISTORY_TRIM_ENABLED` | **leave unset** | n/a | Unset or anything other than `"true"` keeps version trimming paused, so damaged notes keep their restore candidates. |
+| `VERSION_HISTORY_TRIM_ENABLED` | **leave unset** until h6 | h6 | Unset or anything other than `"true"` keeps version trimming paused, so damaged notes keep their restore candidates. Set to `true` only in h6, after f9. |
 | `CLEANUP_API_KEY` | keep | n/a | Now used by the Coolify Scheduled Task (d5) instead of the QStash schedule. |
 | `REDIS_CLEANUP_ENABLED` | **must not be `"true"`** until h | n/a | It turns on deletion of inactive guest notes in Valkey. Keep it off while data is being copied. |
 | `NEXT_PUBLIC_PRIVATE_REALTIME` | **leave unset** | n/a | Blocked by `docs/tickets/private-realtime-presence-broadcast-read.md`. |
@@ -169,8 +165,21 @@ Copy the backups off this host as well. A backup on the same disk doesn't protec
 ```bash
 git checkout prelaunch/playwright-and-b7 && git pull --ff-only
 npx tsc --noEmit                  # expect: no output, exit 0
-npx vitest run                    # expect: Test Files 40 passed, Tests 465 passed (at 6f16b57)
+npx vitest run                    # expect: Test Files 41 passed; Tests 474 passed | 4 skipped
+                                  #   (the 4 skipped are the copy-script integration tests below)
 npx playwright test               # expect: all passed (fixme tests are skipped, not failed)
+```
+
+Copy-script integration test. It runs the real CLI against two throwaway local
+Valkeys, flushes both, and refuses any URL that isn't localhost:
+
+```bash
+docker run -d --rm --name copytest-src -p 6392:6379 valkey/valkey:8
+docker run -d --rm --name copytest-dst -p 6393:6379 valkey/valkey:8
+COPY_TEST_SOURCE_URL=redis://127.0.0.1:6392 COPY_TEST_VALKEY_URL=redis://127.0.0.1:6393 \
+  npx vitest run scripts/copy-to-valkey.test.mjs
+#   expect: Test Files 1 passed; Tests 13 passed
+docker stop copytest-src copytest-dst
 ```
 
 ---
@@ -183,7 +192,7 @@ the repo, readable only by you, and don't delete it before h.
 
 ```bash
 mkdir -p ~/justnoted-backups && chmod 700 ~/justnoted-backups
-read -rs SOURCE_REDIS_URL; export SOURCE_REDIS_URL     # Upstash rediss:// TCP URL
+read -rs DUMP_REDIS_URL; export DUMP_REDIS_URL         # Upstash rediss:// TCP URL
 node scripts/dump-redis.mjs ~/justnoted-backups/upstash-$(date +%F-%H%M).jsonl
 ```
 Expected output:
@@ -214,8 +223,6 @@ runs and two applies read every key about 5 times. Check Upstash → Usage befor
 
 ## c. Copy pass 1: before the merge (dry run, then apply)
 
-**First resolve the open decision at the top of this sheet.**
-
 **Canary (for step f):** in a private window on production, signed out, create a
 guest note with the text `canary-1`. After c4, edit it to `canary-2` (still on
 the old build).
@@ -245,7 +252,8 @@ Expected:
 DRY RUN (no writes) -> prefix "justnoted:"
 { "scanned": <≈ dbsize from b>, "byType": {"string": …, "hash": …},
   "strings": {"copied": <≈ all strings>, "skippedExisting": 0, "skippedSupersededRecovery": 0},
-  "hashes": {"created": <≈ all hashes>, "merged": 0, "unchanged": 0, "fieldsAdded": …, "fieldsKeptFromValkey": 0},
+  "hashes": {"created": <≈ all hashes>, "merged": 0, "unchanged": 0, "fieldsAdded": …,
+             "fieldsReplacedWithNewer": 0, "fieldsKeptFromValkey": 0, "fieldConflicts": 0},
   "legacyArraysMergedIntoHash": 0, "revisionsBumped": 0, "expired": …,
   "skippedType": {}, "conflicts": 0, "mismatches": 0 }
 (counts are what --apply would do)
@@ -257,7 +265,7 @@ Valkey holds no `justnoted:` keys yet, so anything "existing"/"merged" here mean
 ```bash
 copy --apply; echo "exit $?"
 ```
-Expected: `APPLYING -> prefix "justnoted:"`, the same counts as c1, `conflicts: 0`, `mismatches: 0`, `exit 0`. Exit `2` means conflicts or mismatches, and they're listed on stderr. Stop.
+Expected: `APPLYING -> prefix "justnoted:"`, the same counts as c1, `conflicts: 0`, `mismatches: 0`, `exit 0`. Exit `2` here means conflicts or mismatches, listed on stderr. Valkey was empty, so neither should happen. Stop.
 
 **c3. Verify:**
 ```bash
@@ -323,23 +331,39 @@ Expected: `false | false | 0`.
 Run in the **new** app container (Coolify → app → Terminal), which already has
 `VALKEY_URL`, `SOURCE_REDIS_URL`, the script and ioredis:
 
+**e0. Final Upstash dump.** Run the step b command locally, with a new filename.
+Upstash is no longer written to, so this file holds the old build's last copy of
+every guest note. Any conflict in e2 is resolved from it.
+
 ```bash
 node scripts/copy-to-valkey.mjs; echo "exit $?"            # e1 dry run
 ```
 Expected:
 - `strings.copied` and `hashes.created` / `hashes.merged` are small: only what the old build wrote between c2 and d4.
+- `fieldsReplacedWithNewer` is the number of guest notes edited on the old build after pass 1. The canary counts as 1.
 - `fieldsKeptFromValkey` is large: everything pass 1 already copied.
-- `conflicts: 0`, `mismatches: 0`, `exit 0`.
+- `fieldConflicts: 0`, `mismatches: 0`, `exit 0`.
 
 ```bash
 node scripts/copy-to-valkey.mjs --apply; echo "exit $?"    # e2 apply
 ```
-Expected: matches e1, `exit 0`. `revisionsBumped` equals `hashes.merged` that
-touched `notes:*`, so open guest tabs refresh.
+Expected: matches e1, `exit 0`. `revisionsBumped` counts the existing guest
+hashes that gained or replaced notes, so open guest tabs refresh.
+
+**If e1/e2 exit `2`:** read the stderr lines.
+- `mismatch: …` → stop and investigate before continuing.
+- `conflict: notes:<id> note <noteId> (same version N, different title/content; Valkey's copy kept)` →
+  that note was edited on both builds from the same version. Valkey's copy
+  (the new build's) stays live. The old build's text is in the e0 dump: the
+  line with `"key":"notes:<id>"`, field `<noteId>`, base64-decoded. Record each
+  pair and carry on. Merging them by hand is a follow-up, not a blocker.
+- `conflict: … (changed in Valkey during the merge …)` → re-run e2. The app
+  wrote to that note while the copy ran.
 
 **e3.** Re-run the dry run. Expected: `strings.copied: 0`, `hashes.created: 0`,
-`hashes.merged: 0`, so nothing is left to copy. Upstash receives no new writes
-from now on (only a rollback would write to it).
+`hashes.merged: 0`, `fieldsReplacedWithNewer: 0`, so nothing is left to copy.
+Any conflicts from e2 are listed again; that's expected. Upstash receives no new
+writes from now on (only a rollback would write to it).
 
 ---
 
@@ -354,9 +378,78 @@ Use a normal window signed in to a test account, and a private window for guest 
 | f3 | Type a mixed list: `- one`, `- [ ] task`, `- two`, plus a line with a literal `\*not italic\*`. Reload 3 times, making a small edit in another paragraph each time. | List shape unchanged: bullets stay bullets, the task keeps its checkbox, no empty bullet with a nested list, the literal asterisks stay literal. |
 | f4 | DevTools → Network → Offline. Type in a note. Click **Sign out**. | "Syncing 1 note before signing out…", then "Sign out anyway — 1 unsaved notes will be lost". Click **Cancel**. Go back online, sign out: it syncs, then signs out. Sign back in: the edit is there. |
 | f5 | Private window, signed out: create a guest note, type, reload | Note and text persist. On the host, `vk --scan --pattern 'justnoted:notes:*' \| wc -l` is ≥ 1. |
-| f6 | Private window from step c (the canary) | Shows `canary-2`. If it shows `canary-1`, the pass-1 stale-copy problem happened. See the open decision. |
+| f6 | Private window from step c (the canary) | Shows `canary-2` (the old build's edit after pass 1, taken in e2 because its version is higher). `canary-1` means the version-aware merge didn't apply. Check e2's `fieldsReplacedWithNewer`. |
 | f7 | Profile page, share-by-email to a second test account | The recipient opens the note (exercises the hardened functions). |
 | f8 | Settings → export account | The export reaches "ready" (it now runs in-process with `after()`). |
+
+### f9. Restore the two damaged notes through Version history
+
+Do this on the new build only: it no longer strips escapes, and version
+trimming is paused there. Signed in as the notes' owner, in a browser set to
+Brisbane time. Version history shows dates in the browser's time zone, as
+"15 Oct, 10:09 am".
+
+| Note | Restore the version from |
+|---|---|
+| `d93eeeae-2555-4a04-b787-1a2015133679` | 15 Oct 2026, 10:09 am (Brisbane) |
+| `23f00a61-2506-41cc-a3e1-35f282446425` | 12 Jun 2026, 8:36 am (Brisbane) |
+
+**f9.1 Check that each version appears in the panel.** The panel lists only a
+note's newest 50 versions (Draft) or 200 (Scribe). Trimming has been paused, so
+a note can have more. In Studio → SQL Editor (IDs and timestamps only):
+
+```sql
+SELECT note_id, id AS version_id,
+       created_at AT TIME ZONE 'Australia/Brisbane' AS brisbane_time, pos_from_newest
+FROM (
+  SELECT v.note_id, v.id, v.created_at,
+         row_number() OVER (PARTITION BY v.note_id ORDER BY v.created_at DESC) AS pos_from_newest
+  FROM public.note_versions v
+  JOIN public.notes n ON n.id = v.note_id AND v.author = n.author
+  WHERE v.note_id IN ('d93eeeae-2555-4a04-b787-1a2015133679', '23f00a61-2506-41cc-a3e1-35f282446425')
+) x
+WHERE (note_id = 'd93eeeae-2555-4a04-b787-1a2015133679'
+       AND created_at AT TIME ZONE 'Australia/Brisbane' >= '2026-10-15 10:09' AND created_at AT TIME ZONE 'Australia/Brisbane' < '2026-10-15 10:10')
+   OR (note_id = '23f00a61-2506-41cc-a3e1-35f282446425'
+       AND created_at AT TIME ZONE 'Australia/Brisbane' >= '2026-06-12 08:36' AND created_at AT TIME ZONE 'Australia/Brisbane' < '2026-06-12 08:37')
+ORDER BY note_id, created_at;
+```
+Expected:
+- One row per note. If it's the same version Q1 listed as `restore_version_id`, that's a good sign.
+- `pos_from_newest` is at most your plan's cap (50 or 200), so the version is in the panel.
+- If it's over the cap and you're on Scribe, use the panel's date-range filter to bring it up.
+- If you're on Draft, stop. That version can't be reached from the panel, and needs a different restore path.
+- More than one row in that minute: note each `version_id`'s time to the second, and preview each in f9.3.
+
+**f9.2 Save the current text to a scratch note first.**
+1. Open the damaged note.
+2. Select all of the body and copy it.
+3. Create a new note titled `scratch: <original title>` and paste.
+4. Wait for "Saved", then reload the scratch note and check the text is all there.
+
+This is what you merge back from. The newest entries in the note's Version
+history are a second copy.
+
+**f9.3 Restore.**
+1. Back in the damaged note, open ⋯ → **Version history**.
+2. Find the version by its time and click it to preview. The preview shows raw
+   markdown: escaped characters show as `\*`, `\-` and so on, and lists have no
+   empty bullet holding a nested list.
+3. Click **Restore** and confirm.
+
+Restore replaces both the title and the body, and saves like a normal edit.
+
+**f9.4 Merge back anything newer.**
+1. Compare the scratch note with the restored note.
+2. Anything written after the restored version's date exists only in the
+   scratch note. Copy it across into the restored note, fixing any list the
+   damage had flattened or nested.
+3. Wait for "Saved".
+4. Reload 3 times, making a small edit each time. The text and lists must stay
+   exactly as you left them; this is the round-trip fix working on real data.
+
+**f9.5** Keep the scratch notes until h6, then delete them (to trash). Repeat
+f9.2–f9.5 for the second note.
 
 ---
 
@@ -400,15 +493,17 @@ If you used g1, still do g2. Otherwise the next push to main would redeploy the 
   new build exists only in Valkey. The old build reads Upstash, so guests see
   their pre-deploy server copies. Whether their browser cache pushes the newer
   text back up has not been verified. Nothing is deleted: Valkey keeps it for a re-release.
-- **Re-releasing later:** guest edits made on the old build during the rollback
-  hit the same "Valkey wins" problem when copied again. Resolve the open decision first.
+- **Re-releasing later:** run c and e again. Guest edits made on the old build
+  during the rollback have higher versions, so they win. A note edited on both
+  builds from the same version is reported as a conflict. Guest notes deleted
+  during the rollback come back.
 - **Open tabs** still running the new JS get server-action errors until they reload.
 - **Exports** started on the new build and still running at rollback are marked
   failed after 30 minutes. Users retry.
 
 ---
 
-## h. Afterwards (once the rollback window has closed, e.g. 7 days stable)
+## h. Afterwards (once the rollback window has closed: 3 days stable)
 
 **h1. Coolify env:**
 - Remove `SOURCE_REDIS_URL`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `QSTASH_TOKEN`, `QSTASH_URL`, `QSTASH_CURRENT_SIGNING_KEY` and `QSTASH_NEXT_SIGNING_KEY`.
@@ -422,23 +517,44 @@ If you used g1, still do g2. Otherwise the next push to main would redeploy the 
 
 **h3. Follow-up commit:** remove every Upstash reference from the repo.
 ```bash
-git grep -n -i -e upstash -e qstash
-#   at 6f16b57 this finds one line only:
-#   supabase/migrations/20261001000001_account_exports.sql:1 (a comment: "enqueues a QStash job")
+git grep -n -i -l -e upstash -e qstash -e SOURCE_REDIS_URL
+#   expect exactly these files:
+#   docs/release-2026-11-run-sheet.md                      (this sheet)
+#   scripts/copy-to-valkey.mjs                             (SOURCE_REDIS_URL)
+#   scripts/copy-to-valkey.test.mjs                        (SOURCE_REDIS_URL)
+#   supabase/migrations/20261001000001_account_exports.sql (line 1 comment: "enqueues a QStash job")
 ```
-- Reword that comment to describe the current behaviour ("runs the export in-process with `after()`").
-- Delete `scripts/copy-to-valkey.mjs`: it's one-off and its only source was Upstash.
-- Keep `scripts/dump-redis.mjs`: it's generic, and works for Valkey backups too.
+- Reword the migration comment to describe the current behaviour ("runs the export in-process with `after()`").
+- Delete `scripts/copy-to-valkey.mjs` and `scripts/copy-to-valkey.test.mjs`: one-off, and their only source was Upstash.
+- Delete this run sheet. Git history keeps it; `git show <this commit>:docs/release-2026-11-run-sheet.md`.
+- Keep `scripts/dump-redis.mjs`: it's generic (`DUMP_REDIS_URL`), and works for Valkey backups too.
 - Locally, delete the `UPSTASH_*` / `QSTASH_*` lines from `.env.local` and `.env.e2e`. Both are untracked.
 
 ```bash
-git rm scripts/copy-to-valkey.mjs
+git rm scripts/copy-to-valkey.mjs scripts/copy-to-valkey.test.mjs docs/release-2026-11-run-sheet.md
 # edit the migration comment
 git grep -n -i -e upstash -e qstash -e SOURCE_REDIS_URL   # expect: no output
+npx vitest run                                            # expect: all passed
 git commit -am "Remove the last Upstash/QStash references and the one-off Valkey copy script"
 git push origin main
 ```
 
 **h4.** Set `REDIS_CLEANUP_ENABLED=true` if guest-note cleanup should run again.
-**h5.** Leave `VERSION_HISTORY_TRIM_ENABLED` unset until the damaged notes from
-the escape-stripping bug are restored.
+
+**h5.** Other users' damaged notes: the Q2 counts from the damage assessment
+are still open. Decide what to do about them before h6. Once trimming
+resumes, their restore candidates start being deleted.
+
+**h6. Last step: resume version trimming.** Do this only after f9 is complete
+for both notes and h5 is decided.
+1. Coolify → app → Environment Variables → set `VERSION_HISTORY_TRIM_ENABLED=true` (runtime, not a build variable).
+2. Redeploy.
+3. Health check: `curl -fsS https://<APP_DOMAIN>/api/health` → 200.
+4. Edit any note for at least 5 minutes so an autosave snapshot is taken.
+   Expected: no errors in the app log.
+
+Trimming happens gradually: each new autosave on a note over its plan's cap
+deletes that note's oldest autosaves, until it's back at the cap. Nothing is
+deleted all at once.
+
+Then delete the f9 scratch notes.

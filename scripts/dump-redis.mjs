@@ -4,8 +4,8 @@
 // base64-encoded so binary data survives. Only strings and hashes are dumped
 // (the app uses no other types); any others are counted and listed.
 //
-//   SOURCE_REDIS_URL=rediss://default:<password>@<host>:6379 \
-//     node scripts/dump-redis.mjs backups/upstash-2026-11.jsonl
+//   DUMP_REDIS_URL=rediss://default:<password>@<host>:6379 \
+//     node scripts/dump-redis.mjs backups/redis-2026-11.jsonl
 //
 // The file holds guest notes and recovery-key hashes in plaintext: keep it
 // private (it is created with mode 600) and never commit it.
@@ -18,9 +18,9 @@ import { openSync, writeSync, closeSync, existsSync } from "node:fs";
 
 const BATCH = 200;
 const out = process.argv[2];
-const { SOURCE_REDIS_URL } = process.env;
-if (!SOURCE_REDIS_URL || !out) {
-  console.error("Usage: SOURCE_REDIS_URL=... node scripts/dump-redis.mjs <out.jsonl>");
+const { DUMP_REDIS_URL } = process.env;
+if (!DUMP_REDIS_URL || !out) {
+  console.error("Usage: DUMP_REDIS_URL=... node scripts/dump-redis.mjs <out.jsonl>");
   process.exit(1);
 }
 if (existsSync(out)) {
@@ -28,7 +28,7 @@ if (existsSync(out)) {
   process.exit(1);
 }
 
-const r = new Redis(SOURCE_REDIS_URL, { connectTimeout: 10_000, maxRetriesPerRequest: 3, lazyConnect: true });
+const r = new Redis(DUMP_REDIS_URL, { connectTimeout: 10_000, maxRetriesPerRequest: 3, lazyConnect: true });
 
 function check(results, what) {
   for (const [err] of results) if (err) throw new Error(`${what}: ${err.message}`);
