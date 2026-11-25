@@ -230,8 +230,8 @@ export default function PricingView() {
               a: "No. Writing and keeping notes — including local notes on your device — is always free.",
             },
             {
-              q: "Is tax included?",
-              a: "Yes. Prices are in Australian dollars (AUD) and include any applicable tax, monthly or yearly.",
+              q: "Is GST included?",
+              a: "No GST is charged. RAVENCI Solutions isn’t registered for GST. Prices are in Australian dollars (AUD).",
             },
           ].map((f) => (
             <div key={f.q}>
