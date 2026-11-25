@@ -4,12 +4,13 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconX, IconCheck, IconSparkles } from "@tabler/icons-react";
 import { createClient } from "@/utils/supabase/client";
-import { PLANS, type PlanTier, type Plan } from "@/lib/plans";
+import { PLANS, scribePriceDisplay, type PlanTier, type Plan, type BillingInterval } from "@/lib/plans";
 import { type BillingState } from "@/lib/subscription";
-import { openUpgradeCheckout, billingConfigured } from "@/lib/billing-client";
+import { openUpgradeCheckout } from "@/lib/billing-client";
 import { getPortalUrl, getBillingState } from "@/app/actions/billingActions";
 import { useToast } from "@/components/ui/toast";
 import PlanComparison from "@/components/plan-comparison";
+import BillingIntervalToggle from "@/components/billing-interval-toggle";
 
 // Public pricing page (design: same shell as Roadmap — the rail stays, this
 // fills the rest). Everything renders from the single plan config so it can
@@ -18,37 +19,55 @@ import PlanComparison from "@/components/plan-comparison";
 export default function PricingView() {
   const router = useRouter();
   const onClose = () => router.push("/");
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
   const [tier, setTier] = useState<PlanTier | null>(null);
   const [billingState, setBillingState] = useState<BillingState>("ok");
   const [authed, setAuthed] = useState(false);
-  const [email, setEmail] = useState("");
-  const [userId, setUserId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [interval, setBillingInterval] = useState<BillingInterval>("month");
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
+  // Which intervals can be bought; assume both until the server says otherwise.
+  const [checkout, setCheckout] = useState<Record<BillingInterval, boolean>>({ month: true, year: true });
 
   useEffect(() => {
     let alive = true;
     (async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user || !alive) return;
-      setAuthed(true);
-      setUserId(user.id);
-      setEmail(user.email || "");
       const state = await getBillingState();
-      if (alive && state.authenticated) {
-        setTier(state.tier);
-        setBillingState(state.billingState);
-      }
+      if (!alive) return;
+      setCheckout(state.checkout);
+      if (!state.checkout.month && state.checkout.year) setBillingInterval("year");
+      if (!user || !state.authenticated) return;
+      setAuthed(true);
+      setTier(state.tier);
+      setBillingState(state.billingState);
     })();
     return () => { alive = false; };
   }, []);
 
+  // Back from Stripe Checkout (?checkout=success). Read once on mount; the
+  // page is statically rendered, so no useSearchParams/Suspense needed.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("checkout") === "success") {
+      showSuccess("Welcome to Scribe! It can take a few seconds to switch on.");
+    }
+  }, []);
+  // Coming back from Stripe with the Back button restores this page from the
+  // bfcache with the button still "Opening checkout…"; reset it.
+  useEffect(() => {
+    const reset = () => setCheckoutBusy(false);
+    window.addEventListener("pageshow", reset);
+    return () => window.removeEventListener("pageshow", reset);
+  }, []);
+
   const upgrade = async () => {
     if (!authed) { window.location.href = "/get-access"; return; }
-    const ok = await openUpgradeCheckout({ email, userId });
-    if (!ok) showError("Checkout isn’t available yet — billing is still being set up.");
+    setCheckoutBusy(true);
+    const err = await openUpgradeCheckout(interval);
+    if (err) { setCheckoutBusy(false); showError(err); }
   };
+  const checkoutConfigured = checkout.month || checkout.year;
 
   const manage = async () => {
     setBusy(true);
@@ -103,8 +122,15 @@ export default function PricingView() {
                   )}
                 </div>
                 <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-[26px] font-semibold text-[var(--color-ink)]">{plan.price.display}</span>
+                  <span className="text-[26px] font-semibold text-[var(--color-ink)]">
+                    {isScribe ? scribePriceDisplay(interval) : plan.price.display}
+                  </span>
                 </div>
+                {isScribe && !isCurrent && (
+                  <div className="mt-2">
+                    <BillingIntervalToggle value={interval} onChange={setBillingInterval} available={checkout} />
+                  </div>
+                )}
                 {plan.price.gstNote && (
                   <p className="mt-1 text-[11px] text-[var(--color-ink-5)]">{plan.price.gstNote}</p>
                 )}
@@ -144,9 +170,10 @@ export default function PricingView() {
                     ) : (
                       <button
                         onClick={upgrade}
-                        className="w-full h-9 rounded-[var(--radius-7)] text-[13px] font-semibold bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:opacity-90 transition-opacity"
+                        disabled={checkoutBusy}
+                        className="w-full h-9 rounded-[var(--radius-7)] text-[13px] font-semibold bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:opacity-90 transition-opacity disabled:opacity-60"
                       >
-                        Upgrade to Scribe
+                        {checkoutBusy ? "Opening checkout…" : "Upgrade to Scribe"}
                       </button>
                     )
                   ) : isCurrent ? (
@@ -162,7 +189,7 @@ export default function PricingView() {
                     </a>
                   )}
                 </div>
-                {isScribe && !isCurrent && !billingConfigured() && (
+                {isScribe && !isCurrent && !checkoutConfigured && (
                   <p className="mt-2 text-[11px] text-[var(--color-ink-5)]">
                     Checkout is being set up — the button goes live once billing is configured.
                   </p>
@@ -187,6 +214,10 @@ export default function PricingView() {
           </div>
           {[
             {
+              q: "Monthly or yearly?",
+              a: `Pay ${PLANS.scribe.price.display}, or ${PLANS.scribe.price.yearly?.display} for the year — that’s two months free. You choose when you upgrade.`,
+            },
+            {
               q: "Can I cancel anytime?",
               a: "Yes. Cancel from the billing portal and you stay on Scribe until the end of your paid period, then move back to Draft.",
             },
@@ -200,7 +231,7 @@ export default function PricingView() {
             },
             {
               q: "Is GST charged?",
-              a: "No. RAVENCI Solutions isn’t registered for GST, so no GST is added to the A$5/month price.",
+              a: "No. RAVENCI Solutions isn’t registered for GST, so no GST is added to the Scribe price, monthly or yearly.",
             },
           ].map((f) => (
             <div key={f.q}>

@@ -6,6 +6,7 @@ import {
   autosaveTrimCount,
   isUnlimited,
   versionTrimEnabled,
+  scribePriceDisplay,
 } from "@/lib/plans";
 import { getLimits } from "@/lib/subscription";
 import {
@@ -43,8 +44,17 @@ describe("PLANS — enforced values", () => {
     expect(s.retention.trashOptions).toEqual([60, 90]);
     expect(s.features.editCollaboration).toBe(true);
     expect(s.features.versionHistoryRangeFilter).toBe(true);
-    expect(s.price.display).toBe("A$5/month");
+    expect(s.price.display).toBe("A$7/month");
+    expect(s.price.amount).toBe(7);
+    expect(s.price.yearly?.display).toBe("A$70/year");
+    // Two months free: the yearly price is exactly 10 monthly payments.
+    expect(s.price.yearly?.amount).toBe(s.price.amount * 10);
     expect(s.price.gstNote).toBeTruthy(); // "no GST" note present
+  });
+
+  it("scribePriceDisplay picks the interval", () => {
+    expect(scribePriceDisplay("month")).toBe("A$7/month");
+    expect(scribePriceDisplay("year")).toBe("A$70/year");
   });
 });
 

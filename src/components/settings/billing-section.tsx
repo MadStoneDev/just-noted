@@ -4,8 +4,9 @@ import React, { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { type SubscriptionTier } from "@/types/subscription";
 import { getLimits, type BillingState } from "@/lib/subscription";
-import { PLANS, downgradeEffects } from "@/lib/plans";
-import { openUpgradeCheckout, billingConfigured } from "@/lib/billing-client";
+import { PLANS, downgradeEffects, scribePriceDisplay, type BillingInterval } from "@/lib/plans";
+import { openUpgradeCheckout } from "@/lib/billing-client";
+import BillingIntervalToggle from "@/components/billing-interval-toggle";
 import { getPortalUrl, getBillingState } from "@/app/actions/billingActions";
 import { useToast } from "@/components/ui/toast";
 import PlanComparison from "@/components/plan-comparison";
@@ -62,8 +63,6 @@ export default function BillingSection() {
   const { showError } = useToast();
   const [loading, setLoading] = useState(true);
   const [tier, setTier] = useState<SubscriptionTier>("draft");
-  const [email, setEmail] = useState("");
-  const [userId, setUserId] = useState("");
   const [renews, setRenews] = useState<string | null>(null);
   const [cancelAtEnd, setCancelAtEnd] = useState(false);
   // A Draft user who still has a subscription row with a period end has lapsed
@@ -75,14 +74,17 @@ export default function BillingSection() {
   const [compUntil, setCompUntil] = useState<string | null>(null);
   const [usage, setUsage] = useState({ notes: 0, notebooks: 0, collaborators: 0 });
   const [portalBusy, setPortalBusy] = useState(false);
+  // The subscriber's actual price (may differ from today's list price).
+  const [priceDisplay, setPriceDisplay] = useState<string | null>(null);
+  const [interval, setBillingInterval] = useState<BillingInterval>("month");
+  const [checkout, setCheckout] = useState<Record<BillingInterval, boolean>>({ month: true, year: true });
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
 
   useEffect(() => {
     let alive = true;
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !alive) { if (alive) setLoading(false); return; }
-      setUserId(user.id);
-      setEmail(user.email || "");
 
       const [state, notesCount, notebooksCount, shareRows] = await Promise.all([
         // Server-resolved plan + billing state (single source; also retires an
@@ -100,6 +102,9 @@ export default function BillingSection() {
       setLapsed(state.tier === "draft" && !!state.renews);
       setBillingState(state.billingState);
       setCompUntil(state.compUntil);
+      setPriceDisplay(state.priceDisplay);
+      setCheckout(state.checkout);
+      if (!state.checkout.month && state.checkout.year) setBillingInterval("year");
 
       // Count named editors across the user's shared notes.
       let collaborators = 0;
@@ -125,9 +130,17 @@ export default function BillingSection() {
   const notebookLimit = PLANS[tier].limits.maxNotebooks;
 
   const upgrade = async () => {
-    const ok = await openUpgradeCheckout({ email, userId });
-    if (!ok) showError("Checkout isn’t available yet — billing is still being set up.");
+    setCheckoutBusy(true);
+    const err = await openUpgradeCheckout(interval);
+    if (err) { setCheckoutBusy(false); showError(err); }
   };
+
+  // Back-button return from Stripe restores a stale "Opening checkout…".
+  useEffect(() => {
+    const reset = () => setCheckoutBusy(false);
+    window.addEventListener("pageshow", reset);
+    return () => window.removeEventListener("pageshow", reset);
+  }, []);
 
   const manage = async () => {
     setPortalBusy(true);
@@ -166,9 +179,14 @@ export default function BillingSection() {
                     : "Complimentary — no billing to manage."
                   : billingState === "billing_issue"
                     ? "There's a problem with your billing record."
-                    : renews
-                      ? `${cancelAtEnd ? "Ends" : "Renews"} ${new Date(renews).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })} · ${PLANS.scribe.price.display}`
-                      : PLANS.scribe.price.display}
+                    : [
+                        renews
+                          ? `${cancelAtEnd ? "Ends" : "Renews"} ${new Date(renews).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}`
+                          : null,
+                        priceDisplay,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || "Active"}
             </p>
           </div>
           {isPaid && (billingState === "manual" ? (
@@ -231,15 +249,20 @@ export default function BillingSection() {
               </li>
             ))}
           </ul>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <BillingIntervalToggle value={interval} onChange={setBillingInterval} available={checkout} />
+            <span className="text-[13px] font-semibold text-[var(--color-ink-1)]">{scribePriceDisplay(interval)}</span>
+          </div>
           <div className="mt-3">
             <button
               onClick={upgrade}
-              className="h-9 px-4 rounded-[var(--radius-7)] text-[13px] font-semibold bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:opacity-90 transition-opacity"
+              disabled={checkoutBusy}
+              className="h-9 px-4 rounded-[var(--radius-7)] text-[13px] font-semibold bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] hover:opacity-90 transition-opacity disabled:opacity-60"
             >
-              Upgrade to Scribe
+              {checkoutBusy ? "Opening checkout…" : "Upgrade to Scribe"}
             </button>
           </div>
-          {!billingConfigured() && (
+          {!checkout.month && !checkout.year && (
             <p className="mt-2 text-[11px] text-[var(--color-ink-5)]">Checkout is being set up — the button will be live once billing is configured.</p>
           )}
         </div>

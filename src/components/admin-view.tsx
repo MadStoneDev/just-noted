@@ -231,11 +231,11 @@ function UsersPanel() {
     getUsers().then(setUsers).catch(() => setUsers([]));
   }, []);
 
-  const withBusy = useCallback(async (id: string, fn: () => Promise<{ success: boolean }>) => {
+  const withBusy = useCallback(async (id: string, fn: () => Promise<{ success: boolean; error?: string }>) => {
     setBusy((s) => new Set(s).add(id));
     try {
       const res = await fn();
-      if (!res.success) showError("Action failed — try again.");
+      if (!res.success) showError(res.error || "Action failed — try again.");
       return res.success;
     } catch {
       showError("Action failed — try again.");

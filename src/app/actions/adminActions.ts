@@ -2,6 +2,7 @@
 
 import { createClient, createServiceRoleClient } from "@/utils/supabase/server";
 import { resolvePlanTier } from "@/lib/subscription";
+import { grantManualScribe, revokeManualScribe } from "@/lib/manual-scribe";
 import type { RoadmapStatusValue } from "@/types/roadmap";
 
 // Admin access is authors.role >= 10 (see 20260925_author_role.sql). 3 = default
@@ -147,43 +148,21 @@ export async function setUserRole(userId: string, role: number): Promise<{ succe
 
 /**
  * Comp or revoke Scribe for a user (no Stripe involved — a manual grant). Sets
- * plan_source='manual' so billing sync leaves the account alone; an optional
- * compUntil bounds the grant (after it passes it resolves back to free).
- * Revoking hands the row back to Stripe so future real billing takes over.
+ * plan_source='manual' and clears stripe_subscription_id so billing sync leaves
+ * the account alone; an optional compUntil bounds the grant (after it passes it
+ * resolves back to free). Refuses to override a live Stripe subscription, and
+ * revoking only touches manual grants. See src/lib/manual-scribe.ts.
  */
 export async function setUserScribe(
   userId: string,
   active: boolean,
   compUntil?: string | null,
-): Promise<{ success: boolean }> {
+): Promise<{ success: boolean; error?: string }> {
   await assertAdmin();
   const svc = createServiceRoleClient();
-  if (active) {
-    const { error } = await svc.from("subscriptions").upsert(
-      {
-        user_id: userId,
-        tier: "scribe",
-        status: "active",
-        plan_source: "manual",
-        comp_until: compUntil ?? null,
-        updated_at: new Date().toISOString(),
-      } as any,
-      { onConflict: "user_id" },
-    );
-    return { success: !error };
-  }
-  // Revoke: only touches an existing row (no row = already free/draft).
-  const { error } = await svc
-    .from("subscriptions")
-    .update({
-      tier: "draft",
-      status: "cancelled",
-      plan_source: "stripe",
-      comp_until: null,
-      updated_at: new Date().toISOString(),
-    } as any)
-    .eq("user_id", userId);
-  return { success: !error };
+  return active
+    ? grantManualScribe(svc, userId, compUntil ?? null)
+    : revokeManualScribe(svc, userId);
 }
 
 // ---------------------------------------------------------------------------

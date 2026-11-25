@@ -875,6 +875,7 @@ export type Database = {
           comp_until: string | null
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
+          stripe_price_id: string | null
         }
         Insert: {
           id?: string
@@ -890,6 +891,7 @@ export type Database = {
           comp_until?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          stripe_price_id?: string | null
         }
         Update: {
           id?: string
@@ -905,6 +907,7 @@ export type Database = {
           comp_until?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          stripe_price_id?: string | null
         }
         Relationships: []
       }

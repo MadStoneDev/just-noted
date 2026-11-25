@@ -11,6 +11,9 @@
 
 export type PlanTier = "draft" | "scribe";
 
+/** How often a paid plan is billed. Chosen at checkout only. */
+export type BillingInterval = "month" | "year";
+
 export const UNLIMITED = -1 as const;
 
 export interface Plan {
@@ -20,8 +23,10 @@ export interface Plan {
     amount: number; // in whole dollars
     currency: "AUD";
     interval: "month" | null; // null for a free plan
-    display: string; // what the UI shows, e.g. "Free" or "A$5/month"
+    display: string; // what the UI shows, e.g. "Free" or "A$7/month"
     gstNote: string | null; // shown near the price when relevant
+    // Optional yearly billing for a paid plan (chosen at checkout).
+    yearly: { amount: number; display: string; savingsNote: string } | null;
   };
   limits: {
     maxNotes: number; // -1 = unlimited
@@ -53,6 +58,7 @@ export const PLANS = {
       interval: null,
       display: "Free",
       gstNote: null,
+      yearly: null,
     },
     limits: {
       maxNotes: UNLIMITED,
@@ -83,11 +89,13 @@ export const PLANS = {
     id: "scribe",
     label: "Scribe",
     price: {
-      amount: 5,
+      amount: 7,
       currency: "AUD",
       interval: "month",
-      display: "A$5/month",
+      display: "A$7/month",
       gstNote: "No GST is charged — RAVENCI Solutions isn't registered for GST.",
+      // 10 × the monthly price: two months free.
+      yearly: { amount: 70, display: "A$70/year", savingsNote: "2 months free" },
     },
     limits: {
       maxNotes: UNLIMITED,
@@ -118,6 +126,12 @@ export const PLANS = {
 
 export function planFor(tier: PlanTier): Plan {
   return PLANS[tier];
+}
+
+/** The Scribe price text for a billing interval, e.g. "A$70/year". */
+export function scribePriceDisplay(interval: BillingInterval): string {
+  const p: Plan["price"] = PLANS.scribe.price;
+  return interval === "year" && p.yearly ? p.yearly.display : p.display;
 }
 
 /**

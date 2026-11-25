@@ -1,24 +1,30 @@
 "use client";
 
-/**
- * Client billing helper (Stripe Payment Links). JustNoted has one paid tier,
- * "Scribe". Upgrade opens its Payment Link with ?client_reference_id=<userId>
- * so the Stripe webhook can map the completed checkout back to this account
- * (and prefills the email).
- */
-export function billingConfigured(): boolean {
-  return !!process.env.NEXT_PUBLIC_STRIPE_SCRIBE_PAYMENT_LINK;
-}
+import { createScribeCheckout } from "@/app/actions/billingActions";
+import type { BillingInterval } from "@/lib/plans";
 
-export async function openUpgradeCheckout(opts: {
-  email?: string;
-  userId: string;
-}): Promise<boolean> {
-  const base = process.env.NEXT_PUBLIC_STRIPE_SCRIBE_PAYMENT_LINK;
-  if (!base) return false;
-  const url = new URL(base);
-  url.searchParams.set("client_reference_id", opts.userId);
-  if (opts.email) url.searchParams.set("prefilled_email", opts.email);
-  window.location.href = url.toString();
-  return true;
+/**
+ * Client billing helper. JustNoted has one paid tier, "Scribe", billed monthly
+ * or yearly. The Checkout Session is created server-side (price from env, the
+ * signed-in account attached) and the browser is sent to Stripe's hosted page.
+ * Returns an error message to show, or null once the redirect has started.
+ */
+export async function openUpgradeCheckout(interval: BillingInterval): Promise<string | null> {
+  const res = await createScribeCheckout(interval);
+  if ("url" in res) {
+    window.location.href = res.url;
+    return null;
+  }
+  switch (res.error) {
+    case "already_scribe":
+      return "You already have Scribe.";
+    case "billing_issue":
+      return "There's a problem with your current subscription — open Manage billing to fix it.";
+    case "not_signed_in":
+      return "Sign in to upgrade.";
+    case "not_configured":
+      return "Checkout isn’t available yet — billing is still being set up.";
+    default:
+      return "Couldn’t start checkout. Please try again.";
+  }
 }

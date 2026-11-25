@@ -5,6 +5,9 @@ import { headers } from "next/headers";
 import { createClient, createServiceRoleClient } from "@/utils/supabase/server";
 import { resolvePlanTier, billingStateFor, type BillingState } from "@/lib/subscription";
 import type { SubscriptionTier } from "@/types/subscription";
+import type { BillingInterval } from "@/lib/plans";
+import { checkoutAvailability, priceDisplayFor } from "@/lib/stripe-prices";
+import { buildCheckoutParams, checkoutBlockReason, type CheckoutBlock } from "@/lib/stripe-checkout";
 
 /**
  * Create a Stripe Billing Portal session so the user can manage/cancel their
@@ -20,6 +23,10 @@ export interface BillingStateResult {
   renews: string | null;
   cancelAtEnd: boolean;
   billingState: BillingState;
+  // The subscriber's actual price (e.g. "A$70/year"); null when unknown.
+  priceDisplay: string | null;
+  // Which billing intervals can be bought right now (prices configured).
+  checkout: Record<BillingInterval, boolean>;
 }
 
 /**
@@ -38,6 +45,8 @@ export async function getBillingState(): Promise<BillingStateResult> {
     renews: null,
     cancelAtEnd: false,
     billingState: "ok",
+    priceDisplay: null,
+    checkout: checkoutAvailability(),
   };
 
   const supabase = await createClient();
@@ -47,7 +56,7 @@ export async function getBillingState(): Promise<BillingStateResult> {
   const svc = createServiceRoleClient();
   const { data: row } = await svc
     .from("subscriptions")
-    .select("tier, status, plan_source, comp_until, current_period_end, cancel_at_period_end, stripe_customer_id")
+    .select("tier, status, plan_source, comp_until, current_period_end, cancel_at_period_end, stripe_customer_id, stripe_price_id")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -88,7 +97,57 @@ export async function getBillingState(): Promise<BillingStateResult> {
     renews: r?.current_period_end ?? null,
     cancelAtEnd: !!r?.cancel_at_period_end,
     billingState,
+    priceDisplay: planSource === "stripe" ? priceDisplayFor(r?.stripe_price_id) : null,
+    checkout: empty.checkout,
   };
+}
+
+export type CheckoutResult =
+  | { url: string }
+  | { error: CheckoutBlock | "not_signed_in" | "not_configured" | "stripe_error" };
+
+/**
+ * Start a Scribe checkout for the signed-in user on the chosen interval. The
+ * session is created here (not a public Payment Link) so the price comes from
+ * env, the account id can't be swapped, and accounts that are already Scribe —
+ * including manual/comped ones — are never sent to checkout.
+ */
+export async function createScribeCheckout(interval: BillingInterval): Promise<CheckoutResult> {
+  const secret = process.env.STRIPE_SECRET_KEY;
+  const iv: BillingInterval = interval === "year" ? "year" : "month";
+  if (!secret || !checkoutAvailability()[iv]) return { error: "not_configured" };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "not_signed_in" };
+
+  const svc = createServiceRoleClient();
+  const { data: row } = await svc
+    .from("subscriptions")
+    .select("tier, status, plan_source, comp_until, stripe_customer_id, stripe_subscription_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const block = checkoutBlockReason(row as any);
+  if (block) return { error: block };
+
+  const params = buildCheckoutParams({
+    interval: iv,
+    userId: user.id,
+    email: user.email,
+    stripeCustomerId: (row as any)?.stripe_customer_id ?? null,
+  });
+  if (!params) return { error: "not_configured" };
+
+  try {
+    const stripe = new Stripe(secret);
+    const session = await stripe.checkout.sessions.create(params);
+    if (!session.url) return { error: "stripe_error" };
+    return { url: session.url };
+  } catch (err) {
+    console.error("[billing] createScribeCheckout: Stripe error:", err instanceof Error ? err.message : err);
+    return { error: "stripe_error" };
+  }
 }
 
 export async function getPortalUrl(): Promise<string | null> {

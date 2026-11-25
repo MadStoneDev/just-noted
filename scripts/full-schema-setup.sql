@@ -104,6 +104,7 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
   comp_until TIMESTAMPTZ,
   stripe_customer_id TEXT,
   stripe_subscription_id TEXT,
+  stripe_price_id TEXT, -- added 20261125: which Scribe price (monthly/yearly/legacy)
   trash_retention_days INTEGER,
   current_period_end TIMESTAMPTZ,
   cancel_at_period_end BOOLEAN DEFAULT false,
