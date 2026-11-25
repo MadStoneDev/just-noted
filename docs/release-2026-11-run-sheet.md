@@ -165,7 +165,7 @@ Copy the backups off this host as well. A backup on the same disk doesn't protec
 ```bash
 git checkout prelaunch/playwright-and-b7 && git pull --ff-only
 npx tsc --noEmit                  # expect: no output, exit 0
-npx vitest run                    # expect: Test Files 41 passed; Tests 474 passed | 4 skipped
+npx vitest run                    # expect: Test Files 44 passed; Tests 557 passed | 4 skipped
                                   #   (the 4 skipped are the copy-script integration tests below)
 npx playwright test               # expect: all passed (fixme tests are skipped, not failed)
 ```
@@ -381,6 +381,7 @@ Use a normal window signed in to a test account, and a private window for guest 
 | f6 | Private window from step c (the canary) | Shows `canary-2` (the old build's edit after pass 1, taken in e2 because its version is higher). `canary-1` means the version-aware merge didn't apply. Check e2's `fieldsReplacedWithNewer`. |
 | f7 | Profile page, share-by-email to a second test account | The recipient opens the note (exercises the hardened functions). |
 | f8 | Settings → export account | The export reaches "ready" (it now runs in-process with `after()`). |
+| f10 | In a note type `a`, Enter twice, `b`, Enter three times, `c`. Reload 3 times. Then **⋯ → Export Markdown (.md)** and **Export plain text (.txt)**. | The one and the two empty lines are still there after every reload. The sidebar preview reads `a b c` (no `&nbsp;`), the word count is 3. The .md has `&nbsp;` lines in the gaps; the .txt has truly empty lines. |
 
 ### f9. Restore the two damaged notes through Version history
 

@@ -1,4 +1,5 @@
 import type { ContentFormat } from "@/types/combined-notes";
+import { stripEmptyLineMarkers } from "@/utils/empty-line-marker";
 
 /**
  * Fast regex-based HTML → plain text.
@@ -22,7 +23,7 @@ export function stripHtmlToText(html: string): string {
  * Safe to call on every keystroke (no DOM allocation).
  */
 export function stripMarkdownToText(markdown: string): string {
-  return markdown
+  return stripEmptyLineMarkers(markdown)
     .replace(/`{3}[\s\S]*?`{3}/g, " ")     // code blocks (first, before inline)
     .replace(/^#{1,6}\s+/gm, "")           // headings
     .replace(/^[-*]\s*\[[ x]\]\s*/gm, "")  // task list markers

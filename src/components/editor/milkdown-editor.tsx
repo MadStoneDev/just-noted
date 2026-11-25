@@ -31,7 +31,7 @@ import { highlight } from "./highlight-plugin";
 import {
   cleanCorruptedMarkdown,
   markdownStringifyOptions,
-  stripEmptyParagraphBreaks,
+  emptyLineMarker,
 } from "./markdown-io";
 import DockedToolbar from "./docked-toolbar";
 import SlashMenu from "./slash-menu";
@@ -387,9 +387,7 @@ function MilkdownEditorInner({
               if (emittedDocRef.current?.eq(doc)) return;
               emittedDocRef.current = doc;
             } catch {}
-            // Normalise away the preset's empty-paragraph <br /> before the
-            // markdown is stored, exported or shared.
-            onChangeRef.current?.(stripEmptyParagraphBreaks(markdown));
+            onChangeRef.current?.(markdown);
           })
           .focus(() => {
             onFocusRef.current?.();
@@ -400,6 +398,9 @@ function MilkdownEditorInner({
       })
       .use(commonmark)
       .use(gfm)
+      // Intentional empty lines: `&nbsp;` lines parse back to empty paragraphs
+      // (the save half is in markdownStringifyOptions).
+      .use(emptyLineMarker)
       .use(highlight)
       .use(listener)
       .use(history)
@@ -429,7 +430,7 @@ function MilkdownEditorInner({
           if (!emittedDocRef.current || emittedDocRef.current.eq(doc)) return;
           emittedDocRef.current = doc;
           const markdown = ctx.get(serializerCtx)(doc);
-          onChangeRef.current?.(stripEmptyParagraphBreaks(markdown));
+          onChangeRef.current?.(markdown);
         });
       } catch {
         // Editor not created yet / already destroyed — nothing to flush.

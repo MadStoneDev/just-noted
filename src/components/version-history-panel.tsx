@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { getVersions } from "@/app/actions/versionActions";
+import { stripEmptyLineMarkers } from "@/utils/empty-line-marker";
 import { IconHistory, IconX, IconArrowBackUp, IconCalendar, IconSparkles } from "@tabler/icons-react";
 import { ConfirmModal } from "@/components/ds/modal";
 
@@ -115,7 +116,7 @@ export default function VersionHistoryPanel({ noteId, open, onClose, onRestore }
               </div>
               <div className="flex-1 overflow-y-auto scrollbar-thin p-4">
                 <div className="milkdown text-sm whitespace-pre-wrap text-[var(--color-text-secondary)]">
-                  {previewVersion.content}
+                  {stripEmptyLineMarkers(previewVersion.content ?? "", { keepLines: true })}
                 </div>
               </div>
             </>
@@ -178,7 +179,7 @@ export default function VersionHistoryPanel({ noteId, open, onClose, onRestore }
                         <p className="text-[13px] font-medium text-[var(--color-text-primary)] truncate">{version.title}</p>
                         <p className="text-[10px] text-[var(--color-text-tertiary)] mt-0.5">{relativeTime(version.created_at)}</p>
                         <p className="text-[10px] text-[var(--color-text-tertiary)] truncate mt-1">
-                          {version.content?.slice(0, 100)}
+                          {stripEmptyLineMarkers(version.content ?? "").slice(0, 100)}
                         </p>
                       </button>
                     </li>

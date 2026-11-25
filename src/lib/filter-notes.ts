@@ -3,6 +3,7 @@
 // rules without duplicating the logic. Pure: no store access, no side effects.
 
 import { CombinedNote } from "@/types/combined-notes";
+import { stripEmptyLineMarkers } from "@/utils/empty-line-marker";
 import { Notebook } from "@/types/notebook";
 import { sortNotes } from "@/utils/notes-utils";
 
@@ -121,7 +122,7 @@ export function filterAndSortNotes(
     filtered = filtered.filter(
       (note) =>
         note.title.toLowerCase().includes(query) ||
-        note.content.toLowerCase().includes(query),
+        stripEmptyLineMarkers(note.content).toLowerCase().includes(query),
     );
   }
 

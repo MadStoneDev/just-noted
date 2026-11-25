@@ -1,4 +1,5 @@
 ﻿import { useMemo } from "react";
+import { stripEmptyLineMarkers } from "@/utils/empty-line-marker";
 
 interface WordCountGoal {
   target: number;
@@ -28,7 +29,8 @@ export function useNoteStatistics(
 ): UseNoteStatisticsReturn {
   return useMemo(() => {
     // Extract plain text from HTML using regex (avoids DOM creation per keystroke)
-    const plainText = content
+    // Empty-line markers are layout, not words or characters.
+    const plainText = stripEmptyLineMarkers(content)
       .replace(/<[^>]*>/g, " ")   // strip tags
       .replace(/&nbsp;/gi, " ")    // decode common entities
       .replace(/&amp;/gi, "&")

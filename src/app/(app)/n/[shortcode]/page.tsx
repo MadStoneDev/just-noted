@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { sharingOperation } from "@/app/actions/sharing";
+import { stripEmptyLineMarkers } from "@/utils/empty-line-marker";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -26,7 +27,7 @@ export async function generateMetadata({
       const noteTitle = result.note.title || "Shared Note";
       const authorName = result.note.authorUsername || "Unknown";
       const contentPreview = result.note.content
-        ? result.note.content
+        ? stripEmptyLineMarkers(result.note.content)
             .replace(/<[^>]*>/g, "")
             .replace(/\*\*([^*]+)\*\*/g, "$1")
             .replace(/\* \[[x ]\]/g, "")

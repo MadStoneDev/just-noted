@@ -19,6 +19,10 @@ const editor = (page: Page) => page.locator(EDITOR).first();
 
 async function waitForApp(page: Page): Promise<void> {
   await expect(page.getByRole("heading", { name: "All Notes" })).toBeVisible();
+  // The consent banner covers the lower part of the editor; a note tall enough
+  // to reach it (e.g. several empty lines) can't be clicked there otherwise.
+  const decline = page.getByRole("button", { name: "Decline" }).first();
+  if (await decline.isVisible().catch(() => false)) await decline.click();
 }
 
 async function createFirstNote(page: Page): Promise<void> {
@@ -242,6 +246,40 @@ const CASES: Case[] = [
     input: (p) => typeSource(p, "```\nC:\\Users\\me\\notes\n\\- not an escape\necho \"a\\\\b\"\n```\n"),
     markdown: "```\nC:\\Users\\me\\notes\n\\- not an escape\necho \"a\\\\b\"\n```\n",
     probe: "not an escape",
+  },
+  // Intentional empty lines: an empty paragraph is stored as a `&nbsp;` line
+  // and must come back as an empty line after every reload. Regression for
+  // empty lines typed between paragraphs vanishing on reload.
+  {
+    name: "one, two and three empty lines typed mid-note",
+    input: (p) => typeLines(p, ["a", "", "b", "", "", "c", "", "", "", "d"]),
+    markdown:
+      "a\n\n&nbsp;\n\nb\n\n&nbsp;\n\n&nbsp;\n\nc\n\n&nbsp;\n\n&nbsp;\n\n&nbsp;\n\nd\n",
+    probe: "d",
+    check: (snap) => {
+      expect(snap.match(/^p\n(?!\s)/gm)).toHaveLength(6);
+      expect(snap).not.toContain("nbsp");
+    },
+  },
+  {
+    name: "empty line after a heading",
+    input: (p) => typeLines(p, ["# Title", "", "b"]),
+    markdown: "# Title\n\n&nbsp;\n\nb\n",
+    probe: "b",
+  },
+  {
+    name: "empty line between two lists",
+    // Enter on the empty bullet leaves the list; Enter again adds the empty line.
+    input: (p) => typeLines(p, ["- one", "", "", "- two"]),
+    markdown: "- one\n\n&nbsp;\n\n- two\n",
+    probe: "two",
+  },
+  {
+    name: "code with <br> and blank lines stays intact next to empty lines (via markdown source)",
+    input: (p) =>
+      typeSource(p, "a\n\n&nbsp;\n\n```html\nx<br>y\n\n\nz\n```\n\nuse `<br />` here\n"),
+    markdown: "a\n\n&nbsp;\n\n```html\nx<br>y\n\n\nz\n```\n\nuse `<br />` here\n",
+    probe: "here",
   },
 ];
 

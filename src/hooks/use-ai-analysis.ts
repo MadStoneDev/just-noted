@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { CombinedNote } from "@/types/combined-notes";
+import { stripEmptyLineMarkers } from "@/utils/empty-line-marker";
 
 export interface PatternEntry {
   index: number;
@@ -96,7 +97,7 @@ export function useAIAnalysis(userId: string | null) {
             note: {
               id: note.id,
               title: note.title,
-              content: note.content,
+              content: stripEmptyLineMarkers(note.content),
             },
           }),
         });

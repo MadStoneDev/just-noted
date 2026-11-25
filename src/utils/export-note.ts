@@ -1,4 +1,5 @@
 import { marked } from "marked";
+import { blankEmptyLineMarkers } from "@/utils/empty-line-marker";
 import { htmlToMarkdown } from "@/utils/html-to-markdown";
 
 export type ExportFormat = "md" | "mdx" | "txt" | "html" | "json" | "xml";
@@ -38,27 +39,29 @@ function escapeXml(s: string): string {
     .replace(/'/g, "&apos;");
 }
 
-function toMarkdown(note: ExportableNote): string {
+export function toMarkdown(note: ExportableNote): string {
   const c = note.content || "";
   const looksHtml = /<[a-z][\s\S]*>/i.test(c.trim());
   return note.contentFormat === "html" && looksHtml ? htmlToMarkdown(c) : c;
 }
 
-function toHtml(note: ExportableNote): string {
+export function toHtml(note: ExportableNote): string {
   const c = note.content || "";
   const looksHtml = /<[a-z][\s\S]*>/i.test(c.trim());
   if (note.contentFormat === "html" && looksHtml) return c;
   return marked.parse(c, { async: false, gfm: true, breaks: false }) as string;
 }
 
-function toPlainText(note: ExportableNote): string {
+// Empty-line markers (`&nbsp;` paragraphs) render as a lone non-breaking space:
+// in plain text that line is written truly empty.
+export function toPlainText(note: ExportableNote): string {
   const html = toHtml(note);
   if (typeof document !== "undefined") {
     const el = document.createElement("div");
     el.innerHTML = html;
-    return (el.textContent || "").trim();
+    return blankEmptyLineMarkers(el.textContent || "").trim();
   }
-  return html.replace(/<[^>]+>/g, "");
+  return blankEmptyLineMarkers(html.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, "\u00a0"));
 }
 
 function download(filename: string, text: string, mime: string) {

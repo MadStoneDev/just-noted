@@ -1,8 +1,8 @@
 // Markdown normalisation at the two points markdown crosses the editor boundary:
-// on load (cleanCorruptedMarkdown, before Milkdown parses stored content) and on
-// save (the remark-stringify options + stripEmptyParagraphBreaks, as Milkdown
-// serialises the doc). Kept free of React/DOM so the round-trip tests exercise
-// exactly what the editor runs.
+// on load (cleanCorruptedMarkdown before Milkdown parses stored content, and the
+// emptyLineMarker remark plugin while it parses) and on save (the remark-stringify
+// options, as Milkdown serialises the doc). Kept free of React/DOM so the
+// round-trip tests exercise exactly what the editor runs.
 //
 // The invariant these protect: parse(serialise(doc)) === doc, and
 // serialise(parse(md)) === md for markdown the editor wrote — so opening and
@@ -10,12 +10,16 @@
 
 import type { SliceType } from "@milkdown/ctx";
 import type { remarkStringifyOptionsCtx } from "@milkdown/core";
+import { $remark } from "@milkdown/utils";
+import { EMPTY_LINE_MARKER, isEmptyLineMarkerText } from "@/utils/empty-line-marker";
 
 // remark-stringify's Options, taken from Milkdown's slice (remark-stringify is
 // only a transitive dependency).
 type StringifyOptions =
   typeof remarkStringifyOptionsCtx extends SliceType<infer T, string> ? T : never;
 type JoinFn = NonNullable<StringifyOptions["join"]>[number];
+type Handlers = NonNullable<StringifyOptions["handlers"]>;
+type HtmlHandler = NonNullable<Handlers["html"]>;
 
 // CommonMark code spans: a run of N backticks up to the next run of exactly N.
 const CODE_SPAN = /(`+)[\s\S]*?\1/g;
@@ -57,28 +61,66 @@ export function cleanCorruptedMarkdown(text: string): string {
   ).replace(/^\n+/, "");
 }
 
-/**
- * Milkdown's commonmark preset bundles `remark-preserve-empty-line`, which
- * serialises every blank line the user types between paragraphs as a standalone
- * `<br />` node. That literal `<br />` then leaks into stored markdown, exports
- * and shared-note HTML (the design brief calls this out as a bug: paragraph
- * breaks must be real markdown newlines, never `<br />`).
- *
- * We normalise at the single point markdown leaves the editor: drop standalone
- * `<br />` lines (each was an empty paragraph — the surrounding blank lines
- * already encode the paragraph break), neutralise any stray inline `<br>` to a
- * newline, then collapse 3+ blank lines to a single blank line.
- */
-export function stripEmptyParagraphBreaks(md: string): string {
-  if (!md || md.indexOf("<br") === -1) return md;
-  const withoutStandalone = md
-    .split("\n")
-    .filter((line) => !/^\s*<br\s*\/?>\s*$/i.test(line))
-    .join("\n");
-  return withoutStandalone
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/\n{3,}/g, "\n\n");
+// ── Intentional empty lines ───────────────────────────────────────────────────
+//
+// An empty line typed mid-note is an empty paragraph. Markdown has no such
+// thing (blank lines only separate blocks), so Milkdown's commonmark preset
+// serialises each one as a standalone `<br />` and its remark-preserve-empty-line
+// plugin parses that back. We store `&nbsp;` instead (EMPTY_LINE_MARKER): `<br />`
+// leaked into exports and made markdown look like HTML to the app's
+// /<[a-z]…>/ sniffing. An earlier fix simply deleted the `<br />` lines on save
+// (stripEmptyParagraphBreaks), which lost every intentional empty line on the
+// next reload, and its whole-text regexes rewrote `<br>` inside code too.
+//
+// Both halves work on the syntax tree, so code blocks and inline code are never
+// touched:
+//   save: emptyLineHtmlHandler writes the preset's empty-paragraph `<br />` as
+//         `&nbsp;` (indentation inside list items comes from the serialiser).
+//   load: emptyLineMarker turns a paragraph whose only content is the parsed
+//         marker (a lone U+00A0) back into an empty paragraph. Notes saved
+//         before this still contain `<br />` lines; the preset still parses
+//         those, and they're rewritten as `&nbsp;` on the next save.
+
+const BR = /^<br\s*\/?>$/i;
+
+type MdNode = { type: string; value?: unknown; children?: MdNode[] };
+
+/** remark-stringify `html` handler: an empty paragraph's `<br />` → the marker. */
+export const emptyLineHtmlHandler: HtmlHandler = (node, parent) => {
+  const value = String(node.value ?? "");
+  if (
+    parent?.type === "paragraph" &&
+    parent.children.length === 1 &&
+    BR.test(value.trim())
+  ) {
+    return EMPTY_LINE_MARKER;
+  }
+  return value;
+};
+
+/** Parse-side transform: a paragraph holding only the marker → empty paragraph. */
+export function restoreEmptyLines(tree: MdNode): void {
+  const walk = (node: MdNode) => {
+    if (!node.children) return;
+    if (
+      node.type === "paragraph" &&
+      node.children.length === 1 &&
+      node.children[0].type === "text" &&
+      isEmptyLineMarkerText(String(node.children[0].value ?? ""))
+    ) {
+      node.children = [];
+      return;
+    }
+    node.children.forEach(walk);
+  };
+  walk(tree);
 }
+
+/** Milkdown plugin running restoreEmptyLines on every parse (load and paste). */
+export const emptyLineMarker = $remark(
+  "jn-empty-line-marker",
+  () => () => (tree) => restoreEmptyLines(tree as unknown as MdNode),
+);
 
 /**
  * Blank lines between list items / inside an item, decided from `spread`.
@@ -107,4 +149,5 @@ export const markdownStringifyOptions: StringifyOptions = {
   bullet: "-",
   listItemIndent: "one",
   join: [listSpreadJoin],
+  handlers: { html: emptyLineHtmlHandler },
 };

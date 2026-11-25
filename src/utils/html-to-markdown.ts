@@ -1,5 +1,6 @@
 import TurndownService from "turndown";
 import { gfm } from "turndown-plugin-gfm";
+import { EMPTY_LINE_MARKER } from "@/utils/empty-line-marker";
 
 let turndownInstance: TurndownService | null = null;
 
@@ -14,6 +15,15 @@ function getTurndown(): TurndownService {
     emDelimiter: "*",
     strongDelimiter: "**",
     linkStyle: "inlined",
+    // `<p>&nbsp;</p>` (and `<p></p>`) is "blank" to turndown, so it never
+    // reaches a rule: an empty paragraph in an old HTML note is an intentional
+    // empty line, kept as the editor's empty-line marker.
+    blankReplacement: (_content, node) =>
+      node.nodeName === "P"
+        ? `\n\n${EMPTY_LINE_MARKER}\n\n`
+        : (node as unknown as { isBlock?: boolean }).isBlock
+          ? "\n\n"
+          : "",
   });
 
   td.use(gfm);
@@ -72,15 +82,18 @@ function getTurndown(): TurndownService {
     },
   });
 
-  // Clean up empty paragraphs that TipTap generates
+  // TipTap writes an empty line as `<p><br></p>` (not "blank" to turndown,
+  // because of the <br>): keep it as the editor's empty-line marker. Only a
+  // paragraph of nothing but <br>s and whitespace — one holding an image or
+  // other element is content.
   td.addRule("emptyParagraph", {
-    filter: (node) => {
-      return (
-        node.nodeName === "P" &&
-        (node.textContent?.trim() === "" || node.innerHTML === "<br>")
-      );
-    },
-    replacement: () => "\n\n",
+    filter: (node) =>
+      node.nodeName === "P" &&
+      (node.textContent ?? "").trim() === "" &&
+      Array.from(node.childNodes).every(
+        (c) => c.nodeName === "BR" || (c.nodeType === 3 && (c.textContent ?? "").trim() === ""),
+      ),
+    replacement: () => `\n\n${EMPTY_LINE_MARKER}\n\n`,
   });
 
   // Underline (not standard markdown, use HTML tag)
@@ -120,8 +133,12 @@ export function htmlToMarkdown(html: string): string {
     .map((line) => line.trimEnd())
     .join("\n");
 
-  // Trim leading/trailing whitespace
+  // Trim leading/trailing whitespace, and empty lines at the very start or end
+  // (TipTap often leaves an empty paragraph there; only mid-note ones are
+  // intentional).
   markdown = markdown.trim();
+  const edgeMarker = new RegExp(`^(?:${EMPTY_LINE_MARKER}\\s*)+|(?:\\s*${EMPTY_LINE_MARKER})+$`, "g");
+  markdown = markdown.replace(edgeMarker, "").trim();
 
   return markdown;
 }

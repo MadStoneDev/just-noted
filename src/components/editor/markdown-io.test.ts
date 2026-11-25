@@ -14,21 +14,20 @@ import { gfm } from "@milkdown/preset-gfm";
 import type { Node as ProseNode } from "@milkdown/prose/model";
 import {
   cleanCorruptedMarkdown,
+  emptyLineMarker,
   markdownStringifyOptions,
-  stripEmptyParagraphBreaks,
 } from "./markdown-io";
 
 // Round-trip tests for the editor's markdown boundary: the real Milkdown parser
-// and serialiser, configured as milkdown-editor.tsx configures them, plus the
-// load (cleanCorruptedMarkdown) and save (stripEmptyParagraphBreaks) steps.
+// and serialiser, configured as milkdown-editor.tsx configures them (stringify
+// options + the emptyLineMarker plugin), plus the load step (cleanCorruptedMarkdown).
 
 let editor: Editor;
 const parse = (md: string): ProseNode => editor.ctx.get(parserCtx)(md);
 const serialise = (doc: ProseNode): string => editor.ctx.get(serializerCtx)(doc);
 
-/** What the app does: load (clean → parse) then save (serialise → strip). */
-const loadAndSave = (md: string): string =>
-  stripEmptyParagraphBreaks(serialise(parse(cleanCorruptedMarkdown(md))));
+/** What the app does: load (clean → parse) then save (serialise). */
+const loadAndSave = (md: string): string => serialise(parse(cleanCorruptedMarkdown(md)));
 
 async function makeEditor(markdown = ""): Promise<Editor> {
   const root = document.createElement("div");
@@ -41,6 +40,7 @@ async function makeEditor(markdown = ""): Promise<Editor> {
     })
     .use(commonmark)
     .use(gfm)
+    .use(emptyLineMarker)
     .create();
 }
 
@@ -72,6 +72,18 @@ const CASES: Record<string, string> = {
   // before punctuation must itself be escaped ("\\\*" is the text "\*").
   "literal backslashes in prose": "C:\\Users\\me and a \\ b\n",
   "literal backslash before punctuation": "a \\\\\\*b and \\\\- c\n",
+  // Code is content: an earlier save step rewrote "<br>" and collapsed blank
+  // lines across the whole note, code included.
+  "<br> inside a code block": "```html\nline one<br>line two\n```\n",
+  "code block of only <br />": "```html\n<br />\n```\n",
+  "<br /> in inline code": "use `<br />` tags\n",
+  "blank lines in a code block": "```\na\n\n\n\nb\n```\n",
+  "code with <br> and blank lines next to empty lines":
+    "a\n\n&nbsp;\n\n```html\nx<br>y\n\n\nz\n```\n\n&nbsp;\n\nb\n",
+  "&nbsp; line inside a code block stays code": "```\n&nbsp;\n```\n",
+  // Typed text "&nbsp;" is text, escaped — never an empty line.
+  "literal &nbsp; text": "a \\&nbsp; b\n\n\\&nbsp;\n",
+  "empty line inside a quote": "> a\n>\n> &nbsp;\n>\n> b\n",
 };
 
 describe("markdown round-trip", () => {
@@ -124,7 +136,7 @@ describe("typed content round-trips", () => {
         }
         type(text);
       });
-      return stripEmptyParagraphBreaks(ed.ctx.get(serializerCtx)(view.state.doc));
+      return ed.ctx.get(serializerCtx)(view.state.doc);
     } finally {
       await ed.destroy();
     }
@@ -137,6 +149,9 @@ describe("typed content round-trips", () => {
     ["mixed bullet + task", ["- one", "two", "[ ] task item"], "- one\n- two\n- [ ] task item\n"],
     ["nested via Tab", ["- parent", "<TAB>child", "[ ] task"], "- parent\n  - child\n  - [ ] task\n"],
     ["numbered after a heading", ["# Title", "1. one", "two", "<TAB>sub"], "# Title\n\n1. one\n2. two\n   1. sub\n"],
+    ["one empty line typed mid-note", ["a", "", "b"], "a\n\n&nbsp;\n\nb\n"],
+    ["three empty lines typed mid-note", ["a", "", "", "", "b"], "a\n\n&nbsp;\n\n&nbsp;\n\n&nbsp;\n\nb\n"],
+    ["empty line typed after a heading", ["# Title", "", "b"], "# Title\n\n&nbsp;\n\nb\n"],
   ];
 
   for (const [name, lines, expected] of TYPED) {
@@ -149,6 +164,88 @@ describe("typed content round-trips", () => {
       }
     });
   }
+});
+
+// Intentional empty lines mid-note. In the editor an empty line is an empty
+// paragraph; it must survive save and every reload. Each is stored as a
+// `&nbsp;` line (indented to its container inside a list item).
+describe("intentional empty lines mid-note", () => {
+  const schema = () => parse("a").type.schema;
+  const p = (text?: string) =>
+    schema().nodes.paragraph.create(null, text ? schema().text(text) : null);
+  const empties = (n: number) => Array.from({ length: n }, () => p());
+  const h1 = (text: string) => schema().nodes.heading.create({ level: 1 }, schema().text(text));
+  const li = (...content: ProseNode[]) => schema().nodes.list_item.create(null, content);
+  const ul = (...items: ProseNode[]) => schema().nodes.bullet_list.create(null, items);
+  const doc = (...content: ProseNode[]) => schema().nodes.doc.create(null, content);
+
+  /** What the editor stores when it saves `d`. */
+  const save = (d: ProseNode) => serialise(d);
+  // Structure only: a built list carries the schema's boolean `spread`
+  // defaults, a parsed one the strings "true"/"false" (see listSpreadJoin), so
+  // Node.eq would differ on attrs alone. toString() compares nodes and text.
+  const sameStructure = (a: ProseNode, b: ProseNode) => a.toString() === b.toString();
+
+  const EMPTY_LINE_CASES: Array<[string, () => ProseNode, string]> = [
+    ["one empty line between paragraphs", () => doc(p("a"), ...empties(1), p("b")), "a\n\n&nbsp;\n\nb\n"],
+    ["two empty lines between paragraphs", () => doc(p("a"), ...empties(2), p("b")), "a\n\n&nbsp;\n\n&nbsp;\n\nb\n"],
+    [
+      "three empty lines between paragraphs",
+      () => doc(p("a"), ...empties(3), p("b")),
+      "a\n\n&nbsp;\n\n&nbsp;\n\n&nbsp;\n\nb\n",
+    ],
+    ["empty line after a heading", () => doc(h1("Title"), ...empties(1), p("b")), "# Title\n\n&nbsp;\n\nb\n"],
+    [
+      "empty line inside a list item",
+      () => doc(ul(li(p("one"), p()), li(p("two")))),
+      "- one\n\n  &nbsp;\n- two\n",
+    ],
+    [
+      "empty line between two lists",
+      () => doc(ul(li(p("one"))), p(), ul(li(p("two")))),
+      "- one\n\n&nbsp;\n\n- two\n",
+    ],
+  ];
+
+  for (const [name, build, stored] of EMPTY_LINE_CASES) {
+    describe(name, () => {
+      it("saves each empty line as a marker line", () => {
+        expect(save(build())).toBe(stored);
+      });
+
+      it("reloads to the same document", () => {
+        const d = build();
+        expect(sameStructure(parse(cleanCorruptedMarkdown(save(d))), d)).toBe(true);
+      });
+
+      it("is unchanged by three load/save cycles", () => {
+        let current = save(build());
+        for (let i = 0; i < 3; i++) {
+          current = loadAndSave(current);
+          expect(current).toBe(stored);
+        }
+        expect(sameStructure(parse(current), build())).toBe(true);
+      });
+    });
+  }
+});
+
+describe("legacy and pasted empty lines", () => {
+  it("a note saved with the old `<br />` lines keeps them, rewritten as `&nbsp;`", () => {
+    const legacy = "a\n\n<br />\n\n<br />\n\nb\n";
+    expect(parse(legacy).toString()).toBe("doc(paragraph(\"a\"), paragraph, paragraph, paragraph(\"b\"))");
+    expect(loadAndSave(legacy)).toBe("a\n\n&nbsp;\n\n&nbsp;\n\nb\n");
+  });
+
+  it("pasted markdown with `&nbsp;` lines (or a bare U+00A0 line) gives empty paragraphs", () => {
+    // Paste goes through the same parser (milkdown-editor's markdownPaste).
+    expect(parse("a\n\n&nbsp;\n\nb\n").toString()).toBe("doc(paragraph(\"a\"), paragraph, paragraph(\"b\"))");
+    expect(parse("a\n\n\u00a0\n\nb\n").toString()).toBe("doc(paragraph(\"a\"), paragraph, paragraph(\"b\"))");
+  });
+
+  it("a paragraph with text and a non-breaking space is not an empty line", () => {
+    expect(parse("a&nbsp;b\n").toString()).toBe("doc(paragraph(\"a\u00a0b\"))");
+  });
 });
 
 describe("cleanCorruptedMarkdown", () => {

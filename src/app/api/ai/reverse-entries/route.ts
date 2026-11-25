@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { stripEmptyLineMarkers } from "@/utils/empty-line-marker";
 import { checkRateLimit } from "@/utils/rate-limit";
 
 const DAILY_LIMIT = 5;
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Strip HTML for analysis but preserve structure
-    const plainText = noteContent
+    const plainText = stripEmptyLineMarkers(noteContent)
       .replace(/<br\s*\/?>/gi, "\n")
       .replace(/<\/p>/gi, "\n\n")
       .replace(/<\/div>/gi, "\n")
