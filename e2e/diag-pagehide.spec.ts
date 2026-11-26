@@ -299,10 +299,14 @@ async function probe(ctx: BrowserContext, tl: Timeline) {
   });
 }
 
-/** Abort this page's requests that carry the marker: the "save on close never
- *  reached the server" case, made deterministic. */
+/** Lose the close-time network saves: abort this page's requests carrying the
+ *  marker, and drop the keepalive leave-save at the server (test hook). */
 async function dropMarkerSaves(page: Page, tl: Timeline, row: Record<string, unknown>) {
   row.dropped = 0;
+  // The keepalive leave-save too (server test hook, E2E_TEST_HOOKS=1).
+  await page.context().addCookies([
+    { name: "e2e_drop_leave_save", value: "1", url: process.env.E2E_BASE_URL || "http://localhost:3050" },
+  ]);
   await page.route("**/*", (route) => {
     const r = route.request();
     if (r.method() === "POST" && tl.marker && (r.postData() ?? "").includes(tl.marker)) {
@@ -600,7 +604,11 @@ test.describe("DIAG pagehide", () => {
       if (id) await adminClient().from("notes").delete().eq("id", id).then(() => {}, () => {});
       await finish(testInfo, tl, row);
     }
-    expect(row.otherDeviceShowsBeforeReopen, "other device sees it without the same browser reopening").toBe(true);
+    // With every network save dropped and no other tab, nothing CAN reach
+    // another device before this browser reopens: only checked without a drop.
+    if (!drop) {
+      expect(row.otherDeviceShowsBeforeReopen, "other device sees it without the same browser reopening").toBe(true);
+    }
     expect(row.newTabShows, "new tab").toBe(true);
   });
   }

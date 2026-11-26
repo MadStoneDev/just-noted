@@ -24,6 +24,7 @@ import {
   processQueue,
   clearQueue,
   getQueueSize,
+  getPendingContentByNote,
   migrateUntaggedCloudOps,
 } from "./offline-queue";
 import { setActiveSupabaseUser } from "./offline-queue-guard";
@@ -524,3 +525,100 @@ describe("dropUpdatesQueuedSince — an edit undone after its save failed (real 
   });
 });
 
+
+// ── Entries a closing tab wrote without collapsing (enqueueContentNow) ───────
+// A dying page commits the put but may never run the collapse. Every read folds
+// them first, so a replay never sends an older same-base update ahead of it
+// (which would make a conflicted copy of our own text).
+
+describe("unfolded leave entries (real IDB)", () => {
+  const leaveOp = (id: string, payload: Record<string, unknown>, timestamp: number) => ({
+    id,
+    payload,
+    timestamp,
+    retryCount: 0,
+    lastAttempt: null,
+    origin: OTHER_TAB,
+    unfolded: true,
+  });
+
+  it("replaces an older update from the same base before anything replays", async () => {
+    setActiveSupabaseUser("u");
+    await enqueue(upd("lv-1", "older words", 5));
+    await putForeignOp(leaveOp("op_leave_1", upd("lv-1", "older words + last keystrokes", 5), Date.now() + 1000));
+    expect((await getPendingContentByNote()).get("lv-1")?.content).toBe("older words + last keystrokes");
+    expect(await getQueueSize()).toBe(1);
+    expect((await readOp("op_leave_1")).unfolded).toBeUndefined();
+
+    await processQueue();
+    expect(mockedUpdate.mock.calls.map((c) => c[1])).toEqual(["older words + last keystrokes"]);
+    expect(await getQueueSize()).toBe(0);
+  });
+
+  it("keeps an older update made from a different base (it replays first)", async () => {
+    setActiveSupabaseUser("u");
+    await enqueue(upd("lv-2", "on v4", 4));
+    await putForeignOp(leaveOp("op_leave_2", upd("lv-2", "on v5", 5), Date.now() + 1000));
+    await processQueue();
+    expect(mockedUpdate.mock.calls.map((c) => c[1])).toEqual(["on v4", "on v5"]);
+  });
+
+  it("folds into a queued create", async () => {
+    await enqueue({ type: "create", noteId: "lv-3", source: "redis", userId: "u", note: { id: "lv-3", content: "" } as any });
+    await putForeignOp(
+      leaveOp(
+        "op_leave_3",
+        { type: "update", noteId: "lv-3", source: "redis", userId: "u", content: "body", goal: 0, goalType: "" },
+        Date.now() + 1000,
+      ),
+    );
+    expect((await getPendingContentByNote()).get("lv-3")?.content).toBe("body");
+    expect(await getQueueSize()).toBe(1);
+    await processQueue();
+    expect(mockedNoteOp.mock.calls.map((c) => (c[1] as { operation: string }).operation)).toEqual(["create"]);
+    expect((mockedNoteOp.mock.calls[0][1] as any).note.content).toBe("body");
+  });
+
+  it("enqueueContentNow commits the entry without waiting for its collapse", async () => {
+    const { enqueueContentNow, warmQueueConnection } = await import("./offline-queue");
+    warmQueueConnection();
+    await new Promise((r) => setTimeout(r, 20));
+    enqueueContentNow({
+      type: "update", noteId: "lv-4", source: "redis", userId: "u", content: "last words", goal: 0, goalType: "",
+      baseVersion: 2,
+    });
+    // Read straight away: the entry is there (folded or not) and readable.
+    expect((await getPendingContentByNote()).get("lv-4")?.content).toBe("last words");
+  });
+});
+
+describe("replayAsCopy (real IDB)", () => {
+  it("sends the chosen entry as a conflicted copy (base 0, its own copy id) and removes it", async () => {
+    const { replayAsCopy } = await import("./offline-queue");
+    setActiveSupabaseUser("u");
+    await enqueue({ ...upd("rc-1", "tab 1 text", 3), copyId: "00000000-0000-4000-8000-0000000000aa" });
+    expect(await replayAsCopy("rc-1", "00000000-0000-4000-8000-0000000000aa")).toBe(true);
+    const [noteId, content, , , opts] = mockedUpdate.mock.calls[0] as any[];
+    expect([noteId, content]).toEqual(["rc-1", "tab 1 text"]);
+    expect(opts.baseVersion).toBe(0);
+    expect(opts.conflictCopy.id).toBe("00000000-0000-4000-8000-0000000000aa");
+    expect(await getQueueSize()).toBe(0);
+  });
+
+  it("keeps the entry when the send fails", async () => {
+    const { replayAsCopy } = await import("./offline-queue");
+    setActiveSupabaseUser("u");
+    mockedUpdate.mockResolvedValueOnce({ success: false, error: "boom" } as any);
+    await enqueue(upd("rc-2", "tab 1 text", 3));
+    expect(await replayAsCopy("rc-2")).toBe(false);
+    expect(await getQueueSize()).toBe(1);
+  });
+
+  it("never sends another account's entry", async () => {
+    const { replayAsCopy } = await import("./offline-queue");
+    setActiveSupabaseUser("someone-else");
+    await enqueue(upd("rc-3", "tab 1 text", 3));
+    expect(await replayAsCopy("rc-3")).toBe(false);
+    expect(mockedUpdate).not.toHaveBeenCalled();
+  });
+});

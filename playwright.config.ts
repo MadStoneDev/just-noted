@@ -73,7 +73,10 @@ export default defineConfig({
     : {
         command: useDevServer ? "npm run dev" : `npm run build && npx next start -p ${PORT}`,
         url: BASE_URL,
-        env: serverEnv(),
+        // E2E_TEST_HOOKS enables test-only server behaviour that is inert in any
+        // deployed env (e.g. the leave-save drop cookie, see
+        // src/app/api/notes/leave-save/route.ts). Only ever set here.
+        env: { ...serverEnv(), E2E_TEST_HOOKS: "1" },
         timeout: useDevServer ? 120_000 : 300_000,
         reuseExistingServer: !process.env.CI,
       },

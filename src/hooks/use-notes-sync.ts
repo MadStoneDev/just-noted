@@ -49,6 +49,7 @@ import {
 import { notesNotToWrite, editorHandleFor } from "@/utils/note-ownership";
 import { reconcileNotes, protectUnsyncedLocal, keepChangesMadeDuringLoad, type PendingContent } from "@/utils/notes-merge";
 import { subscribeNoteUpdates } from "@/utils/cross-tab";
+import { warmLeaveChannel, subscribeLeaveHandoffs, hasNoteHandoffListener } from "@/utils/leave-handoff";
 import { stripHtmlToText } from "@/utils/html-utils";
 import {
   HAS_INITIALISED_KEY,
@@ -455,6 +456,8 @@ export function useNotesSync() {
         // Open the offline queue's connection now so a tab-close flush can write
         // to it synchronously (see enqueueContentNow).
         warmQueueConnection();
+        // …and the channel a closing tab hands its unsaved text over on.
+        warmLeaveChannel();
 
         // One-time cleanup of old localStorage cache
         localStorage.removeItem("justnoted_notes_cache");
@@ -812,6 +815,47 @@ export function useNotesSync() {
       supabase.removeChannel(channel);
     };
   }, [supabase, isAuthenticated, accountId]);
+
+  // Another tab of this browser is closing with unsaved text (utils/
+  // leave-handoff). Its own writes may not land, so make the text durable HERE:
+  // a queue entry with the closing tab's copy id and base (it collapses with
+  // that tab's own entry, if one landed; a replay makes one conflicted copy at
+  // most). The shared cache record is left alone: an editor in another tab may
+  // own it as its write-ahead copy. If an editor in this tab has the note
+  // open, it settles the text itself (adopt, or a conflicted copy). Otherwise
+  // show it on the card — if this tab still holds the version it was typed on
+  // — and send it (the drain skips the note while another tab's editor owns
+  // it; that editor got the same message).
+  useEffect(() => {
+    return subscribeLeaveHandoffs((h) => {
+      enqueue({
+        type: "update",
+        noteId: h.noteId,
+        source: h.source,
+        userId: h.userId,
+        content: h.content,
+        goal: h.goal,
+        goalType: h.goalType,
+        baseVersion: h.baseVersion,
+        copyId: h.copyId,
+      })
+        .then(() => {
+          if (hasNoteHandoffListener(h.noteId)) return;
+          const { notes, optimisticUpdateNote } = useNotesStore.getState();
+          const live = notes.find((n) => n.id === h.noteId);
+          if (live && !live.deletedAt && (h.baseVersion === undefined || (live.version ?? 1) === h.baseVersion)) {
+            optimisticUpdateNote(h.noteId, {
+              content: h.content,
+              goal: h.goal,
+              goal_type: h.goalType,
+              contentFormat: "markdown",
+            });
+          }
+          return processQueue();
+        })
+        .catch(() => {});
+    });
+  }, []);
 
   // Cross-device freshness (local/Redis notes have no realtime channel): poll
   // faster while the tab is VISIBLE, pause while hidden, and refresh immediately

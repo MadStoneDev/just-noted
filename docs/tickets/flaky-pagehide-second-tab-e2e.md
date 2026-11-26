@@ -1,6 +1,6 @@
 # Flaky E2E: "text typed just before closing the tab is kept (pagehide, second tab)"
 
-- **Status:** open. Seen 2026-11-26 in the full E2E run for the quick-fixes batch (commit `4824ffe`).
+- **Status:** fixed 2026-11-26 (see "Fix" below). Seen 2026-11-26 in the full E2E run for the quick-fixes batch (commit `4824ffe`).
 - **Severity:** medium until explained. It's a test of the save path that protects text typed in the last moment before closing a tab. It could be a timing-sensitive test, or a real intermittent loss of that text under load. Not yet known which.
 - **Area:** `e2e/core-flows.spec.ts:188` (notes, local (Redis, anonymous)). App side: the leave-save on `pagehide` (`src/utils/leave-save.ts`, `persistForLeave` in `src/hooks/use-notes-operations.tsx`) and the other tab's focus refresh (`src/hooks/use-notes-sync.ts`).
 
@@ -115,3 +115,51 @@ way to recover it (a variant of 2). Not the test's wait (3).**
   editor held the text first, and a ProseMirror view was created ~25ms into
   typing — likely keystrokes lost to an editor remount, not the close path.
   Unconfirmed; with an editor check before close, 0/20 such losses.
+
+## Fix (2026-11-26)
+
+The close path (`persistForLeave`) now has four independent writers, all
+issued synchronously inside `pagehide`:
+
+1. **IDB cache copy** — `saveLocalEditNow`: put + `commit()` in the same turn
+   on the open connection (no read first).
+2. **Offline-queue entry** — `enqueueContentNow`: blind put + `commit()`,
+   marked `unfolded`; the collapse runs afterwards if the page survives, else
+   on the next queue read (`foldUnfoldedOps`).
+3. **Handoff to other tabs** — `utils/leave-handoff.ts` (BroadcastChannel).
+   Every receiving tab queues it durably; with no editor on the note, it shows
+   it and drains the queue. An editor taking the note over stays read-only
+   until it has settled left-behind text (`utils/takeover.ts`): adopt if clean
+   and on its version, replay if clean on another version, a conflicted copy
+   (`replayAsCopy`) if the user already typed. Also checks the cached
+   `localEdit` copy, for when 2 and 3 both failed.
+4. **Keepalive save** for guest notes too (`/api/notes/leave-save`,
+   `source: "redis"` → the guest autosave's `noteOperation` path under the
+   device id). Skipped over the 60 KB cap; body read with a hard cap. Test-only
+   drop hook: cookie `e2e_drop_leave_save=1`, live only with `E2E_TEST_HOOKS=1`.
+
+Regression specs: `e2e/leave-save.spec.ts` (network lost at close, keepalive
+dropped with a second tab, over-cap notes, tab 2 typing at once, a late
+handoff to a dirty editor → conflicted copy; guest and cloud).
+
+### Same load, before → after
+
+14 busy loops / 16 cores, 4 workers, 20 repeats each.
+
+| Run | Before | After |
+| --- | --- | --- |
+| Original core-flows test | 10/20 failed | **20/20 pass** |
+| Replica (diag), Case 1 | 14/20, 13/20 | **20/20** (shown ≤102ms after focus) |
+| Replica, network saves dropped, Case 1 | 12/20 | **20/20** |
+| Replica, reload / restart | 19/20, 18/20 | **20/20** |
+| Guest close <0.5s: on server 10s later, no tab open | 11/20, 12/20 | **20/20** |
+| Guest close, saves dropped: new tab / other device | 19/20 | **20/20** |
+| Cloud close <0.5s | 20/20 | 20/20 |
+| Cloud close, keepalive + action dropped: new tab | (couldn't drop keepalive) | **20/20** |
+
+The cloud drop variant reaches another device only after the same browser
+reopens (17/20 not before) — expected: with every network save dropped and no
+other tab, nothing else can send it.
+
+Not fixed here: possible keystroke loss when the editor view is recreated as
+typing starts — `docs/tickets/editor-recreated-while-typing.md`.

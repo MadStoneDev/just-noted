@@ -229,6 +229,7 @@ test.describe("notes — local (Redis, anonymous)", () => {
       await page.bringToFront();
       await editor(page).click();
       await page.keyboard.type(marker);
+      await expect(editor(page)).toContainText(marker); // it really was typed in
       await page.close({ runBeforeUnload: true }); // no wait — inside the debounce
       expect(await heard).toBe("pagehide");
       await expect(otherCard).not.toContainText(marker); // nothing synced yet
@@ -439,6 +440,7 @@ test.describe("signed-in", () => {
       await editor(page).click();
       await page.keyboard.press("End");
       await page.keyboard.type(marker);
+      await expect(editor(page)).toContainText(marker); // it really was typed in
       await page.close({ runBeforeUnload: true }); // no wait — inside the debounce
 
       await expect.poll(() => cloudContent(id), { timeout: 15_000 }).toContain(marker);

@@ -42,6 +42,14 @@ Hard guards (each refuses to run):
   built from `.env.local`).
 - `fixtures/admin.ts` — the service-role client re-checks the URL on creation.
 
+Test hooks: the managed server is started with `E2E_TEST_HOOKS=1`
+(`playwright.config.ts` only; never set in a deployed env). It enables
+test-only server behaviour, currently: `/api/notes/leave-save` accepts and does
+NOT save a request carrying the `e2e_drop_leave_save=1` cookie, so a spec can
+prove the close path recovers text without the keepalive (`leave-save.spec.ts`).
+Against `E2E_BASE_URL` or a reused server started without it, those specs fail
+on their "drop hook active" check rather than passing vacuously.
+
 No real email: Resend sends nothing without a key (`src/utils/email/send.ts`), and
 the local Supabase delivers auth mail to its Mailpit inbox (http://127.0.0.1:54324).
 

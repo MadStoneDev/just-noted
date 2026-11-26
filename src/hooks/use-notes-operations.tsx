@@ -32,7 +32,7 @@ import {
 } from "@/types/combined-notes";
 import { generateNoteId } from "@/utils/general/notes";
 import { withNoteLock, broadcastNoteUpdate, broadcastNoteDeleted, broadcastNotesChanged } from "@/utils/cross-tab";
-import { saveNoteToLocal, saveAllNotesToLocal, deleteLocalNote, setLocalNoteVersion } from "@/utils/notes-idb-cache";
+import { saveNoteToLocal, saveAllNotesToLocal, deleteLocalNote, setLocalNoteVersion, saveLocalEditNow } from "@/utils/notes-idb-cache";
 import {
   enqueue,
   dropQueuedOps,
@@ -41,11 +41,12 @@ import {
   queueClock,
   deleteAlreadyDone,
 } from "@/utils/offline-queue";
-import { getActiveSupabaseUser } from "@/utils/offline-queue-guard";
+import { getActiveSupabaseUser, cloudAccountFor } from "@/utils/offline-queue-guard";
 import { editorHandleFor } from "@/utils/note-ownership";
 import { markPendingDelete, clearPendingDelete, isPendingDelete } from "@/utils/pending-deletes";
 import { saveFailedRestore, removeFailedRestore, listFailedRestores } from "@/utils/failed-restores";
 import { sendLeaveSave } from "@/utils/leave-save";
+import { announceLeave } from "@/utils/leave-handoff";
 import { conflictStamp } from "@/utils/background-conflict";
 import { v4 as uuidv4 } from "uuid";
 
@@ -1235,33 +1236,53 @@ export function useNotesOperations(
       if (!targetNote) return;
 
       optimisticUpdateNote(noteId, { content, goal, goal_type: goalType, contentFormat: "markdown" });
-      saveNoteToLocal(
-        { ...targetNote, content, goal, goal_type: goalType, contentFormat: "markdown", updatedAt: Date.now() },
-        { localEdit: true }, // unconfirmed until a save carrying it lands
-      ).catch(() => {});
-      // One copy id for both writes of this edit: if the server has moved on,
-      // the keepalive save and the later queue replay make ONE conflicted copy.
+      // Everything below is synchronous: a closing page may get no further
+      // turn, so nothing here may wait on a promise or an IDB callback.
+      // 1. The cache copy, unconfirmed until a save carrying it lands.
+      saveLocalEditNow({
+        ...targetNote, content, goal, goal_type: goalType, contentFormat: "markdown", updatedAt: Date.now(),
+      });
+      // One copy id for every write of this edit: if the server has moved on,
+      // the keepalive save, the queue replay and another tab's handoff copy
+      // make ONE conflicted copy.
       const baseVersion = opts.baseVersion ?? targetNote.version;
       const copyId = uuidv4();
+      // 2. The offline-queue entry.
       enqueueContentNow({
         type: "update", noteId, source: targetNote.source, userId, content, goal, goalType,
         baseVersion, copyId,
       });
 
-      // Closing (pagehide): cloud notes also get a keepalive save, which can
-      // finish after the tab is gone. Over the size cap it is skipped; the queue
-      // entry covers it. Not on a mere tab switch — the normal save handles that.
-      if (opts.closing && targetNote.source === "supabase" && isAuthenticated) {
-        sendLeaveSave({
-          noteId,
-          content,
-          goal,
-          goalType,
-          baseVersion,
-          copyId,
-          copyStamp: conflictStamp(),
-        });
-      }
+      if (!opts.closing) return; // a tab switch: the page lives, its normal save follows
+
+      // 3. Closing: hand the text to this browser's other tabs (delivered even
+      // if this page dies right after), so one of them makes it durable and an
+      // editor taking the note over adopts it before anything else.
+      announceLeave({
+        noteId,
+        source: targetNote.source,
+        userId: targetNote.source === "supabase" ? cloudAccountFor(userId) : userId,
+        content,
+        goal,
+        goalType,
+        baseVersion,
+        copyId,
+      });
+      // 4. A keepalive save, which can finish after the tab is gone — guest
+      // notes too (under the device id, which is what authorises a guest save).
+      // Over the keepalive size cap it is skipped; 1–3 cover it.
+      if (targetNote.source === "supabase" && !isAuthenticated) return;
+      sendLeaveSave({
+        source: targetNote.source,
+        ...(targetNote.source === "redis" ? { userId } : {}),
+        noteId,
+        content,
+        goal,
+        goalType,
+        baseVersion,
+        copyId,
+        copyStamp: conflictStamp(),
+      });
     },
     [userId, isAuthenticated, optimisticUpdateNote],
   );

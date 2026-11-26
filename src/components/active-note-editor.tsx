@@ -65,7 +65,13 @@ import {
   replayQueuedFor,
   queueClock,
   dropUpdatesQueuedSince,
+  enqueue,
+  replayAsCopy,
+  settleQueueWrites,
 } from "@/utils/offline-queue";
+import { peekHandoff, settleHandoff, subscribeNoteHandoffs, type LeaveHandoff } from "@/utils/leave-handoff";
+import { decideTakeover } from "@/utils/takeover";
+import { v4 as uuidv4 } from "uuid";
 import {
   acquireNoteOwnership,
   registerEditorHandle,
@@ -1090,66 +1096,125 @@ export function NoteEditor({
     [notesOperations],
   );
 
-  // When ownership is granted, take over any text still waiting in the offline
-  // queue for this note (a previous owner's last save hadn't landed), BEFORE
-  // this editor writes anything:
-  //   - the newest entry applies cleanly on the version we hold → it becomes
-  //     this editor's edit (our autosave uploads it);
-  //   - otherwise → replay the note's entries through the server CAS now (the
-  //     server decides: apply, copy or no-op), then follow the server copy.
-  // After this, a later save of ours supersedes every older entry.
+  // When ownership is granted, take over any text another tab left behind for
+  // this note, BEFORE this editor writes anything (and, if we waited for the
+  // note, before the user can type — see the ownership effect). Sources,
+  // strongest first: a closing tab's handoff message, a queued offline update,
+  // an unconfirmed cached copy (localEdit). utils/takeover decides:
+  //   - adopt: clean editor, text made on the version we hold → it becomes this
+  //     editor's edit (our autosave uploads it);
+  //   - replay: clean editor, other base → the server CAS decides (apply, copy
+  //     or no-op), then follow the server copy;
+  //   - copy: the user already typed here → the text is saved as a
+  //     "(conflicted copy)" now, and the note keeps the user's words.
+  // Also run while owning, for a handoff that arrives late (`incoming`).
   // Returns the text to adopt as an edit, if any.
-  const settlePendingEdits = useCallback(async (): Promise<{ content: string; base: number } | null> => {
-    try {
-      const p = (await getPendingContentByNote()).get(note.id);
-      if (!p) {
-        // Nothing queued and no unsynced local copy: the text we opened is the
-        // server's. Entries queued from here on are this editor's.
+  const settlePendingEdits = useCallback(
+    async (incoming?: LeaveHandoff): Promise<{ content: string; base: number } | null> => {
+      try {
+        const handoff = incoming ?? peekHandoff(note.id);
+        const queued = handoff ? undefined : (await getPendingContentByNote()).get(note.id);
+        const cached = handoff || queued ? undefined : await getLocalNote(note.id);
         const live = useNotesStore.getState().notes.find((n) => n.id === note.id);
-        const cached = await getLocalNote(note.id);
-        if (!live?.localEdit && !cached?.localEdit && confirmedSaveRef.current === null) {
+        if (!handoff && !queued && !live?.localEdit && !cached?.localEdit && confirmedSaveRef.current === null) {
+          // Nothing left behind: the text we opened is the server's. Entries
+          // queued from here on are this editor's.
           confirmedSaveRef.current = { at: queueClock(), content: lastSavedContentRef.current };
         }
+        editorFlushRef.current?.();
+        const decision = decideTakeover({
+          editorText: latestValueRef.current,
+          clean: latestValueRef.current === lastSavedContentRef.current,
+          onVersion: live?.version ?? baseVersionRef.current,
+          pending: handoff ?? queued,
+          cached,
+        });
+        const done = () => handoff && settleHandoff(note.id, handoff.copyId);
+        if (decision.kind === "none") {
+          done();
+          return null;
+        }
+        if (decision.kind === "adopt") {
+          done();
+          return { content: decision.content, base: decision.base };
+        }
+        // replay / copy go through the queue: make sure the text is in it.
+        let copyId = handoff?.copyId;
+        if (decision.from === "cached" && cached) {
+          copyId = uuidv4();
+          const uid = useNotesStore.getState().userId;
+          if (!uid) return null;
+          await enqueue({
+            type: "update",
+            noteId: note.id,
+            source: note.source,
+            userId: uid,
+            content: cached.content,
+            goal: cached.goal ?? 0,
+            goalType: (cached.goal_type as "" | "words" | "characters") ?? "",
+            baseVersion: cached.version,
+            copyId,
+          });
+        }
+        await settleQueueWrites(); // a handoff's entry is queued by the app-wide receiver
+        if (decision.kind === "copy") {
+          await replayAsCopy(note.id, copyId);
+        } else {
+          await replayQueuedFor(note.id);
+          // Follow the server copy; the store update reaches the editor through
+          // the adopt effect (we're still clean).
+          await notesOperations.refreshSingleNote(note.id);
+        }
+        done();
         return null;
+      } catch {
+        return null; // best effort: anything left replays once the note is closed
       }
-      if (sameNoteContent(p.content, latestValueRef.current)) return null;
-      const live = useNotesStore.getState().notes.find((n) => n.id === note.id);
-      const onVersion = live?.version ?? baseVersionRef.current;
-      const clean = latestValueRef.current === lastSavedContentRef.current;
-      if (clean && typeof p.baseVersion === "number" && p.baseVersion === onVersion) {
-        return { content: p.content, base: p.baseVersion };
-      }
-      await replayQueuedFor(note.id);
-      // Follow the server copy; the store update reaches the editor through the
-      // adopt effect (we're still clean).
-      await notesOperations.refreshSingleNote(note.id);
-      return null;
-    } catch {
-      return null; // best effort: anything left replays once the note is closed
-    }
-  }, [note.id, notesOperations]);
+    },
+    [note.id, note.source, notesOperations],
+  );
   const settlePendingEditsRef = useRef(settlePendingEdits);
   settlePendingEditsRef.current = settlePendingEdits;
   const replaceContentRef = useRef(replaceContent);
   replaceContentRef.current = replaceContent;
+  // Settled: owner, and any left-behind text has been dealt with.
+  const settledRef = useRef(false);
+
+  const applyAdopt = (adopt: { content: string; base: number } | null) => {
+    if (!adopt) return;
+    baseVersionRef.current = adopt.base;
+    replaceContentRef.current(adopt.content);
+  };
+  const applyAdoptRef = useRef(applyAdopt);
+  applyAdoptRef.current = applyAdopt;
 
   useEffect(() => {
     let cancelled = false;
+    settledRef.current = false;
     const release = acquireNoteOwnership(
       note.id,
       () => {
-        editingElsewhereRef.current = false;
-        setEditingElsewhere(false);
+        // We waited for another tab (it closed or let go): stay read-only until
+        // its left-behind text is settled, so nothing can be typed over it.
+        const waited = editingElsewhereRef.current;
+        if (!waited) {
+          editingElsewhereRef.current = false;
+          setEditingElsewhere(false);
+        }
         ownsNoteRef.current = true;
         setOwnsNote(true);
-        // Settle text still queued for this note, then let saves go out.
-        settlePendingEditsRef.current().then((adopt) => {
+        // Settle what was left behind, then let edits and saves go.
+        settlePendingEditsRef.current().then(async (adopt) => {
           if (cancelled) return;
-          if (adopt) {
-            baseVersionRef.current = adopt.base;
-            replaceContentRef.current(adopt.content);
-          }
+          editingElsewhereRef.current = false; // before the adopt: it's an edit
+          setEditingElsewhere(false);
+          applyAdoptRef.current(adopt);
+          settledRef.current = true;
           writerReadyRef.current!.resolve();
+          // A handoff that arrived while we were settling.
+          if (peekHandoff(note.id) && !cancelled) {
+            applyAdoptRef.current(await settlePendingEditsRef.current());
+          }
         });
       },
       () => {
@@ -1170,6 +1235,16 @@ export function NoteEditor({
         await waitForNoSaveInFlight(note.id);
       });
     };
+  }, [note.id]);
+
+  // A closing tab's handoff for this note (utils/leave-handoff). Until we own
+  // and have settled, the grant-time settle picks it up (peekHandoff); after
+  // that, settle it now — adopt if still clean, else a conflicted copy.
+  useEffect(() => {
+    return subscribeNoteHandoffs(note.id, (h) => {
+      if (!ownsNoteRef.current || !settledRef.current) return;
+      settlePendingEditsRef.current(h).then((adopt) => applyAdoptRef.current(adopt));
+    });
   }, [note.id]);
 
   useEffect(() => {

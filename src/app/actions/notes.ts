@@ -645,6 +645,7 @@ export async function noteOperation(
   notes?: RedisNote[];
   note?: any;
   version?: number;
+  conflicted?: boolean;
   deletedNote?: RedisNote;
   error?: string;
 }> {

@@ -1,4 +1,5 @@
-// Best-effort cloud save fired while a tab is closing (pagehide).
+// Best-effort save fired while a tab is closing (pagehide), for cloud and
+// guest (Redis) notes alike.
 //
 // A server action can't outlive the page, but a `fetch(..., { keepalive: true })`
 // can: the browser finishes sending it after the tab is gone. Browsers cap the
@@ -12,6 +13,10 @@ export const LEAVE_SAVE_URL = "/api/notes/leave-save";
 export const LEAVE_SAVE_MAX_BYTES = 60_000;
 
 export interface LeaveSavePayload {
+  /** Which store the note lives in. Absent = "supabase" (older clients). */
+  source?: "redis" | "supabase";
+  /** Guest notes: the anonymous device id the note is stored under. */
+  userId?: string;
   noteId: string;
   content: string;
   goal: number;

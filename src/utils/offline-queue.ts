@@ -28,6 +28,7 @@ import { conflictStamp } from "./background-conflict";
 import { TAB_ID } from "./cross-tab";
 import { notesNotToWrite } from "./note-ownership";
 import { isPendingDelete } from "./pending-deletes";
+import { LEGACY_COPY_BASE_VERSION } from "./legacy-cache";
 import { v4 as uuidv4 } from "uuid";
 import {
   OFFLINE_QUEUE_DB_NAME,
@@ -136,6 +137,13 @@ interface QueuedOperation {
   lastAttempt: number | null;
   /** TAB_ID of the tab that queued it (absent on entries from older builds). */
   origin?: string;
+  /**
+   * Written by a closing tab without the collapse step (enqueueContentNow puts
+   * first and collapses in a callback the dying page may never run). Folded
+   * into the note's other entries (collapseInto) on the next read — see
+   * foldUnfoldedOps — before anything replays or counts it.
+   */
+  unfolded?: true;
 }
 
 // ===========================
@@ -235,7 +243,7 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-async function getAllOps(): Promise<QueuedOperation[]> {
+async function readAllOps(): Promise<QueuedOperation[]> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(OFFLINE_QUEUE_STORE_NAME, "readonly");
@@ -244,6 +252,65 @@ async function getAllOps(): Promise<QueuedOperation[]> {
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
     tx.oncomplete = () => db.close();
+  });
+}
+
+/** Every queued op, with any entry a closing tab left unfolded folded first. */
+async function getAllOps(): Promise<QueuedOperation[]> {
+  const ops = await readAllOps();
+  if (!ops.some((o) => o.unfolded)) return ops;
+  await foldUnfoldedOps();
+  return readAllOps();
+}
+
+/**
+ * Apply the collapse rules to entries a closing tab wrote without them (see
+ * QueuedOperation.unfolded), oldest first, in ONE readwrite transaction: each
+ * is collapsed into the same note's earlier entries exactly as enqueue() would
+ * have done, then loses its mark. Without this an unfolded update would replay
+ * after an older one made from the same base and conflict with our own text.
+ */
+async function foldUnfoldedOps(): Promise<void> {
+  const db = await openDB();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(OFFLINE_QUEUE_STORE_NAME, "readwrite");
+    const store = tx.objectStore(OFFLINE_QUEUE_STORE_NAME);
+    const req = store.getAll();
+    req.onsuccess = () => {
+      const live = new Map((req.result as QueuedOperation[]).map((o) => [o.id, o]));
+      const ordered = [...live.values()].sort((a, b) => a.timestamp - b.timestamp);
+      for (const op of ordered) {
+        if (!op.unfolded || !live.has(op.id)) continue;
+        const earlier = [...live.values()].filter(
+          (o) => o.id !== op.id && o.payload.noteId === op.payload.noteId && o.timestamp < op.timestamp,
+        );
+        const { remove, rewrite, add } = collapseInto(earlier, op.payload);
+        for (const id of remove) {
+          store.delete(id);
+          live.delete(id);
+        }
+        for (const r of rewrite) store.put(r);
+        if (add) {
+          delete op.unfolded;
+          store.put(op);
+        } else {
+          store.delete(op.id);
+          live.delete(op.id);
+        }
+      }
+    };
+    tx.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
+    };
+    tx.onabort = () => {
+      db.close();
+      reject(tx.error);
+    };
   });
 }
 
@@ -338,6 +405,13 @@ async function countOps(): Promise<number> {
 }
 
 async function getOpsByNoteId(noteId: string): Promise<QueuedOperation[]> {
+  const ops = await readOpsByNoteId(noteId);
+  if (!ops.some((o) => o.unfolded)) return ops;
+  await foldUnfoldedOps();
+  return readOpsByNoteId(noteId);
+}
+
+async function readOpsByNoteId(noteId: string): Promise<QueuedOperation[]> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(OFFLINE_QUEUE_STORE_NAME, "readonly");
@@ -658,6 +732,44 @@ export async function replayQueuedFor(noteId: string): Promise<void> {
   notifySubscribers(await countOps());
 }
 
+/**
+ * Send a note's queued update(s) as "(conflicted copy)" notes now, never onto
+ * the note: base LEGACY_COPY_BASE_VERSION is below every real version, so the
+ * server keeps its note and saves the text beside it under the entry's own
+ * copy id (identical text: nothing). `copyId` picks one entry; without it,
+ * every queued update for the note goes. For text another tab left behind
+ * reaching an editor that has already been typed in (utils/takeover): adopting
+ * it would replace the user's new words, and leaving it queued hides it until
+ * the note is closed. An entry that fails stays and replays normally later
+ * (its base is then behind the editor's saves, so it is still a copy).
+ * Resolves to whether everything selected was sent.
+ */
+export async function replayAsCopy(noteId: string, copyId?: string): Promise<boolean> {
+  const ops = (await getOpsByNoteId(noteId))
+    .filter((o) => o.payload.type === "update" && (copyId === undefined || o.payload.copyId === copyId))
+    .sort((a, b) => a.timestamp - b.timestamp);
+  let ok = true;
+  for (const op of ops) {
+    if (op.payload.type !== "update") continue;
+    if (!shouldSyncOp(op.payload, getActiveSupabaseUser())) {
+      ok = false;
+      continue;
+    }
+    try {
+      if (!op.payload.copyId) {
+        op.payload = withCopyId(op.payload); // fixed first, so a retry makes no second copy
+        await putOp(op);
+      }
+      await executeOp({ ...op.payload, baseVersion: LEGACY_COPY_BASE_VERSION }, op.timestamp);
+      await deleteOp(op.id);
+    } catch {
+      ok = false;
+    }
+  }
+  notifySubscribers(await countOps());
+  return ok;
+}
+
 export interface ProcessQueueOptions {
   /**
    * Try every sendable op now, even one still waiting out its backoff, and if a
@@ -967,10 +1079,15 @@ export function warmQueueConnection(): void {
 }
 
 /**
- * Queue a content update while the page is hiding/closing. Same collapse rules
- * as enqueue() for an update (folds into a queued create, replaces an older
- * update). Synchronous up to the IDB request: falls back to enqueue() when the
- * warm connection isn't open yet.
+ * Queue a content update while the page is hiding/closing. The new entry is
+ * PUT synchronously on the warm connection — no read first — because a closing
+ * page may never run another IDB callback: anything written from an
+ * `onsuccess` is lost when the tab dies first (seen in most closes under load).
+ * It is marked `unfolded` and the transaction is committed at once; the
+ * collapse (fold into a queued create, replace an older update from the same
+ * base) runs afterwards if the page lives long enough, and otherwise on the
+ * next read of the queue (foldUnfoldedOps). Falls back to enqueue() when the
+ * connection isn't open.
  */
 export function enqueueContentNow(input: QueuedUpdateOp): void {
   if (isPendingDelete(input.noteId)) return; // see enqueue()
@@ -984,36 +1101,27 @@ export function enqueueContentNow(input: QueuedUpdateOp): void {
   try {
     const tx = db.transaction(OFFLINE_QUEUE_STORE_NAME, "readwrite");
     const store = tx.objectStore(OFFLINE_QUEUE_STORE_NAME);
-    const req = store.index("noteId").getAll(IDBKeyRange.only(payload.noteId));
-    req.onsuccess = () => {
-      const existing = req.result as QueuedOperation[];
-      const createOp = existing.find((op) => op.payload.type === "create");
-      if (createOp) {
-        const note = (createOp.payload as QueuedCreateOp).note as unknown as Record<string, unknown>;
-        note.content = payload.content;
-        note.goal = payload.goal;
-        note.goal_type = payload.goalType;
-        store.put(createOp);
-      } else {
-        for (const op of existing) {
-          if (op.payload.type === "update" && replacesUpdate(op.payload, payload)) {
-            store.delete(op.id);
-          }
-        }
-        const timestamp = nextTimestamp();
-        store.put({
-          id: `op_${timestamp}_${Math.random().toString(36).slice(2, 11)}`,
-          payload,
-          timestamp,
-          retryCount: 0,
-          lastAttempt: null,
-          origin: TAB_ID,
-        } satisfies QueuedOperation);
-      }
-      tx.commit?.();
+    const timestamp = nextTimestamp();
+    const op: QueuedOperation = {
+      id: `op_${timestamp}_${Math.random().toString(36).slice(2, 11)}`,
+      payload,
+      timestamp,
+      retryCount: 0,
+      lastAttempt: null,
+      origin: TAB_ID,
+      unfolded: true,
     };
+    store.put(op);
+    // Commit in this same turn: a transaction still open when the renderer is
+    // torn down is aborted, and a closing page may get no further turn.
+    tx.commit?.();
     tx.oncomplete = () => {
-      countOps().then(notifySubscribers).catch(() => {});
+      // Still alive: collapse now rather than on the next read.
+      foldUnfoldedOps()
+        .catch(() => {})
+        .then(() => countOps())
+        .then(notifySubscribers)
+        .catch(() => {});
     };
   } catch {
     leaveDb = null;

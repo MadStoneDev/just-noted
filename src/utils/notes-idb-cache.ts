@@ -126,6 +126,30 @@ export async function saveNoteToLocal(
 }
 
 /**
+ * Cache one note as an unconfirmed local edit SYNCHRONOUSLY, for a closing
+ * tab: the put is issued and the transaction committed in this same turn on
+ * the already-open connection, so it doesn't depend on any later callback
+ * (saveNoteToLocal waits for the connection and reads the record first; a
+ * dying page often never gets that far). The existing record isn't read: an
+ * explicit local edit doesn't need its mark, and a cloud copy's account comes
+ * from the note itself. Falls back to saveNoteToLocal when not yet connected.
+ */
+export function saveLocalEditNow(note: CombinedNote): void {
+  const db = dbInstance;
+  if (!db) {
+    saveNoteToLocal(note, { localEdit: true }).catch(() => {});
+    return;
+  }
+  try {
+    const tx = db.transaction(IDB_CACHE_STORE_NAME, "readwrite");
+    tx.objectStore(IDB_CACHE_STORE_NAME).put(forCache(note, undefined, true));
+    tx.commit?.();
+  } catch {
+    saveNoteToLocal(note, { localEdit: true }).catch(() => {});
+  }
+}
+
+/**
  * Record a save that just landed: raise the cached copy's version to the
  * server's, in one read-modify-write transaction. Only the version moves — the
  * cached text may already be newer (typed on top of the text being saved, by
