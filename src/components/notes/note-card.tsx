@@ -92,18 +92,18 @@ function NoteCard({
               onNotebookClick(notebook.id);
             }}
             title={`Go to ${notebook.name}`}
-            className="inline-flex items-center gap-0.5 mt-1 px-1.5 py-px text-[11px] font-medium rounded-[var(--radius-sm)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)] truncate max-w-[150px] transition-colors"
+            className="inline-flex items-center gap-0.5 mt-1 px-1.5 py-px text-label font-medium rounded-[var(--radius-sm)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint-border)] max-w-[180px] transition-colors"
           >
             <IconNotebook size={10} className="shrink-0" />
-            {notebook.name}
+            <span className="truncate min-w-0">{notebook.name}</span>
           </button>
         ) : (
-          <span className="inline-flex items-center gap-0.5 mt-1 px-1.5 py-px text-[11px] font-medium rounded-[var(--radius-sm)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)] truncate max-w-[150px]">
+          <span className="inline-flex items-center gap-0.5 mt-1 px-1.5 py-px text-label font-medium rounded-[var(--radius-sm)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)] max-w-[180px]">
             <IconNotebook size={10} className="shrink-0" />
-            {notebook.name}
+            <span className="truncate min-w-0">{notebook.name}</span>
           </span>
         ))}
-      <p className="text-[13.5px] md:text-[11px] text-[var(--color-ink-5)] truncate mt-0.5 leading-relaxed">
+      <p className="text-[13.5px] md:text-meta text-[var(--color-ink-5)] truncate mt-0.5 leading-relaxed">
         {getNotePreview(note.content) || "Empty note"}
       </p>
       <div className="flex items-center gap-1.5 mt-1">
@@ -148,7 +148,7 @@ function NoteCard({
             ) : (
               <IconDeviceDesktop size={12} className="text-[var(--color-warning)] flex-shrink-0" />
             )}
-            <span className={`text-[11px] ${note.source === "supabase" ? "text-[var(--color-ink-5)]" : "text-[var(--color-warning)] font-medium"}`}>
+            <span className={`text-meta ${note.source === "supabase" ? "text-[var(--color-ink-5)]" : "text-[var(--color-warning)] font-medium"}`}>
               {note.source === "supabase" ? "Cloud" : "On this device"}
             </span>
           </button>
@@ -165,12 +165,12 @@ function NoteCard({
             ) : (
               <IconDeviceDesktop size={12} className="text-[var(--color-warning)] flex-shrink-0" />
             )}
-            <span className={`text-[11px] ${note.source === "supabase" ? "text-[var(--color-ink-5)]" : "text-[var(--color-warning)] font-medium"}`}>
+            <span className={`text-meta ${note.source === "supabase" ? "text-[var(--color-ink-5)]" : "text-[var(--color-warning)] font-medium"}`}>
               {note.source === "supabase" ? "Cloud" : "On this device"}
             </span>
           </span>
         )}
-        <p className="text-[12px] text-[var(--color-ink-5)]">{relativeTime(note.updatedAt)}</p>
+        <p className="text-meta text-[var(--color-ink-5)]">{relativeTime(note.updatedAt)}</p>
       </div>
       {noteTagMap[note.id]?.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-1">
@@ -180,7 +180,7 @@ function NoteCard({
             return (
               <span
                 key={tagId}
-                className="px-1.5 py-px text-[11px] rounded-full"
+                className="px-1.5 py-px text-label rounded-full"
                 style={{ backgroundColor: tag.color + "20", color: tag.color }}
               >
                 {tag.name}
@@ -188,7 +188,7 @@ function NoteCard({
             );
           })}
           {noteTagMap[note.id].length > 3 && (
-            <span className="text-[11px] text-[var(--color-ink-5)]">
+            <span className="text-meta text-[var(--color-ink-5)]">
               +{noteTagMap[note.id].length - 3}
             </span>
           )}

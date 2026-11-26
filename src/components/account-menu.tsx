@@ -130,7 +130,7 @@ export default function AccountMenu() {
       }
     >
       <div className="w-[260px] p-1">
-        <div className="px-2 py-1.5 text-[10px] font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)]">
+        <div className="px-2 py-1.5 text-label font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)]">
           Signed in
         </div>
 
@@ -139,7 +139,7 @@ export default function AccountMenu() {
             <Avatar url={current.avatarUrl} name={current.handle || current.email} size={30} />
             <div className="flex-1 min-w-0">
               <div className="text-[13px] text-[var(--color-accent-text)] truncate">@{current.handle || "you"}</div>
-              <div className="text-[10.5px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)] truncate">{current.email}</div>
+              <div className="text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)] truncate">{current.email}</div>
             </div>
             <IconCheck size={15} className="text-[var(--color-accent-text)]" />
           </div>
@@ -155,12 +155,12 @@ export default function AccountMenu() {
             <Avatar url={a.avatarUrl} name={a.handle || a.email} size={30} />
             <div className="flex-1 min-w-0 text-left">
               <div className="text-[13px] text-[var(--color-ink-1)] truncate">@{a.handle || "account"}</div>
-              <div className={`text-[10.5px] font-[family-name:var(--font-meta)] truncate ${a.sessionValid ? "text-[var(--color-ink-5)]" : "text-[var(--color-warn)]"}`}>
+              <div className={`text-meta font-[family-name:var(--font-meta)] truncate ${a.sessionValid ? "text-[var(--color-ink-5)]" : "text-[var(--color-warn)]"}`}>
                 {a.sessionValid ? a.email : "session expired: sign in"}
               </div>
             </div>
             {i < 9 && (
-              <span className="text-[10px] font-[family-name:var(--font-meta)] px-1 py-0.5 rounded-[var(--radius-4)] border border-[var(--color-border-control)] text-[var(--color-ink-5)]">
+              <span className="text-label font-[family-name:var(--font-meta)] px-1 py-0.5 rounded-[var(--radius-4)] border border-[var(--color-border-control)] text-[var(--color-ink-5)]">
                 ⌃{i + 1}
               </span>
             )}

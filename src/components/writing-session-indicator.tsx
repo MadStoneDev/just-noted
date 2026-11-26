@@ -17,7 +17,7 @@ export default function WritingSessionIndicator() {
   const { sessionWordCount, streak, sessionDuration } = useWritingSession();
 
   return (
-    <div className="flex items-center gap-3 text-[10px] text-[var(--color-text-tertiary)]">
+    <div className="flex items-center gap-3 text-meta text-[var(--color-text-tertiary)]">
       {sessionWordCount > 0 && (
         <span className="flex items-center gap-1" title="Words written this session">
           <IconPencil size={11} />

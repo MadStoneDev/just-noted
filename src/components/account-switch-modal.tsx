@@ -39,13 +39,13 @@ export function AccountSwitchModal({
           <Avatar url={target.avatarUrl} name={target.displayName || target.email} size={34} className="ring-1 ring-[var(--color-hairline)]" />
           <div className="min-w-0">
             <div className="text-[13.5px] text-[var(--color-ink-1)] truncate">@{target.handle || "account"}</div>
-            <div className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)] truncate">
+            <div className="text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)] truncate">
               {target.email}
             </div>
           </div>
         </div>
 
-        <div className="text-[10px] font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)] pt-1">
+        <div className="text-label font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)] pt-1">
           Before you switch
         </div>
 

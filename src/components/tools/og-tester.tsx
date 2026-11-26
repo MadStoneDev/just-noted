@@ -160,7 +160,7 @@ export default function OgTester() {
           advance visually, but nothing shows a ✓ until the response arrives —
           at which point we switch to results. */}
       {status === "loading" && (
-        <div className="mt-6 flex flex-wrap gap-x-4 gap-y-1.5 font-[family-name:var(--font-meta)] text-[11.5px]">
+        <div className="mt-6 flex flex-wrap gap-x-4 gap-y-1.5 font-[family-name:var(--font-meta)] text-meta">
           <Step active={step >= 0} label="Fetching page" />
           <Step active={step >= 1} label="Reading tags" />
           <Step active={step >= 2} label="Checking image" />
@@ -318,7 +318,7 @@ function Previews({ result, tab }: { result: OkResult; tab: Tab }) {
       <div className="mt-5 grid grid-cols-1 min-[640px]:grid-cols-2 min-[980px]:grid-cols-3 gap-4">
         {PLATFORMS.map((p) => (
           <div key={p}>
-            <div className="mb-1.5 font-[family-name:var(--font-meta)] text-[10px] uppercase tracking-[0.14em] text-[var(--color-ink-5)]">{p}</div>
+            <div className="mb-1.5 font-[family-name:var(--font-meta)] text-label uppercase tracking-[0.14em] text-[var(--color-ink-5)]">{p}</div>
             {cards[p]}
           </div>
         ))}

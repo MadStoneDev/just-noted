@@ -22,7 +22,7 @@ export default function NotebookMoveMenu({
   return (
     <div className="py-1">
       {/* Section label — gives the list context instead of a bare action */}
-      <div className="px-3 pb-1 pt-0.5 text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-tertiary)]">
+      <div className="px-3 pb-1 pt-0.5 text-label font-medium uppercase tracking-wider text-[var(--color-text-tertiary)]">
         Move to notebook
       </div>
 

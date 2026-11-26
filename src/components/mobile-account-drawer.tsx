@@ -111,7 +111,7 @@ export function MobileAccountDrawer({ open, onClose }: { open: boolean; onClose:
               <Avatar url={current.avatarUrl} name={current.handle || current.email} size={38} />
               <div className="flex-1 min-w-0">
                 <div className="text-[14px] text-[var(--color-accent-text)] truncate">@{current.handle || "you"}</div>
-                <div className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)] truncate">{current.email}</div>
+                <div className="text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)] truncate">{current.email}</div>
               </div>
               <IconCheck size={17} className="text-[var(--color-accent-text)]" />
             </div>
@@ -127,7 +127,7 @@ export function MobileAccountDrawer({ open, onClose }: { open: boolean; onClose:
               <Avatar url={a.avatarUrl} name={a.handle || a.email} size={38} />
               <div className="flex-1 min-w-0 text-left">
                 <div className="text-[14px] text-[var(--color-ink-1)] truncate">@{a.handle || "account"}</div>
-                <div className={`text-[11px] font-[family-name:var(--font-meta)] truncate ${a.sessionValid ? "text-[var(--color-ink-5)]" : "text-[var(--color-warn)]"}`}>
+                <div className={`text-meta font-[family-name:var(--font-meta)] truncate ${a.sessionValid ? "text-[var(--color-ink-5)]" : "text-[var(--color-warn)]"}`}>
                   {a.sessionValid ? a.email : "session expired: sign in"}
                 </div>
               </div>

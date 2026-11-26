@@ -234,7 +234,7 @@ export default function CaseConverter() {
   };
 
   const Label = ({ children }: { children: React.ReactNode }) => (
-    <div className="font-[family-name:var(--font-meta)] text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)] mb-2">
+    <div className="font-[family-name:var(--font-meta)] text-label font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)] mb-2">
       {children}
     </div>
   );
@@ -265,7 +265,7 @@ export default function CaseConverter() {
             {notice.text}
           </Notice>
         )}
-        <label htmlFor="case-input" className="font-[family-name:var(--font-meta)] text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">
+        <label htmlFor="case-input" className="font-[family-name:var(--font-meta)] text-label font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">
           Text
         </label>
         <textarea
@@ -310,7 +310,7 @@ export default function CaseConverter() {
             {mobileGroup === "Developer" && DEV_OPS.map((a) => <MobileChip key={a.label} action={a} />)}
             {mobileGroup === "Cleanup" && CLEANUP_GROUPS.map((g) => (
               <React.Fragment key={g.sub}>
-                <span className="shrink-0 self-center text-[10px] font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)] px-1">{g.sub}</span>
+                <span className="shrink-0 self-center text-label font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)] px-1">{g.sub}</span>
                 {g.ops.map((a) => <MobileChip key={a.label} action={a} />)}
               </React.Fragment>
             ))}
@@ -333,7 +333,7 @@ export default function CaseConverter() {
           <div className="flex flex-col gap-3">
             {CLEANUP_GROUPS.map((g) => (
               <div key={g.sub}>
-                <div className="text-[11px] text-[var(--color-ink-4)] mb-1.5">{g.sub}</div>
+                <div className="text-meta text-[var(--color-ink-4)] mb-1.5">{g.sub}</div>
                 <div className="flex flex-wrap gap-2">{g.ops.map((a) => <CleanupChip key={a.label} action={a} />)}</div>
               </div>
             ))}

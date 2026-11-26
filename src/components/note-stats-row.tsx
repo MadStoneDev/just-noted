@@ -25,7 +25,7 @@ export default function NoteStatsRow({
 
   return (
     <span
-      className={`text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)] ${className}`}
+      className={`text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)] ${className}`}
     >
       <span title={`${wordCount} words`}>{wordCount}w</span> ·{" "}
       <span title={`${charCount} characters`}>{charCount}c</span> ·{" "}

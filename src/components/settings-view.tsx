@@ -172,7 +172,7 @@ function AccountSection() {
             <input type="file" accept="image/*" className="hidden" onChange={onAvatarChange} />
             Change avatar
           </label>
-          <p className="mt-1.5 text-[11.5px] text-[var(--color-ink-5)]">PNG or JPG, up to a few MB.</p>
+          <p className="mt-1.5 text-meta text-[var(--color-ink-5)]">PNG or JPG, up to a few MB.</p>
         </div>
       </div>
 
@@ -186,7 +186,7 @@ function AccountSection() {
           maxLength={30}
           className="w-full h-10 px-3 text-[14px] bg-[var(--color-raised)] border border-[var(--color-border-control)] rounded-[var(--radius-8)] text-[var(--color-ink)] focus:border-[var(--color-accent-tint-border)] focus:outline-none"
         />
-        <p className="mt-1.5 text-[11.5px] text-[var(--color-ink-5)]">Letters, numbers and underscores. Collaborators see this name.</p>
+        <p className="mt-1.5 text-meta text-[var(--color-ink-5)]">Letters, numbers and underscores. Collaborators see this name.</p>
       </div>
 
       {/* Email */}
@@ -195,7 +195,7 @@ function AccountSection() {
         <div className="w-full h-10 px-3 flex items-center text-[14px] bg-[var(--color-panel)] border border-[var(--color-hairline)] rounded-[var(--radius-8)] text-[var(--color-ink-4)]">
           {email}
         </div>
-        <p className="mt-1.5 text-[11.5px] text-[var(--color-ink-5)]">Used for sign-in; can't be changed here.</p>
+        <p className="mt-1.5 text-meta text-[var(--color-ink-5)]">Used for sign-in; can't be changed here.</p>
       </div>
 
       <button
@@ -270,7 +270,7 @@ function DeviceAccountsSection() {
     <div>
       {signOutDialog}
       <div className="mb-1 text-[13px] font-semibold text-[var(--color-ink-1)]">Accounts on this device</div>
-      <p className="mb-3 text-[11.5px] text-[var(--color-ink-5)]">
+      <p className="mb-3 text-meta text-[var(--color-ink-5)]">
         Switch between accounts without signing in each time. Up to {MAX_ACCOUNTS} on one device.
       </p>
 
@@ -299,7 +299,7 @@ function DeviceAccountsSection() {
                   </span>
                   {isCurrent && <IconCheck size={13} className="text-[var(--color-accent-text)] shrink-0" />}
                 </div>
-                <div className={`text-[10.5px] font-[family-name:var(--font-meta)] truncate ${a.sessionValid ? "text-[var(--color-ink-5)]" : "text-[var(--color-warn)]"}`}>
+                <div className={`text-meta font-[family-name:var(--font-meta)] truncate ${a.sessionValid ? "text-[var(--color-ink-5)]" : "text-[var(--color-warn)]"}`}>
                   {a.sessionValid ? a.email : "session expired: sign in"}
                 </div>
               </div>
@@ -620,7 +620,7 @@ export default function SettingsView({ onClose, initialSection }: SettingsViewPr
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="text-[13.5px] font-semibold text-[var(--color-ink-1)]">Font size</h2>
-                  <span className="text-[11.5px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">{fontSize}px</span>
+                  <span className="text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">{fontSize}px</span>
                 </div>
                 <input
                   type="range"
@@ -630,7 +630,7 @@ export default function SettingsView({ onClose, initialSection }: SettingsViewPr
                   onChange={(e) => chooseFontSize(parseInt(e.target.value, 10))}
                   className="w-full accent-[var(--color-accent-fill)]"
                 />
-                <div className="flex justify-between text-[10px] font-[family-name:var(--font-meta)] text-[var(--color-ink-6)]">
+                <div className="flex justify-between text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
                   <span>{FONT_SIZE_MIN}</span>
                   <span>{FONT_SIZE_MAX}</span>
                 </div>

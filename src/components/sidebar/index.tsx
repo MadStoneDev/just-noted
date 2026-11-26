@@ -918,7 +918,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                   onClick={() => window.dispatchEvent(new Event("justnoted:open-notebooks-grid"))}
                   title="Browse as grid"
                   aria-label="Browse notebooks as grid"
-                  className="flex items-center gap-1 text-[11px] text-[var(--color-ink-4)] hover:text-[var(--color-ink-1)] transition-colors flex-none"
+                  className="flex items-center gap-1 text-label text-[var(--color-ink-4)] hover:text-[var(--color-ink-1)] transition-colors flex-none"
                 >
                   <IconLayoutGrid size={14} />
                   Grid
@@ -1130,7 +1130,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                       }`}
                     >
                       {shortcutKey !== null && !selectMode && (
-                        <span className="absolute top-1 right-1 text-[8px] font-mono text-[var(--color-ink-5)] opacity-0 group-hover/note:opacity-50 transition-opacity" title={shortcutLabel("Mod", "Alt", String(shortcutKey))}>
+                        <span className="absolute top-1 right-1 text-label font-mono text-[var(--color-ink-5)] opacity-0 group-hover/note:opacity-100 transition-opacity" title={shortcutLabel("Mod", "Alt", String(shortcutKey))}>
                           {shortcutKey}
                         </span>
                       )}
@@ -1227,7 +1227,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
 
           {/* Footer */}
           {!selectMode && (
-            <div className="px-3 py-2.5 border-t border-[var(--color-hairline-soft)] flex items-center justify-between text-[10px] text-[var(--color-ink-5)]">
+            <div className="px-3 py-2.5 border-t border-[var(--color-hairline-soft)] flex items-center justify-between text-meta text-[var(--color-ink-5)]">
               <span>
                 {notes.length} note{notes.length !== 1 ? "s" : ""}
                 {hasActiveFilters && ` · ${filteredNotes.length} shown`}
@@ -1271,7 +1271,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
             {/* ===== TAGS VIEW ===== */}
             {railView === "tags" && isAuthenticated && (
               <div className="flex-1 overflow-y-auto scrollbar-thin px-3 py-3">
-                <div className="text-[11px] text-[var(--color-ink-5)] mb-2">Filter notes by tag</div>
+                <div className="text-meta text-[var(--color-ink-5)] mb-2">Filter notes by tag</div>
                 <TagFilter />
               </div>
             )}
@@ -1318,7 +1318,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                 <div className="overflow-y-auto scrollbar-thin px-4 pb-5 pt-1 space-y-4">
                   {/* Sort */}
                   <div>
-                    <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-ink-5)] mb-2">Sort</div>
+                    <div className="text-label font-medium uppercase tracking-wider text-[var(--color-ink-5)] mb-2">Sort</div>
                     <div className="flex flex-wrap gap-2">
                       {([
                         ["manual", "Manual"],
@@ -1335,7 +1335,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                   </div>
                   {/* Source */}
                   <div>
-                    <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-ink-5)] mb-2">Source</div>
+                    <div className="text-label font-medium uppercase tracking-wider text-[var(--color-ink-5)] mb-2">Source</div>
                     <div className="flex flex-wrap gap-2">
                       <FilterButton active={filterSource === "all"} onClick={() => setFilterSource("all")}>All</FilterButton>
                       <FilterButton active={filterSource === "local"} onClick={() => setFilterSource("local")}>
@@ -1350,7 +1350,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                   </div>
                   {/* Pinned */}
                   <div>
-                    <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-ink-5)] mb-2">Pinned</div>
+                    <div className="text-label font-medium uppercase tracking-wider text-[var(--color-ink-5)] mb-2">Pinned</div>
                     <div className="flex flex-wrap gap-2">
                       <FilterButton active={filterPinned === "all"} onClick={() => setFilterPinned("all")}>All</FilterButton>
                       <FilterButton active={filterPinned === "pinned"} onClick={() => setFilterPinned("pinned")}>
@@ -1364,7 +1364,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
                   {/* Tags */}
                   {isAuthenticated && tags.length > 0 && (
                     <div>
-                      <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-ink-5)] mb-2">Tags</div>
+                      <div className="text-label font-medium uppercase tracking-wider text-[var(--color-ink-5)] mb-2">Tags</div>
                       <TagFilter />
                     </div>
                   )}
@@ -1599,7 +1599,7 @@ function RailButton({
       )}
       {children}
       {badge && badge > 0 ? (
-        <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[9px] font-semibold rounded-full bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)]">
+        <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-label font-semibold rounded-full bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)]">
           {badge}
         </span>
       ) : null}

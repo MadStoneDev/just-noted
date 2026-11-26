@@ -48,7 +48,7 @@ export function SharedHistoryPanel({ shortcode, onClose }: { shortcode: string; 
       <aside className="relative w-[320px] max-w-[90vw] h-full flex flex-col bg-[var(--color-panel-alt)] border-l border-[var(--color-hairline)] shadow-[var(--shadow-lg)]">
         <div className="flex-none flex items-center justify-between h-11 px-4 border-b border-[var(--color-hairline-soft)]">
           <span className="text-[13.5px] font-semibold text-[var(--color-ink-1)]">Version history</span>
-          <button onClick={onClose} aria-label="Close" className="flex items-center gap-1 text-[10px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)] hover:text-[var(--color-ink-1)]">
+          <button onClick={onClose} aria-label="Close" className="flex items-center gap-1 text-label font-[family-name:var(--font-meta)] text-[var(--color-ink-5)] hover:text-[var(--color-ink-1)]">
             <kbd className="px-1 py-0.5 rounded-[var(--radius-4)] border border-[var(--color-border-control)]">esc</kbd>
             <IconX size={15} />
           </button>
@@ -64,7 +64,7 @@ export function SharedHistoryPanel({ shortcode, onClose }: { shortcode: string; 
                 <li key={v.id} className="rounded-[var(--radius-9)] border border-[var(--color-hairline)] p-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[12.5px] text-[var(--color-ink-1)] truncate">@{v.author}</span>
-                    <span className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-4)] shrink-0">
+                    <span className="text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-4)] shrink-0">
                       {relTime(v.createdAt)}{i === 0 ? " · current" : ""}
                     </span>
                   </div>

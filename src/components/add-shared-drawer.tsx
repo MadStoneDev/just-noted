@@ -136,7 +136,7 @@ export default function AddSharedDrawer({ open, onClose, onAdded }: AddSharedDra
                 className="w-full bg-[var(--color-raised-soft)] rounded-[var(--radius-md)] px-3 py-2.5 text-sm outline-none text-[var(--color-ink-1)] placeholder:text-[var(--color-ink-5)] resize-y font-mono leading-relaxed"
               />
             )}
-            <p className="text-[11px] text-[var(--color-ink-5)]">
+            <p className="text-meta text-[var(--color-ink-5)]">
               Accepts full links, <code>/n/</code> paths, or bare share codes.
             </p>
             <button
@@ -154,7 +154,7 @@ export default function AddSharedDrawer({ open, onClose, onAdded }: AddSharedDra
 
           {results && (
             <div className="space-y-1.5 pt-1">
-              <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-ink-5)]">
+              <div className="text-label font-medium uppercase tracking-wider text-[var(--color-ink-5)]">
                 {addedCount} added{results.length - addedCount > 0 ? `, ${results.length - addedCount} skipped` : ""}
               </div>
               {results.map((r, i) => (

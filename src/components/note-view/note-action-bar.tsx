@@ -112,7 +112,7 @@ export default function NoteActionBar({
             className={`hidden md:flex gap-1 ${wide.label ? "px-2" : "w-8"} ${barButtonClass(isShared, wide.isWide)}`}
           >
             <IconViewportWide size={16} />
-            {wide.label && <span className="text-[11px] font-medium leading-none">{wide.label}</span>}
+            {wide.label && <span className="text-label font-medium leading-none">{wide.label}</span>}
           </button>
         )}
 

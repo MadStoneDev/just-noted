@@ -71,7 +71,7 @@ export function MobileTabBar({
               )}
             </span>
             <span
-              className={`text-[10.5px] leading-none ${
+              className={`text-label leading-none ${
                 on ? "text-[var(--color-accent-text)] font-medium" : "text-[var(--color-ink-5)]"
               }`}
             >
@@ -223,7 +223,7 @@ export function SwipeableRow({
           style={{ width: SWIPE_RIGHT_W / 2 }}
         >
           {isPinned ? <IconPinnedOff size={19} /> : <IconPin size={19} />}
-          <span className="text-[10.5px] font-medium">{isPinned ? "Unpin" : "Pin"}</span>
+          <span className="text-label font-medium">{isPinned ? "Unpin" : "Pin"}</span>
         </button>
         <button
           onClick={() => { onMove(); close(); }}
@@ -231,7 +231,7 @@ export function SwipeableRow({
           style={{ width: SWIPE_RIGHT_W / 2 }}
         >
           <IconNotebook size={19} />
-          <span className="text-[10.5px] font-medium">Move</span>
+          <span className="text-label font-medium">Move</span>
         </button>
       </div>
       {/* Delete (revealed swiping left) */}
@@ -241,7 +241,7 @@ export function SwipeableRow({
           className="w-full flex flex-col items-center justify-center gap-0.5 text-[var(--color-danger)] bg-[var(--color-danger-subtle)]"
         >
           <IconTrash size={19} />
-          <span className="text-[10.5px] font-medium">Delete</span>
+          <span className="text-label font-medium">Delete</span>
         </button>
       </div>
       {/* Foreground */}

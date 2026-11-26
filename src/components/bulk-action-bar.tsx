@@ -101,7 +101,7 @@ export default function BulkActionBar({
         </span>
         <button
           onClick={onClearSelection}
-          className="flex items-center gap-1 text-[11px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
+          className="flex items-center gap-1 text-label text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
           title="Clear selection"
         >
           <IconX size={13} />

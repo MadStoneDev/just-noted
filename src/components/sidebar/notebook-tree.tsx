@@ -181,7 +181,7 @@ export default function NotebookTree() {
             {nb.name}
           </span>
           {priv && <IconLock size={12} className="flex-none text-[var(--color-ink-4)]" />}
-          <span className={`flex-none font-[family-name:var(--font-meta)] text-[11px] ${selected ? "text-[var(--color-accent-text)]" : "text-[var(--color-ink-5)]"}`}>
+          <span className={`flex-none font-[family-name:var(--font-meta)] text-meta ${selected ? "text-[var(--color-accent-text)]" : "text-[var(--color-ink-5)]"}`}>
             {count}
           </span>
         </button>
@@ -204,7 +204,7 @@ export default function NotebookTree() {
       {/* Header */}
       <div className="flex items-center justify-between h-[52px] flex-none px-4 border-b border-[var(--color-hairline-soft)]">
         <h2 className="text-sm font-semibold text-[var(--color-ink-1)] tracking-tight">Notebooks</h2>
-        <span className="font-[family-name:var(--font-meta)] text-[11px] text-[var(--color-ink-5)]">
+        <span className="font-[family-name:var(--font-meta)] text-meta text-[var(--color-ink-5)]">
           {rootNotebooks.length}
         </span>
       </div>
@@ -218,7 +218,7 @@ export default function NotebookTree() {
           <span className="w-3 flex-none" />
           <IconNote size={14} className="ml-1.5 flex-none text-[var(--color-ink-5)]" />
           <span className="flex-1 min-w-0 truncate pl-2 text-left text-[13.5px] text-[var(--color-ink-2)]">All notes</span>
-          <span className="flex-none font-[family-name:var(--font-meta)] text-[11px] text-[var(--color-ink-5)]">{totalNotesCount}</span>
+          <span className="flex-none font-[family-name:var(--font-meta)] text-meta text-[var(--color-ink-5)]">{totalNotesCount}</span>
         </button>
         <button
           onClick={() => openNotesView("loose")}
@@ -227,7 +227,7 @@ export default function NotebookTree() {
           <span className="w-3 flex-none" />
           <IconFileOff size={14} className="ml-1.5 flex-none text-[var(--color-ink-6)]" />
           <span className="flex-1 min-w-0 truncate pl-2 text-left text-[13.5px] text-[var(--color-ink-2)]">Loose notes</span>
-          <span className="flex-none font-[family-name:var(--font-meta)] text-[11px] text-[var(--color-ink-5)]">{looseNotesCount}</span>
+          <span className="flex-none font-[family-name:var(--font-meta)] text-meta text-[var(--color-ink-5)]">{looseNotesCount}</span>
         </button>
 
         {rootNotebooks.length > 0 && <div className="h-px bg-[var(--color-hairline-soft)] my-2" />}

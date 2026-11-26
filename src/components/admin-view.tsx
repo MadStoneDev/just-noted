@@ -43,7 +43,7 @@ function CategoryTag({ category }: { category: string | null }) {
   const isFix = category === "fix";
   return (
     <span
-      className="shrink-0 text-[10px] font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)]"
+      className="shrink-0 text-label font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)]"
       style={{
         color: isFix ? "var(--color-warn)" : "var(--color-accent-text)",
         background: isFix ? "var(--color-warn-tint)" : "var(--color-accent-tint)",
@@ -195,7 +195,7 @@ function SuggestionsPanel() {
                 <CategoryTag category={it.category} />
               </div>
               {it.body && <div className="mt-1 text-[12.5px] leading-[1.55] text-[var(--color-ink-4)]">{it.body}</div>}
-              <div className="mt-1.5 text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
+              <div className="mt-1.5 text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
                 {it.vote_count} vote{it.vote_count === 1 ? "" : "s"} · {formatDate(it.created_at)}
               </div>
             </div>
@@ -285,7 +285,7 @@ function UsersPanel() {
         className="w-full max-w-[340px] h-9 px-3 rounded-[var(--radius-8)] border border-[var(--color-border-control)] bg-[var(--color-raised)] text-[13px] text-[var(--color-ink-1)] placeholder:text-[var(--color-ink-5)] focus:outline-none"
       />
       <div className="rounded-[var(--radius-12)] border border-[var(--color-hairline)] overflow-x-auto">
-        <div className="grid min-w-[620px] grid-cols-[1fr_130px_120px_90px] gap-3 px-4 py-2 bg-[var(--color-panel)] border-b border-[var(--color-hairline)] text-[10px] font-[family-name:var(--font-meta)] uppercase tracking-[0.12em] text-[var(--color-ink-5)]">
+        <div className="grid min-w-[620px] grid-cols-[1fr_130px_120px_90px] gap-3 px-4 py-2 bg-[var(--color-panel)] border-b border-[var(--color-hairline)] text-label font-[family-name:var(--font-meta)] uppercase tracking-[0.12em] text-[var(--color-ink-5)]">
           <span>User</span>
           <span>Role</span>
           <span>Plan</span>
@@ -295,7 +295,7 @@ function UsersPanel() {
           <div key={u.id} className="grid min-w-[620px] grid-cols-[1fr_130px_120px_90px] gap-3 px-4 py-2.5 items-center border-b border-[var(--color-hairline-soft)] last:border-0">
             <div className="min-w-0">
               <div className="text-[13px] text-[var(--color-ink-1)] truncate">{u.username || "—"}</div>
-              <div className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)] truncate">{u.email}</div>
+              <div className="text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)] truncate">{u.email}</div>
             </div>
             <select
               value={u.role}
@@ -312,7 +312,7 @@ function UsersPanel() {
               <button
                 onClick={() => toggleScribe(u.id, u.tier !== "scribe")}
                 disabled={busy.has(u.id)}
-                className={`h-7 px-2.5 rounded-[var(--radius-6)] text-[11.5px] font-medium border transition-colors disabled:opacity-50 ${
+                className={`h-7 px-2.5 rounded-[var(--radius-6)] text-label font-medium border transition-colors disabled:opacity-50 ${
                   u.tier === "scribe"
                     ? "border-[var(--color-border-control)] text-[var(--color-ink-3)] hover:bg-[var(--color-raised-soft)]"
                     : "border-[var(--color-accent-fill)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint)]"
@@ -426,7 +426,7 @@ function RoadmapItemsPanel() {
                       <div className="text-[13.5px] font-medium text-[var(--color-ink-1)]">{it.title}</div>
                       {it.body && <div className="mt-0.5 text-[12px] leading-[1.5] text-[var(--color-ink-4)]">{it.body}</div>}
                     </div>
-                    <span className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)] shrink-0">{it.vote_count} ▲</span>
+                    <span className="text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)] shrink-0">{it.vote_count} ▲</span>
                   </div>
                   <div className="mt-2.5 flex flex-wrap items-center gap-2">
                     <select value={it.status} onChange={(e) => patch(it.id, { status: e.target.value })} className={RM_SELECT}>
@@ -497,7 +497,7 @@ function NotesPanel() {
         />
         <button type="submit" className="h-9 px-3 rounded-[var(--radius-8)] text-[12.5px] font-medium border border-[var(--color-border-control)] text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)]">Search</button>
       </form>
-      <p className="text-[11.5px] text-[var(--color-ink-5)]">Metadata only. Note content isn't shown here. Newest 100.</p>
+      <p className="text-meta text-[var(--color-ink-5)]">Metadata only. Note content isn't shown here. Newest 100.</p>
 
       {notes === null ? (
         <div className="space-y-2">{[0, 1, 2].map((i) => <div key={i} className="skeleton h-11 w-full rounded-[var(--radius-9)]" />)}</div>
@@ -505,7 +505,7 @@ function NotesPanel() {
         <p className="text-[13.5px] text-[var(--color-ink-4)]">No notes found.</p>
       ) : (
         <div className="rounded-[var(--radius-12)] border border-[var(--color-hairline)] overflow-x-auto">
-          <div className="grid min-w-[620px] grid-cols-[1fr_150px_110px_110px] gap-3 px-4 py-2 bg-[var(--color-panel)] border-b border-[var(--color-hairline)] text-[10px] font-[family-name:var(--font-meta)] uppercase tracking-[0.12em] text-[var(--color-ink-5)]">
+          <div className="grid min-w-[620px] grid-cols-[1fr_150px_110px_110px] gap-3 px-4 py-2 bg-[var(--color-panel)] border-b border-[var(--color-hairline)] text-label font-[family-name:var(--font-meta)] uppercase tracking-[0.12em] text-[var(--color-ink-5)]">
             <span>Title</span>
             <span>Owner</span>
             <span>Updated</span>
@@ -515,18 +515,18 @@ function NotesPanel() {
             <div key={n.id} className="grid min-w-[620px] grid-cols-[1fr_150px_110px_110px] gap-3 px-4 py-2.5 items-center border-b border-[var(--color-hairline-soft)] last:border-0">
               <div className="min-w-0 flex items-center gap-2">
                 <span className="text-[13px] text-[var(--color-ink-1)] truncate">{n.title || "Untitled"}</span>
-                {n.deleted_at && <span className="shrink-0 text-[10px] font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)] bg-[var(--color-danger-tint)] text-[var(--color-danger-strong)]">trashed</span>}
-                {n.is_private && <span className="shrink-0 text-[10px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">private</span>}
+                {n.deleted_at && <span className="shrink-0 text-label font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)] bg-[var(--color-danger-tint)] text-[var(--color-danger-strong)]">trashed</span>}
+                {n.is_private && <span className="shrink-0 text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">private</span>}
               </div>
               <span className="text-[12px] text-[var(--color-ink-3)] truncate">{n.owner || "—"}</span>
-              <span className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
+              <span className="text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
                 {n.updated_at ? formatDate(n.updated_at) : "—"}
               </span>
               <div className="flex justify-end">
                 <button
                   onClick={() => toggleDeleted(n.id, !n.deleted_at)}
                   disabled={busy.has(n.id)}
-                  className={`h-7 px-2.5 rounded-[var(--radius-6)] text-[11.5px] font-medium transition-colors disabled:opacity-50 ${
+                  className={`h-7 px-2.5 rounded-[var(--radius-6)] text-label font-medium transition-colors disabled:opacity-50 ${
                     n.deleted_at
                       ? "text-[var(--color-accent-text)] hover:bg-[var(--color-accent-tint)]"
                       : "text-[var(--color-danger)] hover:bg-[var(--color-raised-soft)]"

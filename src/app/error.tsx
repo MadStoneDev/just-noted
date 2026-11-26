@@ -68,7 +68,7 @@ export default function Error({ error, reset }: ErrorProps) {
           </a>
         </div>
 
-        <p className="text-xs text-[var(--color-text-tertiary)] mt-6">
+        <p className="text-meta text-[var(--color-text-tertiary)] mt-6">
           If this persists, please contact support
         </p>
       </div>

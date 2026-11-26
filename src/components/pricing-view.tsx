@@ -119,7 +119,7 @@ export default function PricingView() {
                 <div className="flex items-center gap-2">
                   <span className="text-[15px] font-semibold text-[var(--color-ink-1)]">{plan.label}</span>
                   {isCurrent && (
-                    <span className="text-[10px] font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)] border border-[var(--color-hairline)] text-[var(--color-ink-4)]">
+                    <span className="text-label font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)] border border-[var(--color-hairline)] text-[var(--color-ink-4)]">
                       Current
                     </span>
                   )}
@@ -135,7 +135,7 @@ export default function PricingView() {
                   </div>
                 )}
                 {plan.price.gstNote && (
-                  <p className="mt-1 text-[11px] text-[var(--color-ink-5)]">{plan.price.gstNote}</p>
+                  <p className="mt-1 text-meta text-[var(--color-ink-5)]">{plan.price.gstNote}</p>
                 )}
 
                 <ul className="mt-4 space-y-1.5 flex-1">
@@ -193,13 +193,13 @@ export default function PricingView() {
                   )}
                 </div>
                 {isScribe && !isCurrent && intervalUnavailable && (
-                  <p className="mt-2 text-[11px] text-[var(--color-ink-5)]">
+                  <p className="mt-2 text-meta text-[var(--color-ink-5)]">
                     {interval === "year" ? "Yearly" : "Monthly"} billing isn’t available right now. Choose{" "}
                     {interval === "year" ? "Monthly" : "Yearly"} or try again later.
                   </p>
                 )}
                 {isScribe && !isCurrent && !checkoutConfigured && (
-                  <p className="mt-2 text-[11px] text-[var(--color-ink-5)]">
+                  <p className="mt-2 text-meta text-[var(--color-ink-5)]">
                     Checkout is being set up. The button goes live once billing is configured.
                   </p>
                 )}
@@ -210,7 +210,7 @@ export default function PricingView() {
 
         {/* Comparison table */}
         <div className="mt-10">
-          <div className="mb-2 text-[11px] font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)]">
+          <div className="mb-2 text-label font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)]">
             Compare
           </div>
           <PlanComparison />
@@ -218,7 +218,7 @@ export default function PricingView() {
 
         {/* FAQ */}
         <div className="mt-10 space-y-5 max-w-[640px]">
-          <div className="flex items-center gap-1.5 text-[11px] font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)]">
+          <div className="flex items-center gap-1.5 text-label font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)]">
             <IconSparkles size={12} /> Good to know
           </div>
           {[

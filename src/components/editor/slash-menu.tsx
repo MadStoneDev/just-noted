@@ -264,7 +264,7 @@ export default function SlashMenu({ getEditor, containerRef, onBeforeEdit }: Sla
           <span className="text-[var(--color-text-tertiary)]">{item.icon}</span>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-[var(--color-text-primary)]">{item.label}</p>
-            <p className="text-[10px] text-[var(--color-text-tertiary)]">{item.description}</p>
+            <p className="text-meta text-[var(--color-text-tertiary)]">{item.description}</p>
           </div>
         </button>
       ))}

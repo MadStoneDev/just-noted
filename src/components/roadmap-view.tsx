@@ -29,7 +29,7 @@ function CategoryTag({ category }: { category: string | null }) {
   const isFix = category === "fix";
   return (
     <span
-      className="shrink-0 text-[10px] font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)] border"
+      className="shrink-0 text-label font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)] border"
       style={{
         color: isFix ? "var(--color-warn)" : "var(--color-accent-text)",
         borderColor: isFix ? "var(--color-warn-tint-border)" : "var(--color-accent-tint-border)",
@@ -137,7 +137,7 @@ export default function RoadmapView() {
             <h1 className="font-[family-name:var(--font-editor)] text-[34px] leading-[1.05] font-medium tracking-[-0.01em] text-[var(--color-ink)]">
               Roadmap
             </h1>
-            <p className="mt-1.5 text-[11.5px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
+            <p className="mt-1.5 text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
               Vote on what matters to you, or suggest something new.
             </p>
           </div>
@@ -177,16 +177,16 @@ export default function RoadmapView() {
                 <div key={col.status} className="flex-1 min-w-[240px] max-w-[320px]">
                   <div className="flex items-center gap-1.5 mb-2.5 px-1">
                     <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: col.dot }} />
-                    <span className="text-[11px] font-[family-name:var(--font-meta)] uppercase tracking-[0.12em] text-[var(--color-ink-5)]">
+                    <span className="text-label font-[family-name:var(--font-meta)] uppercase tracking-[0.12em] text-[var(--color-ink-5)]">
                       {col.label}
                     </span>
-                    <span className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-6)]">
+                    <span className="text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
                       {colItems.length}
                     </span>
                   </div>
                   <div className="flex flex-col gap-2">
                     {colItems.length === 0 ? (
-                      <div className="rounded-[var(--radius-10)] border border-dashed border-[var(--color-hairline)] p-4 text-[12px] text-[var(--color-ink-6)]">
+                      <div className="rounded-[var(--radius-10)] border border-dashed border-[var(--color-hairline)] p-4 text-[12px] text-[var(--color-ink-5)]">
                         Nothing here yet.
                       </div>
                     ) : (
@@ -215,7 +215,7 @@ export default function RoadmapView() {
                             }`}
                           >
                             <IconChevronUp size={14} />
-                            <span className="text-[11px] font-[family-name:var(--font-meta)] leading-none mt-0.5">
+                            <span className="text-meta font-[family-name:var(--font-meta)] leading-none mt-0.5">
                               {it.vote_count}
                             </span>
                           </button>
@@ -286,7 +286,7 @@ export default function RoadmapView() {
                     {submitting ? "Sending…" : "Send suggestion"}
                   </button>
                 </div>
-                <p className="mt-2 text-[11px] text-[var(--color-ink-5)]">
+                <p className="mt-2 text-meta text-[var(--color-ink-5)]">
                   Suggestions are reviewed before they appear on the board.
                 </p>
               </div>

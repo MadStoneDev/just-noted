@@ -57,7 +57,7 @@ export default function NotebooksGrid({
             <h1 className="font-[family-name:var(--font-editor)] text-[34px] leading-[1.05] font-medium tracking-[-0.01em] text-[var(--color-ink)]">
               Notebooks
             </h1>
-            <p className="mt-1.5 text-[11.5px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
+            <p className="mt-1.5 text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
               {notebooks.length} notebook{notebooks.length !== 1 ? "s" : ""} · {totalFiled} filed{" "}
               note{totalFiled !== 1 ? "s" : ""} · {looseCount} loose
             </p>
@@ -138,7 +138,7 @@ export default function NotebooksGrid({
                   >
                     <div className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" />
                     {nb.isHidden && (
-                      <span className="absolute top-2 right-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[var(--radius-5)] bg-black/45 text-white text-[10px] font-[family-name:var(--font-meta)]">
+                      <span className="absolute top-2 right-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[var(--radius-5)] bg-black/45 text-white text-label font-[family-name:var(--font-meta)]">
                         <IconLock size={10} />
                         private
                       </span>
@@ -153,7 +153,7 @@ export default function NotebooksGrid({
                     <div className="text-[14px] font-semibold text-[var(--color-ink-1)] truncate">
                       {nb.name}
                     </div>
-                    <div className="mt-0.5 text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
+                    <div className="mt-0.5 text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
                       {count} note{count !== 1 ? "s" : ""} · {words.toLocaleString()}w
                       {subs > 0 ? ` · ${subs} sub` : ""}
                     </div>
@@ -165,12 +165,12 @@ export default function NotebooksGrid({
                             style={{ width: `${pct}%`, backgroundColor: barColor }}
                           />
                         </span>
-                        <span className="text-[10px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
+                        <span className="text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
                           {pct}%
                         </span>
                       </div>
                     ) : (
-                      <div className="mt-1.5 text-[10px] font-[family-name:var(--font-meta)] text-[var(--color-ink-6)]">
+                      <div className="mt-1.5 text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
                         no goal set
                       </div>
                     )}

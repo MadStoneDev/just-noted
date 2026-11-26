@@ -88,7 +88,7 @@ export function OfflineStatusBadge() {
   if (!isOnline) return null; // Don't show badge — the banner handles it
 
   return (
-    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-[var(--color-accent-subtle)] text-[var(--color-accent)]">
+    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-label font-medium bg-[var(--color-accent-subtle)] text-[var(--color-accent)]">
       <span className="animate-pulse-subtle">Syncing</span>
     </div>
   );

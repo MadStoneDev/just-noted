@@ -100,7 +100,7 @@ export default function WordCounter() {
       <div className="rounded-[var(--radius-14)] border border-[var(--color-hairline)] overflow-hidden grid grid-cols-1 min-[1100px]:grid-cols-[minmax(0,1fr)_340px]">
         {/* Left: input */}
         <div className="p-[18px] flex flex-col gap-3 min-[1100px]:border-r border-[var(--color-hairline)]">
-          <label htmlFor="wc-input" className="font-[family-name:var(--font-meta)] text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">
+          <label htmlFor="wc-input" className="font-[family-name:var(--font-meta)] text-label font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">
             Text
           </label>
           <textarea
@@ -112,7 +112,7 @@ export default function WordCounter() {
             className="min-h-[420px] max-h-[70vh] resize-y rounded-[var(--radius-10)] bg-[var(--color-raised)] border border-[var(--color-border-control)] p-4 text-[16px] leading-[1.65] text-[var(--color-ink)] focus:border-[var(--color-accent-deep)] focus:outline-none"
           />
           <div className="flex items-center gap-3">
-            <span className={`flex-1 min-w-0 font-[family-name:var(--font-meta)] text-[11.5px] ${overWords ? "text-[var(--color-warn)]" : "text-[var(--color-ink-4)]"}`}>
+            <span className={`flex-1 min-w-0 font-[family-name:var(--font-meta)] text-meta ${overWords ? "text-[var(--color-warn)]" : "text-[var(--color-ink-4)]"}`}>
               {overWords ? "Over 200,000 words. Stats may lag." : "Stats update as you type · up to 200,000 words"}
             </span>
             <button
@@ -139,7 +139,7 @@ export default function WordCounter() {
               <div key={s.label} className="bg-[var(--color-panel-alt)] p-[14px]">
                 <div className="font-[family-name:var(--font-meta)] text-[26px] font-medium leading-none text-[var(--color-ink)]">{s.number}</div>
                 <div className="mt-2 text-[12px] text-[var(--color-ink-3)]">{s.label}</div>
-                {s.note && <div className="mt-0.5 text-[11.5px] text-[var(--color-ink-4)]">{s.note}</div>}
+                {s.note && <div className="mt-0.5 text-meta text-[var(--color-ink-4)]">{s.note}</div>}
               </div>
             ))}
           </div>
@@ -147,7 +147,7 @@ export default function WordCounter() {
           {/* Keywords */}
           <div>
             <div className="flex items-center justify-between gap-3">
-              <span className="font-[family-name:var(--font-meta)] text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">Keywords</span>
+              <span className="font-[family-name:var(--font-meta)] text-label font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">Keywords</span>
               <Segmented
                 ariaLabel="Phrase length"
                 value={String(opts.phraseLen)}
@@ -187,7 +187,7 @@ export default function WordCounter() {
                         />
                       </div>
                       <div className="text-right font-[family-name:var(--font-meta)] text-[12px] text-[var(--color-ink-1)]">{num(row.count)}</div>
-                      <div className="text-right font-[family-name:var(--font-meta)] text-[11.5px] text-[var(--color-ink-4)]">{row.pct.toFixed(1)}%</div>
+                      <div className="text-right font-[family-name:var(--font-meta)] text-meta text-[var(--color-ink-4)]">{row.pct.toFixed(1)}%</div>
                     </div>
                   ))}
                 </div>

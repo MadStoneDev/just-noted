@@ -63,7 +63,7 @@ export default function NotificationsView({
             <h1 className="font-[family-name:var(--font-editor)] text-[34px] leading-[1.05] font-medium tracking-[-0.01em] text-[var(--color-ink)]">
               Notifications
             </h1>
-            <p className="mt-1.5 text-[11.5px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
+            <p className="mt-1.5 text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
               {items.length === 0
                 ? "You're all caught up"
                 : `${items.length} notification${items.length !== 1 ? "s" : ""}${unread > 0 ? ` · ${unread} unread` : ""}`}
@@ -127,7 +127,7 @@ export default function NotificationsView({
                     <div className="min-w-0 flex-1">
                       <p className="text-[13.5px] font-medium text-[var(--color-ink-1)]">{n.title}</p>
                       <p className="text-[12.5px] text-[var(--color-ink-4)] leading-snug break-words">{n.body}</p>
-                      <p className="text-[10.5px] text-[var(--color-ink-6)] mt-1">{relTime(n.createdAt)}</p>
+                      <p className="text-meta text-[var(--color-ink-5)] mt-1">{relTime(n.createdAt)}</p>
                     </div>
                   </div>
                 </button>

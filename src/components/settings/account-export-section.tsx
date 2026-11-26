@@ -82,7 +82,7 @@ export default function AccountExportSection() {
         account details. We’ll email you when it’s ready; the download requires being signed in and
         stays available for 7 days. You can request one export every 48 hours.
       </p>
-      <p className="text-[11.5px] text-[var(--color-ink-5)] mb-3">Device notes from this browser only.</p>
+      <p className="text-meta text-[var(--color-ink-5)] mb-3">Device notes from this browser only.</p>
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
         {FORMATS.map((f) => (
@@ -124,14 +124,14 @@ export default function AccountExportSection() {
               {canDownload(i) ? (
                 <div className="shrink-0 flex items-center gap-2">
                   {i.expiresAt && (
-                    <span className="text-[11px] text-[var(--color-ink-6)]">expires {fmtDate(i.expiresAt)}</span>
+                    <span className="text-meta text-[var(--color-ink-5)]">expires {fmtDate(i.expiresAt)}</span>
                   )}
                   <button onClick={() => download(i.id)} className="text-[var(--color-accent-text)] hover:underline font-medium">
                     Download
                   </button>
                 </div>
               ) : (
-                <span className="shrink-0 text-[11.5px] text-[var(--color-ink-5)]">{statusLabel(i)}</span>
+                <span className="shrink-0 text-meta text-[var(--color-ink-5)]">{statusLabel(i)}</span>
               )}
             </li>
           ))}

@@ -111,12 +111,12 @@ export default function NotebookView({
                 {nb.name}
               </h1>
               {nb.isHidden && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[var(--radius-5)] bg-[var(--color-raised-soft)] text-[10px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[var(--radius-5)] bg-[var(--color-raised-soft)] text-label font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
                   <IconLock size={10} /> private
                 </span>
               )}
             </div>
-            <div className="mt-1.5 text-[12px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
+            <div className="mt-1.5 text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
               {noteCount} note{noteCount !== 1 ? "s" : ""} · {wordTotal.toLocaleString()} words
               {subs.length > 0 ? ` · ${subs.length} section${subs.length !== 1 ? "s" : ""}` : ""}
             </div>
@@ -125,7 +125,7 @@ export default function NotebookView({
                 <span className="h-[4px] flex-1 rounded-full bg-[var(--color-hairline)] overflow-hidden">
                   <span className="block h-full rounded-full transition-all duration-300" style={{ width: `${pct}%`, backgroundColor: barColor }} />
                 </span>
-                <span className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
+                <span className="text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
                   {pct}% of {goal.toLocaleString()}
                 </span>
               </div>
@@ -154,7 +154,7 @@ export default function NotebookView({
         {/* Sections */}
         {subs.length > 0 && (
           <div className="mt-8">
-            <div className="mb-2 text-[11px] font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)]">
+            <div className="mb-2 text-label font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)]">
               Sections
             </div>
             <div className="flex flex-wrap gap-3">

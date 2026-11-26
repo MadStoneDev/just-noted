@@ -160,7 +160,7 @@ export default function GoalSuggestionsModal({ open, onClose, onSelect }: GoalSu
             <button
               key={cat.name}
               onClick={() => setActiveCategory(i)}
-              className={`px-2.5 py-1 text-[10px] font-medium rounded-full transition-colors ${
+              className={`px-2.5 py-1 text-meta font-medium rounded-full transition-colors ${
                 i === activeCategory
                   ? "bg-[var(--color-accent)] text-[var(--color-text-on-accent)]"
                   : "bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-active)]"
@@ -185,7 +185,7 @@ export default function GoalSuggestionsModal({ open, onClose, onSelect }: GoalSu
               <p className="text-xs font-medium text-[var(--color-text-primary)] group-hover:text-[var(--color-accent)]">
                 {preset.label}
               </p>
-              <p className="text-[10px] text-[var(--color-text-tertiary)] mt-0.5">
+              <p className="text-meta text-[var(--color-text-tertiary)] mt-0.5">
                 {preset.max
                   ? `${preset.min.toLocaleString()}–${preset.max.toLocaleString()} ${tab}`
                   : `${preset.min.toLocaleString()} ${tab}`}
@@ -195,7 +195,7 @@ export default function GoalSuggestionsModal({ open, onClose, onSelect }: GoalSu
           ))}
         </div>
 
-        <p className="text-[9px] text-[var(--color-text-tertiary)] opacity-60">
+        <p className="text-meta text-[var(--color-text-tertiary)] opacity-60">
           Click a preset to set it as your goal. Uses the upper range when a range is shown.
         </p>
       </div>

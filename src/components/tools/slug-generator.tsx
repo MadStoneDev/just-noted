@@ -78,7 +78,7 @@ export default function SlugGenerator() {
           {/* Title */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label htmlFor="slug-title" className="font-[family-name:var(--font-meta)] text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">Title</label>
+              <label htmlFor="slug-title" className="font-[family-name:var(--font-meta)] text-label font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">Title</label>
               <Toggle size="inline" checked={opts.batch} onChange={(v) => update({ batch: v })} label="Batch mode" />
             </div>
             <input
@@ -112,8 +112,8 @@ export default function SlugGenerator() {
           {/* Slug */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="font-[family-name:var(--font-meta)] text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">Slug</span>
-              <span className={`font-[family-name:var(--font-meta)] text-[11.5px] ${result.trimmed ? "text-[var(--color-warn)]" : "text-[var(--color-ink-3)]"}`}>
+              <span className="font-[family-name:var(--font-meta)] text-label font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">Slug</span>
+              <span className={`font-[family-name:var(--font-meta)] text-meta ${result.trimmed ? "text-[var(--color-warn)]" : "text-[var(--color-ink-3)]"}`}>
                 {counter}{result.trimmed ? " · trimmed" : ""}
               </span>
             </div>
@@ -128,7 +128,7 @@ export default function SlugGenerator() {
             {/* Throttled live region so typing doesn't flood screen readers (§10). */}
             <span aria-live="polite" className="sr-only">{announced ? `Slug: ${announced}` : ""}</span>
             {result.removed.length > 0 && (
-              <p className="mt-2 font-[family-name:var(--font-meta)] text-[11.5px] text-[var(--color-ink-4)]">
+              <p className="mt-2 font-[family-name:var(--font-meta)] text-meta text-[var(--color-ink-4)]">
                 Removed: {result.removed.join(", ")}
               </p>
             )}
@@ -160,7 +160,7 @@ export default function SlugGenerator() {
         <>
           {/* Batch */}
           <div className="flex items-center justify-between">
-            <span className="font-[family-name:var(--font-meta)] text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">Titles · one per line</span>
+            <span className="font-[family-name:var(--font-meta)] text-label font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">Titles · one per line</span>
             <Toggle size="inline" checked={opts.batch} onChange={(v) => update({ batch: v })} label="Batch mode" />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -195,7 +195,7 @@ export default function SlugGenerator() {
           )}
 
           <div className="flex items-center justify-between gap-3">
-            <span className="font-[family-name:var(--font-meta)] text-[11.5px] text-[var(--color-ink-3)]">
+            <span className="font-[family-name:var(--font-meta)] text-meta text-[var(--color-ink-3)]">
               {batchResult.titleCount} titles · {batchResult.slugCount} slugs
               {batchResult.duplicateCount > 0 && (
                 <span className="text-[var(--color-warn)]"> · {batchResult.duplicateCount} duplicate renamed</span>

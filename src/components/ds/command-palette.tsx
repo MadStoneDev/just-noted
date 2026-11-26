@@ -269,7 +269,7 @@ export function CommandPalette({ open, onClose, page }: CommandPaletteProps) {
             spellCheck={false}
           />
           {stack.length > 1 && (
-            <span className="flex-none text-[11px] text-[var(--color-ink-5)] truncate max-w-[40%]">
+            <span className="flex-none text-meta text-[var(--color-ink-5)] truncate max-w-[40%]">
               {current.title}
             </span>
           )}
@@ -286,7 +286,7 @@ export function CommandPalette({ open, onClose, page }: CommandPaletteProps) {
           {groupsToRender.map((group) => (
             <div key={group.id} className="px-1.5 pb-1">
               {group.heading && (
-                <div className="px-2.5 pt-2 pb-1 text-[10.5px] font-semibold uppercase tracking-wider text-[var(--color-ink-5)]">
+                <div className="px-2.5 pt-2 pb-1 text-label font-semibold uppercase tracking-wider text-[var(--color-ink-5)]">
                   {group.heading}
                 </div>
               )}
@@ -351,7 +351,7 @@ export function CommandPalette({ open, onClose, page }: CommandPaletteProps) {
                     </span>
                     {item.trailing}
                     {!item.trailing && item.hint && (
-                      <span className="flex-none text-[11px] text-[var(--color-ink-5)]">
+                      <span className="flex-none text-meta text-[var(--color-ink-5)]">
                         {item.hint}
                       </span>
                     )}
@@ -369,7 +369,7 @@ export function CommandPalette({ open, onClose, page }: CommandPaletteProps) {
         </div>
 
         {/* Footer hints */}
-        <div className="flex items-center gap-4 px-4 py-2 border-t border-[var(--color-hairline-soft)] text-[11px] text-[var(--color-ink-5)]">
+        <div className="flex items-center gap-4 px-4 py-2 border-t border-[var(--color-hairline-soft)] text-meta text-[var(--color-ink-5)]">
           <span className="flex items-center gap-1.5">
             <kbd className="font-mono border border-[var(--color-hairline)] rounded px-1">↑↓</kbd>
             navigate

@@ -238,7 +238,7 @@ export default function SharedNoteInline({ shortcode, onClose, onToggleSplit, on
 
   const readOnlyHeader = (
     <div className="flex items-center justify-between px-4 md:px-8 h-12 flex-none border-b border-[var(--color-hairline)]">
-      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-ink-5)]">
+      <span className="inline-flex items-center gap-1.5 text-meta font-medium text-[var(--color-ink-5)]">
         <IconEye size={13} />
         Read-only · shared note
       </span>
@@ -466,7 +466,7 @@ export default function SharedNoteInline({ shortcode, onClose, onToggleSplit, on
       }
       shareLink={shareLink}
       byline={
-        <div className="flex items-center gap-3 text-[11px] text-[var(--color-ink-5)] mb-2">
+        <div className="flex items-center gap-3 text-meta text-[var(--color-ink-5)] mb-2">
           {!isAnonymous && (
             <span className="flex items-center gap-1.5">
               <Avatar url={note.authorAvatar} name={note.authorUsername} size={16} />

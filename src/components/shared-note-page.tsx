@@ -298,14 +298,14 @@ export default function SharedNotePage({
                   {isAnonymous ? "Shared note" : <>Shared by <strong className="font-semibold">@{note.authorUsername}</strong></>} · you can edit
                 </span>
               </span>
-              <div className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-accent-deep)] leading-tight">
+              <div className="text-meta font-[family-name:var(--font-meta)] text-[var(--color-accent-deep)] leading-tight">
                 owner keeps control of access
               </div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               <PresenceStack users={presence} />
               {saveLabel && (
-                <span className={`text-[11px] font-[family-name:var(--font-meta)] mr-1 ${saveStatus === "error" ? "text-[var(--color-danger)]" : "text-[var(--color-accent-text)]"}`}>
+                <span className={`text-meta font-[family-name:var(--font-meta)] mr-1 ${saveStatus === "error" ? "text-[var(--color-danger)]" : "text-[var(--color-accent-text)]"}`}>
                   {saveLabel}
                 </span>
               )}
@@ -402,7 +402,7 @@ export default function SharedNotePage({
         </h1>
 
         {/* Meta + stats */}
-        <div className="flex items-center gap-3 text-[11px] text-[var(--color-text-tertiary)] mb-2">
+        <div className="flex items-center gap-3 text-meta text-[var(--color-text-tertiary)] mb-2">
           {!isAnonymous && (
             <span className="flex items-center gap-1.5">
               <Avatar url={note.authorAvatar} name={note.authorUsername} size={16} />
@@ -429,7 +429,7 @@ export default function SharedNotePage({
 
       {/* Footer */}
       <div className="max-w-[var(--content-width)] mx-auto px-4 md:px-8 py-4 border-t border-[var(--color-border-secondary)] print:hidden">
-        <div className="flex items-center justify-between text-[10px] text-[var(--color-text-tertiary)]">
+        <div className="flex items-center justify-between text-meta text-[var(--color-text-tertiary)]">
           {currentUsername ? (
             <span className="flex items-center gap-1">
               <IconUser size={11} />

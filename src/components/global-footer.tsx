@@ -7,7 +7,7 @@ export default function GlobalFooter() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className={`p-4 sm:px-8 text-xs text-[var(--color-text-tertiary)] print:hidden`}>
+    <footer className={`p-4 sm:px-8 text-meta text-[var(--color-text-tertiary)] print:hidden`}>
       Copyright © 2025{currentYear > 2025 ? "-" + currentYear : ""}{" "}
       <Link
         href={`/`}

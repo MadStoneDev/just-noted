@@ -417,7 +417,7 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
                   <div className="text-lg font-semibold text-[var(--color-ink-1)]">
                     {stats.totalWords.toLocaleString()}
                   </div>
-                  <div className="text-[11px] text-[var(--color-ink-5)]">
+                  <div className="text-meta text-[var(--color-ink-5)]">
                     words across your notes
                   </div>
                 </div>
@@ -425,7 +425,7 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
                   <div className="text-lg font-semibold text-[var(--color-ink-1)]">
                     {stats.noteCount.toLocaleString()}
                   </div>
-                  <div className="text-[11px] text-[var(--color-ink-5)]">
+                  <div className="text-meta text-[var(--color-ink-5)]">
                     {stats.noteCount === 1 ? "note" : "notes"}
                   </div>
                 </div>
@@ -433,7 +433,7 @@ export default function ProfileBlock({ user, authorData, stats }: ProfileBlockPr
                   <div className="text-lg font-semibold text-[var(--color-ink-1)]">
                     {formatMemberSince(stats.memberSince) || "—"}
                   </div>
-                  <div className="text-[11px] text-[var(--color-ink-5)]">
+                  <div className="text-meta text-[var(--color-ink-5)]">
                     writing since
                   </div>
                 </div>

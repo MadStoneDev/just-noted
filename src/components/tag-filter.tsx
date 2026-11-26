@@ -26,7 +26,7 @@ export default function TagFilter() {
           <button
             key={tag.id}
             onClick={() => toggleTag(tag.id)}
-            className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-all duration-[var(--duration-fast)] border ${
+            className={`px-2 py-0.5 rounded-full text-label font-medium transition-all duration-[var(--duration-fast)] border ${
               active
                 ? "border-current"
                 : "border-transparent opacity-60 hover:opacity-100"
@@ -43,7 +43,7 @@ export default function TagFilter() {
       {filterTagIds.length > 0 && (
         <button
           onClick={() => setFilterTagIds([])}
-          className="px-2 py-0.5 rounded-full text-[10px] text-[var(--color-ink-5)] hover:text-[var(--color-ink-3)] transition-colors"
+          className="px-2 py-0.5 rounded-full text-label text-[var(--color-ink-5)] hover:text-[var(--color-ink-3)] transition-colors"
         >
           Clear
         </button>

@@ -20,6 +20,16 @@
   --font-brand: var(--font-playfair), Georgia, "Times New Roman", serif;
   --font-mono: "JetBrains Mono", "SF Mono", "Monaco", "Menlo", "Ubuntu Mono", monospace;
 
+  /* Small-text floor. These are the ONLY sizes allowed below 13px in UI chrome
+     (the editor body, collab caret flags and the formatting toolbar are exempt).
+     Don't reach for text-[10px]/text-[11px] — pick one of these instead:
+       text-label  12px  labels, column headers, eyebrows, chips, badges, kbd
+       text-meta   13px  metadata: word counts, dates, durations, footers, hints */
+  --text-label: 12px;
+  --text-label--line-height: 16px;
+  --text-meta: 13px;
+  --text-meta--line-height: 18px;
+
   /* Brand */
   --color-accent: #03BFB5;
   --color-accent-hover: #02A69E;
@@ -86,7 +96,7 @@
   /* Text */
   --color-text-primary: #1A1A1A;
   --color-text-secondary: #6B6B6B;
-  --color-text-tertiary: #9A9A9A;
+  --color-text-tertiary: #6F6F6F;
   --color-text-inverse: #FFFFFF;
   --color-text-on-accent: #FFFFFF;
 
@@ -127,7 +137,7 @@
 
     --color-text-primary: #E8E8E8;
     --color-text-secondary: #A0A0A0;
-    --color-text-tertiary: #707070;
+    --color-text-tertiary: #8D8D8D;
     --color-text-inverse: #1A1A1A;
 
     --color-border-primary: #2C3231;
@@ -161,7 +171,7 @@
 
   --color-text-primary: #E8E8E8;
   --color-text-secondary: #A0A0A0;
-  --color-text-tertiary: #707070;
+  --color-text-tertiary: #8D8D8D;
   --color-text-inverse: #1A1A1A;
 
   --color-border-primary: #2C3231;
@@ -215,7 +225,7 @@
   --color-ink-2: #333B39;
   --color-ink-3: #5C6664;
   --color-ink-4: #5F6A68;
-  --color-ink-5: #6B7573;
+  --color-ink-5: #656F6D;
   --color-ink-6: #7C8785;
   --color-ink-7: #8E9998;
 
@@ -298,8 +308,8 @@
     --color-ink-1: #DFE4E3;
     --color-ink-2: #CFD6D4;
     --color-ink-3: #9AA3A1;
-    --color-ink-4: #7D8785;
-    --color-ink-5: #5F6867;
+    --color-ink-4: #889391;
+    --color-ink-5: #798483;
     --color-ink-6: #4B5352;
     --color-ink-7: #3C4443;
 
@@ -350,8 +360,8 @@
   --color-ink-1: #DFE4E3;
   --color-ink-2: #CFD6D4;
   --color-ink-3: #9AA3A1;
-  --color-ink-4: #7D8785;
-  --color-ink-5: #5F6867;
+  --color-ink-4: #889391;
+  --color-ink-5: #798483;
   --color-ink-6: #4B5352;
   --color-ink-7: #3C4443;
 

@@ -103,7 +103,7 @@ export default function TagPicker({ noteId, assignedTagIds, onAssign, onRemove }
       >
         <IconTag size={16} />
         {assigned.length > 0 && (
-          <span className="text-[10px] font-medium">{assigned.length}</span>
+          <span className="text-label font-medium">{assigned.length}</span>
         )}
       </button>
 

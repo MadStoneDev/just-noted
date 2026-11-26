@@ -64,7 +64,7 @@ export default function ToolsGrid() {
         {soon.length > 0 && (
           <>
             <div className="mt-10 flex items-center gap-3">
-              <span className="font-[family-name:var(--font-meta)] text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">
+              <span className="font-[family-name:var(--font-meta)] text-label font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">
                 Coming soon
               </span>
               <span className="flex-1 h-px bg-[var(--color-hairline-soft)]" />

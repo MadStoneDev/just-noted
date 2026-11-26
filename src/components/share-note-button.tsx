@@ -284,7 +284,7 @@ export default function ShareNoteButton({
                         <a key={p} href="/pricing?ref=share-edit" className="px-3 py-1.5 flex items-center gap-2 text-[12px] text-[var(--color-ink-5)] hover:text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)] transition-colors" title="Let people edit with Scribe. See plans">
                           <span className="w-[13px]" />
                           Can edit
-                          <span className="ml-auto text-[10px] font-[family-name:var(--font-meta)] px-1 rounded-[var(--radius-4)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]">Scribe</span>
+                          <span className="ml-auto text-label font-[family-name:var(--font-meta)] px-1 rounded-[var(--radius-4)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]">Scribe</span>
                         </a>
                       );
                     }
@@ -301,11 +301,11 @@ export default function ShareNoteButton({
                   <div className="px-3 py-1.5 flex items-center gap-2 text-[12px] text-[var(--color-ink-5)] cursor-not-allowed">
                     <span className="w-[13px]" />
                     Published
-                    <span className="ml-auto text-[10px] font-[family-name:var(--font-meta)]">soon</span>
+                    <span className="ml-auto text-label font-[family-name:var(--font-meta)]">soon</span>
                   </div>
                 </Dropdown>
               </div>
-              <p className="text-[11.5px] text-[var(--color-ink-5)] leading-snug -mt-1">{PERMISSION_HINT[linkPermission]}</p>
+              <p className="text-meta text-[var(--color-ink-5)] leading-snug -mt-1">{PERMISSION_HINT[linkPermission]}</p>
 
               {/* URL + Copy (once a link exists) */}
               {shareUrl && (
@@ -372,7 +372,7 @@ export default function ShareNoteButton({
 
             {/* ===== People ===== */}
             <div className="flex flex-col gap-2">
-              <div className="text-[11px] font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)]">People with access</div>
+              <div className="text-label font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)]">People with access</div>
               {info.users.length > 0 && (
                 <ul className="flex flex-col gap-1.5">
                   {info.users.map((u) => (
@@ -387,7 +387,7 @@ export default function ShareNoteButton({
                       <Dropdown
                         placement="bottom-end"
                         trigger={
-                          <button className="flex items-center gap-1 h-7 px-2 rounded-[var(--radius-6)] text-[11.5px] font-medium border border-[var(--color-border-control)] text-[var(--color-ink-2)] hover:bg-[var(--color-raised)] transition-colors">
+                          <button className="flex items-center gap-1 h-7 px-2 rounded-[var(--radius-6)] text-label font-medium border border-[var(--color-border-control)] text-[var(--color-ink-2)] hover:bg-[var(--color-raised)] transition-colors">
                             {u.role === "edit" ? "Can edit" : "Can view"}
                             <IconChevronDown size={11} className="opacity-60" />
                           </button>
@@ -399,7 +399,7 @@ export default function ShareNoteButton({
                         ) : (
                           <div className="px-3 py-2.5 flex items-center gap-2 text-[13px] text-[var(--color-ink-5)] cursor-not-allowed" title="Upgrade to Scribe to let people edit">
                             Can edit
-                            <span className="ml-auto text-[10px] font-[family-name:var(--font-meta)] px-1 rounded-[var(--radius-4)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]">Scribe</span>
+                            <span className="ml-auto text-label font-[family-name:var(--font-meta)] px-1 rounded-[var(--radius-4)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]">Scribe</span>
                           </div>
                         )}
                       </Dropdown>
@@ -431,7 +431,7 @@ export default function ShareNoteButton({
                   ) : (
                     <div className="px-3 py-2.5 flex items-center gap-2 text-[13px] text-[var(--color-ink-5)] cursor-not-allowed" title="Upgrade to Scribe to let people edit">
                       Can edit
-                      <span className="ml-auto text-[10px] font-[family-name:var(--font-meta)] px-1 rounded-[var(--radius-4)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]">Scribe</span>
+                      <span className="ml-auto text-label font-[family-name:var(--font-meta)] px-1 rounded-[var(--radius-4)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]">Scribe</span>
                     </div>
                   )}
                 </Dropdown>
@@ -462,7 +462,7 @@ function Switch({
         <span className={disabled ? "text-[var(--color-ink-6)]" : "text-[var(--color-ink-4)]"}>{icon}</span>
         <div className="flex-1 min-w-0">
           <span className={`text-[13px] ${disabled ? "text-[var(--color-ink-5)]" : "text-[var(--color-ink-1)]"}`}>{label}</span>
-          {hint && <span className="ml-2 text-[11px] text-[var(--color-ink-5)]">{hint}</span>}
+          {hint && <span className="ml-2 text-meta text-[var(--color-ink-5)]">{hint}</span>}
         </div>
         <button type="button" role="switch" aria-checked={on} disabled={disabled}
           onClick={() => !disabled && onToggle(!on)}

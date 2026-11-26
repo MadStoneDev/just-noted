@@ -67,7 +67,7 @@ function PermTag({ perm, asLink }: { perm?: string; asLink?: boolean }) {
   const label = asLink ? (canEdit ? "link: edit" : "link: view") : canEdit ? "can edit" : "can view";
   return (
     <span
-      className={`shrink-0 text-[10px] font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)] ${
+      className={`shrink-0 text-label font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)] ${
         canEdit
           ? "bg-[var(--color-accent-tint)] text-[var(--color-accent-text)] border border-[var(--color-accent-tint-border)]"
           : "border border-[var(--color-border-control)] text-[var(--color-ink-4)]"
@@ -80,7 +80,7 @@ function PermTag({ perm, asLink }: { perm?: string; asLink?: boolean }) {
 
 function OwnerTag() {
   return (
-    <span className="shrink-0 text-[10px] font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)] border border-[var(--color-accent-tint-border)]">
+    <span className="shrink-0 text-label font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)] border border-[var(--color-accent-tint-border)]">
       Owner
     </span>
   );
@@ -315,7 +315,7 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
               <span className="inline-flex items-center gap-1.5">
                 {t.label}
                 {t.count != null && t.count > 0 && (
-                  <span className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-accent-text)]">{t.count}</span>
+                  <span className="text-meta font-[family-name:var(--font-meta)] text-[var(--color-accent-text)]">{t.count}</span>
                 )}
               </span>
               {on && <span className="absolute left-1 right-1 -bottom-px h-0.5 rounded-full bg-[var(--color-accent-fill)]" />}
@@ -412,7 +412,7 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
               <p className="text-[13px] text-[var(--color-ink-4)]">
                 {tab === "withme" ? "Nothing shared with you yet" : tab === "byme" ? "You haven't shared anything" : "No saved links"}
               </p>
-              <p className="text-[11px] text-[var(--color-ink-5)]">
+              <p className="text-meta text-[var(--color-ink-5)]">
                 {tab === "saved" ? "Paste a link below to add one." : "Notes shared with you appear here automatically."}
               </p>
             </div>
@@ -484,8 +484,8 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
                       <div className="flex items-center flex-wrap gap-1.5 mt-1">
                         {tab === "byme" ? (
                           <>
-                            <span className="text-[12px] text-[var(--color-ink-5)]">{n.isPublic ? "Public link" : `${n.readerCount} ${n.readerCount === 1 ? "person" : "people"}`}</span>
-                            <span className="inline-flex items-center gap-0.5 text-[12px] text-[var(--color-ink-5)]">
+                            <span className="text-meta text-[var(--color-ink-5)]">{n.isPublic ? "Public link" : `${n.readerCount} ${n.readerCount === 1 ? "person" : "people"}`}</span>
+                            <span className="inline-flex items-center gap-0.5 text-meta text-[var(--color-ink-5)]">
                               <IconEye size={12} />
                               {n.viewCount}
                             </span>
@@ -496,7 +496,7 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
                           <>
                             <span className="inline-flex items-center gap-1 min-w-0">
                               <OwnerAvatar name={n.owner} url={n.ownerAvatar} />
-                              <span className="truncate text-[12px] text-[var(--color-ink-5)]">{n.owner}</span>
+                              <span className="truncate text-meta text-[var(--color-ink-5)]">{n.owner}</span>
                             </span>
                             <PermTag perm={n.linkPermission} />
                             {(n.tagIds || []).map((id) => {
@@ -505,7 +505,7 @@ export default function SharedNavList({ onOpen, onOpenOwned, activeShortcode, ac
                               return (
                                 <span
                                   key={id}
-                                  className="px-1.5 py-px text-[11px] rounded-full"
+                                  className="px-1.5 py-px text-label rounded-full"
                                   style={{ backgroundColor: t.color + "20", color: t.color }}
                                 >
                                   {t.name}

@@ -51,7 +51,7 @@ export default function NotebookBreadcrumb({ onEditNotebook }: NotebookBreadcrum
           <div className="flex items-center gap-2">
             <IconFileOff size={18} className="text-[var(--color-text-secondary)]" />
             <span className="font-medium text-[var(--color-text-primary)]">Loose Notes</span>
-            <span className="text-xs text-[var(--color-text-tertiary)]">({looseNotesCount})</span>
+            <span className="text-meta text-[var(--color-text-tertiary)]">({looseNotesCount})</span>
           </div>
         </div>
       </div>
@@ -100,9 +100,9 @@ export default function NotebookBreadcrumb({ onEditNotebook }: NotebookBreadcrum
             style={previewStyle}
           />
           <span className="font-medium text-[var(--color-text-primary)] truncate">{activeNotebook.name}</span>
-          <span className="text-xs text-[var(--color-text-tertiary)] flex-shrink-0">({noteCount})</span>
+          <span className="text-meta text-[var(--color-text-tertiary)] flex-shrink-0">({noteCount})</span>
           {activeNotebook.isHidden && (
-            <span className="flex items-center gap-1 text-xs text-[var(--color-text-tertiary)]">
+            <span className="flex items-center gap-1 text-meta text-[var(--color-text-tertiary)]">
               <IconEyeOff size={12} />
               Private
             </span>

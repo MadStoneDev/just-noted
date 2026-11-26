@@ -189,7 +189,7 @@ export default function NotebookNavList({
             </button>
             {/* Line 2 — count + word goal, with edit / delete inline */}
             <div className="flex items-center gap-2 mt-0.5 pl-1.5 pr-0.5">
-              <span className="text-[11px] text-[var(--color-ink-5)] flex-shrink-0">
+              <span className="text-meta text-[var(--color-ink-5)] flex-shrink-0">
                 {(() => {
                   const c = hasChildren ? totalCount : notebookCounts[notebook.id] || 0;
                   return `${c} note${c !== 1 ? "s" : ""}`;
@@ -201,7 +201,7 @@ export default function NotebookNavList({
                   const pct = Math.min(100, Math.round((wc / notebook.wordGoal) * 100));
                   return (
                     <span
-                      className="flex items-center gap-1 text-[10px] text-[var(--color-ink-5)] flex-shrink-0"
+                      className="flex items-center gap-1 text-meta text-[var(--color-ink-5)] flex-shrink-0"
                       title={`${wc.toLocaleString()} / ${notebook.wordGoal.toLocaleString()} words`}
                     >
                       <span className="inline-block w-6 h-1 rounded-full bg-[var(--color-hairline)] overflow-hidden">
@@ -217,7 +217,7 @@ export default function NotebookNavList({
                 if (wc > 0) {
                   return (
                     <span
-                      className="text-[10px] text-[var(--color-ink-5)] flex-shrink-0"
+                      className="text-meta text-[var(--color-ink-5)] flex-shrink-0"
                       title={`${wc.toLocaleString()} words`}
                     >
                       {wc.toLocaleString()}w
@@ -274,12 +274,12 @@ export default function NotebookNavList({
           <div className="flex items-center gap-2">
             <IconNote size={16} className="text-[var(--color-ink-5)]" />
             <span className="text-sm text-[var(--color-ink-1)]">All Notes</span>
-            <span className="text-[11px] text-[var(--color-ink-5)]">{totalNotesCount}</span>
+            <span className="text-meta text-[var(--color-ink-5)]">{totalNotesCount}</span>
           </div>
           {activeNotebookId === null && <IconCheck size={16} className="text-[var(--color-accent-text)]" />}
         </button>
         {hiddenNotebookCount > 0 && activeNotebookId === null && (
-          <div className="px-2.5 py-1 flex items-center gap-1.5 text-[11px]" style={{ color: PRIVATE_COLOR }}>
+          <div className="px-2.5 py-1 flex items-center gap-1.5 text-meta" style={{ color: PRIVATE_COLOR }}>
             <IconEyeOff size={12} />
             <span>
               {hiddenNotebookCount} private notebook{hiddenNotebookCount !== 1 ? "s" : ""}
@@ -295,7 +295,7 @@ export default function NotebookNavList({
           <div className="flex items-center gap-2">
             <IconFileOff size={16} className="text-[var(--color-ink-5)]" />
             <span className="text-sm text-[var(--color-ink-1)]">Loose Notes</span>
-            <span className="text-[11px] text-[var(--color-ink-5)]">{looseNotesCount}</span>
+            <span className="text-meta text-[var(--color-ink-5)]">{looseNotesCount}</span>
           </div>
           {activeNotebookId === "loose" && <IconCheck size={16} className="text-[var(--color-accent-text)]" />}
         </button>
@@ -303,7 +303,7 @@ export default function NotebookNavList({
         {notebooks.length > 0 && <div className="h-px bg-[var(--color-hairline-soft)] my-1.5" />}
 
         {notebooksLoading ? (
-          <div className="px-2.5 py-3 text-center text-[11px] text-[var(--color-ink-5)]">
+          <div className="px-2.5 py-3 text-center text-meta text-[var(--color-ink-5)]">
             Loading...
           </div>
         ) : (
@@ -328,7 +328,7 @@ export default function NotebookNavList({
         {notebookLimitReached && (
           <a
             href="/pricing?ref=notebook-limit"
-            className="mt-1.5 block text-center text-[11px] text-[var(--color-ink-5)] hover:text-[var(--color-accent-text)] transition-colors"
+            className="mt-1.5 block text-center text-meta text-[var(--color-ink-5)] hover:text-[var(--color-accent-text)] transition-colors"
           >
             You’re at {notebookLimit} notebooks. Go unlimited with Scribe
           </a>

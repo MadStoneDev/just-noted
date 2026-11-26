@@ -147,8 +147,8 @@ export default function SerpPreview() {
         {/* Title */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label htmlFor="serp-title" className="font-[family-name:var(--font-meta)] text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">Page title</label>
-            <span className={`font-[family-name:var(--font-meta)] text-[11.5px] ${titleCounterColor}`}>{len(title)} / {TITLE_CHAR}</span>
+            <label htmlFor="serp-title" className="font-[family-name:var(--font-meta)] text-label font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">Page title</label>
+            <span className={`font-[family-name:var(--font-meta)] text-meta ${titleCounterColor}`}>{len(title)} / {TITLE_CHAR}</span>
           </div>
           <textarea
             id="serp-title"
@@ -171,7 +171,7 @@ export default function SerpPreview() {
 
         {/* URL */}
         <div>
-          <label htmlFor="serp-url" className="block mb-1.5 font-[family-name:var(--font-meta)] text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">URL</label>
+          <label htmlFor="serp-url" className="block mb-1.5 font-[family-name:var(--font-meta)] text-label font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">URL</label>
           <input
             id="serp-url"
             value={url}
@@ -184,8 +184,8 @@ export default function SerpPreview() {
         {/* Description */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label htmlFor="serp-desc" className="font-[family-name:var(--font-meta)] text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">Meta description</label>
-            <span className={`font-[family-name:var(--font-meta)] text-[11.5px] ${descCounterColor}`}>{len(description)} / {DESC_CHAR}</span>
+            <label htmlFor="serp-desc" className="font-[family-name:var(--font-meta)] text-label font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">Meta description</label>
+            <span className={`font-[family-name:var(--font-meta)] text-meta ${descCounterColor}`}>{len(description)} / {DESC_CHAR}</span>
           </div>
           <textarea
             id="serp-desc"
@@ -212,7 +212,7 @@ export default function SerpPreview() {
       {/* Right: preview */}
       <div className="p-5 bg-[var(--color-panel)] flex flex-col gap-3.5">
         <div className="flex items-center justify-between">
-          <span className="font-[family-name:var(--font-meta)] text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">Preview</span>
+          <span className="font-[family-name:var(--font-meta)] text-label font-medium uppercase tracking-[0.14em] text-[var(--color-ink-5)]">Preview</span>
           <Segmented
             ariaLabel="Preview device"
             value={device}

@@ -102,7 +102,7 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
             onKeyDown={handleKeyDown}
             className="flex-1 text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] outline-none"
           />
-          <kbd className="px-1.5 py-0.5 text-[9px] bg-[var(--color-bg-tertiary)] border border-[var(--color-border-primary)] rounded text-[var(--color-text-tertiary)] font-mono">
+          <kbd className="px-1.5 py-0.5 text-label bg-[var(--color-bg-tertiary)] border border-[var(--color-border-primary)] rounded text-[var(--color-text-tertiary)] font-mono">
             ESC
           </kbd>
         </div>
@@ -137,13 +137,13 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
                             {note.title}
                           </span>
                           {nbName && (
-                            <span className="px-1.5 py-px text-[8px] font-medium rounded-[var(--radius-sm)] bg-[var(--color-accent-subtle)] text-[var(--color-accent)] shrink-0">
+                            <span className="px-1.5 py-px text-label font-medium rounded-[var(--radius-sm)] bg-[var(--color-accent-subtle)] text-[var(--color-accent)] shrink-0">
                               {nbName}
                             </span>
                           )}
                         </div>
                         {snippet && (
-                          <p className="text-[10px] text-[var(--color-text-tertiary)] truncate mt-0.5">
+                          <p className="text-meta text-[var(--color-text-tertiary)] truncate mt-0.5">
                             {snippet}
                           </p>
                         )}
@@ -160,7 +160,7 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-2 border-t border-[var(--color-border-secondary)] flex items-center gap-3 text-[9px] text-[var(--color-text-tertiary)]">
+        <div className="px-4 py-2 border-t border-[var(--color-border-secondary)] flex items-center gap-3 text-meta text-[var(--color-text-tertiary)]">
           <span className="flex items-center gap-1">
             <kbd className="px-1 py-px bg-[var(--color-bg-tertiary)] border border-[var(--color-border-primary)] rounded font-mono">↑↓</kbd>
             navigate

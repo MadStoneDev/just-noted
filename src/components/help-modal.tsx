@@ -99,7 +99,7 @@ export default function HelpModal() {
                 <span className="text-[var(--color-ink-4)]">{it.icon}</span>
                 <span className="flex-1 text-[13.5px] text-[var(--color-ink-1)]">{it.label}</span>
                 {it.soon ? (
-                  <span className="text-[10px] font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)] bg-[var(--color-raised-soft)] text-[var(--color-ink-5)]">soon</span>
+                  <span className="text-label font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)] bg-[var(--color-raised-soft)] text-[var(--color-ink-5)]">soon</span>
                 ) : it.arrow ? (
                   <IconChevronRight size={15} className="text-[var(--color-ink-5)]" />
                 ) : null}
@@ -112,7 +112,7 @@ export default function HelpModal() {
                   <span className="text-[13px] text-[var(--color-ink-2)]">{s.description}</span>
                   <span className="flex items-center gap-1 shrink-0">
                     {keys(...s.keys).map((k, j) => (
-                      <kbd key={j} className="min-w-[20px] text-center text-[11px] font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)] border border-[var(--color-border-control)] bg-[var(--color-raised)] text-[var(--color-ink-3)]">
+                      <kbd key={j} className="min-w-[20px] text-center text-label font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)] border border-[var(--color-border-control)] bg-[var(--color-raised)] text-[var(--color-ink-3)]">
                         {k}
                       </kbd>
                     ))}

@@ -84,7 +84,7 @@ function MessageRow({
 }) {
   if (m.isDeleted) {
     return (
-      <li className="px-4 py-1.5 flex items-center gap-2 text-[12px] italic text-[var(--color-ink-6)]">
+      <li className="px-4 py-1.5 flex items-center gap-2 text-[12px] italic text-[var(--color-ink-5)]">
         <IconTrash size={12} /> Message deleted
       </li>
     );
@@ -95,8 +95,8 @@ function MessageRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-1.5">
           <span className="text-[12.5px] font-medium text-[var(--color-ink-1)] truncate">{m.authorName}</span>
-          <span className="text-[10.5px] text-[var(--color-ink-6)] shrink-0">{relativeTime(m.createdAt)}</span>
-          {m.isEdited && <span className="text-[10px] text-[var(--color-ink-6)] shrink-0">(edited)</span>}
+          <span className="text-meta text-[var(--color-ink-5)] shrink-0">{relativeTime(m.createdAt)}</span>
+          {m.isEdited && <span className="text-meta text-[var(--color-ink-5)] shrink-0">(edited)</span>}
         </div>
         {m.anchor && (
           <button
@@ -105,7 +105,7 @@ function MessageRow({
             className="mt-0.5 mb-1 w-full text-left flex gap-1.5 pl-2 border-l-2 border-[var(--color-accent-tint-border)] hover:border-[var(--color-accent-text)] transition-colors"
           >
             <IconQuote size={12} className="mt-0.5 shrink-0 text-[var(--color-ink-6)]" />
-            <span className="text-[11.5px] italic text-[var(--color-ink-5)] line-clamp-2">{m.anchor.quote}</span>
+            <span className="text-meta italic text-[var(--color-ink-5)] line-clamp-2">{m.anchor.quote}</span>
           </button>
         )}
         {m.body && (
@@ -368,7 +368,7 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
           ) : messages.length === 0 ? (
             <div className="py-10 text-center px-6">
               <p className="text-sm text-[var(--color-text-tertiary)]">No messages yet</p>
-              <p className="text-[11px] text-[var(--color-text-tertiary)] mt-1">
+              <p className="text-meta text-[var(--color-text-tertiary)] mt-1">
                 Say something to the people this note is shared with.
               </p>
             </div>
@@ -385,7 +385,7 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
         {canSend ? (
           <div className="border-t border-[var(--color-border-secondary)] p-2.5">
             {editing && (
-              <div className="flex items-center justify-between px-1 pb-1.5 text-[11px] text-[var(--color-ink-5)]">
+              <div className="flex items-center justify-between px-1 pb-1.5 text-meta text-[var(--color-ink-5)]">
                 <span>Editing message</span>
                 <button onClick={() => { setEditing(null); setText(""); }} className="hover:text-[var(--color-ink-2)]">Cancel</button>
               </div>
@@ -393,7 +393,7 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
             {pendingAnchor && !editing && (
               <div className="flex items-start gap-1.5 px-2 py-1.5 mb-1.5 rounded-[var(--radius-8)] bg-[var(--color-raised-soft)] border-l-2 border-[var(--color-accent-text)]">
                 <IconQuote size={12} className="mt-0.5 shrink-0 text-[var(--color-ink-5)]" />
-                <span className="flex-1 min-w-0 text-[11.5px] italic text-[var(--color-ink-4)] line-clamp-2">{pendingAnchor.quote}</span>
+                <span className="flex-1 min-w-0 text-meta italic text-[var(--color-ink-4)] line-clamp-2">{pendingAnchor.quote}</span>
                 <button
                   onClick={() => setPendingAnchor(null)}
                   aria-label="Remove quote"
@@ -417,7 +417,7 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
                       alt="Attachment preview"
                       className="h-14 w-14 rounded-[var(--radius-6)] object-cover shrink-0"
                     />
-                    <span className="flex-1 min-w-0 text-[11.5px] text-[var(--color-ink-4)] truncate">
+                    <span className="flex-1 min-w-0 text-meta text-[var(--color-ink-4)] truncate">
                       {draft.kind === "gif" ? "GIF" : "Image"} ready to send
                     </span>
                   </>
@@ -503,7 +503,7 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
             </div>
           </div>
         ) : (
-          <div className="border-t border-[var(--color-border-secondary)] px-4 py-3 flex items-center gap-2 text-[12px] text-[var(--color-ink-5)]">
+          <div className="border-t border-[var(--color-border-secondary)] px-4 py-3 flex items-center gap-2 text-meta text-[var(--color-ink-5)]">
             <IconLock size={13} className="shrink-0" />
             Chat is read-only.
           </div>

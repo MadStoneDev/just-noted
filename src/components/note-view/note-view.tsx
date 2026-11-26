@@ -303,7 +303,7 @@ export default function NoteView({
               </div>
             )}
             {contextSubLabel && (
-              <div className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-accent-deep)] leading-tight">
+              <div className="text-meta font-[family-name:var(--font-meta)] text-[var(--color-accent-deep)] leading-tight">
                 {contextSubLabel}
               </div>
             )}
@@ -367,7 +367,7 @@ export default function NoteView({
                 <NoteStatsRow content={content} goal={model.goal} goalType={model.goalType ?? undefined} />
                 {statusLabel && (
                   <span
-                    className={`text-[11px] font-[family-name:var(--font-meta)] ${
+                    className={`text-meta font-[family-name:var(--font-meta)] ${
                       statusTone === "error" ? "text-[var(--color-danger)]" : "text-[var(--color-accent-text)]"
                     }`}
                   >
@@ -431,7 +431,7 @@ export default function NoteView({
       {/* Formatting help modal */}
       <Modal open={showHelp} onClose={() => setShowHelp(false)} title="Formatting" size="sm">
         <div className="space-y-0.5 text-xs">
-          <p className="text-[10px] text-[var(--color-ink-5)] mb-3">
+          <p className="text-meta text-[var(--color-ink-5)] mb-3">
             Select text to show the formatting toolbar. You can also type markdown directly:
           </p>
           {[
@@ -456,16 +456,16 @@ export default function NoteView({
               key={syntax}
               className="flex items-center justify-between py-1.5 border-b border-[var(--color-hairline)] last:border-0"
             >
-              <code className="px-1.5 py-0.5 bg-[var(--color-raised-soft)] rounded-[var(--radius-sm)] text-[11px] font-mono text-[var(--color-ink-3)]">
+              <code className="px-1.5 py-0.5 bg-[var(--color-raised-soft)] rounded-[var(--radius-sm)] text-meta font-mono text-[var(--color-ink-3)]">
                 {syntax}
               </code>
               <span className="text-[var(--color-ink-5)]">{desc}</span>
             </div>
           ))}
-          <p className="text-[10px] text-[var(--color-ink-5)] pt-3">
-            Keyboard: <kbd className="px-1 py-px bg-[var(--color-raised-soft)] rounded text-[10px] font-mono"><Shortcut keys={["Mod", "B"]} /></kbd> bold ·{" "}
-            <kbd className="px-1 py-px bg-[var(--color-raised-soft)] rounded text-[10px] font-mono"><Shortcut keys={["Mod", "I"]} /></kbd> italic ·{" "}
-            <kbd className="px-1 py-px bg-[var(--color-raised-soft)] rounded text-[10px] font-mono"><Shortcut keys={["Mod", "Z"]} /></kbd> undo
+          <p className="text-meta text-[var(--color-ink-5)] pt-3">
+            Keyboard: <kbd className="px-1 py-px bg-[var(--color-raised-soft)] rounded text-label font-mono"><Shortcut keys={["Mod", "B"]} /></kbd> bold ·{" "}
+            <kbd className="px-1 py-px bg-[var(--color-raised-soft)] rounded text-label font-mono"><Shortcut keys={["Mod", "I"]} /></kbd> italic ·{" "}
+            <kbd className="px-1 py-px bg-[var(--color-raised-soft)] rounded text-label font-mono"><Shortcut keys={["Mod", "Z"]} /></kbd> undo
           </p>
         </div>
       </Modal>

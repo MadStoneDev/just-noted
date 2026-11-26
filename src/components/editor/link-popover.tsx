@@ -163,7 +163,7 @@ export default function LinkPopover({ getEditor, containerRef, onBeforeEdit }: L
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 px-2 py-1 text-[10px] text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] truncate max-w-[180px] transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-meta text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] truncate max-w-[180px] transition-colors"
               title={href}
             >
               <IconExternalLink size={12} className="shrink-0" />

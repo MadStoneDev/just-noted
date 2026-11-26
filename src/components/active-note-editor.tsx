@@ -1799,11 +1799,11 @@ export function NoteEditor({
         className="print:hidden hidden md:flex"
         left={
           <div className="flex items-center gap-2">
-            <span className="px-1.5 py-0.5 rounded-[var(--radius-5)] bg-[var(--color-raised-soft)] text-[11px] text-[var(--color-ink-4)]">
+            <span className="px-1.5 py-0.5 rounded-[var(--radius-5)] bg-[var(--color-raised-soft)] text-label text-[var(--color-ink-4)]">
               {noteSource === "supabase" ? "Cloud" : "Local"}
             </span>
             {isSaving && (
-              <span className="text-[11px] text-[var(--color-ink-4)] animate-pulse-subtle">Saving…</span>
+              <span className="text-meta text-[var(--color-ink-4)] animate-pulse-subtle">Saving…</span>
             )}
           </div>
         }
@@ -1928,7 +1928,7 @@ export function NoteEditor({
                   window.dispatchEvent(new Event("justnoted:show-notes"));
                 }}
                 title={`Go to ${notebook.name}`}
-                className="inline-flex items-center gap-1 px-1.5 py-px text-[11px] rounded-[var(--radius-5)] bg-[var(--color-raised-soft)] text-[var(--color-ink-3)] hover:text-[var(--color-accent-text)] transition-colors"
+                className="inline-flex items-center gap-1 px-1.5 py-px text-label rounded-[var(--radius-5)] bg-[var(--color-raised-soft)] text-[var(--color-ink-3)] hover:text-[var(--color-accent-text)] transition-colors"
               >
                 <IconNotebook size={9} className="shrink-0" />
                 {notebook.name}
@@ -1937,13 +1937,13 @@ export function NoteEditor({
             {assignedTags.map((tag) => (
               <span
                 key={tag.id}
-                className="inline-flex items-center px-1.5 py-px text-[11px] rounded-full"
+                className="inline-flex items-center px-1.5 py-px text-label rounded-full"
                 style={{ backgroundColor: tag.color + "20", color: tag.color }}
               >
                 {tag.name}
               </span>
             ))}
-            <span className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
+            <span className="text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
               <span title={`${wordCount} words`}>{wordCount}w</span> · <span title={`${charCount} characters`}>{charCount}c</span> · <span title="Estimated reading time">{readingTime}</span> ·{" "}
               <button
                 onClick={() => setShowPagePicker((s) => !s)}
@@ -2077,7 +2077,7 @@ export function NoteEditor({
                       ? "Drop to open in this note"
                       : "Drop to open as a new note"}
                   </span>
-                  <span className="text-[11px] opacity-70">.txt or .md</span>
+                  <span className="text-meta opacity-70">.txt or .md</span>
                 </div>
               </div>
             )}
@@ -2104,7 +2104,7 @@ export function NoteEditor({
                     }}
                   />
                 </span>
-                <span className="text-[10px] font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)]">
+                <span className="text-label font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)]">
                   {syncBar === "loading" ? "Syncing" : "Synced"}
                 </span>
               </div>
@@ -2154,7 +2154,7 @@ export function NoteEditor({
       {/* Formatting help modal */}
       <Modal open={showHelp} onClose={() => setShowHelp(false)} title="Formatting" size="sm">
         <div className="space-y-0.5 text-xs">
-          <p className="text-[10px] text-[var(--color-text-tertiary)] mb-3">
+          <p className="text-meta text-[var(--color-text-tertiary)] mb-3">
             Select text to show the formatting toolbar. You can also type markdown directly:
           </p>
           {[
@@ -2176,14 +2176,14 @@ export function NoteEditor({
             ["![alt](url)", "Image"],
           ].map(([syntax, desc]) => (
             <div key={syntax} className="flex items-center justify-between py-1.5 border-b border-[var(--color-border-secondary)] last:border-0">
-              <code className="px-1.5 py-0.5 bg-[var(--color-bg-tertiary)] rounded-[var(--radius-sm)] text-[11px] font-mono text-[var(--color-text-secondary)]">
+              <code className="px-1.5 py-0.5 bg-[var(--color-bg-tertiary)] rounded-[var(--radius-sm)] text-meta font-mono text-[var(--color-text-secondary)]">
                 {syntax}
               </code>
               <span className="text-[var(--color-text-tertiary)]">{desc}</span>
             </div>
           ))}
-          <p className="text-[10px] text-[var(--color-text-tertiary)] pt-3">
-            Keyboard: <kbd className="px-1 py-px bg-[var(--color-bg-tertiary)] rounded text-[10px] font-mono"><Shortcut keys={["Mod", "B"]} /></kbd> bold · <kbd className="px-1 py-px bg-[var(--color-bg-tertiary)] rounded text-[10px] font-mono"><Shortcut keys={["Mod", "I"]} /></kbd> italic · <kbd className="px-1 py-px bg-[var(--color-bg-tertiary)] rounded text-[10px] font-mono"><Shortcut keys={["Mod", "Z"]} /></kbd> undo
+          <p className="text-meta text-[var(--color-text-tertiary)] pt-3">
+            Keyboard: <kbd className="px-1 py-px bg-[var(--color-bg-tertiary)] rounded text-label font-mono"><Shortcut keys={["Mod", "B"]} /></kbd> bold · <kbd className="px-1 py-px bg-[var(--color-bg-tertiary)] rounded text-label font-mono"><Shortcut keys={["Mod", "I"]} /></kbd> italic · <kbd className="px-1 py-px bg-[var(--color-bg-tertiary)] rounded text-label font-mono"><Shortcut keys={["Mod", "Z"]} /></kbd> undo
           </p>
         </div>
       </Modal>

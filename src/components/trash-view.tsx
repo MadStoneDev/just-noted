@@ -138,31 +138,31 @@ export default function TrashView({ onClose }: TrashViewProps) {
     <div className="flex-1 overflow-y-auto scrollbar-thin bg-[var(--color-canvas)]">
       <div className="mx-auto max-w-[900px] px-6 md:px-10 py-10">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 mb-8">
-          <div>
+        <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
+          <div className="min-w-[220px] flex-1">
             <h1 className="font-[family-name:var(--font-editor)] text-[34px] leading-[1.05] font-medium tracking-[-0.01em] text-[var(--color-ink)]">
               Trash
             </h1>
-            <p className="mt-1.5 text-[11.5px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
+            <p className="mt-1.5 text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
               {authenticated === false
                 ? "Deleted notes"
                 : `${notes.length} note${notes.length !== 1 ? "s" : ""} · deleted notes are removed after ${retentionDays} days`}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {notes.length > 0 && (
               <>
                 <button
                   onClick={handleRestoreAll}
                   disabled={busy}
-                  className="h-8 px-3 rounded-[var(--radius-7)] text-[12.5px] font-medium border border-[var(--color-border-control)] text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)] transition-colors disabled:opacity-50"
+                  className="h-8 px-3 rounded-[var(--radius-7)] text-[12.5px] font-medium whitespace-nowrap border border-[var(--color-border-control)] text-[var(--color-ink-2)] hover:bg-[var(--color-raised-soft)] transition-colors disabled:opacity-50"
                 >
                   Restore all
                 </button>
                 <button
                   onClick={() => setConfirmEmpty(true)}
                   disabled={busy}
-                  className="h-8 px-3 rounded-[var(--radius-7)] text-[12.5px] font-medium bg-[var(--color-danger-tint)] border border-[var(--color-danger-tint-border)] text-[var(--color-danger-strong)] hover:opacity-90 transition-opacity disabled:opacity-50"
+                  className="h-8 px-3 rounded-[var(--radius-7)] text-[12.5px] font-medium whitespace-nowrap bg-[var(--color-danger-tint)] border border-[var(--color-danger-tint-border)] text-[var(--color-danger-strong)] hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
                   Empty trash
                 </button>
@@ -213,7 +213,7 @@ export default function TrashView({ onClose }: TrashViewProps) {
         ) : (
           <div className="rounded-[var(--radius-12)] border border-[var(--color-hairline)] overflow-x-auto">
             {/* Column header */}
-            <div className="grid min-w-[600px] grid-cols-[1fr_150px_90px_90px_120px] gap-3 px-4 py-2 bg-[var(--color-panel)] border-b border-[var(--color-hairline)] text-[10px] font-[family-name:var(--font-meta)] uppercase tracking-[0.12em] text-[var(--color-ink-5)]">
+            <div className="grid min-w-[600px] grid-cols-[1fr_150px_90px_90px_120px] gap-3 px-4 py-2 bg-[var(--color-panel)] border-b border-[var(--color-hairline)] text-label font-[family-name:var(--font-meta)] uppercase tracking-[0.12em] text-[var(--color-ink-5)]">
               <span>Note</span>
               <span>Notebook</span>
               <span>Deleted</span>
@@ -246,7 +246,7 @@ export default function TrashView({ onClose }: TrashViewProps) {
                     <div className="text-[13.5px] text-[var(--color-ink-1)] truncate">
                       {note.title || "Untitled"}
                     </div>
-                    <div className="text-[10.5px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
+                    <div className="text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
                       {words.toLocaleString()}w
                     </div>
                   </div>
@@ -257,17 +257,17 @@ export default function TrashView({ onClose }: TrashViewProps) {
                           className="w-[7px] h-[7px] rounded-[2px] shrink-0"
                           style={getCoverPreviewStyle(nb.coverType, nb.coverValue)}
                         />
-                        <span className="text-[12px] text-[var(--color-ink-3)] truncate">{nb.name}</span>
+                        <span className="text-meta text-[var(--color-ink-3)] truncate">{nb.name}</span>
                       </>
                     ) : (
-                      <span className="text-[12px] text-[var(--color-ink-5)]">Loose notes</span>
+                      <span className="text-meta text-[var(--color-ink-5)]">Loose notes</span>
                     )}
                   </div>
-                  <div className="text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
+                  <div className="text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
                     {note.deletedAt ? relativeTime(note.deletedAt) : ""}
                   </div>
                   <div
-                    className="text-right text-[11px] font-[family-name:var(--font-meta)]"
+                    className="text-right text-meta font-[family-name:var(--font-meta)]"
                     style={{ color: countdownColor }}
                   >
                     {daysLeft}d
@@ -275,7 +275,7 @@ export default function TrashView({ onClose }: TrashViewProps) {
                   <div className="flex items-center justify-end gap-2">
                     <button
                       onClick={() => handleRestore(note.id)}
-                      className="text-[11.5px] text-[var(--color-accent-text)] hover:text-[var(--color-accent-deep)] transition-colors"
+                      className="text-meta text-[var(--color-accent-text)] hover:text-[var(--color-accent-deep)] transition-colors"
                     >
                       Restore
                     </button>

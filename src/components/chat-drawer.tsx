@@ -68,7 +68,7 @@ export default function ChatDrawer({ noteId, enabled }: { noteId: string; enable
       >
         <IconMessageCircle size={18} />
         {!open && unread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-0.5 rounded-full bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] text-[9px] font-semibold flex items-center justify-center">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-0.5 rounded-full bg-[var(--color-accent-fill)] text-[var(--color-accent-on-fill)] text-label font-semibold flex items-center justify-center">
             {unread > 9 ? "9+" : unread}
           </span>
         )}

@@ -611,7 +611,12 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
               bulkAssignNotesToNotebook([noteId], notebookId);
             });
           }}
-          onOpenTrash={() => setShowTrash(true)}
+          onOpenTrash={() => {
+            setShowTrash(true);
+            // Phone: the list fills the screen, so Trash (in the main area) would
+            // open off-screen. Hide the list, as opening a shared note does.
+            if (typeof window !== "undefined" && window.innerWidth < 768) setSidebarOpen(false);
+          }}
           onNewNote={handleNewNote}
           onTogglePin={(noteId, isPinned) => notesOperations.updatePinStatus(noteId, isPinned)}
           onTransferNote={(noteId, targetSource) => notesOperations.transferNote(noteId, targetSource)}
@@ -644,7 +649,7 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
               onClose={() => router.push("/")}
             />
           ) : showTrash ? (
-            <TrashView onClose={() => setShowTrash(false)} />
+            <TrashView onClose={() => { setShowTrash(false); setSidebarOpen(true); }} />
           ) : showNotifications ? (
             <NotificationsView
               items={notif.items}

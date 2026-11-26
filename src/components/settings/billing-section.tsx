@@ -23,7 +23,7 @@ function Meter({ label, used, limit }: { label: string; used: number; limit: num
     <div>
       <div className="flex items-baseline justify-between mb-1">
         <span className="text-[13px] text-[var(--color-ink-2)]">{label}</span>
-        <span className="text-[11.5px] font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
+        <span className="text-meta font-[family-name:var(--font-meta)] text-[var(--color-ink-5)]">
           {used}
           {unlimited ? " · unlimited" : ` / ${limit}`}
         </span>
@@ -166,7 +166,7 @@ export default function BillingSection() {
             <div className="flex items-center gap-2">
               <span className="text-[15px] font-semibold text-[var(--color-ink-1)]">{TIER_LABEL[tier]} plan</span>
               {isPaid && (
-                <span className="text-[10px] font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)] border border-[var(--color-accent-tint-border)]">
+                <span className="text-label font-[family-name:var(--font-meta)] px-1.5 py-0.5 rounded-[var(--radius-5)] bg-[var(--color-accent-tint)] text-[var(--color-accent-text)] border border-[var(--color-accent-tint-border)]">
                   active
                 </span>
               )}
@@ -191,13 +191,13 @@ export default function BillingSection() {
             </p>
           </div>
           {isPaid && (billingState === "manual" ? (
-            <span className="h-8 inline-flex items-center px-2.5 rounded-[var(--radius-7)] text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-accent-text)] border border-[var(--color-accent-tint-border)] bg-[var(--color-accent-tint)]">
+            <span className="h-8 inline-flex items-center px-2.5 rounded-[var(--radius-7)] text-label font-[family-name:var(--font-meta)] text-[var(--color-accent-text)] border border-[var(--color-accent-tint-border)] bg-[var(--color-accent-tint)]">
               Complimentary
             </span>
           ) : billingState === "billing_issue" ? (
             <a
               href="/contact"
-              className="h-8 inline-flex items-center px-2.5 rounded-[var(--radius-7)] text-[11.5px] font-medium text-[var(--color-ink-2)] border border-[var(--color-border-control)] hover:bg-[var(--color-raised-soft)] transition-colors"
+              className="h-8 inline-flex items-center px-2.5 rounded-[var(--radius-7)] text-label font-medium text-[var(--color-ink-2)] border border-[var(--color-border-control)] hover:bg-[var(--color-raised-soft)] transition-colors"
             >
               Contact support
             </a>
@@ -221,7 +221,7 @@ export default function BillingSection() {
 
       {/* Usage */}
       <div>
-        <div className="mb-2 text-[11px] font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)]">Usage</div>
+        <div className="mb-2 text-label font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)]">Usage</div>
         <div className="space-y-3.5">
           <Meter label="Notes" used={usage.notes} limit={limits.maxNotes} />
           <Meter label="Notebooks" used={usage.notebooks} limit={notebookLimit} />
@@ -231,7 +231,7 @@ export default function BillingSection() {
 
       {/* Compare plans — the same table as /pricing, from the plan config. */}
       <div>
-        <div className="mb-2 text-[11px] font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)]">Compare plans</div>
+        <div className="mb-2 text-label font-[family-name:var(--font-meta)] uppercase tracking-wider text-[var(--color-ink-5)]">Compare plans</div>
         <PlanComparison />
       </div>
 
@@ -264,13 +264,13 @@ export default function BillingSection() {
             </button>
           </div>
           {(checkout.month || checkout.year) && !checkout[interval] && (
-            <p className="mt-2 text-[11px] text-[var(--color-ink-5)]">
+            <p className="mt-2 text-meta text-[var(--color-ink-5)]">
               {interval === "year" ? "Yearly" : "Monthly"} billing isn’t available right now. Choose{" "}
               {interval === "year" ? "Monthly" : "Yearly"} or try again later.
             </p>
           )}
           {!checkout.month && !checkout.year && (
-            <p className="mt-2 text-[11px] text-[var(--color-ink-5)]">Checkout is being set up. The button will be live once billing is configured.</p>
+            <p className="mt-2 text-meta text-[var(--color-ink-5)]">Checkout is being set up. The button will be live once billing is configured.</p>
           )}
         </div>
       )}

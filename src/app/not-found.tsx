@@ -34,7 +34,7 @@ export default function NotFound() {
           Back to Home
         </Link>
 
-        <p className="text-xs text-[var(--color-text-tertiary)] mt-6">
+        <p className="text-meta text-[var(--color-text-tertiary)] mt-6">
           Your notes are safe and waiting for you
         </p>
       </div>

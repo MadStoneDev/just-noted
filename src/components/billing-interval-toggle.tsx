@@ -44,7 +44,7 @@ export default function BillingIntervalToggle({
           >
             {o.label}
             {o.note && (
-              <span className={`ml-1 text-[10.5px] ${selected ? "opacity-90" : "text-[var(--color-accent-text)]"}`}>
+              <span className={`ml-1 text-label ${selected ? "opacity-90" : "text-[var(--color-accent-text)]"}`}>
                 · {o.note}
               </span>
             )}

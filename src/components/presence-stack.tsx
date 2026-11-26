@@ -55,7 +55,7 @@ export function PresenceStack({
       </div>
       {extra > 0 && (
         <span
-          className="ml-1 h-[20px] px-1.5 flex items-center rounded-full text-[11px] font-[family-name:var(--font-meta)] text-[var(--color-ink-3)] bg-[var(--color-raised-soft)]"
+          className="ml-1 h-[20px] px-1.5 flex items-center rounded-full text-label font-[family-name:var(--font-meta)] text-[var(--color-ink-3)] bg-[var(--color-raised-soft)]"
         >
           +{extra}
         </span>
