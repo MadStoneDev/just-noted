@@ -5,23 +5,23 @@ import { Modal } from "@/components/ds/modal";
 import { useNotesStore } from "@/stores/notes-store";
 import { useOfflineQueue } from "@/hooks/use-online-status";
 import { OFFLINE_SWITCH_MESSAGE, type DeviceAccount } from "@/utils/accounts";
-import { IconUser, IconCloudUpload, IconDeviceLaptop, IconWifiOff } from "@tabler/icons-react";
+import { IconCloudUpload, IconDeviceLaptop, IconWifiOff } from "@tabler/icons-react";
 import { Avatar } from "@/components/ui/avatar";
 
 // Blocking "unsynced work" gate before an account switch (design surface 12).
 // Unsynced notes hold the switch until the queue drains. Switching needs a
 // connection, so offline the switch is unavailable (no "switch anyway") and the
-// user stays on the current account. Local-only notes are informational.
+// user stays on the current account. Local-only notes are informational. An
+// open note (own or shared) needs no warning: the switch reopens each account's
+// own place (utils/account-place).
 export function AccountSwitchModal({
   target,
   currentHandle,
-  hasOpenSharedNote,
   onCancel,
   onConfirm,
 }: {
   target: DeviceAccount;
   currentHandle?: string;
-  hasOpenSharedNote?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -81,18 +81,6 @@ export function AccountSwitchModal({
               </div>
               <div className="mt-0.5 text-[12px] leading-snug text-[var(--color-ink-4)]">
                 Local notes belong to this device, not an account. They'll be here when you switch back.
-              </div>
-            </div>
-          </div>
-        )}
-
-        {hasOpenSharedNote && (
-          <div className="flex items-start gap-2.5 rounded-[var(--radius-9)] p-3 border border-[var(--color-hairline)]">
-            <IconUser size={17} className="text-[var(--color-ink-5)] mt-0.5 shrink-0" />
-            <div className="min-w-0">
-              <div className="text-[13px] font-medium text-[var(--color-ink-1)]">You're viewing a shared note</div>
-              <div className="mt-0.5 text-[12px] leading-snug text-[var(--color-ink-4)]">
-                Switching will close it. Re-open it with the link once you're on the other account.
               </div>
             </div>
           </div>

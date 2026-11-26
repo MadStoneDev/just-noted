@@ -36,7 +36,7 @@ test.describe("shared note open", () => {
     await page.addInitScript((other) => {
       try {
         if (sessionStorage.getItem("__e2e_last_shared")) return;
-        localStorage.setItem("justnoted_last_shared", JSON.stringify({ shortcode: "zzzzzzzz", account: other }));
+        localStorage.setItem("jn_account_place", JSON.stringify({ [other]: { shared: "zzzzzzzz" } }));
         sessionStorage.setItem("__e2e_last_shared", "1");
       } catch {}
     }, seededAccounts()[0].id);
@@ -69,12 +69,11 @@ test.describe("shared note open", () => {
 
     try {
       await signIn(page, b);
-      // Start on the Notes rail with the shared note closed.
+      // Start on the Notes rail with the shared note closed (nothing remembered).
       await page.addInitScript(() => {
         try {
           if (sessionStorage.getItem("__e2e_rail_set")) return;
-          localStorage.setItem("jn_sidebar_rail_view", "notes");
-          localStorage.removeItem("justnoted_last_shared");
+          localStorage.setItem("jn_account_place", JSON.stringify({}));
           sessionStorage.setItem("__e2e_rail_set", "1");
         } catch {}
       });

@@ -92,16 +92,12 @@ export default function AccountMenu() {
     const localOnly = useNotesStore
       .getState()
       .notes.filter((n) => !n.deletedAt && n.source === "redis").length;
-    const hasOpenShared = typeof document !== "undefined" && !!document.querySelector('[aria-label="Shared note"]');
-    if (pending === 0 && localOnly === 0 && !hasOpenShared) {
+    if (pending === 0 && localOnly === 0) {
       await commitSwitch(a);
       return;
     }
     setConfirmTarget(a);
   };
-
-  const hasOpenShared =
-    typeof document !== "undefined" && !!document.querySelector('[aria-label="Shared note"]');
 
   const { signOut, dialog: signOutDialog } = useSignOut({
     onSignedOut: () => {
@@ -118,7 +114,6 @@ export default function AccountMenu() {
       <AccountSwitchModal
         target={confirmTarget}
         currentHandle={current?.handle}
-        hasOpenSharedNote={hasOpenShared}
         onCancel={() => setConfirmTarget(null)}
         onConfirm={() => commitSwitch(confirmTarget)}
       />

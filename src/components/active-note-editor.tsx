@@ -3,8 +3,8 @@
 import React, { useCallback, useState, useRef, useEffect, useLayoutEffect, useMemo } from "react";
 import { Shortcut } from "@/components/ui/shortcut";
 import { useShortcut } from "@/utils/shortcut-label";
+import { currentAccount, isSwitchBoot, ownNoteToRestore, readPlace, writePlace } from "@/utils/account-place";
 
-const LAST_NOTE_KEY = "justnoted_last_note";
 import LazyTextBlock from "@/components/lazy-text-block";
 import { createClient } from "@/utils/supabase/client";
 import { sharingOperation } from "@/app/actions/sharing";
@@ -115,25 +115,47 @@ export default function ActiveNoteEditor({
   const splitNote = splitRaw && !splitRaw.deletedAt ? splitRaw : null;
   const noteCount = useNotesStore((s) => s.notes.length);
 
-  // Auto-select: restore last opened note, or pick most recent — live notes
-  // only (picking a tombstone re-opened a note right after it was deleted).
+  // Auto-select: restore this account's last opened note, or pick the most
+  // recent — live notes only (picking a tombstone re-opened a note right after
+  // it was deleted). Per account (utils/account-place). Right after an account
+  // switch it waits for the new account's notes, and there is no "most recent"
+  // fallback: a remembered note that's gone (or none remembered) leaves no note
+  // open, with the standard Notes panel.
+  const hasServerSynced = useNotesStore((s) => s.hasServerSynced);
+  const [account, setAccount] = useState<string | null>(null);
   useEffect(() => {
-    if (activeNoteId || noteCount === 0) return;
-
-    const notes = useNotesStore.getState().notes.filter((n) => !n.deletedAt);
-    const lastId = localStorage.getItem(LAST_NOTE_KEY);
-    if (lastId && notes.find((n) => n.id === lastId)) {
-      setActiveNoteId(lastId);
-    } else if (notes[0]) {
-      setActiveNoteId(notes[0].id);
-    }
-  }, [activeNoteId, noteCount, setActiveNoteId]);
-
-  // Persist active note to localStorage
+    let alive = true;
+    currentAccount().then((a) => {
+      if (alive) setAccount(a);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const switchRestoreDone = useRef(false);
   useEffect(() => {
-    if (activeNoteId) {
-      localStorage.setItem(LAST_NOTE_KEY, activeNoteId);
+    if (activeNoteId || !account) return;
+    const afterSwitch = isSwitchBoot();
+    if (afterSwitch ? !hasServerSynced : noteCount === 0) return;
+
+    const place = readPlace(account);
+    const liveIds = useNotesStore
+      .getState()
+      .notes.filter((n) => !n.deletedAt)
+      .map((n) => n.id);
+    const pick = ownNoteToRestore(place, liveIds, afterSwitch);
+    if (afterSwitch && !switchRestoreDone.current) {
+      switchRestoreDone.current = true;
+      // The remembered note is gone: back to the standard Notes panel.
+      if (!pick && place.noteId && !place.shared) window.dispatchEvent(new Event("justnoted:show-notes"));
     }
+    if (pick) setActiveNoteId(pick);
+  }, [activeNoteId, noteCount, account, hasServerSynced, setActiveNoteId]);
+
+  // Remember the open note for this account.
+  useEffect(() => {
+    if (!activeNoteId) return;
+    currentAccount().then((a) => writePlace(a, { noteId: activeNoteId }));
   }, [activeNoteId]);
   const [syncScroll, setSyncScroll] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);

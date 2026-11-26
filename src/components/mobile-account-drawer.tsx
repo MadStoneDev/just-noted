@@ -57,8 +57,7 @@ export function MobileAccountDrawer({ open, onClose }: { open: boolean; onClose:
     if (isOffline()) { showError(OFFLINE_SWITCH_MESSAGE); return; }
     const pending = await getSendableQueueSize();
     const localOnly = useNotesStore.getState().notes.filter((n) => !n.deletedAt && n.source === "redis").length;
-    const hasOpenShared = typeof document !== "undefined" && !!document.querySelector('[aria-label="Shared note"]');
-    if (pending === 0 && localOnly === 0 && !hasOpenShared) { await commitSwitch(a); return; }
+    if (pending === 0 && localOnly === 0) { await commitSwitch(a); return; }
     setConfirmTarget(a);
   }, [commitSwitch, showError]);
 
@@ -69,8 +68,6 @@ export function MobileAccountDrawer({ open, onClose }: { open: boolean; onClose:
     onError: showError,
   });
 
-  const hasOpenShared = typeof document !== "undefined" && !!document.querySelector('[aria-label="Shared note"]');
-
   return (
     <>
       {signOutDialog}
@@ -79,8 +76,7 @@ export function MobileAccountDrawer({ open, onClose }: { open: boolean; onClose:
         <AccountSwitchModal
           target={confirmTarget}
           currentHandle={current?.handle}
-          hasOpenSharedNote={hasOpenShared}
-          onCancel={() => setConfirmTarget(null)}
+            onCancel={() => setConfirmTarget(null)}
           onConfirm={() => commitSwitch(confirmTarget)}
         />
       )}

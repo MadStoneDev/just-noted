@@ -24,7 +24,7 @@ import { readEditorFont, applyEditorFont, readEditorFontSize, applyEditorFontSiz
 import { captureCurrentAccount, SWITCH_MARKER_KEY, type SwitchMarker } from "@/utils/accounts";
 import { AccountSwitchTransition } from "@/components/account-switch-modal";
 import { createClient } from "@/utils/supabase/client";
-import { readLastShared, shortcodeToRestore, writeLastShared } from "@/utils/last-shared";
+import { currentAccount, readPlace, sharedToRestore, writePlace } from "@/utils/account-place";
 import NotebookModal from "@/components/notebook-modal";
 import UndoDeleteToast from "@/components/ui/undo-toast";
 import OfflineIndicator from "@/components/ui/offline-indicator";
@@ -216,35 +216,36 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
   }, []);
 
   // Remember whether the main area last showed a shared note, and restore it on
-  // reload. activeNoteId / justnoted_last_note only cover the user's own notes,
-  // so without this a refresh drops a shared note back to the last own-note.
-  // Scoped to the account and only restored on "/" (utils/last-shared): this
-  // used to run after the route sync and replace a /n/ link's note with the
-  // last one, or with another account's note, which showed "Can't access note".
-  const [lastSharedAccount, setLastSharedAccount] = useState<string | null>(null);
+  // reload or after switching back to this account. The own-note half lives in
+  // ActiveNoteEditor; both are per account (utils/account-place), so another
+  // account's shared note is never reopened here (it showed "Can't access
+  // note"). Only restored on "/": any other path (a /n/ link, Settings) decides
+  // the view itself.
+  const [placeAccount, setPlaceAccount] = useState<string | null>(null);
+  // The shortcode opened by this restore (not by the user). If it can't be
+  // opened any more, it closes quietly to the Notes panel instead of an error.
+  const restoredSharedRef = useRef<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     const pathAtLoad = window.location.pathname;
-    (async () => {
-      let account = "guest";
-      try {
-        const { data } = await createClient().auth.getSession();
-        account = data.session?.user?.id ?? "guest";
-      } catch {}
+    currentAccount().then((account) => {
       if (cancelled) return;
-      const sc = shortcodeToRestore(readLastShared(), account, pathAtLoad);
+      const sc = sharedToRestore(readPlace(account), pathAtLoad);
       // Never over a note opened while the session was read.
-      if (sc && window.location.pathname === "/") setSharedShortcode((cur) => cur ?? sc);
-      setLastSharedAccount(account);
-    })();
+      if (sc && window.location.pathname === "/") {
+        restoredSharedRef.current = sc;
+        setSharedShortcode((cur) => cur ?? sc);
+      }
+      setPlaceAccount(account);
+    });
     return () => {
       cancelled = true;
     };
   }, []);
   useEffect(() => {
-    if (!lastSharedAccount) return; // don't clobber before the restore runs
-    writeLastShared(sharedShortcode ? { shortcode: sharedShortcode, account: lastSharedAccount } : null);
-  }, [sharedShortcode, lastSharedAccount]);
+    if (!placeAccount) return; // don't clobber before the restore runs
+    writePlace(placeAccount, { shared: sharedShortcode });
+  }, [sharedShortcode, placeAccount]);
   // Close any shared-note split when the shared note itself closes.
   useEffect(() => {
     if (!sharedShortcode) setSharedSplitNoteId(null);
@@ -697,6 +698,15 @@ export default function NoteWrapper({ mainSlot }: { mainSlot?: React.ReactNode }
                     setSharedShortcode(null);
                     if (pathname.startsWith("/n/")) router.replace("/");
                   }}
+                  onUnavailable={
+                    restoredSharedRef.current === sharedShortcode
+                      ? () => {
+                          restoredSharedRef.current = null;
+                          setSharedShortcode(null);
+                          window.dispatchEvent(new Event("justnoted:show-notes"));
+                        }
+                      : undefined
+                  }
                   onToggleSplit={() => setSharedSplitNoteId((v) => (v ? null : "pick"))}
                 />
               </div>

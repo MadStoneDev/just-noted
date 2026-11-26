@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { currentAccount, readPlace, writePlace, type RailView } from "@/utils/account-place";
 import { Shortcut } from "@/components/ui/shortcut";
 import { useShortcut } from "@/utils/shortcut-label";
 import { useEscapeLayer } from "@/utils/escape-stack";
@@ -83,8 +84,6 @@ interface SidebarProps {
   onOpenNotifications?: () => void;
 }
 
-const RAIL_VIEW_KEY = "jn_sidebar_rail_view";
-const RAIL_VIEWS = ["notes", "notebooks", "tags", "shared"] as const;
 
 export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMoveNote, onOpenTrash, onNewNote, onOpenShared, onTogglePin, onTransferNote, activeShortcode, notificationsActive, notifUnread = 0, onOpenNotifications }: SidebarProps) {
   const { sc: shortcutLabel } = useShortcut();
@@ -199,7 +198,7 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
   // the last-open view is restored from localStorage on mount (see effects below).
   // Notifications is NOT a rail view — it opens as a main-area view (owned by
   // NoteWrapper), so selecting it never shows a sidebar list.
-  const [railView, setRailView] = useState<"notes" | "notebooks" | "tags" | "shared">("notes");
+  const [railView, setRailView] = useState<RailView>("notes");
   // Current route — drives active state on the routed rail entries (Admin /
   // Roadmap / Settings each own a URL).
   const pathname = usePathname();
@@ -240,27 +239,30 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
     amIAdmin().then(setIsAdmin).catch(() => {});
   }, [isAuthenticated]);
 
-  // Restore the last-open rail view on mount (in an effect, not the useState
-  // initialiser, to avoid a hydration mismatch — server always renders "notes").
+  // Restore this account's last-open rail view once the account is known (in an
+  // effect, not the useState initialiser, to avoid a hydration mismatch: the
+  // server always renders "notes"). Per account (utils/account-place), so a
+  // switch never carries the previous account's panel across. After a switch,
+  // a remembered note that's gone sends the panel back to Notes via
+  // justnoted:show-notes (ActiveNoteEditor / NoteWrapper).
+  const [railAccount, setRailAccount] = useState<string | null>(null);
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(RAIL_VIEW_KEY);
-      if (stored && (RAIL_VIEWS as readonly string[]).includes(stored)) {
-        setRailView(stored as (typeof RAIL_VIEWS)[number]);
-      }
-    } catch {
-      // localStorage unavailable — keep the default.
-    }
+    let alive = true;
+    currentAccount().then((account) => {
+      if (!alive) return;
+      const panel = readPlace(account).panel;
+      if (panel) setRailView(panel);
+      setRailAccount(account);
+    });
+    return () => {
+      alive = false;
+    };
   }, []);
 
-  // Persist the rail view whenever it changes.
+  // Persist the rail view whenever it changes (only after the restore above).
   useEffect(() => {
-    try {
-      localStorage.setItem(RAIL_VIEW_KEY, railView);
-    } catch {
-      // localStorage unavailable — ignore.
-    }
-  }, [railView]);
+    if (railAccount) writePlace(railAccount, { panel: railView });
+  }, [railView, railAccount]);
 
   // Opening a notebook from the grid switches the sidebar back to the notes list.
   useEffect(() => {
@@ -1582,6 +1584,7 @@ function RailButton({
       onClick={onClick}
       title={label}
       aria-label={label}
+      aria-current={active ? "page" : undefined}
       className={`relative w-10 h-10 flex items-center justify-center rounded-[var(--radius-9)] transition-colors duration-[var(--duration-fast)] ${
         active
           ? "bg-[var(--color-accent-tint)] text-[var(--color-accent-text)]"

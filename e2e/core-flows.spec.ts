@@ -533,6 +533,81 @@ test.describe("signed-in", () => {
       await expect(page.getByText(marker)).toHaveCount(0);
       expect(await cloudNotesWith(b.id, marker)).toBe(0); // A's edit never landed under B
     });
+    // After a switch the target account reopens where it left off (its panel
+    // and its last open note), per account. A remembered note that's gone, or
+    // nothing remembered, lands on the standard Notes panel with no note open
+    // and no error. The previous account's open note is never carried across.
+    test.describe("restores the account's place", () => {
+      const created: string[] = [];
+      test.afterEach(async () => {
+        if (created.length) await adminClient().from("notes").delete().in("id", created.splice(0));
+      });
+      const cloudNote = async (author: string, content: string) => {
+        const { data, error } = await adminClient()
+          .from("notes")
+          .insert({ author, title: content, content })
+          .select("id")
+          .single();
+        if (error || !data) throw new Error(`note seed: ${error?.message}`);
+        created.push(data.id);
+        return data.id as string;
+      };
+
+      test("a remembered note reopens, with its panel", async ({ page }) => {
+        const [a, b] = seededAccounts();
+        const marker = `e2e-place-${Date.now()}`;
+        await cloudNote(b.id, `${marker} older`);
+        const id = await cloudNote(b.id, marker);
+        await signIn(page, a, { alsoOnDevice: [b] });
+        await page.goto("/");
+        await waitForApp(page);
+        await rememberPlace(page, b.id, { panel: "shared", noteId: id });
+
+        await switchAccountViaUi(page, b);
+        await expect(page.getByText(/Switching to/i)).toBeHidden({ timeout: 20_000 });
+        await expect.poll(() => currentHandle(page)).toBe(b.handle);
+        await expect(editor(page)).toContainText(marker);
+        await expect(railButton(page, "Shared")).toHaveAttribute("aria-current", "page");
+      });
+
+      test("a deleted remembered note: Notes panel, no note open, no error", async ({ page }) => {
+        const [a, b] = seededAccounts();
+        await cloudNote(b.id, `e2e-place-other-${Date.now()}`); // would be the "most recent" fallback
+        const gone = await cloudNote(b.id, `e2e-place-gone-${Date.now()}`);
+        await signIn(page, a, { alsoOnDevice: [b] });
+        await page.goto("/");
+        await waitForApp(page);
+        await rememberPlace(page, b.id, { panel: "shared", noteId: gone });
+        await adminClient().from("notes").delete().eq("id", gone);
+
+        await switchAccountViaUi(page, b);
+        await expect(page.getByText(/Switching to/i)).toBeHidden({ timeout: 20_000 });
+        await expect.poll(() => currentHandle(page)).toBe(b.handle);
+        await expectNoNoteOpen(page);
+        await expect(railButton(page, "Notes")).toHaveAttribute("aria-current", "page");
+      });
+
+      test("nothing remembered: Notes panel, no note open; the open shared note isn't carried over", async ({ page }) => {
+        test.skip(!seedState()?.sharedNote, "needs the seeded A→B share");
+        const [a, b] = seededAccounts();
+        await signIn(page, b, { alsoOnDevice: [a] });
+        // B has A's shared note open.
+        await page.goto(`/n/${seedState()!.sharedNote!.shortcode}`);
+        await expect(page.locator('main[aria-label="Shared note"]')).toContainText("Shared with B for collaboration specs.");
+        await forgetPlace(page, a.id);
+
+        await page.locator('button[aria-label="Account"]').click();
+        await page.getByRole("button", { name: new RegExp(`@${a.handle}`) }).click();
+        // No "you're viewing a shared note" step: the switch goes straight through.
+        await expect(page.getByText(/Re-open it with the link/i)).toHaveCount(0);
+        await expect(page.getByText(/Switching to/i)).toBeVisible();
+        await expect(page.getByText(/Switching to/i)).toBeHidden({ timeout: 20_000 });
+        await expect.poll(() => currentHandle(page)).toBe(a.handle);
+        await expectNoNoteOpen(page); // A owns notes, but none is picked for it
+        await expect(page.locator('main[aria-label="Shared note"]')).toHaveCount(0);
+        await expect(railButton(page, "Notes")).toHaveAttribute("aria-current", "page");
+      });
+    });
   });
 
   // Share by email resolves the person through author_id_by_email, which is
@@ -687,6 +762,41 @@ async function cloudNotesWith(userId: string, marker: string): Promise<number> {
     .is("deleted_at", null)
     .ilike("content", `%${marker}%`);
   return count ?? 0;
+}
+
+// Seed / clear an account's remembered place (utils/account-place) on this device.
+async function rememberPlace(
+  page: Page,
+  accountId: string,
+  place: { panel?: string; noteId?: string; shared?: string },
+): Promise<void> {
+  await page.evaluate(
+    ([id, p]) => {
+      const all = JSON.parse(localStorage.getItem("jn_account_place") || "{}");
+      all[id as string] = p;
+      localStorage.setItem("jn_account_place", JSON.stringify(all));
+    },
+    [accountId, place] as const,
+  );
+}
+async function forgetPlace(page: Page, accountId: string): Promise<void> {
+  await page.evaluate((id) => {
+    const all = JSON.parse(localStorage.getItem("jn_account_place") || "{}");
+    delete all[id];
+    localStorage.setItem("jn_account_place", JSON.stringify(all));
+  }, accountId);
+}
+
+const railButton = (page: Page, label: string) => page.locator(`nav button[aria-label="${label}"]`).first();
+
+// The editor area shows its empty state (no note open), with no error or toast.
+async function expectNoNoteOpen(page: Page): Promise<void> {
+  const main = page.getByRole("main", { name: "Note editor" });
+  await expect(main.getByRole("button", { name: "New note" })).toBeVisible();
+  await page.waitForTimeout(1500); // nothing gets auto-picked after the sync settles
+  await expect(main.getByRole("button", { name: "New note" })).toBeVisible();
+  await expect(page.locator(EDITOR)).toHaveCount(0);
+  await expect(page.getByText(/Can't access note|not found/i)).toHaveCount(0);
 }
 
 // Drive the account switcher (online): open the Account menu, pick the target,

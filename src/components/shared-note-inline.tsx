@@ -26,6 +26,12 @@ interface SharedNoteInlineProps {
   onClose: () => void;
   /** Toggle split view (compare beside one of the viewer's own notes). */
   onToggleSplit?: () => void;
+  /**
+   * Set when this note was reopened automatically (reload / account switch)
+   * rather than by the user: if it can't be opened any more, call this instead
+   * of showing "Can't access note".
+   */
+  onUnavailable?: () => void;
 }
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -37,7 +43,9 @@ type SaveStatus = "idle" | "saving" | "saved" | "error";
  * enforced server-side). Chrome is the shared <NoteView> (phase 1 of the merge);
  * this component owns the fetch, access gating, presence, collab and autosave.
  */
-export default function SharedNoteInline({ shortcode, onClose, onToggleSplit }: SharedNoteInlineProps) {
+export default function SharedNoteInline({ shortcode, onClose, onToggleSplit, onUnavailable }: SharedNoteInlineProps) {
+  const onUnavailableRef = useRef(onUnavailable);
+  onUnavailableRef.current = onUnavailable;
   const [note, setNote] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -140,6 +148,8 @@ export default function SharedNoteInline({ shortcode, onClose, onToggleSplit }: 
         setRequiresPassword(true);
         if (pw) setPwError("Incorrect password");
         setError(null);
+      } else if (onUnavailableRef.current) {
+        onUnavailableRef.current();
       } else {
         setError(result.error || "Failed to load note");
       }
