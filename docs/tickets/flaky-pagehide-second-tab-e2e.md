@@ -95,12 +95,12 @@ way to recover it (a variant of 2). Not the test's wait (3).**
 - Guest notes get no keepalive request. Their only close-time network save is
   the normal server-action `fetch` from `handleForceSave`, which is cancelled
   with the page; under load it usually isn't sent at all (probe: no save fetch
-  in 19/40 closes). Cloud notes' keepalive `leave-save` went out in 40/40.
+  in 20/40 closes). Cloud notes' keepalive `leave-save` went out in 40/40.
 - The offline-queue entry is (almost) never written on close: probe saw an
   `OfflineQueueDB` put in 4/40 guest closes. `enqueueContentNow` issues a
   `getAll` and does its `put` in `onsuccess`, which a dying page doesn't run.
   The IDB cache put (`saveNoteToLocal`) is issued, but its transaction was
-  seen completing in only 7/40.
+  seen completing in only 8/40.
 - Tab 2 had the note open read-only (waiting on `jn-note-edit:{id}`) and took
   the lock as tab 1 died. From then the note is "owned here": refreshes return
   the server copy (`protectUnsyncedLocal` skips `notToWrite`), the queue drain
