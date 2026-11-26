@@ -1,6 +1,8 @@
 # Possible keystroke loss: editor view recreated while typing starts
 
-- **Status:** open, unconfirmed. Found 2026-11-26 while diagnosing
+- **Status:** investigated 2026-11-26 — **not reproduced; the premise was a
+  misreading** (see "Findings"). Proposed: close. Awaiting approval.
+- **Was:** open, unconfirmed. Found 2026-11-26 while diagnosing
   `flaky-pagehide-second-tab-e2e.md`; deliberately not fixed in that change.
 - **Severity:** potentially high (typed text silently never stored) if it
   reproduces; unknown frequency outside heavy CPU load.
@@ -52,3 +54,50 @@ app's state never saw them, and the close path had nothing to save.
 - Known whether a remount can drop typed text, and under which trigger.
 - If so, a regression test that types during the first-second remount window
   under throttling and asserts the text is stored.
+
+## Findings (2026-11-26)
+
+Diagnostic: `e2e/diag-editor-remount.spec.ts` (skipped unless `E2E_DIAG=1`).
+An init script records every `.ProseMirror` element created/removed (with its
+text on removal), every keydown and the view it went to, focus/visibility and
+cross-tab messages; the test records server actions, then checks the typed text
+in the editor, the IDB cache and the server once things settle. Scenarios: the
+pagehide replica's order (second tab loads, `bringToFront`, type), single tab,
+type at once after creating, cloud single tab.
+
+**1. The warning is not a view being created.** `prosemirror-view` calls
+`checkCSS` from its DOM observer the first time a *typed* DOM change is
+flushed (`node_modules/prosemirror-view/dist/index.js`, `checkCSS` ←
+`DOMObserver.flush` when `from > -1`), and warns once per page. In all 60
+guest runs it fired 3–21ms after the first keystroke, with the same view
+receiving every key. "Recreated ~25ms into typing" was this warning.
+
+**2. No view recreated while typing, no keystrokes lost.** Same load as the
+pagehide work (14 busy loops / 16 cores, 4 workers), 20 repeats each:
+
+| Scenario | Views created while typing | Text intact: editor / cache / server |
+| --- | --- | --- |
+| guest, replica order | 0/20 | 20/20 / 20/20 / 20/20 |
+| guest, single tab | 0/20 | 20/20 / 20/20 / 20/20 |
+| guest, type at once after create | 0/20 | 20/20 / 20/20 / 20/20 |
+| cloud, single tab | 0/20 | 20/20 / 20/20 / 20/20 |
+
+(2 cloud runs had a second view — the test's own Ctrl+J from the account's
+existing note to the new one, before typing.)
+
+**3. The two "nothing written" runs are explained by the pre-fix close path.**
+On the build they came from, every close-time write sat behind an async step:
+`saveNoteToLocal` put the record from a `get` callback, `enqueueContentNow`
+from a `getAll` callback, and the save was an ordinary fetch. The probe logged
+a put only when `put()` was called — so "no put, no fetch" means the page died
+before any callback ran, the extreme case of the bug fixed in `9e086e0`. After
+that fix, under the same load: 0 such losses in 100 close runs (original test
+20, replica 40, guest close 40).
+
+## Proposed
+
+- Close this ticket: no remount-while-typing and no keystroke loss found.
+- Optional, separate: give `.ProseMirror` `white-space: pre-wrap` (or load
+  `prosemirror-view/style/prosemirror.css`). Without it ProseMirror falls back
+  to workarounds for collapsed whitespace, and the warning that misled this
+  ticket goes away. App CSS change — not made.
