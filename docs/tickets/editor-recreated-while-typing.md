@@ -1,7 +1,7 @@
 # Possible keystroke loss: editor view recreated while typing starts
 
-- **Status:** investigated 2026-11-26 — **not reproduced; the premise was a
-  misreading** (see "Findings"). Proposed: close. Awaiting approval.
+- **Status:** **closed 2026-11-27 — not reproduced; the premise was a
+  misreading** (see "Findings"). The CSS follow-up was tried and not shipped (see "Resolution").
 - **Was:** open, unconfirmed. Found 2026-11-26 while diagnosing
   `flaky-pagehide-second-tab-e2e.md`; deliberately not fixed in that change.
 - **Severity:** potentially high (typed text silently never stored) if it
@@ -94,10 +94,48 @@ before any callback ran, the extreme case of the bug fixed in `9e086e0`. After
 that fix, under the same load: 0 such losses in 100 close runs (original test
 20, replica 40, guest close 40).
 
-## Proposed
+## Proposed (2026-11-26; approved 2026-11-27)
 
 - Close this ticket: no remount-while-typing and no keystroke loss found.
 - Optional, separate: give `.ProseMirror` `white-space: pre-wrap` (or load
   `prosemirror-view/style/prosemirror.css`). Without it ProseMirror falls back
   to workarounds for collapsed whitespace, and the warning that misled this
   ticket goes away. App CSS change — not made.
+
+## Resolution (2026-11-27)
+
+- Closed as not reproduced.
+- The CSS follow-up was tried and **not shipped**: it changes what gets saved.
+
+### The `white-space: pre-wrap` attempt
+
+Tried: `white-space: pre-wrap` on the live editor (`.milkdown .ProseMirror`),
+the one rule from `prosemirror-view/style/prosemirror.css` it needs. The rest
+of that file (ligatures off, a blue node-selection outline) would change the
+look and was never considered.
+
+**Look: unchanged except runs of spaces.** `e2e/diag-editor-css.spec.ts`
+(diagnostic, `E2E_DIAG=1`) renders a note with `&nbsp;` empty lines (top level,
+after a list, inside a quote), bullet / nested / ordered / task lists, a code
+block with blank lines and indentation, a quote, a hard break and a long
+unbreakable word, in light and dark, and records every block's box. Before vs
+after: all 34 block boxes and the editor height (1160px) identical; the only
+pixel change in either theme is one line, where runs of spaces ("two  spaces",
+"three   spaces") show as stored instead of collapsing to one.
+
+**Saved content: changed.** `e2e/typing-sync-race.spec.ts` failed 5/5 with
+the rule on (guest and cloud): typing `start ` saved `start&#x20;` instead of
+`start`. Why: with `white-space: normal` Chrome writes a space typed at the end
+of a line into the contenteditable as U+00A0, which the markdown writer keeps as
+a raw character (and the app/tests treat as whitespace). With `pre-wrap` Chrome
+keeps it a plain space, and `mdast-util-to-markdown` encodes a leading/trailing
+space of a paragraph as the character reference `&#x20;` (so it survives a
+markdown round trip). Any autosave while the user pauses after a space would
+then store `&#x20;` — visible in "View markdown source", exports and anywhere
+the raw markdown is shown.
+
+**If revisited:** pair the CSS rule with a serializer change (e.g. trim or
+NBSP-encode trailing spaces in paragraphs before stringify, matching what
+Chrome does today), and run `typing-sync-race`, `markdown-roundtrip` and the
+diag spec above. The ProseMirror warning is harmless; there is no user-facing
+bug to fix here.
