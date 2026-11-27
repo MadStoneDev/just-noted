@@ -1,6 +1,6 @@
 # JustNoted sidebar + modals redesign: implementation plan
 
-Status: plan only, no app code changed. Written 2026-11-27 against `prelaunch/playwright-and-b7` @ `6873877`.
+Status: plan written 2026-11-27 against `prelaunch/playwright-and-b7` @ `6873877`. **Decisions on every conflict (C1–C24) and on fonts were made on 2026-11-27.** They are recorded under each C-number in section 3 and in section 4, and the stage text below reflects them. Stage 1 is being implemented next; the other stages are not started.
 
 Inputs: `docs/redesign/project/README-for-code.md` (the brief) and the five mockups beside it (`Main`, `Search`, `Share`, `History`, `Notifications` `.dc.html`). The mockups reference a `support.js` that isn't in the folder, so they may not render as intended in a browser. Read them as markup: the layout is all inline styles.
 
@@ -108,7 +108,12 @@ Target order (mockup): logo · Notes · Notebooks · Shared · ─ · Search (Ct
 
 - **Today:** Notebooks pushes `/notebooks`, the main area becomes `NotebooksGrid` and the sidebar shows `NotebookTree`. Notes and Shared also clear Trash and Notifications and push `/`.
 - **Change:** Notebooks shows `NotebookTree` in the sidebar and leaves the editor alone. Notes and Shared stop touching main.
-- **Files:** `note-wrapper.tsx` (`:271`, `:344-356`, `:633-762` main-area priority), `sidebar/index.tsx:835-839`, `notebook-tree.tsx:127-135` (rows filter the list instead of pushing `/notebooks/:id`?). See conflict C1: this is the stage where the decision is needed.
+- **Files:** `note-wrapper.tsx` (`:271`, `:344-356`, `:633-762` main-area priority), `sidebar/index.tsx:835-839`, `notebook-tree.tsx:127-135`.
+- **Per C1:**
+  - Clicking a notebook in the tree sets the list's notebook filter instead of pushing `/notebooks/:id`.
+  - An "All notebooks" link at the top of the tree opens the existing `NotebooksGrid` in main.
+  - `/notebooks` and `/notebooks/[id]` URLs keep working: a direct load still renders the grid / NotebookView.
+- **Per C3 and C3b:** Admin stays on the rail as an extra item, admins only. The rail "+" stays until Stage 3 lands, then Stage 3 removes it.
 - **Mobile:** `mobile-chrome.tsx` `MobileTabBar` (Notes, Notebooks, Shared, Settings, You) already has the right first three items. Align its handlers (`note-wrapper.tsx:364-460`) with the same rule. The mobile list is a full-screen drawer, so "editor stays put" means "the editor is still there when you close the list".
 
 **Risks**
@@ -153,7 +158,10 @@ Target order (mockup): logo · Notes · Notebooks · Shared · ─ · Search (Ct
 - **Previews strip markdown and entities fully.** Fix `getNotePreview` format detection (`note-card.tsx:30`: any `<tag>` flips a markdown note to the HTML stripper). Add `_x_`, `__x__`, table pipes and backslash escapes to `stripMarkdownToText`.
 - **The selected note always matches the editor:**
   - `search-modal.tsx:46-52` `handleSelect` must go through the same "open note" path as a row click: close the shared note, trash and notifications, leave a routed view, close the mobile drawer.
-  - When the active note is filtered out of the list, keep it visible: pin it at the top with a "not in this filter" hint. That is a product call (C9); the plan's default is to show it.
+  - When the active note is filtered out of the list, pin it at the top with a "Not in this filter" hint (decided, C9).
+- Remove the rail "+" in this stage, now that the sidebar header has one (C3b).
+- Row extras all stay (tags, hover TagPicker, hover delete, drag handle, storage dot, swipe), except the Ctrl+Alt+digit hover hint, which goes (C7). The Ctrl+Alt+digit shortcut itself still works.
+- Both searches stay (C8): the sidebar box filters the list, Ctrl+K jumps to a note.
   - Delete the dead `window.scrollTo` + ring code (`sidebar/index.tsx:438-457`); use `scrollIntoView({block:"nearest"})` on the active row.
 
 **Risks**
@@ -194,8 +202,9 @@ Target order (mockup): logo · Notes · Notebooks · Shared · ─ · Search (Ct
 - Guest Source options become consistent: no Cloud for guests, matching the sheet rather than the inline dropdown.
 
 **Risks**
-- **Notebook filter:** the current model is a single `activeNotebookId` with a hierarchy breadcrumb; the mockup's checkboxes are multi-select (C4). Smallest safe version: radio list (All / each notebook / Loose notes) mapping onto `activeNotebookId`. Multi-select is a follow-up.
-- "Pinned only" vs today's All / Pinned / Unpinned (C6).
+- **Notebook filter** (decided, C4): a single-select radio list (All / each notebook / Loose notes) mapping onto `activeNotebookId`. Multi-select is a possible follow-up.
+- **Pinned** keeps All / Pinned / Unpinned (C6).
+- **Tags section** stays in the popover, signed-in only (C5).
 
 **Tests**
 - e2e: open the popover, Esc closes it, click outside closes it, the X closes it. Focus returns to the Filter button. Choosing Cloud updates the count and "k of N".
@@ -223,8 +232,10 @@ Wide "on" uses `accent-tint` / `accent-text` in **both** themes. Today it uses `
 
 **Behaviour**
 - **Save status in the header** reads the same source as the existing `data-testid="save-status"` line under the title (`active-note-editor.tsx:2021-2059`). It is read-only; no sync logic changes.
-- **Duplicate status line:** whether the under-title one stays is C11.
-- Controls not in the mockup move into the "…" menu (`ds/command-palette` Actions): Formatting help "?", Markdown source toggle, Import, Split view / Change note, the Cloud/Local pill. See C10. Ctrl+Shift+M is unchanged.
+- **Save status lives in the header only** (C11). Remove it from the stats line under the title; word count, goal and tags stay there. Keep `data-testid="save-status"` on the header copy.
+- **Controls not in the mockup move into the "…" menu** (`ds/command-palette` Actions): Formatting help "?", Markdown source toggle, Import, Split view / Change note, the Cloud/Local pill (C10). Presence avatars stay visible in the header on shared notes. Ctrl+Shift+M is unchanged.
+- **Wide keeps its 3-state cycle** (off → this note → all notes). Both on-states are aqua (`accent-tint` / `accent-text`) in both themes (C12).
+- **The notebook pill under the title is removed** (C12b). The breadcrumb's notebook part is a button that filters the list to that notebook.
 - **Phones:** the bar stays `hidden md:flex`. `MobileEditorNav` (‹ Notes · Share · …) already matches the mockup's intent.
 - Fix the 768–1023 overlap where both the mobile nav and the desktop bar render.
 
@@ -262,10 +273,10 @@ Wide "on" uses `accent-tint` / `accent-text` in **both** themes. Today it uses `
 - The bell is highlighted only while the popover is open.
 
 **Risks**
-- **Notification types:** `edited_shared_note`, `chat_message` and `mention` need a click target too (C13).
-- **"Clear" (clear all)** exists today but isn't in the mockup (C14).
+- **Click targets by type** (C13): `edited_shared_note` opens the note; `chat_message` and `mention` open the note with the chat open.
+- **"Clear all"** stays as a quiet secondary action next to "Mark all read" (C14).
 - **Long lists:** cap the height (e.g. 60vh) and scroll.
-- **Mobile has no bell today** (tab bar: Notes, Notebooks, Shared, Settings, You), so phones have no notifications entry (C15). On phones the popover would need to be a bottom sheet.
+- **Phones** (C15): Notifications goes into the You drawer (`mobile-account-drawer.tsx`) as a list or sheet, and the You tab gets an unread badge (`MobileTabBar`).
 
 **Tests**
 - Update `e2e/shared-note-open.spec.ts`: click the bell (popover), click the notification, assert the URL, Shared rail current and the active row. Add Esc and click-outside.
@@ -302,8 +313,8 @@ Wide "on" uses `accent-tint` / `accent-text` in **both** themes. Today it uses `
   - "Published — soon".
   - The Scribe gating on "Can edit" (both link and invite).
 
-  Plan default: keep all of them in the same dialog, below the link row, shown only when relevant, so nothing is removed.
-- "Copy link" with the link Off: disable it, or have it turn the link on (C17).
+  Decided (C16): keep all of them in the same dialog, below the link row, shown only when relevant.
+- **Copy link with the link Off** (C17): disabled, with the hint "Turn the link on first". Copying never turns the link on implicitly.
 - The `justnoted:open-share` event from the mobile nav must still open it.
 - Dead code nearby: `add-shared-drawer.tsx` is unused; delete it in this stage or leave it, but don't restyle it.
 
@@ -333,15 +344,15 @@ Wide "on" uses `accent-tint` / `accent-text` in **both** themes. Today it uses `
 - **List and preview side by side** instead of the preview replacing the list. Restore moves from the preview header to the footer; the existing `ConfirmModal` and the "edited in another tab" guard stay.
 - **Copy text** is new: clipboard plus a toast.
 - **Phones (< md):** full-width drawer with list → preview as two steps (Back), like today's in-place swap.
-- The filter keeps its Scribe gating (`getVersions` `canFilter`) and `datetime-local` inputs. The mockup's `date` inputs and the ungated look are C18.
-- Detail line: "+38 words · 941 words" is computable client-side from adjacent versions. "Autosave / First synced to the cloud / Created" is not: `note_versions` has no kind column (C19). 8a shows word deltas only.
+- The filter keeps its Scribe gating (`getVersions` `canFilter`) and `datetime-local` inputs (decided, C18).
+- **Detail line is word deltas only** (decided, C19, no new column): "+38 words · 941 words", computed client-side from adjacent versions.
 
 **8b: Changes (diff) view**
 - New `src/utils/text-diff.ts`: word-level diff of the plain text from `stripContentToText`. No diff library is installed; either add `diff` (jsdiff, ~20 KB min, lazy-loaded with the drawer) or write a small LCS on words. Recommendation: `diff`, dynamically imported.
 - Rendering: insertions underlined with `accent-tint` and `accent-text`; deletions struck through in `ink-4`. Colour is never the only cue, and a legend line sits under the diff, as in the mockup.
 - **Risk:** big notes. Cap the diff at about 50k words and fall back to Full text with a notice.
 
-**Out of the mockup, keep as is:** `shared-history-panel.tsx` (the recipient's view: per-version Copy, no restore). Align its chrome to the new drawer later if wanted (C20).
+**Left alone** (decided, C20): `shared-history-panel.tsx` (the recipient's view: per-version Copy, no restore).
 
 **Tests**
 - Update `version-history-panel.test.tsx`: Esc, backdrop and the X close it; Restore in the footer opens the confirm; Copy text calls the clipboard.
@@ -351,7 +362,9 @@ Wide "on" uses `accent-tint` / `accent-text` in **both** themes. Today it uses `
 
 ---
 
-## 3. Conflicts with current features (listed, not decided)
+## 3. Conflicts with current features
+
+Listed in the first draft without decisions. Each one now has a **Decision** line, made 2026-11-27.
 
 **Navigation and rail**
 - **C1. Notebooks no longer opens a main-area view.** Today Notebooks → `/notebooks` shows `NotebooksGrid` (covers), and a notebook → `NotebookView` in main. "Swap the sidebar only, the editor stays put" removes the rail path to both. Open questions:
@@ -359,14 +372,21 @@ Wide "on" uses `accent-tint` / `accent-text` in **both** themes. Today it uses `
   - Drop them?
   - What do `/notebooks` URLs do?
   - Drag-a-note-onto-a-grid-notebook only works on the grid.
+  - **Decision:** Notebooks swaps the sidebar to the tree; clicking a notebook filters the list. An "All notebooks" link at the top of the tree opens the existing grid in main. `/notebooks` URLs keep working.
 - **C2. Tools and Roadmap move into Help.** It's one more click, and Roadmap is linked publicly. Their routes (`/tools*`, `/roadmap`) stay. Do the rail-less public routes (`/pricing`, `/the-how`, `/the-what`) keep the rail at all?
+  - **Decision:** Tools and Roadmap move into Help. Public routes unchanged.
 - **C3. Admin rail item** (admins only) isn't in the mockup. Options: into Settings, into Help, or kept as an extra rail item for admins.
+  - **Decision:** Admin stays as an extra rail item, admins only.
 - **C3b. The rail "New note" button goes.** The mockup puts "+" in the sidebar header. Ctrl+J and the mobile FAB remain.
+  - **Decision:** Keep the rail "+" until Stage 3 lands, then remove it.
 
 **Sidebar and filter**
 - **C4. Notebook filter becomes multi-select checkboxes** in the mockup. Today it's a single notebook (with a breadcrumb through nested notebooks) set from row chips, the tree and the editor pill. Nested notebooks aren't represented in the checkbox list.
+  - **Decision:** Single-select notebook (radio list, including Loose notes). Multi-select maybe later.
 - **C5. Tags filter is missing** from the mockup's Filter popover. Today it is in the sheet, signed-in only. Removing it removes tag filtering for owned notes entirely: the legacy Tags rail view is also going.
+  - **Decision:** Keep a Tags section in the Filter popover (signed-in only).
 - **C6. Pinned:** the mockup has "Pinned only". Today there are three options (All / Pinned / Unpinned); "Unpinned" would go.
+  - **Decision:** Keep All / Pinned / Unpinned.
 - **C7. Row extras not in the mockup:**
   - Tags on rows (up to 3)
   - Hover TagPicker
@@ -375,20 +395,31 @@ Wide "on" uses `accent-tint` / `accent-text` in **both** themes. Today it uses `
   - Drag handle (manual sort, drag into a notebook)
   - Storage status dot that opens the "Storage & status" modal
   - Swipe actions on mobile
+  - **Decision:** Keep all row extras (tags, hover delete, drag, storage dot, swipe) except the Ctrl+Alt+digit hint.
 - **C8. Two searches.** The brief says "Search is a floating box (Ctrl+K)". `Search.dc.html` shows the sidebar search input filtering the list ("3 of 20", highlights). Today both exist with different semantics: the sidebar box filters the list, Ctrl+K jumps to a note. Keep both, or fold one into the other?
+  - **Decision:** Keep both searches: the sidebar box filters the list, Ctrl+K jumps to a note.
 - **C9. Active note filtered out of the list.** "The selected note always matches the editor" needs a rule when the open note doesn't pass the current filter or search. Options: show it pinned at the top, clear the filter, or accept no highlight.
+  - **Decision:** Pin the active note at the top with a "Not in this filter" hint.
 - **C9b. Manual sort and drag-reorder** exist and aren't shown. The sort dropdown will keep "Manual".
+  - **Decision:** Manual sort and drag-reorder stay (follows from C7).
 
 **Editor header**
 - **C10. Controls with no home in the mockup:** Formatting help "?", Markdown source toggle, Import .txt/.md, Split view / Change note, Cloud/Local pill, presence avatars (shared notes), the chat handle. The plan default is to move them into the "…" Actions menu, except presence, which stays visible on shared notes.
+  - **Decision:** Move them into the "…" menu; presence avatars stay visible on shared notes.
 - **C11. Save status in two places.** The mockup puts it in the header. Today it sits in the stats line under the title, together with word count, goal and tags. That line is arguably editor body. Remove it from under the title, or keep both?
+  - **Decision:** Save status in the header only. Word count, goal and tags stay under the title.
 - **C12. Wide view is 3-state today** (off / this note / all notes). The mockup shows a 2-state toggle "on for this note". Is "all notes" dropped, moved to Settings, or kept as the cycle?
+  - **Decision:** Keep the 3-state wide cycle, aqua in both on-states.
 - **C12b. Notebook pill under the title** (clickable to filter) duplicates the new breadcrumb.
+  - **Decision:** Remove the notebook pill under the title; the breadcrumb's notebook part is clickable and filters the list.
 
 **Notifications**
 - **C13. Other notification types** (edited shared note, chat message, mention) exist; the mockup only shows a share. Each needs defined behaviour on click.
+  - **Decision:** Edited shared note opens the note; chat message and mention open the note with the chat open.
 - **C14. "Clear" (delete all notifications)** exists today; the mockup has only "Mark all read".
+  - **Decision:** Keep "Clear all" as a quiet secondary action next to "Mark all read".
 - **C15. Phones have no bell.** The tab bar is Notes, Notebooks, Shared, Settings, You. There are no mobile mockups. Options: add a bell to the tab bar or the You drawer, or leave phones without notifications as today.
+  - **Decision:** Phones get Notifications in the You drawer, with an unread badge on the You tab.
 
 **Share**
 - **C16. Share features the mockup doesn't show:**
@@ -398,22 +429,31 @@ Wide "on" uses `accent-tint` / `accent-text` in **both** themes. Today it uses `
   - "Published — soon"
   - "Can edit" link level and its Scribe gate
   - The views count once shared
+  - **Decision:** Keep everything, below the link row, shown only when relevant.
 - **C17. "Copy link" with the link Off.** The mockup shows the footer button while the link is Off ("no link exists yet").
+  - **Decision:** Copy link is disabled while the link is Off, with the hint "Turn the link on first". Never turn the link on implicitly.
 
 **Version history**
 - **C18. History filter:** the mockup uses plain `date` inputs and looks ungated; today it's `datetime-local` and Scribe-only, enforced server-side.
+  - **Decision:** Keep `datetime-local` and the Scribe gate.
 - **C19. Version labels** ("Autosave", "First synced to the cloud", "Created") need a `kind` column on `note_versions` (a migration plus writes in `saveVersion`). That touches save-adjacent code, which is out of scope. Without it, only word deltas are possible.
+  - **Decision:** No new column. Word deltas only.
 - **C20. Shared recipient history** (`shared-history-panel.tsx`) isn't in the mockups. Is it restyled to match, or left alone?
+  - **Decision:** Leave `shared-history-panel.tsx` alone.
 
 **Cross-cutting**
 - **C21. No mobile mockups** except "Share is a bottom sheet on phones". Every other phone layout is inferred.
+  - **Decision:** Infer phone layouts from the existing app patterns; screenshots for every stage.
 - **C21b. No light-theme mockups.**
+  - **Decision:** Infer light layouts from the existing tokens; screenshots for every stage.
 - **C22. Mockup palette and sizes differ from the app:**
   - Dark canvas `#0E1111` vs `#050606`; accent `#2CC4B5` vs `#0FB8B0`.
   - Rail 64 vs 56px; sidebar 312 vs 284px of content.
 
   The brief says to keep existing colours. Sizes are left for the reviewer to choose.
+  - **Decision:** Keep app colours. Keep current widths (56 rail, 284 sidebar) unless a stage's screenshots look cramped; flag it if so.
 - **C23. Help and Settings become full pages with Back.** Help is a modal today, and its Keyboard shortcuts subview is reached via Esc / Back. Settings already is a page.
+  - **Decision:** Approved.
 - **C24. Dead code found:**
   - `add-shared-drawer.tsx`
   - `page-estimate-modal.tsx` and `word-count-goal-modal.tsx` (the only `ui/modal` callers besides `/backup-manager`)
@@ -423,6 +463,7 @@ Wide "on" uses `accent-tint` / `accent-text` in **both** themes. Today it uses `
   - `notebook-nav-list.tsx` (only reachable through a stale `railView`)
 
   Not a conflict, but each stage should say whether it removes the dead code next to it.
+  - **Decision:** Delete dead code in the stage that touches its area.
 
 ---
 
@@ -459,6 +500,11 @@ The brief says to keep the existing fonts where they exist, so the default is **
 Newsreader: the mockup uses the optical-size axis (`opsz 6..72`). `next/font` loads it with `axes: ["opsz"]`. It isn't requested today, so a change would be editor body styles, which are out of scope. Note only.
 
 **Recommendation for the reviewer:** A + C costs less in total than today (about −60 KB) and gives the mono the mockups rely on. B is a separate, whole-app decision, not part of this redesign.
+
+**Decision (2026-11-27):** A + C, shipped as a separate commit within Stage 1.
+- Load IBM Plex Mono 400/500 with `preload: false` for `--font-meta`.
+- Drop Inter.
+- Drop Playfair only after the wordmark (global header and 404) has been screenshotted in Newsreader 600 and approved. Until then Playfair stays loaded and the wordmark is unchanged.
 
 ---
 
