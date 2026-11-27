@@ -9,6 +9,7 @@ import {
 import { validateGoalType, validateNoteTitle } from "@/utils/validation";
 import { sameNoteContent } from "@/utils/notes-utils";
 import { wouldBlankNonEmpty } from "@/lib/collab-guard";
+import { snapshotBody, snapshotIfMajorShrink } from "@/lib/note-snapshot";
 import type { SubscriptionTier } from "@/types/subscription";
 import { resolvePlanTier } from "@/lib/subscription";
 import {
@@ -133,25 +134,7 @@ async function snapshotCurrentContent(
   noteId: string,
   reason: "legacy" | "delete" | "conflict",
 ) {
-  try {
-    const { data: cur } = await supabase
-      .from("notes")
-      .select("author, title, content, content_format, version")
-      .eq("id", noteId)
-      .maybeSingle();
-    if (!cur) return;
-    await supabase.from("note_versions").insert({
-      note_id: noteId,
-      author: cur.author,
-      title: cur.title ?? "",
-      content: cur.content ?? "",
-      content_format: cur.content_format || "markdown",
-      reason,
-      note_version: cur.version ?? null,
-    });
-  } catch {
-    /* history is best-effort; never block the write on it */
-  }
+  await snapshotBody(supabase, noteId, reason);
 }
 
 // Read the current version, then apply `fields` + version+1 conditional on that
@@ -189,9 +172,13 @@ async function applyWithVersionBump(
 }
 
 // A projection write may skip CAS only when the note genuinely has a Yjs doc.
-async function noteHasYdoc(supabase: any, noteId: string): Promise<boolean> {
+// note_ydoc is service-role only (RLS on, no policies), so the signed-in
+// client always saw "no doc" here and every projection fell back to CAS —
+// colliding with the collaborators' saves. The caller's own write is still
+// author-scoped; this only reads whether the doc exists.
+async function noteHasYdoc(_supabase: any, noteId: string): Promise<boolean> {
   try {
-    const { data } = await supabase
+    const { data } = await createServiceRoleClient()
       .from("note_ydoc")
       .select("note_id")
       .eq("note_id", noteId)
@@ -239,6 +226,7 @@ async function backgroundCasWrite(
     if (decision === "noop") return { success: true, version: curVersion };
 
     if (decision === "apply") {
+      await snapshotIfMajorShrink(supabase, noteId, (cur as any).content, fields.content);
       const { data, error } = await supabase
         .from("notes")
         .update({ ...fields, version: curVersion + 1, updated_at: new Date().toISOString() })
@@ -363,6 +351,11 @@ export const updateNote = async (
       ) {
         return { success: true, version: (cur as any).version };
       }
+
+      // Safety net: a save that removes most of the note (>50% shorter and
+      // >200 characters gone) first puts the current body in Version history,
+      // whichever write path below lands it (lib/content-shrink.ts).
+      if (cur) await snapshotIfMajorShrink(supabase, noteId, (cur as any).content, content);
     }
 
     // Projection (Yjs-merged content) — bypass CAS ONLY when the note actually

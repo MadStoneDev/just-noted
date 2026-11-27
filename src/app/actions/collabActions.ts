@@ -3,6 +3,7 @@
 import {
   loadCollabState,
   saveCollabState,
+  type CollabLoad,
   type CollabTarget,
 } from "@/lib/collab-access";
 
@@ -19,10 +20,10 @@ import {
 
 type Target = CollabTarget;
 
-export async function loadCollabDoc(target: Target): Promise<{ state: string | null }> {
+export async function loadCollabDoc(target: Target): Promise<CollabLoad> {
   return loadCollabState(target);
 }
 
-export async function saveCollabDoc(target: Target & { state: string }): Promise<{ ok: boolean }> {
+export async function saveCollabDoc(target: Target & { state: string }): Promise<{ ok: boolean; state?: string }> {
   return saveCollabState(target);
 }

@@ -16,7 +16,7 @@ export async function saveVersion(
   title: string,
   content: string,
   contentFormat: string = "markdown",
-  reason: "autosave" | "conflict" | "legacy" | "transfer" = "autosave",
+  reason: "autosave" | "conflict" | "legacy" | "transfer" | "safety" = "autosave",
   noteVersion?: number,
 ) {
   try {

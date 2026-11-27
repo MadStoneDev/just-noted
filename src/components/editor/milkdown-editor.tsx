@@ -5,7 +5,10 @@ import { createPortal } from "react-dom";
 import { Editor, rootCtx, defaultValueCtx, remarkStringifyOptionsCtx, editorViewCtx, editorViewOptionsCtx, parserCtx, serializerCtx } from "@milkdown/core";
 import { collab, collabServiceCtx } from "@milkdown/plugin-collab";
 import * as Y from "yjs";
-import { collabDocIsBlank } from "@/utils/collab-doc";
+import { collabDocIsBlank, COLLAB_FRAGMENT } from "@/utils/collab-doc";
+import { seedCollabDoc } from "@/utils/collab-seed";
+import { updateYFragment, yXmlFragmentToProseMirrorRootNode } from "y-prosemirror";
+import type { CollabLoadResult } from "@/lib/collab-client";
 import { Awareness } from "y-protocols/awareness";
 import { SupabaseYjsProvider } from "@/lib/yjs-supabase-provider";
 import { commonmark } from "@milkdown/preset-commonmark";
@@ -277,14 +280,53 @@ interface MilkdownEditorProps {
    * roomKey share a Yjs document over Supabase Realtime; edits merge without
    * conflicts and each person's caret shows in their colour.
    */
-  collab?: {
-    roomKey: string;
-    user: { name: string; color: string };
-    /** Load the persisted Yjs state (base64) — the note's canonical doc. */
-    load?: () => Promise<string | null>;
-    /** Persist the Yjs state (base64), debounced by the editor. */
-    save?: (state: string) => Promise<void>;
-  };
+  collab?: CollabEditorConfig;
+}
+
+export interface CollabEditorConfig {
+  roomKey: string;
+  user: { name: string; color: string };
+  /**
+   * Load the persisted Yjs state (base64) — the note's canonical doc. `ok`
+   * with state null means the note has no doc yet; `ok: false` means the load
+   * failed, and the editor then never binds the doc (see `onState`).
+   */
+  load?: () => Promise<CollabLoadResult>;
+  /**
+   * Persist the Yjs state (base64), debounced by the editor. Resolves with the
+   * server's merged state, which the editor applies (see lib/collab-merge.ts).
+   */
+  save?: (state: string) => Promise<string | null | void>;
+  /**
+   * The text the local editor's content was edited FROM, when that differs
+   * from `content` (the owner's editor switches into collab after the note is
+   * already open, and may carry plain-mode edits). Defaults to `content`.
+   */
+  base?: string;
+  /**
+   * Collab lifecycle for the host: "connecting" when this editor starts binding
+   * (mount, remount), "ready" once bound to the doc, "unavailable" when the
+   * load failed (it keeps retrying).
+   */
+  onState?: (state: "connecting" | "ready" | "unavailable") => void;
+  /**
+   * While the doc can't be loaded the editor stays unbound and retries (backoff,
+   * and at once when back online). With this set it stays editable meanwhile —
+   * for a host whose saves of an unbound editor are conflict-checked (the
+   * owner's). Without it, it locks: a collaborator's saves aren't.
+   */
+  editableWhileUnavailable?: boolean;
+  /** Local edits the doc superseded (it had moved on from `base`), for history. */
+  onLocalSuperseded?: (markdown: string) => void;
+}
+
+// Stored note content → the Markdown the editor loads (legacy notes may hold HTML).
+function toEditorMarkdown(content: string | null | undefined, contentFormat?: ContentFormat): string {
+  if (!content) return "";
+  const looksLikeHtml = /<[a-z][\s\S]*>/i.test(content.trim());
+  const actuallyMarkdown = contentFormat === "markdown" || !looksLikeHtml;
+  const md = actuallyMarkdown ? content : htmlToMarkdown(content);
+  return cleanCorruptedMarkdown(md);
 }
 
 // Uint8Array <-> base64 for shuttling Yjs state to/from the server.
@@ -340,6 +382,11 @@ function MilkdownEditorInner({
   const onFocusRef = useRef(onFocus);
   const onBlurRef = useRef(onBlur);
   const readOnlyRef = useRef(readOnly);
+  // Collab: true once the Yjs doc is loaded (or seeded) and the editor is bound
+  // to it. Until then the editor is a plain editor showing the note's text.
+  const collabReadyRef = useRef(false);
+  // Collab: locked while a collaborator's doc can't be loaded (retrying).
+  const collabLockedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   onChangeRef.current = onChange;
@@ -349,14 +396,7 @@ function MilkdownEditorInner({
   onBlurRef.current = onBlur;
   readOnlyRef.current = readOnly;
 
-  const initialMarkdown = useMemo(() => {
-    if (!content) return "";
-    const looksLikeHtml = /<[a-z][\s\S]*>/i.test(content.trim());
-    const actuallyMarkdown = contentFormat === "markdown" || !looksLikeHtml;
-    let md = actuallyMarkdown ? content : htmlToMarkdown(content);
-    md = cleanCorruptedMarkdown(md);
-    return md;
-  }, []);
+  const initialMarkdown = useMemo(() => toEditorMarkdown(content, contentFormat), []);
 
   const { get } = useEditor((root) => {
     return Editor.make()
@@ -366,12 +406,13 @@ function MilkdownEditorInner({
         // alone didn't stop edits). Reads a ref so it stays correct if readOnly
         // changes without rebuilding the editor.
         ctx.set(editorViewOptionsCtx, {
-          editable: () => !readOnlyRef.current,
+          editable: () => !readOnlyRef.current && !collabLockedRef.current,
           attributes: { spellcheck: readEditorSpellcheck() ? "true" : "false" },
         });
-        // In collab mode the Yjs document is the source of truth; seed via the
-        // provider instead of the default value to avoid a double-insert.
-        ctx.set(defaultValueCtx, collabEnabled ? "" : initialMarkdown);
+        // Collab mode too starts from the note's text: the editor shows it (and
+        // takes input) as a plain editor until the Yjs doc is ready, then binds
+        // to the doc — never to an empty doc in the meantime (see the bind).
+        ctx.set(defaultValueCtx, initialMarkdown);
         ctx.set(remarkStringifyOptionsCtx, markdownStringifyOptions);
         ctx.set(indentConfig.key, {
           type: "space" as const,
@@ -422,8 +463,10 @@ function MilkdownEditorInner({
   // persistence, and remote updates (addToHistory=false, which the listener
   // deliberately ignores) would otherwise be flushed as if they were local edits.
   useEffect(() => {
-    if (!flushRef || collabEnabled) return;
+    if (!flushRef) return;
     flushRef.current = () => {
+      // Once bound to the doc, the doc has its own persistence (above).
+      if (collabEnabled && collabReadyRef.current) return;
       try {
         get()?.action((ctx) => {
           const doc = ctx.get(editorViewCtx).state.doc;
@@ -447,7 +490,7 @@ function MilkdownEditorInner({
     try {
       get()?.action((ctx) => {
         const view = ctx.get(editorViewCtx) as any;
-        view.setProps({ editable: () => !readOnlyRef.current });
+        view.setProps({ editable: () => !readOnlyRef.current && !collabLockedRef.current });
       });
     } catch {}
   }, [readOnly, get]);
@@ -486,113 +529,215 @@ function MilkdownEditorInner({
   }, [get]);
 
   // Live collaboration: bind a Yjs doc + awareness synced over Supabase Realtime.
+  //
+  // The editor is NEVER bound to a doc that isn't ready. Until the persisted
+  // state is loaded (or, for a note with no doc yet, seeded from its text), it
+  // is a plain editor showing the note: typing works, and nothing reaches the
+  // doc. Typing into an empty doc in that window used to skip the seed, so the
+  // doc — and every save projected from it — held only what was typed, and the
+  // body was gone (docs/diagnostics/shared-note-overwrite).
+  //
+  //  1. Load. Failed → never bind or persist; retry (backoff, or when back
+  //     online), editable meanwhile only for a host that asks for it.
+  //  2. No doc yet → seed deterministically (seedCollabDoc): at once when alone
+  //     in the room, after a peer's state had its chance to arrive otherwise.
+  //  3. Local edits made meanwhile → written into the doc as a diff, when the
+  //     doc still holds the text they were made from; otherwise the doc wins
+  //     and the local text goes to the host (onLocalSuperseded) for history.
+  //  4. Connect: the editor now renders the doc (same text, cursor kept).
   useEffect(() => {
     if (!collabConfig) return;
     let cancelled = false;
     let provider: SupabaseYjsProvider | null = null;
     let doc: Y.Doc | null = null;
     let service: any = null;
-    let seedTimer: ReturnType<typeof setTimeout> | null = null;
-
     let saveTimer: ReturnType<typeof setTimeout> | null = null;
-    let persistHandler: (() => void) | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryDelay = 2000;
+    let reprojectTimer: ReturnType<typeof setTimeout> | null = null;
+    let pendingPersist = false;
+    let persistHandler: ((u: Uint8Array, origin: unknown) => void) | null = null;
     let unregisterAnchor: (() => void) | null = null;
+    collabReadyRef.current = false;
+    collabConfig.onState?.("connecting");
 
     const persistNow = () => {
-      if (!doc || !collabConfig.save) return;
-      // Root-cause guard: never persist a BLANK doc for a note that has
-      // canonical content. Before seeding, the fresh doc is blank; persisting it
-      // used to create a non-null blank note_ydoc that then blocked seeding for
-      // good (blank editor even though note.content had text). A blank doc is not
-      // just length 0 — an empty paragraph (length 1) is blank too, which is why
-      // this uses visible-text emptiness. If the note is genuinely empty (no
-      // initial content), persisting blank is fine.
+      // Never before the doc is loaded or seeded: a doc that didn't load must
+      // never reach the server (it would stand in for the real one).
+      if (!doc || !collabConfig.save || !collabReadyRef.current) return;
+      pendingPersist = false;
+      // Never persist a BLANK doc for a note that has text.
       try {
         if (collabDocIsBlank(doc) && initialMarkdown) return;
       } catch {}
+      const d = doc;
       try {
-        collabConfig.save(bytesToB64(Y.encodeStateAsUpdate(doc)));
+        void Promise.resolve(collabConfig.save(bytesToB64(Y.encodeStateAsUpdate(d))))
+          .then((merged) => {
+            // Whatever the server holds that we missed (dropped broadcasts).
+            if (merged && !cancelled && doc === d) Y.applyUpdate(d, b64ToBytes(merged), "server");
+          })
+          .catch(() => {});
       } catch {}
     };
 
-    const bind = async () => {
+    const setLocked = (locked: boolean) => {
+      collabLockedRef.current = locked;
+      try {
+        get()?.action((ctx) => {
+          (ctx.get(editorViewCtx) as any).setProps({ editable: () => !readOnlyRef.current && !collabLockedRef.current });
+        });
+      } catch {}
+    };
+
+    const onOnline = () => {
+      if (!retryTimer) return; // not waiting on a retry
+      clearTimeout(retryTimer);
+      retryTimer = null;
+      void bind();
+    };
+
+    const waitFor = (cond: () => boolean, ms: number) =>
+      new Promise<void>((resolve) => {
+        const t0 = Date.now();
+        const tick = () => (cancelled || cond() || Date.now() - t0 >= ms ? resolve() : setTimeout(tick, 50));
+        tick();
+      });
+
+    const load = async (): Promise<CollabLoadResult> => {
+      if (!collabConfig.load) return { ok: true, state: null };
+      try {
+        return await collabConfig.load();
+      } catch {
+        return { ok: false };
+      }
+    };
+
+    const bind = async (): Promise<void> => {
       if (cancelled) return;
       const editor = get();
       if (!editor) {
-        requestAnimationFrame(() => { bind(); });
+        requestAnimationFrame(() => { void bind(); });
         return;
       }
-      doc = new Y.Doc();
-      const awareness = new Awareness(doc);
-      awareness.setLocalStateField("user", {
-        name: collabConfig.user.name,
-        color: collabConfig.user.color,
-      });
-      provider = new SupabaseYjsProvider(collabConfig.roomKey, doc, awareness);
-      editor.action((ctx: any) => {
-        service = ctx.get(collabServiceCtx);
-        service.bindDoc(doc).setAwareness(awareness).connect();
-      });
-
-      // Load the note's CANONICAL persisted Yjs state — every client loads the
-      // same doc, so there's no re-seeding (which is what duplicated content).
-      let persisted: string | null = null;
-      try { persisted = (await collabConfig.load?.()) ?? null; } catch {}
-      if (cancelled) return;
-      if (persisted) {
-        try { Y.applyUpdate(doc, b64ToBytes(persisted), "load"); } catch {}
+      if (!doc) {
+        doc = new Y.Doc();
+        const awareness = new Awareness(doc);
+        awareness.setLocalStateField("user", {
+          name: collabConfig.user.name,
+          color: collabConfig.user.color,
+        });
+        provider = new SupabaseYjsProvider(collabConfig.roomKey, doc, awareness);
+        editor.action((ctx: any) => {
+          service = ctx.get(collabServiceCtx);
+          service.bindDoc(doc).setAwareness(awareness); // connected only once ready
+        });
+        // Persist on change (debounced); before ready, remember it for later.
+        persistHandler = (_u, origin) => {
+          if (origin === "load") return;
+          const fromPeer = origin === provider || origin === "server";
+          if (!collabReadyRef.current) { pendingPersist = true; return; }
+          if (origin !== "server") {
+            // (The server's own state needs no saving back.)
+            if (saveTimer) clearTimeout(saveTimer);
+            saveTimer = setTimeout(persistNow, 1200);
+          }
+          // A peer's edit: the listener reports only local edits, so re-project
+          // the doc once peers go quiet. Otherwise the note's content keeps
+          // whichever client saved last, possibly before it had everyone's text.
+          if (fromPeer && onChangeRef.current && !readOnlyRef.current) {
+            if (reprojectTimer) clearTimeout(reprojectTimer);
+            reprojectTimer = setTimeout(() => {
+              reprojectTimer = null;
+              try {
+                get()?.action((ctx) => {
+                  const d = ctx.get(editorViewCtx).state.doc;
+                  if (emittedDocRef.current?.eq(d)) return;
+                  emittedDocRef.current = d;
+                  onChangeRef.current?.(ctx.get(serializerCtx)(d));
+                });
+              } catch {}
+            }, 1500);
+          }
+        };
+        doc.on("update", persistHandler);
       }
 
-      // Blank = no visible text (an empty paragraph counts as blank). Using the
-      // fragment's child count instead left a once-blank-persisted doc stuck
-      // forever, since its empty paragraph made it look non-empty.
-      const fragmentEmpty = () => collabDocIsBlank(doc!);
+      // 1. Load the canonical doc.
+      const res = await load();
+      if (cancelled) return;
+      if (!res.ok) {
+        collabConfig.onState?.("unavailable");
+        if (!collabConfig.editableWhileUnavailable) setLocked(true);
+        retryTimer = setTimeout(() => { retryTimer = null; void bind(); }, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 30_000);
+        return;
+      }
+      if (res.state) {
+        try { Y.applyUpdate(doc!, b64ToBytes(res.state), "load"); } catch {}
+      }
 
-      // First-time seed only: if nothing is persisted and no peer has content
-      // after a grace period, seed from markdown once, then persist. Re-checking
-      // load() right before seeding guards against a simultaneous first opener.
-      // Am I the elected seeder? Only the client with the lowest Yjs clientID
-      // among current participants seeds, so two people opening at once can't
-      // both apply the template and duplicate the text. Peers receive the seed
-      // over the broadcast (and via load() on the next open).
-      const iAmSeeder = () => {
-        try {
-          const others = [...awareness.getStates().keys()].filter((id) => id !== doc!.clientID);
-          return others.every((id) => doc!.clientID < id);
-        } catch {
-          return true;
-        }
-      };
-
-      // Seed only after a grace period (so peer state broadcast on connect has
-      // arrived — the provider syncs on SUBSCRIBED), and only when still empty.
-      seedTimer = setTimeout(async () => {
-        if (cancelled || !service) return;
-        if (!fragmentEmpty()) { persistNow(); return; }
-        // Re-check persisted state right before seeding (guards a peer that
-        // seeded + persisted during the grace window).
-        let again: string | null = null;
-        try { again = (await collabConfig.load?.()) ?? null; } catch {}
+      // 2. No doc yet: seed from the text everyone has (the note's content).
+      const baseMarkdown = collabConfig.base !== undefined ? toEditorMarkdown(collabConfig.base, contentFormat) : initialMarkdown;
+      if (collabDocIsBlank(doc!) && baseMarkdown.trim()) {
+        const others = await provider!.othersOnJoin(1500);
         if (cancelled) return;
-        if (again) { try { Y.applyUpdate(doc!, b64ToBytes(again), "load"); } catch {} }
-        // Still empty + the note has canonical content + I'm the elected seeder:
-        // seed from note.content. This recovers a doc that was persisted empty
-        // while note.content held the real text. A note legitimately emptied via
-        // collaboration has empty note.content, so initialMarkdown is "" and
-        // nothing is resurrected.
-        if (fragmentEmpty() && initialMarkdown && iAmSeeder()) {
-          try { service.applyTemplate(initialMarkdown); } catch {}
+        if (others !== 0 && collabDocIsBlank(doc!)) {
+          // Someone else is here (or we can't tell): their state may be on its way.
+          await waitFor(() => !collabDocIsBlank(doc!), 1500);
+          if (cancelled) return;
+          if (collabDocIsBlank(doc!)) {
+            const again = await load();
+            if (cancelled) return;
+            if (again.ok && again.state) {
+              try { Y.applyUpdate(doc!, b64ToBytes(again.state), "load"); } catch {}
+            }
+          }
         }
-        persistNow();
-      }, 1000);
+        if (collabDocIsBlank(doc!)) {
+          editor.action((ctx: any) => {
+            const node = ctx.get(parserCtx)(baseMarkdown);
+            if (node && typeof node !== "string") seedCollabDoc(doc!, node, collabConfig.roomKey, baseMarkdown);
+          });
+        }
+      }
+      if (cancelled) return;
 
-      // Persist on change (debounced). Skip our own applied-load updates.
-      persistHandler = () => {
-        if (!collabConfig.save) return;
-        if (saveTimer) clearTimeout(saveTimer);
-        saveTimer = setTimeout(persistNow, 1200);
-      };
-      doc.on("update", persistHandler);
+      // 3 + 4. Carry local edits over, then bind the editor to the doc. One
+      // synchronous step, so no keystroke can land in between.
+      editor.action((ctx: any) => {
+        const view = ctx.get(editorViewCtx);
+        const parse = ctx.get(parserCtx);
+        const serialize = ctx.get(serializerCtx);
+        const schema = view.state.schema;
+        const norm = (md: string) => md.replace(/\u00a0/g, " ").replace(/\s+$/, "");
+        const md = (node: ProseNode | null) => (node ? norm(serialize(node)) : "");
+        const fragment = doc!.getXmlFragment(COLLAB_FRAGMENT);
+        const localNode = view.state.doc as ProseNode;
+        const localMd = md(localNode);
+        const baseNode = baseMarkdown ? parse(baseMarkdown) : null;
+        const baseMd = baseNode && typeof baseNode !== "string" ? md(baseNode) : "";
+        const docMd = md(yXmlFragmentToProseMirrorRootNode(fragment, schema) as ProseNode);
+        if (localMd !== docMd && localMd !== baseMd) {
+          if (docMd === baseMd) {
+            doc!.transact(() => {
+              updateYFragment(doc!, fragment, localNode, { mapping: new Map(), isOMark: new Map() } as any);
+            }, "local");
+          } else {
+            try { collabConfig.onLocalSuperseded?.(serialize(localNode)); } catch {}
+          }
+        }
+        // Connecting reconfigures the view's plugins, which drops DOM focus:
+        // put focus (and the caret, which ySync keeps) back in the same step,
+        // so typing that is under way carries straight on.
+        const hadFocus = view.hasFocus();
+        service.connect();
+        if (hadFocus && !view.hasFocus()) view.focus();
+      });
+      collabReadyRef.current = true;
+      setLocked(false);
+      if (pendingPersist) persistNow();
+      collabConfig.onState?.("ready");
 
       // Anchor API for the chat panel: capture the current selection as Yjs
       // relative positions (+ a quote fallback), and resolve/scroll/flash one.
@@ -653,18 +798,23 @@ function MilkdownEditorInner({
       };
       unregisterAnchor = registerAnchorApi(collabConfig.roomKey, { capture: captureAnchor, scrollTo: scrollToAnchor });
     };
-    bind();
+    window.addEventListener("online", onOnline);
+    void bind();
 
     return () => {
       cancelled = true;
+      window.removeEventListener("online", onOnline);
       unregisterAnchor?.();
-      if (seedTimer) clearTimeout(seedTimer);
+      if (retryTimer) clearTimeout(retryTimer);
+      if (reprojectTimer) clearTimeout(reprojectTimer);
       if (saveTimer) clearTimeout(saveTimer);
       if (doc && persistHandler) doc.off("update", persistHandler);
-      persistNow(); // flush final state on unmount
+      persistNow(); // flush final state on unmount (only if it was ever ready)
       try { service?.disconnect(); } catch {}
       provider?.destroy();
       doc?.destroy();
+      collabReadyRef.current = false;
+      collabLockedRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collabConfig?.roomKey]);

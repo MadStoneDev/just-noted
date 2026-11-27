@@ -6,6 +6,7 @@ import { useShortcut } from "@/utils/shortcut-label";
 import { currentAccount, isSwitchBoot, ownNoteToRestore, readPlace, writePlace } from "@/utils/account-place";
 
 import LazyTextBlock from "@/components/lazy-text-block";
+import type { CollabEditorConfig } from "@/components/editor/milkdown-editor";
 import { createClient } from "@/utils/supabase/client";
 import { sharingOperation } from "@/app/actions/sharing";
 import { saveCollabDoc } from "@/app/actions/collabActions";
@@ -410,6 +411,9 @@ export function NoteEditor({
 }) {
   const { sc: shortcutLabel } = useShortcut();
   const [title, setTitle] = useState(note.title);
+  // For history snapshots taken from callbacks (collab onLocalSuperseded).
+  const titleRef = useRef(title);
+  titleRef.current = title;
   const [content, setContent] = useState(note.content);
   const [contentFormat, setContentFormat] = useState(note.contentFormat || "html");
   const [isSaving, setIsSaving] = useState(false);
@@ -463,12 +467,14 @@ export function NoteEditor({
   // Live collaboration for the owner (design surface 05): when this note is
   // shared with "Can edit", the owner joins the same Yjs room as its
   // collaborators so their edits merge instead of clobbering.
-  const [collabConfig, setCollabConfig] = useState<{
-    roomKey: string;
-    user: { name: string; color: string };
-    load?: () => Promise<string | null>;
-    save?: (state: string) => Promise<void>;
-  } | null>(null);
+  const [collabConfig, setCollabConfig] = useState<CollabEditorConfig | null>(null);
+  // True once the editor is bound to the loaded Yjs doc. Before that it is a
+  // plain editor, and its saves are ordinary conflict-checked saves, not
+  // projections of a doc (see saveContentNow). Set only from the editor's own
+  // onState reports: the sharing probe can hand over a new config for the same
+  // room without the editor re-binding.
+  const collabBoundRef = useRef(false);
+
   // Read current collab state inside effects without making them re-run.
   const collabConfigRef = useRef(collabConfig);
   collabConfigRef.current = collabConfig;
@@ -540,7 +546,22 @@ export function NoteEditor({
           roomKey: nid,
           user: { name: (a as any)?.username || "Someone", color: colorForUser(userId) },
           load: () => fetchCollabState({ noteId: nid }),
-          save: (state) => saveCollabDoc({ noteId: nid, state }).then(() => {}),
+          save: (state) => saveCollabDoc({ noteId: nid, state }).then((r) => r.state ?? null),
+          // The text this note opened on: edits made since (in the plain editor
+          // before this switch, or before the doc is ready) are carried into
+          // the doc when it still holds that text.
+          base: openingContentRef.current ?? "",
+          // Until bound, this is a plain editor whose saves are conflict-checked
+          // (projection only once bound): if the doc can't load, keep editing
+          // while the editor retries it in place.
+          editableWhileUnavailable: true,
+          onState: (state) => {
+            if (note.id !== prevNoteIdRef.current) return;
+            collabBoundRef.current = state === "ready";
+          },
+          onLocalSuperseded: (markdown) => {
+            void saveVersion(nid, titleRef.current ?? "", markdown, "markdown", "safety");
+          },
         });
       } catch {}
     })();
@@ -785,9 +806,11 @@ export function NoteEditor({
             goalType,
             // When this note is on the Yjs CRDT, the content write is a merged
             // projection — the server skips CAS (verified against note_ydoc), so
-            // collaborative edits don't spawn spurious conflicted copies.
+            // collaborative edits don't spawn spurious conflicted copies. Read
+            // through refs: this callback's deps don't include the collab state,
+            // and a stale closure sent CAS saves that collided with collaborators'.
             // baseVersion pins the version we edited from (see baseVersionRef).
-            { projection: !!collabConfig, baseVersion: baseVersionRef.current },
+            { projection: !!collabConfigRef.current && collabBoundRef.current, baseVersion: baseVersionRef.current },
           );
           // A non-throwing failure (server rejected / queued offline) must
           // propagate so useAutoSave keeps the content dirty and retries.

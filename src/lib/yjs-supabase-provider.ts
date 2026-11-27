@@ -38,12 +38,20 @@ export class SupabaseYjsProvider {
   private awarenessHandler: (changes: { added: number[]; updated: number[]; removed: number[] }, origin: unknown) => void;
   private beforeUnload: () => void;
   private onRevive: () => void;
+  // Who else is in the room when we join (Realtime presence on this channel):
+  // resolved by the first presence sync. Lets the editor seed a doc-less note
+  // at once when it is alone, and wait for a peer's state when it isn't.
+  private presenceKey: string;
+  private othersResolve: ((n: number) => void) | null = null;
+  private othersPromise: Promise<number>;
 
   constructor(roomKey: string, doc: Y.Doc, awareness: Awareness) {
     this.doc = doc;
     this.awareness = awareness;
+    this.presenceKey = `${doc.clientID}`;
+    this.othersPromise = new Promise((r) => (this.othersResolve = r));
     this.channel = this.supabase.channel(`yjs:${roomKey}`, {
-      config: { broadcast: { self: false } },
+      config: { broadcast: { self: false }, presence: { key: this.presenceKey } },
     });
 
     // Local doc changes → broadcast. Skip updates we applied from a peer
@@ -73,8 +81,17 @@ export class SupabaseYjsProvider {
         // A peer (re)joined — send them our full doc + awareness state.
         this.pushState();
       })
+      .on("presence", { event: "sync" }, () => {
+        if (!this.othersResolve) return;
+        const others = Object.keys(this.channel.presenceState()).filter((k) => k !== this.presenceKey).length;
+        this.othersResolve(others);
+        this.othersResolve = null;
+      })
       .subscribe((status) => {
-        if (status === "SUBSCRIBED") this.syncState();
+        if (status === "SUBSCRIBED") {
+          this.syncState();
+          void this.channel.track({ at: Date.now() }).catch(() => {});
+        }
       });
 
     // Broadcast (broadcast!) has no replay: a backgrounded/throttled tab misses
@@ -95,6 +112,18 @@ export class SupabaseYjsProvider {
       removeAwarenessStates(this.awareness, [this.doc.clientID], "unload");
     };
     if (typeof window !== "undefined") window.addEventListener("beforeunload", this.beforeUnload);
+  }
+
+  /**
+   * How many OTHER clients were in the room when we joined, from the first
+   * presence sync; null if that didn't arrive within `timeoutMs` (realtime slow
+   * or down — the caller then can't assume it is alone).
+   */
+  othersOnJoin(timeoutMs: number): Promise<number | null> {
+    return Promise.race([
+      this.othersPromise,
+      new Promise<null>((r) => setTimeout(() => r(null), timeoutMs)),
+    ]);
   }
 
   /** Broadcast our full doc + awareness state so peers can merge it. */

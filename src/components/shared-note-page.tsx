@@ -364,8 +364,8 @@ export default function SharedNotePage({
             collab={me ? {
               roomKey: note.id,
               user: me,
-              load: () => loadCollabDoc({ shortcode }).then((r) => r.state),
-              save: (state) => saveCollabDoc({ shortcode, state }).then(() => {}),
+              load: () => loadCollabDoc({ shortcode }).then((r) => (r.ok ? { ok: true as const, state: r.state } : { ok: false as const })),
+              save: (state) => saveCollabDoc({ shortcode, state }).then((r) => r.state ?? null),
             } : undefined}
           />
         </article>

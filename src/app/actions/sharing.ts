@@ -6,6 +6,7 @@ import { createClient, createServiceRoleClient } from "@/utils/supabase/server";
 import { noteIsTrashed } from "@/lib/note-trash";
 import { getCollabAllowance, ownerCanCollaborate, resolvePlanTier, getLimits, type SubscriptionRow } from "@/lib/subscription";
 import { wouldBlankNonEmpty } from "@/lib/collab-guard";
+import { snapshotIfMajorShrink } from "@/lib/note-snapshot";
 import { notifyShareAdded, notifyNoteEdited } from "@/utils/notifications/create";
 
 // ===========================
@@ -861,6 +862,10 @@ export async function sharingOperation(params: SharingOperationParams) {
         if (wouldBlankNonEmpty(content, (curRow as any)?.content)) {
           return { success: true };
         }
+
+        // Safety net (lib/content-shrink.ts): a save that removes most of the
+        // note first puts the current body in the OWNER's Version history.
+        await snapshotIfMajorShrink(svc, noteId, (curRow as any)?.content, content);
 
         const nextVersion = (((curRow as any)?.version as number) ?? 1) + 1;
 

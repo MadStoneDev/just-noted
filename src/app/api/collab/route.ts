@@ -11,12 +11,14 @@ export async function GET(req: NextRequest) {
   const shortcode = req.nextUrl.searchParams.get("shortcode") || undefined;
   const noteId = req.nextUrl.searchParams.get("noteId") || undefined;
   if (!shortcode && !noteId) {
-    return NextResponse.json({ state: null }, { status: 400 });
+    return NextResponse.json({ ok: false }, { status: 400 });
   }
   try {
-    const { state } = await loadCollabState({ shortcode, noteId });
-    return NextResponse.json({ state });
+    const r = await loadCollabState({ shortcode, noteId });
+    if (!r.ok) return NextResponse.json({ ok: false }, { status: r.reason === "forbidden" ? 403 : 500 });
+    // ok + state null = no doc yet (the client may seed); see CollabLoad.
+    return NextResponse.json({ ok: true, state: r.state });
   } catch {
-    return NextResponse.json({ state: null }, { status: 500 });
+    return NextResponse.json({ ok: false }, { status: 500 });
   }
 }

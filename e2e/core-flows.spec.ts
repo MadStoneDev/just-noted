@@ -2,6 +2,7 @@ import { chromium, type Page, type Route } from "@playwright/test";
 import { test, expect } from "./fixtures/no-conflicts";
 import { seedState, seededAccounts, signIn, type SeededAccount } from "./fixtures/auth";
 import { adminClient } from "./fixtures/admin";
+import { makeSharedNote, SHARED_BODY } from "./fixtures/collab";
 
 // Core flows for the Ready-for-mobile gate (docs/mobile-readiness.md).
 //
@@ -487,11 +488,15 @@ test.describe("signed-in", () => {
     // it lands in A's account once back online and never under B.
     test("offline: switching is refused and the queued edit stays with the current account", async ({ page, context }) => {
       const [a, b] = seededAccounts();
+      // Its own A→B shared note: this test writes to it, and the seeded one is
+      // read by other specs. Shared, because the shared (live collab) path is
+      // where an early edit once replaced the body (docs/diagnostics/shared-note-overwrite).
+      const { id } = await makeSharedNote(a, b);
       await signIn(page, a, { alsoOnDevice: [b] });
       await page.goto("/");
       await waitForApp(page);
-      await expect(page.locator(NOTE_ROW).first()).toBeVisible();
-      const id = await openSeededNote(page);
+      await page.locator(`[data-note-card="${id}"]`).click();
+      await expect(editor(page)).toContainText("Shared with B");
       await page.waitForTimeout(1500);
 
       // An edit for A while offline — it can only be queued on the device.
@@ -523,8 +528,9 @@ test.describe("signed-in", () => {
       );
       expect(bEntry?.sessionValid).toBe(true);
 
-      // Back online, the queued edit lands in A's account…
+      // Back online, the queued edit lands in A's account, after the body…
       await expect.poll(() => cloudContent(id), { timeout: 20_000 }).toContain(marker);
+      expect(await cloudContent(id)).toContain(`${SHARED_BODY} ${marker}`);
 
       // …and switching now works, with nothing of A's under B.
       await switchAccountViaUi(page, b);
@@ -737,14 +743,6 @@ async function expectNoteKeptAndTypeable(
   await waitForApp(page);
   await page.locator(`[data-note-card="${noteId}"]`).click();
   await expect(editor(page)).toContainText(marker);
-}
-
-// Open the seeded note (owned by A) and return its id.
-async function openSeededNote(page: Page): Promise<string> {
-  const id = seedState()!.sharedNote!.noteId;
-  await page.locator(`[data-note-card="${id}"]`).click();
-  await expect(editor(page)).toContainText("Shared with B");
-  return id;
 }
 
 // Server-side truth for cloud specs (service-role read; test env only).
