@@ -1,18 +1,19 @@
 import { test, type Page } from "@playwright/test";
 
 // Screenshot harness for the roadmap layout (not a check — skipped unless
-// SHOTS_TAG is set). Guest visitor, dark theme, at 1440 / 768 / 390:
+// SHOTS_TAG is set). Guest visitor, dark theme, at 1440 / 1024 / 768 / 390:
 //
 //   SHOTS_TAG=after npx playwright test roadmap-screens
 //
-// Files land in docs/screenshots/roadmap-<viewport>-dark-<tag>.png. On phone it
-// also captures the Shipped list after tapping its tab.
+// Files land in docs/screenshots/roadmap-<viewport>-dark-<tag>.png. Below lg (tablet,
+// phone) it also captures the Shipped list after tapping its tab.
 
 const TAG = process.env.SHOTS_TAG;
 const OUT = "docs/screenshots";
 
 const VIEWPORTS = {
   desktop: { viewport: { width: 1440, height: 900 } },
+  laptop: { viewport: { width: 1024, height: 768 } },
   tablet: { viewport: { width: 768, height: 1024 }, hasTouch: true },
   phone: { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 },
 } as const;
@@ -40,7 +41,7 @@ test.describe("roadmap screenshots", () => {
       await shoot(page, `roadmap-${vp}-dark`);
 
       const shippedTab = page.getByRole("tab", { name: /shipped/i });
-      if (vp === "phone" && (await shippedTab.isVisible().catch(() => false))) {
+      if ((vp === "phone" || vp === "tablet") && (await shippedTab.isVisible().catch(() => false))) {
         await shippedTab.click();
         await page.waitForTimeout(800);
         await shoot(page, `roadmap-${vp}-shipped-dark`);

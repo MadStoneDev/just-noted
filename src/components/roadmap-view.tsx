@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useEscapeLayer } from "@/utils/escape-stack";
-import { MOBILE_BREAKPOINT } from "@/constants/app";
 import { defaultRoadmapTab, nextTabIndex, panelIndexAt } from "@/utils/roadmap-tabs";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
@@ -26,15 +25,18 @@ const COLUMNS: { status: string; label: string; dot: string }[] = [
   { status: "shipped", label: "Shipped", dot: "#3DA35D" },
 ];
 
-// Phone layout (below the app's mobile breakpoint, = Tailwind `md`): a tab bar
-// over a horizontal scroll-snap strip, one full-width list per screen. md and up:
-// the four lists side by side. Both are the same DOM; only classes differ.
-const MOBILE_QUERY = `(max-width: ${MOBILE_BREAKPOINT - 0.02}px)`;
+// Tabbed layout below Tailwind `lg` (1024px): a tab bar over a horizontal
+// scroll-snap strip, one full-width list per screen. lg and up: the four lists
+// side by side — only from the width where all four fit at their minimum, so the
+// board never scrolls sideways. Same DOM for both; only classes differ.
+// Keep in sync with the `lg:` classes below.
+const TABS_BELOW_PX = 1024;
+const MOBILE_QUERY = `(max-width: ${TABS_BELOW_PX - 0.02}px)`;
 const PREFERRED_TAB = COLUMNS.findIndex((c) => c.status === "in_progress");
 const tabId = (status: string) => `roadmap-tab-${status}`;
 const panelId = (status: string) => `roadmap-panel-${status}`;
 
-function isPhone() {
+function isTabbed() {
   return typeof window !== "undefined" && window.matchMedia(MOBILE_QUERY).matches;
 }
 
@@ -89,13 +91,13 @@ export default function RoadmapView() {
     return m;
   }, [items]);
 
-  // ── Phone tabs ↔ scroll-snap strip ──────────────────────────────────────────
+  // ── Tabs ↔ scroll-snap strip (< lg) ──────────────────────────────────────────
   const scrollerRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [active, setActive] = useState(PREFERRED_TAB);
   const activeRef = useRef(active);
   activeRef.current = active;
-  const [phone, setPhone] = useState(false); // ARIA roles only; layout is CSS
+  const [tabbed, setTabbed] = useState(false); // ARIA roles only; layout is CSS
   // A tab tap scrolls smoothly through the lists in between; ignore those
   // intermediate positions so the active tab doesn't flicker across them.
   const seeking = useRef<number | null>(null);
@@ -104,7 +106,7 @@ export default function RoadmapView() {
 
   useEffect(() => {
     const mq = window.matchMedia(MOBILE_QUERY);
-    const sync = () => setPhone(mq.matches);
+    const sync = () => setTabbed(mq.matches);
     sync();
     mq.addEventListener("change", sync);
     return () => mq.removeEventListener("change", sync);
@@ -112,7 +114,7 @@ export default function RoadmapView() {
 
   const scrollToPanel = useCallback((idx: number, smooth: boolean) => {
     const el = scrollerRef.current;
-    if (!el || !isPhone()) return;
+    if (!el || !isTabbed()) return;
     const left = idx * el.clientWidth;
     if (Math.abs(el.scrollLeft - left) < 1) return;
     const animate = smooth && !prefersReducedMotion();
@@ -138,7 +140,7 @@ export default function RoadmapView() {
   // Swiping updates the active tab.
   const syncFromScroll = useCallback((settled: boolean) => {
     const el = scrollerRef.current;
-    if (!el || !isPhone()) return;
+    if (!el || !isTabbed()) return;
     const idx = panelIndexAt(el.scrollLeft, el.clientWidth, COLUMNS.length);
     if (seeking.current !== null) {
       if (!settled && idx !== seeking.current) return;
@@ -157,7 +159,7 @@ export default function RoadmapView() {
     el.addEventListener("scrollend", onScrollEnd);
     // Rotation / resize: keep the active list in view at the new width.
     const ro = new ResizeObserver(() => {
-      if (!isPhone()) return;
+      if (!isTabbed()) return;
       seeking.current = null;
       el.scrollTo({ left: activeRef.current * el.clientWidth, behavior: "auto" });
     });
@@ -287,7 +289,7 @@ export default function RoadmapView() {
     // page itself never scrolls — each list scrolls on its own.
     <div data-testid="roadmap" className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[var(--color-canvas)]">
       {/* Header */}
-      <div className="shrink-0 mx-auto w-full max-w-[1200px] px-4 md:px-10 pt-6 pb-4 md:pt-10 md:pb-6">
+      <div className="shrink-0 mx-auto w-full max-w-[1200px] px-4 lg:px-8 xl:px-10 pt-6 pb-4 lg:pt-10 lg:pb-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="font-[family-name:var(--font-editor)] text-[34px] leading-[1.05] font-medium tracking-[-0.01em] text-[var(--color-ink)]">
@@ -315,12 +317,12 @@ export default function RoadmapView() {
         </div>
       </div>
 
-      {/* Phone tab bar: all four lists, one tap away. Fixed-height tabs, and the
+      {/* Tab bar (< lg): all four lists, one tap away. Fixed-height tabs, and the
           active state changes colour only (no weight change) — no layout shift. */}
       <div
         role="tablist"
         aria-label="Roadmap lists"
-        className="md:hidden shrink-0 grid grid-cols-4 px-2 border-b border-[var(--color-hairline)]"
+        className="lg:hidden shrink-0 grid grid-cols-4 px-2 border-b border-[var(--color-hairline)]"
       >
         {COLUMNS.map((col, i) => {
           const selected = i === active;
@@ -359,12 +361,11 @@ export default function RoadmapView() {
         })}
       </div>
 
-      {/* Board. Phone: horizontal scroll-snap strip, one full-width list per
-          screen. md+: four columns side by side (scrolls sideways if narrower than
-          four minimum-width columns, e.g. tablet portrait). */}
+      {/* Board. Below lg: horizontal scroll-snap strip, one full-width list per
+          screen. lg+: four columns side by side. */}
       <div
         ref={scrollerRef}
-        className="flex-1 min-h-0 flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:snap-none md:gap-4 md:mx-auto md:w-full md:max-w-[1200px] md:px-10 md:pb-6 md:[scrollbar-width:thin] md:[&::-webkit-scrollbar]:block"
+        className="flex-1 min-h-0 flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:snap-none lg:gap-4 lg:mx-auto lg:w-full lg:max-w-[1200px] lg:px-8 xl:px-10 lg:pb-6 lg:[scrollbar-width:thin] lg:[&::-webkit-scrollbar]:block"
       >
         {COLUMNS.map((col) => {
           const colItems = byStatus.get(col.status) ?? [];
@@ -372,12 +373,12 @@ export default function RoadmapView() {
             <section
               key={col.status}
               id={panelId(col.status)}
-              aria-label={phone ? undefined : col.label}
-              {...(phone ? { role: "tabpanel", "aria-labelledby": tabId(col.status) } : {})}
-              className="shrink-0 basis-full min-w-0 snap-start snap-always flex flex-col min-h-0 md:shrink md:basis-0 md:flex-1 md:min-w-[220px] md:max-w-[320px]"
+              aria-label={tabbed ? undefined : col.label}
+              {...(tabbed ? { role: "tabpanel", "aria-labelledby": tabId(col.status) } : {})}
+              className="shrink-0 basis-full min-w-0 snap-start snap-always flex flex-col min-h-0 lg:shrink lg:basis-0 lg:flex-1 lg:min-w-[200px] lg:max-w-[320px]"
             >
-              {/* Column header (md+): stays put while the list below scrolls. */}
-              <div className="hidden md:flex shrink-0 items-center gap-1.5 mb-2.5 px-1">
+              {/* Column header (lg+): stays put while the list below scrolls. */}
+              <div className="hidden lg:flex shrink-0 items-center gap-1.5 mb-2.5 px-1">
                 <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: col.dot }} />
                 <span className="text-label font-[family-name:var(--font-meta)] uppercase tracking-[0.12em] text-[var(--color-ink-5)]">
                   {col.label}
@@ -388,7 +389,7 @@ export default function RoadmapView() {
               </div>
               <div
                 data-testid={`roadmap-list-${col.status}`}
-                className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain scrollbar-thin px-4 pt-4 pb-6 md:p-0 md:[scrollbar-gutter:stable]"
+                className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain scrollbar-thin px-4 pt-4 pb-6 lg:p-0 lg:[scrollbar-gutter:stable]"
               >
                 <div className="flex flex-col gap-2">
                   {items === null ? (

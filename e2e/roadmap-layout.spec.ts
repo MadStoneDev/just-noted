@@ -1,10 +1,12 @@
 import { test, expect, type Page } from "@playwright/test";
 
 // Roadmap layout: the page fits the viewport and each list scrolls on its own
-// (md+: four columns; phone: a tab bar over a scroll-snap strip). Guest visitor;
+// (lg+ / 1024px: four columns; below: a tab bar over a scroll-snap strip). Guest visitor;
 // relies on the local DB's published roadmap items (Shipped must overflow).
 
 const LIST = (status: string) => `[data-testid="roadmap-list-${status}"]`;
+const STRIP = '[data-testid="roadmap"] [role="tablist"] + div';
+const ALL = ["under_review", "planned", "in_progress", "shipped"];
 
 async function openRoadmap(page: Page) {
   await page.goto("/roadmap");
@@ -33,7 +35,7 @@ test.describe("roadmap — desktop", () => {
 
     // Four columns side by side.
     const tops = await Promise.all(
-      ["under_review", "planned", "in_progress", "shipped"].map(async (s) => (await page.locator(LIST(s)).boundingBox())!.y),
+      ALL.map(async (s) => (await page.locator(LIST(s)).boundingBox())!.y),
     );
     expect(new Set(tops).size).toBe(1);
 
@@ -50,16 +52,51 @@ test.describe("roadmap — desktop", () => {
   });
 });
 
-test.describe("roadmap — tablet", () => {
-  test.use({ viewport: { width: 768, height: 1024 } });
+test.describe("roadmap — lg breakpoint (1024)", () => {
+  test.use({ viewport: { width: 1024, height: 768 } });
 
-  test("uses the column layout at the breakpoint", async ({ page }) => {
+  test("all four columns fit without a sideways scroll", async ({ page }) => {
     await openRoadmap(page);
     await expect(page.getByRole("tablist")).toBeHidden();
-    const a = (await page.locator(LIST("under_review")).boundingBox())!;
-    const b = (await page.locator(LIST("planned")).boundingBox())!;
-    expect(b.y).toBe(a.y);
-    expect(b.x).toBeGreaterThan(a.x);
+    const boxes = await Promise.all(ALL.map(async (s) => (await page.locator(LIST(s)).boundingBox())!));
+    expect(new Set(boxes.map((b) => b.y)).size).toBe(1);
+    for (const s of ALL) await expect(page.locator(LIST(s))).toBeInViewport({ ratio: 1 });
+    const board = await page.locator(STRIP).evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth }));
+    expect(board.sw).toBeLessThanOrEqual(board.cw);
+    expect(await pageScrolls(page)).toEqual({ doc: false, root: false });
+  });
+});
+
+test.describe("roadmap — just below lg (1023)", () => {
+  test.use({ viewport: { width: 1023, height: 768 } });
+
+  test("switches to the tabbed layout", async ({ page }) => {
+    await openRoadmap(page);
+    await expect(page.getByRole("tablist")).toBeVisible();
+    await expect(page.getByRole("tab")).toHaveCount(4);
+  });
+});
+
+test.describe("roadmap — tablet (768)", () => {
+  test.use({ viewport: { width: 768, height: 1024 }, hasTouch: true });
+
+  test("uses the tabbed layout: one full-width list, tabs drive it", async ({ page }) => {
+    await openRoadmap(page);
+    expect(await pageScrolls(page)).toEqual({ doc: false, root: false });
+    await expect(page.getByRole("tab")).toHaveCount(4);
+    await expect(page.getByRole("tab", { name: /In progress/ })).toHaveAttribute("aria-selected", "true");
+
+    const width = await page.locator(STRIP).evaluate((el) => el.clientWidth);
+    const panel = page.getByRole("tabpanel", { name: /In progress/ });
+    await expect(panel).toBeInViewport({ ratio: 0.9 });
+    expect((await panel.boundingBox())!.width).toBeCloseTo(width, 0);
+
+    await page.getByRole("tab", { name: /Shipped/ }).click();
+    await expect(page.getByRole("tab", { name: /Shipped/ })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("tabpanel", { name: /Shipped/ })).toBeInViewport({ ratio: 0.9 });
+    const shipped = page.locator(LIST("shipped"));
+    await shipped.evaluate((el) => el.scrollBy(0, 400));
+    await expect.poll(() => shipped.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
     expect(await pageScrolls(page)).toEqual({ doc: false, root: false });
   });
 });
@@ -67,8 +104,7 @@ test.describe("roadmap — tablet", () => {
 test.describe("roadmap — phone", () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
-  const scrollLeft = (page: Page) =>
-    page.locator('[data-testid="roadmap"] [role="tablist"] + div').evaluate((el) => el.scrollLeft);
+  const scrollLeft = (page: Page) => page.locator(STRIP).evaluate((el) => el.scrollLeft);
 
   test("tabs drive the snap strip and follow swipes", async ({ page }) => {
     await openRoadmap(page);
@@ -99,7 +135,7 @@ test.describe("roadmap — phone", () => {
     expect(await page.getByRole("tablist").boundingBox()).toEqual(barBefore);
 
     // Swipe (scroll the strip) → active tab follows.
-    await page.locator('[data-testid="roadmap"] [role="tablist"] + div').evaluate((el) => el.scrollTo({ left: 0 }));
+    await page.locator(STRIP).evaluate((el) => el.scrollTo({ left: 0 }));
     await expect(page.getByRole("tab", { name: /Under review/ })).toHaveAttribute("aria-selected", "true");
     expect(await scrollLeft(page)).toBe(0);
 
@@ -122,9 +158,7 @@ test.describe("roadmap — phone", () => {
   test("reduced motion: tab taps jump without a smooth scroll", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await openRoadmap(page);
-    const width = await page
-      .locator('[data-testid="roadmap"] [role="tablist"] + div')
-      .evaluate((el) => el.clientWidth);
+    const width = await page.locator(STRIP).evaluate((el) => el.clientWidth);
     await page.getByRole("tab", { name: /Under review/ }).click();
     // Checked synchronously after the click: a smooth scroll would still be in flight.
     expect(await scrollLeft(page)).toBe(0);
