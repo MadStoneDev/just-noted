@@ -1,0 +1,40 @@
+== 527f9c7-run1
+  11:07:47.887 v1 'Shared with B for collaboration specs.'  body_kept=True
+      running: w0 passed  core-flows.spec.ts:57 notes — local (Redis, anonymous) › create, edit, reload → content persists
+      running: w1 passed  core-flows.spec.ts:83 notes — local (Redis, anonymous) › new note appears in the sidebar immediately (B8) — local
+  11:08:46.930 v2 '\xa0e2e-b7-1795777724179\n'  body_kept=False
+      running: w0 passed  core-flows.spec.ts:488 signed-in › account switching (B7) › offline: switching is refused and the queued edit stays with the current account
+      running: w1 passed  delete-ghost.spec.ts:411 delete never comes back — guest (Valkey) › note that isn't open
+== 527f9c7-run2
+  11:20:00.646 v1 'Shared with B for collaboration specs.'  body_kept=True
+      running: w0 passed  core-flows.spec.ts:57 notes — local (Redis, anonymous) › create, edit, reload → content persists
+      running: w1 passed  core-flows.spec.ts:83 notes — local (Redis, anonymous) › new note appears in the sidebar immediately (B8) — local
+  11:20:55.876 v2 'Shared with B for collaboration specs. e2e-b7-1795778453302\n'  body_kept=True
+      running: w0 passed  core-flows.spec.ts:488 signed-in › account switching (B7) › offline: switching is refused and the queued edit stays with the current account
+      running: w1 passed  delete-ghost.spec.ts:411 delete never comes back — guest (Valkey) › note that isn't open
+== 527f9c7-run3
+  11:31:52.444 v1 'Shared with B for collaboration specs.'  body_kept=True
+      running: w0 passed  core-flows.spec.ts:57 notes — local (Redis, anonymous) › create, edit, reload → content persists
+      running: w1 passed  core-flows.spec.ts:83 notes — local (Redis, anonymous) › new note appears in the sidebar immediately (B8) — local
+  11:33:14.844 v2 '\xa0e2e-b7-1795779190996\n'  body_kept=False
+      running: w1 passed  core-flows.spec.ts:488 signed-in › account switching (B7) › offline: switching is refused and the queued edit stays with the current account
+      running: w0 passed  delete-ghost.spec.ts:418 delete never comes back — guest (Valkey) › deleting a second note within 10s doesn't cancel the first delete
+== 6873877-run1
+  11:50:12.757 v1 'Shared with B for collaboration specs.'  body_kept=True
+  11:51:08.413 v2 'Shared with B for collaboration specs. e2e-b7-1795780265758\n'  body_kept=True
+      running: w0 passed  core-flows.spec.ts:488 signed-in › account switching (B7) › offline: switching is refused and the queued edit stays with the current account
+      running: w1 passed  delete-ghost.spec.ts:411 delete never comes back — guest (Valkey) › note that isn't open
+== 6873877-run2
+  12:01:53.221 v1 'Shared with B for collaboration specs.'  body_kept=True
+      running: w0 passed  core-flows.spec.ts:57 notes — local (Redis, anonymous) › create, edit, reload → content persists
+      running: w1 passed  core-flows.spec.ts:83 notes — local (Redis, anonymous) › new note appears in the sidebar immediately (B8) — local
+  12:02:48.247 v2 'Shared with B for collaboration specs. e2e-b7-1795780965603\n'  body_kept=True
+      running: w0 passed  core-flows.spec.ts:488 signed-in › account switching (B7) › offline: switching is refused and the queued edit stays with the current account
+      running: w1 passed  delete-ghost.spec.ts:411 delete never comes back — guest (Valkey) › note that isn't open
+== 6873877-run3
+  12:13:34.047 v1 'Shared with B for collaboration specs.'  body_kept=True
+      running: w0 passed  core-flows.spec.ts:57 notes — local (Redis, anonymous) › create, edit, reload → content persists
+      running: w1 passed  core-flows.spec.ts:83 notes — local (Redis, anonymous) › new note appears in the sidebar immediately (B8) — local
+  12:14:29.093 v2 'Shared with B for collaboration specs. e2e-b7-1795781666421\n'  body_kept=True
+      running: w0 passed  core-flows.spec.ts:488 signed-in › account switching (B7) › offline: switching is refused and the queued edit stays with the current account
+      running: w1 passed  delete-ghost.spec.ts:411 delete never comes back — guest (Valkey) › note that isn't open

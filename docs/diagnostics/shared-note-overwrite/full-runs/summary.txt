@@ -1,0 +1,10 @@
+start 2026-11-27T21:07:45+10:00
+527f9c7-run1 exit=1
+527f9c7-run2 exit=0
+527f9c7-run3 exit=1
+Preparing worktree (detached HEAD 6873877)
+HEAD is now at 6873877 Remove the last Upstash/QStash references and the one-off Valkey copy script
+6873877-run1 exit=0
+6873877-run2 exit=0
+6873877-run3 exit=0
+done 2026-11-27T22:25:15+10:00

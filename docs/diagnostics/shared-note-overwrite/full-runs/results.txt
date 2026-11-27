@@ -1,0 +1,33 @@
+== 527f9c7-run1
+  ✘   29 [chromium] › e2e/core-flows.spec.ts:592:7 › signed-in › account switching (B7) › restores the account's place › nothing remembered: Notes panel, no note open; the open shared note isn't carried over (16.0s)
+  ✘  125 [chromium] › e2e/shared-note-open.spec.ts:30:3 › shared note open › no 'Can't access note' flash when B loads a note shared with them (16.0s)
+  ✘  126 [chromium] › e2e/shared-note-open.spec.ts:55:3 › shared note open › a 'Note shared with you' notification opens the note under Shared, highlighted (17.5s)
+  ✘  130 [chromium] › e2e/sign-out-offline-multi-account.spec.ts:183:3 › f4: chosen sign-out while offline, two accounts on the device › (b) remove the non-active account within 1 s of an offline line: active account and its line untouched (16.9s)
+  3 failed
+  39 skipped
+  98 passed (12.2m)
+== 527f9c7-run2
+  ✘  131 [chromium] › e2e/sign-out-offline-multi-account.spec.ts:183:3 › f4: chosen sign-out while offline, two accounts on the device › (b) remove the non-active account within 1 s of an offline line: active account and its line untouched (11.4s)
+  40 skipped
+  101 passed (11.8m)
+== 527f9c7-run3
+  ✘   29 [chromium] › e2e/core-flows.spec.ts:592:7 › signed-in › account switching (B7) › restores the account's place › nothing remembered: Notes panel, no note open; the open shared note isn't carried over (16.3s)
+  ✘  120 [chromium] › e2e/roadmap-layout.spec.ts:109:3 › roadmap — phone › tabs drive the snap strip and follow swipes (1.2s)
+  ✘  126 [chromium] › e2e/shared-note-open.spec.ts:30:3 › shared note open › no 'Can't access note' flash when B loads a note shared with them (15.9s)
+  ✘  127 [chromium] › e2e/shared-note-open.spec.ts:55:3 › shared note open › a 'Note shared with you' notification opens the note under Shared, highlighted (17.0s)
+  ✘  131 [chromium] › e2e/sign-out-offline-multi-account.spec.ts:183:3 › f4: chosen sign-out while offline, two accounts on the device › (b) remove the non-active account within 1 s of an offline line: active account and its line untouched (16.4s)
+  4 failed
+  40 skipped
+  97 passed (12.4m)
+== 6873877-run1
+  ✘  118 [chromium] › e2e/sign-out-offline-multi-account.spec.ts:183:3 › f4: chosen sign-out while offline, two accounts on the device › (b) remove the non-active account within 1 s of an offline line: active account and its line untouched (11.2s)
+  29 skipped
+  99 passed (11.7m)
+== 6873877-run2
+  ✘  118 [chromium] › e2e/sign-out-offline-multi-account.spec.ts:183:3 › f4: chosen sign-out while offline, two accounts on the device › (b) remove the non-active account within 1 s of an offline line: active account and its line untouched (16.2s)
+  29 skipped
+  99 passed (11.7m)
+== 6873877-run3
+  ✘  118 [chromium] › e2e/sign-out-offline-multi-account.spec.ts:183:3 › f4: chosen sign-out while offline, two accounts on the device › (b) remove the non-active account within 1 s of an offline line: active account and its line untouched (16.2s)
+  29 skipped
+  99 passed (11.7m)

@@ -87,7 +87,7 @@ Smallest safe first: purely additive tokens, plus a behaviour fix the brief asks
 - **Not done:** `notebook-export-button` is dead code; it moves to Stage 5.
 - **Fonts commit:** IBM Plex Mono 400/500 (`preload: false`) for `--font-meta`; Inter dropped. Playfair is still loaded pending wordmark sign-off; the preview is `docs/screenshots/wordmark-compare.png`.
 - **Found and fixed during Stage 1:** on phones, the swipe actions (Pin / Move / Delete) did nothing. `SwipeableRow`'s click-capture handler, meant to stop a swipe from opening the note, also swallowed taps on the revealed action buttons. Taps inside `[data-swipe-action]` now go through. Covered by the new phone e2e in `escape-layers.spec.ts`.
-- **Seen once, not reproduced:** in one full E2E run, the seeded shared note (account A) was overwritten. Its title gained an extra "E" and its body became just the `e2e-b7-…` marker from core-flows' offline account-switch test. Three later specs then failed on the missing text. The same specs passed in isolation and in the next full run. It looks like interference between specs sharing account A, but it hasn't been traced, nor checked against the pre-Stage-1 commit. Worth a ticket.
+- **Traced (2026-11-27): app bug, pre-existing, not cross-account:** the seeded shared note (account A) losing its body to the `e2e-b7-…` marker is account A's own client in A's own note. Typing in the ~1 s after the editor switches into live-collab mode goes into an empty Yjs doc; the fill from `note.content` is then skipped and the save replaces the body. It reproduces on 6873877 as well. The extra "E" was the presence avatar, not the title. Evidence and a proposed fix (not applied) are in `docs/diagnostics/shared-note-overwrite/README.md`.
 
 ---
 
