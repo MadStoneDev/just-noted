@@ -1,5 +1,5 @@
--- Self-serve account export. A request creates a row and enqueues a QStash job
--- (payload = export id only, never content); the worker gathers the user's data,
+-- Self-serve account export. A request creates a row and runs the export
+-- in-process with after(); the worker gathers the user's data,
 -- uploads it to the PRIVATE R2 bucket, and marks the row ready. Downloads are
 -- short-lived presigned URLs. Rows + objects are deleted after 7 days (and on
 -- account deletion).
