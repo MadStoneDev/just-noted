@@ -105,7 +105,7 @@ that fix, under the same load: 0 such losses in 100 close runs (original test
 ## Resolution (2026-11-27)
 
 - Closed as not reproduced.
-- The CSS follow-up was tried and **not shipped**: it changes what gets saved.
+- The CSS follow-up was tried and **not shipped**: it changes what gets saved. Shelved as `docs/tickets/editor-white-space-pre-wrap.md`.
 
 ### The `white-space: pre-wrap` attempt
 
