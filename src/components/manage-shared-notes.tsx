@@ -138,7 +138,16 @@ function ConfirmModal({
       : "bg-[var(--color-warning)] hover:bg-[var(--color-warning)]";
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-[var(--color-bg-overlay)] z-50" role="dialog" aria-modal="true" aria-label={title}>
+    <div
+      className="fixed inset-0 flex items-center justify-center bg-[var(--color-bg-overlay)] z-50"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      data-testid="manage-shared-confirm-backdrop"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isProcessing) onCancel();
+      }}
+    >
       <div className="bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] p-4 w-full max-w-md">
         <h3 className="text-sm font-semibold mb-2">{title}</h3>
         <p className="text-[var(--color-text-primary)] mb-4">{message}</p>
@@ -631,7 +640,18 @@ export default function ManageSharedNotes({ userId }: { userId: string }) {
 
       {/* Add user modal */}
       {addUserModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-[var(--color-bg-overlay)] z-50" role="dialog" aria-modal="true" aria-label="Add user">
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-[var(--color-bg-overlay)] z-50"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Add user"
+          data-testid="manage-shared-add-user-backdrop"
+          onClick={(e) => {
+            if (e.target !== e.currentTarget || isProcessing) return;
+            setAddUserModal(null);
+            setNewUsername("");
+          }}
+        >
           <div className="bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] p-4 w-full max-w-md">
             <h3 className="text-sm font-semibold mb-4">Add User</h3>
             <p className="text-[var(--color-text-secondary)] text-sm mb-4">

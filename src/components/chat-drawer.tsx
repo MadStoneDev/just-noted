@@ -4,6 +4,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { IconMessageCircle } from "@tabler/icons-react";
 import NoteChatPanel from "@/components/note-chat-panel";
 import { useChatUnread } from "@/hooks/use-chat-unread";
+import { useMediaQuery, OVERLAY_VIEWPORT } from "@/hooks/use-media-query";
+import { useDismissableLayer } from "@/utils/escape-stack";
 
 /**
  * Chat that SHARES screen space with the note on desktop — the note column
@@ -32,6 +34,13 @@ export default function ChatDrawer({ noteId, enabled }: { noteId: string; enable
     }
     return () => { if (closeTimer.current) clearTimeout(closeTimer.current); };
   }, [open, mounted]);
+
+  // Below lg the chat is a full-width overlay over the note, so it's a layer:
+  // Escape closes it and focus returns to the handle. (It covers the whole note
+  // region, so there is no "outside" to press.) On desktop it's an in-flow
+  // column beside the note, not an overlay, and Escape keeps its shell meaning.
+  const overlay = useMediaQuery(OVERLAY_VIEWPORT);
+  useDismissableLayer({ open: open && overlay, onClose: () => setOpen(false) });
 
   // A different note resets the drawer.
   useEffect(() => { setOpen(false); }, [noteId]);

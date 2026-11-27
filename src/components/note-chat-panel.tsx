@@ -30,6 +30,7 @@ import { useToast } from "@/components/ui/toast";
 import { Avatar } from "@/components/ui/avatar";
 import type { ChatMessageView } from "@/lib/chat";
 import { formatWhen } from "@/utils/format-date";
+import { useEscapeLayer } from "@/utils/escape-stack";
 
 // Fetches a short-lived presigned URL for a message's media and refreshes it
 // before it expires, so long-open chats never show a broken attachment.
@@ -142,6 +143,13 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [editing, setEditing] = useState<ChatMessageView | null>(null);
+  // Escape while editing a message cancels the edit only. As a stack layer it
+  // sits above the chat overlay (opened later), so the same press can't also
+  // close the chat or step out of the view.
+  useEscapeLayer(editing !== null, () => {
+    setEditing(null);
+    setText("");
+  });
   const [confirmDelete, setConfirmDelete] = useState<ChatMessageView | null>(null);
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -328,10 +336,6 @@ export default function NoteChatPanel({ noteId, open, onClose }: NoteChatPanelPr
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       submit();
-    } else if (e.key === "Escape" && editing) {
-      e.preventDefault(); // handled: don't also step out of the view
-      setEditing(null);
-      setText("");
     }
   };
 

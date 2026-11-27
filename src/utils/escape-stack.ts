@@ -8,14 +8,21 @@
 // (window capture is the first stop of the event's path). When a layer is open
 // it closes the topmost one and stops the event, so no other listener, global
 // shortcut or floating-ui dismiss sees it.
+//
+// Click-outside follows the same rule: one capture-phase pointerdown listener
+// asks only the TOPMOST layer whether the press was outside it. A layer that
+// registered without an outside test (e.g. a floating-ui dropdown, which
+// dismisses itself) still counts as topmost, so a press that closes a dropdown
+// never also closes the sheet or dialog under it.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 
-type Layer = { id: number; close: () => void };
+type Layer = { id: number; close: () => void; isOutside?: (target: Node) => boolean };
 
 const stack: Layer[] = [];
 let nextId = 1;
 let installed = false;
+let pointerInstalled = false;
 
 function onKeyDown(e: KeyboardEvent) {
   if (e.key !== "Escape" || e.isComposing) return;
@@ -26,16 +33,36 @@ function onKeyDown(e: KeyboardEvent) {
   top.close();
 }
 
+function onPointerDown(e: PointerEvent) {
+  const top = stack[stack.length - 1];
+  if (!top?.isOutside) return;
+  const target = e.target;
+  if (!(target instanceof Node) || !target.isConnected) return;
+  // Not stopped: the press still reaches whatever was under it (e.g. another
+  // button), the layer just closes first.
+  if (top.isOutside(target)) top.close();
+}
+
 function install() {
   if (installed || typeof window === "undefined") return;
   window.addEventListener("keydown", onKeyDown, true);
   installed = true;
 }
 
-/** Register an open layer. Returns its unregister function. */
-export function pushEscapeLayer(close: () => void): () => void {
+function installPointer() {
+  if (pointerInstalled || typeof document === "undefined") return;
+  document.addEventListener("pointerdown", onPointerDown, true);
+  pointerInstalled = true;
+}
+
+/**
+ * Register an open layer. Returns its unregister function. With `isOutside`,
+ * a pointerdown for which it returns true closes the layer while it is topmost.
+ */
+export function pushEscapeLayer(close: () => void, isOutside?: (target: Node) => boolean): () => void {
   install();
-  const layer = { id: nextId++, close };
+  if (isOutside) installPointer();
+  const layer: Layer = { id: nextId++, close, isOutside };
   stack.push(layer);
   return () => {
     const i = stack.findIndex((l) => l.id === layer.id);
@@ -52,7 +79,9 @@ export function hasEscapeLayer(): boolean {
 export function resetEscapeStack(): void {
   stack.length = 0;
   if (installed && typeof window !== "undefined") window.removeEventListener("keydown", onKeyDown, true);
+  if (pointerInstalled && typeof document !== "undefined") document.removeEventListener("pointerdown", onPointerDown, true);
   installed = false;
+  pointerInstalled = false;
 }
 
 /**
@@ -67,4 +96,49 @@ export function useEscapeLayer(active: boolean, onClose: () => void): void {
     if (!active) return;
     return pushEscapeLayer(() => ref.current());
   }, [active]);
+}
+
+type DismissableOptions = {
+  open: boolean;
+  onClose: () => void;
+  /**
+   * Elements that count as inside the layer: the panel, and usually its
+   * trigger (so pressing the trigger toggles instead of close-then-reopen).
+   * Omit to close on Escape only.
+   */
+  inside?: RefObject<HTMLElement | null>[];
+  /** Return focus to whatever had it when the layer opened. Default true. */
+  restoreFocus?: boolean;
+};
+
+/**
+ * Esc + click-outside + focus return for a popover, sheet or panel, in one
+ * stack position. Escape and outside presses only ever close the topmost layer.
+ */
+export function useDismissableLayer({ open, onClose, inside, restoreFocus = true }: DismissableOptions): void {
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  const insideRef = useRef(inside);
+  insideRef.current = inside;
+
+  useEffect(() => {
+    if (!open) return;
+    const opener = typeof document !== "undefined" ? (document.activeElement as HTMLElement | null) : null;
+    const isOutside = insideRef.current
+      ? (target: Node) => !(insideRef.current ?? []).some((r) => r.current?.contains(target))
+      : undefined;
+    const pop = pushEscapeLayer(() => closeRef.current(), isOutside);
+    return () => {
+      pop();
+      if (!restoreFocus || !opener || !opener.isConnected) return;
+      // Only take focus back if it was left inside the closing layer or dropped
+      // to <body>; a click that moved focus elsewhere wins.
+      const active = document.activeElement;
+      const lostInside =
+        !active ||
+        active === document.body ||
+        (insideRef.current ?? []).some((r) => r.current?.contains(active));
+      if (lostInside) opener.focus({ preventScroll: true });
+    };
+  }, [open, restoreFocus]);
 }

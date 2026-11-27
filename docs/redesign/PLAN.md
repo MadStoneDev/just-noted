@@ -29,7 +29,7 @@ Inputs: `docs/redesign/project/README-for-code.md` (the brief) and the five mock
 | `rgba(4,6,6,.62)` scrim | `--color-bg-overlay` (existing) | |
 | `0 16px 40px rgba(0,0,0,.5)` | **new** `--shadow-popover` | `--shadow-modal` already exists for dialogs |
 
-**New tokens, in total:** `--color-mark`, `--color-mark-strong`, `--shadow-popover`, plus a z-index scale (`--z-popover`, `--z-drawer`, `--z-dialog`, `--z-toast`). Today's z-values run from 50 to 10010 (see Stage 1). All of them get light, dark-media and `.dark` values, matching the existing pattern.
+**New tokens, in total:** `--color-mark`, `--color-mark-strong`, `--color-mark-strong-text`, `--shadow-popover`, plus a z-index scale (`--z-popover`, `--z-drawer`, `--z-dialog`, `--z-toast`). Today's z-values run from 50 to 10050 (see Stage 1). The colour and shadow tokens get light, dark-media and `.dark` values, matching the existing pattern; the z-index scale is theme-independent. `--color-mark-strong-text` was added during Stage 1: the dark title-hit background is the accent fill, which needs dark text.
 
 ---
 
@@ -59,7 +59,8 @@ Smallest safe first: purely additive tokens, plus a behaviour fix the brief asks
 - `src/utils/escape-stack.ts`: add `useDismissableLayer({ open, onClose, ref, outside: true, restoreFocus: true })`. It wraps `useEscapeLayer` and adds pointer-down-outside (ignoring clicks inside any *higher* layer, so a dropdown inside a dialog doesn't close the dialog), plus returning focus to the trigger. Escape logic stays in `escape-stack.ts`.
 - Stragglers that miss part of rule 8 today:
   - `sidebar/index.tsx:1525-1560`: the move-to-notebook sheet has no Escape handling.
-  - `notebook-export-button.tsx:44-53,302` and `bulk-action-bar.tsx:41-45,126`: click-outside only, no Esc.
+  - `bulk-action-bar.tsx:41-45,126`: click-outside only, no Esc.
+  - ~~`notebook-export-button.tsx`~~: found during Stage 1 to be dead code. Its only importer, `NotebookBreadcrumb`, is never rendered. Not fixed; Stage 5 takes over the breadcrumb and decides whether to delete it (C24).
   - `manage-shared-notes.tsx:141,634`: Esc but no click-outside.
   - `chat-drawer.tsx`: below lg it is an overlay with neither Esc nor a backdrop.
 
@@ -75,6 +76,18 @@ Smallest safe first: purely additive tokens, plus a behaviour fix the brief asks
 - Extend `src/utils/escape-stack.test.tsx`: outside-click closes only the topmost layer; a click in a child layer doesn't close the parent.
 - Extend `e2e/escape-layers.spec.ts`: open the move sheet, press Esc, it closes; open an export menu, press Esc.
 - Screenshots: none needed.
+
+**As built (2026-11-27)**
+- **Dismiss contract:** `useDismissableLayer` (Esc + outside press + focus return) is in `src/utils/escape-stack.ts`. Outside presses ask only the topmost layer. A dropdown open above a sheet is the topmost layer, so closing it never closes the sheet.
+- **Fixed overlays:**
+  - Move-to-notebook sheet: gains Escape, and is now a labelled `dialog`.
+  - Bulk Move menu: gains Escape; the trigger toggles it.
+  - Manage-shared confirm and Add-user modals: close on a backdrop click.
+  - Phone chat overlay: Escape closes it. It covers the whole note, so there is nothing outside it to press. Escape while editing a chat message cancels only the edit.
+- **Not done:** `notebook-export-button` is dead code; it moves to Stage 5.
+- **Fonts commit:** IBM Plex Mono 400/500 (`preload: false`) for `--font-meta`; Inter dropped. Playfair is still loaded pending wordmark sign-off; the preview is `docs/screenshots/wordmark-compare.png`.
+- **Found and fixed during Stage 1:** on phones, the swipe actions (Pin / Move / Delete) did nothing. `SwipeableRow`'s click-capture handler, meant to stop a swipe from opening the note, also swallowed taps on the revealed action buttons. Taps inside `[data-swipe-action]` now go through. Covered by the new phone e2e in `escape-layers.spec.ts`.
+- **Seen once, not reproduced:** in one full E2E run, the seeded shared note (account A) was overwritten. Its title gained an extra "E" and its body became just the `e2e-b7-…` marker from core-flows' offline account-switch test. Three later specs then failed on the missing text. The same specs passed in isolation and in the next full run. It looks like interference between specs sharing account A, but it hasn't been traced, nor checked against the pre-Stage-1 commit. Worth a ticket.
 
 ---
 

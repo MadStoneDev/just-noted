@@ -4,7 +4,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { currentAccount, readPlace, writePlace, type RailView } from "@/utils/account-place";
 import { Shortcut } from "@/components/ui/shortcut";
 import { useShortcut } from "@/utils/shortcut-label";
-import { useEscapeLayer } from "@/utils/escape-stack";
+import { useEscapeLayer, useDismissableLayer } from "@/utils/escape-stack";
+import { useMediaQuery, OVERLAY_VIEWPORT } from "@/hooks/use-media-query";
 import { usePathname } from "next/navigation";
 import { useNotesStore } from "@/stores/notes-store";
 import { useShallow } from "zustand/react/shallow";
@@ -409,15 +410,11 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
   // docked sidebar; below lg the open list is a drawer over the editor, and
   // there Escape closes it like any other drawer.
   useEscapeLayer(filterSheetOpen, () => setFilterSheetOpen(false));
-  const [overlayViewport, setOverlayViewport] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 1023.98px)");
-    const sync = () => setOverlayViewport(mq.matches);
-    sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
+  const overlayViewport = useMediaQuery(OVERLAY_VIEWPORT);
   useEscapeLayer(listOpen && overlayViewport, () => setSidebarOpen(false));
+  // The move-to-notebook sheet: its backdrop handles outside presses; this adds
+  // Escape (it had none) and returns focus to the row that opened it.
+  useDismissableLayer({ open: moveNoteId !== null, onClose: () => setMoveNoteId(null) });
 
   // Never leave the fixed filter sheet on screen after the sidebar closes.
   useEffect(() => {
@@ -1531,6 +1528,9 @@ export default function Sidebar({ onNoteClick, onBulkDelete, onDeleteNote, onMov
           onClick={() => setMoveNoteId(null)}
         />
         <div
+          role={moveNoteId ? "dialog" : undefined}
+          aria-modal={moveNoteId ? true : undefined}
+          aria-label={moveNoteId ? "Move to notebook" : undefined}
           className={`relative w-full md:w-[420px] md:max-w-[92vw] max-h-[80vh] bg-[var(--color-raised)] border-t md:border border-[var(--color-hairline)] rounded-t-[var(--radius-xl)] md:rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)] transition-all duration-[var(--duration-slow)] flex flex-col ${moveNoteId ? "translate-y-0 opacity-100 md:scale-100" : "translate-y-full opacity-100 md:translate-y-0 md:opacity-0 md:scale-95"}`}
           style={{ transitionTimingFunction: "var(--ease-spring)" }}
         >

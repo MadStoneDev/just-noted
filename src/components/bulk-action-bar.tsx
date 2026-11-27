@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
+import { useDismissableLayer } from "@/utils/escape-stack";
 import { useNotesStore } from "@/stores/notes-store";
 import { bulkAssignNotesToNotebook } from "@/app/actions/notebookActions";
 import NotebookMoveMenu from "@/components/notebook-move-menu";
@@ -36,15 +37,8 @@ export default function BulkActionBar({
 
   const count = selectedNoteIds.size;
 
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setShowMoveMenu(false);
-      }
-    };
-    if (showMoveMenu) document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showMoveMenu]);
+  // menuRef wraps the Move button and its menu, so pressing Move toggles.
+  useDismissableLayer({ open: showMoveMenu, onClose: () => setShowMoveMenu(false), inside: [menuRef] });
 
   const handleAssign = async (notebookId: string | null) => {
     if (count === 0) return;
@@ -123,7 +117,7 @@ export default function BulkActionBar({
           </button>
 
           {showMoveMenu && (
-            <div className="absolute bottom-full left-0 right-0 mb-1 bg-[var(--color-bg-elevated)] rounded-[var(--radius-md)] shadow-[var(--shadow-lg)] border border-[var(--color-border-primary)] max-h-60 overflow-y-auto z-50">
+            <div data-testid="bulk-move-menu" className="absolute bottom-full left-0 right-0 mb-1 bg-[var(--color-bg-elevated)] rounded-[var(--radius-md)] shadow-[var(--shadow-lg)] border border-[var(--color-border-primary)] max-h-60 overflow-y-auto z-50">
               <NotebookMoveMenu
                 notebooks={notebooks}
                 onMove={handleAssign}

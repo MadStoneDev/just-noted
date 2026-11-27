@@ -91,6 +91,18 @@ describe("muted text contrast (WCAG AA)", () => {
     }
   }
 
+  // Search-hit highlights (redesign): body text on the soft mark, and the
+  // strong (title) mark with its own text colour.
+  for (const [theme, block] of [["light", light], ["dark", dark]] as const) {
+    it(`${theme} search-hit marks ≥ ${AA}:1`, () => {
+      expect(contrast(token(block, "ink"), token(block, "mark")), "ink on mark").toBeGreaterThanOrEqual(AA);
+      expect(
+        contrast(token(block, "mark-strong-text"), token(block, "mark-strong")),
+        "mark-strong-text on mark-strong",
+      ).toBeGreaterThanOrEqual(AA);
+    });
+  }
+
   it("dark muted text still reads as secondary to primary text", () => {
     const canvas = token(dark, "canvas");
     const ink = contrast(token(dark, "ink"), canvas);

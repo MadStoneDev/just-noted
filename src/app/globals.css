@@ -288,6 +288,26 @@
 
   /* Focus ring — 2px accent-fill @60%, 2px offset */
   --focus-ring: 0 0 0 2px var(--color-canvas), 0 0 0 4px color-mix(in srgb, var(--color-accent-fill) 60%, transparent);
+
+  /* Search-hit highlight (sidebar redesign). --color-mark is the soft hit in
+     previews (text stays --color-ink); --color-mark-strong is the title hit and
+     takes --color-mark-strong-text. Both pairs are AA-checked in
+     typography-floor.test.ts. */
+  --color-mark: #CDEBE7;
+  --color-mark-strong: #9ED8D1;
+  --color-mark-strong-text: #131817;
+
+  /* Anchored popovers (filter, notifications). Dialogs keep --shadow-modal. */
+  --shadow-popover: 0 12px 32px rgb(0 0 0 / 0.12), 0 2px 6px rgb(0 0 0 / 0.06);
+
+  /* Overlay stacking order. Matches the values already in use, so adopting a
+     token never changes what sits on top: sheets/drawers and dialogs share a
+     level (the Escape stack decides which is "on top" for input), popovers and
+     dropdowns float above them (a dropdown inside a dialog), toasts above all. */
+  --z-drawer: 10000;
+  --z-dialog: 10000;
+  --z-popover: 10010;
+  --z-toast: 10050;
 }
 
 /* Dark values — kept in sync across the two selectors below. */
@@ -341,6 +361,11 @@
     --color-avatar-teal-text: #8FD8D3;
     --color-avatar-neutral-bg: #2B3130;
     --color-avatar-neutral-text: #C9D1CF;
+
+    --color-mark: #24504C;
+    --color-mark-strong: #0FB8B0;
+    --color-mark-strong-text: #04100F;
+    --shadow-popover: 0 16px 40px rgb(0 0 0 / 0.5);
   }
 }
 
@@ -393,6 +418,11 @@
   --color-avatar-teal-text: #8FD8D3;
   --color-avatar-neutral-bg: #2B3130;
   --color-avatar-neutral-text: #C9D1CF;
+
+  --color-mark: #24504C;
+  --color-mark-strong: #0FB8B0;
+  --color-mark-strong-text: #04100F;
+  --shadow-popover: 0 16px 40px rgb(0 0 0 / 0.5);
 }
 
 /* ============================================
