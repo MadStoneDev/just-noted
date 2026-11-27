@@ -276,7 +276,7 @@ Wide "on" uses `accent-tint` / `accent-text` in **both** themes. Today it uses `
 - **Click targets by type** (C13): `edited_shared_note` opens the note; `chat_message` and `mention` open the note with the chat open.
 - **"Clear all"** stays as a quiet secondary action next to "Mark all read" (C14).
 - **Long lists:** cap the height (e.g. 60vh) and scroll.
-- **Phones** (C15): Notifications goes into the You drawer (`mobile-account-drawer.tsx`) as a list or sheet, and the You tab gets an unread badge (`MobileTabBar`).
+- **Phones** (C15, revised): a bell with an unread badge sits in the top-right of the notes list header, next to "+" and "…" (`sidebar/index.tsx` header, below lg). It opens the same notifications content as a bottom sheet, reusing the `ds/drawer` sheet styles. The You drawer and the You tab are unchanged. Add a 390px e2e: tap the bell → sheet → tap a share notification → Shared list with the note selected.
 
 **Tests**
 - Update `e2e/shared-note-open.spec.ts`: click the bell (popover), click the notification, assert the URL, Shared rail current and the active row. Add Esc and click-outside.
@@ -419,7 +419,7 @@ Listed in the first draft without decisions. Each one now has a **Decision** lin
 - **C14. "Clear" (delete all notifications)** exists today; the mockup has only "Mark all read".
   - **Decision:** Keep "Clear all" as a quiet secondary action next to "Mark all read".
 - **C15. Phones have no bell.** The tab bar is Notes, Notebooks, Shared, Settings, You. There are no mobile mockups. Options: add a bell to the tab bar or the You drawer, or leave phones without notifications as today.
-  - **Decision:** Phones get Notifications in the You drawer, with an unread badge on the You tab.
+  - **Decision (revised 2026-11-27):** Phones get a bell in the top-right of the notes list header (next to "+" and "…"), with an unread badge. It opens the notifications as a bottom sheet. (This replaces the earlier "You drawer + badge on the You tab" decision.)
 
 **Share**
 - **C16. Share features the mockup doesn't show:**
