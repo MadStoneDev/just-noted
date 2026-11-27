@@ -203,7 +203,15 @@ export function SwipeableRow({
   };
 
   // Suppress the tap-through that would open the note right after a swipe.
+  // Taps on the revealed Pin / Move / Delete buttons are the point of the swipe,
+  // so they go through (this capture handler wraps them too, and used to
+  // swallow them while the row was open).
   const onClickCapture = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest?.("[data-swipe-action]")) {
+      moved.current = false;
+      longPressed.current = false;
+      return;
+    }
     if (moved.current || open || longPressed.current) {
       e.preventDefault();
       e.stopPropagation();
@@ -216,7 +224,7 @@ export function SwipeableRow({
   return (
     <div className="relative overflow-hidden rounded-[var(--radius-8)]" onClickCapture={onClickCapture}>
       {/* Pin + Move (revealed swiping right) */}
-      <div className="absolute inset-y-0 left-0 flex items-stretch" style={{ width: SWIPE_RIGHT_W }} aria-hidden={open !== "left"}>
+      <div data-swipe-action className="absolute inset-y-0 left-0 flex items-stretch" style={{ width: SWIPE_RIGHT_W }} aria-hidden={open !== "left"}>
         <button
           onClick={() => { onPin(); close(); }}
           className="flex flex-col items-center justify-center gap-0.5 text-[var(--color-accent-text)] bg-[var(--color-accent-tint)]"
@@ -235,7 +243,7 @@ export function SwipeableRow({
         </button>
       </div>
       {/* Delete (revealed swiping left) */}
-      <div className="absolute inset-y-0 right-0 flex items-stretch" style={{ width: SWIPE_LEFT_W }} aria-hidden={open !== "right"}>
+      <div data-swipe-action className="absolute inset-y-0 right-0 flex items-stretch" style={{ width: SWIPE_LEFT_W }} aria-hidden={open !== "right"}>
         <button
           onClick={() => { onDelete(); close(); }}
           className="w-full flex flex-col items-center justify-center gap-0.5 text-[var(--color-danger)] bg-[var(--color-danger-subtle)]"
