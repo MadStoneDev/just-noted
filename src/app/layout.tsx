@@ -1,7 +1,7 @@
 import "./globals.css";
 
 import { GoogleAnalytics } from "@next/third-parties/google";
-import { Inter, Playfair_Display, Newsreader, Public_Sans } from "next/font/google";
+import { IBM_Plex_Mono, Playfair_Display, Newsreader, Public_Sans } from "next/font/google";
 
 import React, { ReactNode } from "react";
 import LogRocket from "@/components/providers/logrocket-provider";
@@ -10,10 +10,13 @@ import { ConsentBanner } from "@/components/ui/consent-banner";
 import PreventFileDropNavigation from "@/components/providers/prevent-file-drop";
 import UpdateAvailableBanner from "@/components/update-available-banner";
 
-const inter = Inter({
-  variable: "--font-inter",
+// Meta text (counts, dates, word stats) — the --font-meta token. Not preloaded:
+// it's never the largest paint, so it can arrive after first render.
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-plex-mono",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500"],
+  preload: false,
 });
 
 const playfair = Playfair_Display({
@@ -86,10 +89,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${playfair.variable} ${newsreader.variable} ${publicSans.variable}`}
+      className={`${plexMono.variable} ${playfair.variable} ${newsreader.variable} ${publicSans.variable}`}
     >
       <body
-        className={`min-h-dvh print:min-h-0 flex flex-col ${inter.variable} ${playfair.variable} ${newsreader.variable} ${publicSans.variable} antialiased`}
+        className={`min-h-dvh print:min-h-0 flex flex-col ${plexMono.variable} ${playfair.variable} ${newsreader.variable} ${publicSans.variable} antialiased`}
         style={{ backgroundColor: "var(--color-bg-secondary)", color: "var(--color-text-primary)" }}
       >
         <LogRocket>
