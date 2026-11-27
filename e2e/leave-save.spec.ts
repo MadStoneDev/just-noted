@@ -14,7 +14,8 @@ import { e2eFileEnv } from "./fixtures/env";
 // the text back — and that a tab taking the note over never types over it.
 //
 // Losing the network saves: with no other tab, the context goes offline for
-// the close (nothing can leave). With a second tab open (it must stay online),
+// the close and the page's fetch fails from that moment (nothing can leave;
+// see typeAndCloseOffline). With a second tab open (it must stay online),
 // the keepalive is dropped by a test hook on /api/notes/leave-save — with
 // E2E_TEST_HOOKS=1 on the server (playwright.config.ts) the
 // `e2e_drop_leave_save=1` cookie makes it accept and not save, proven at the
@@ -149,17 +150,36 @@ async function recordKeepalives(page: Page) {
 }
 
 /**
- * Type, then close with NO network save able to leave: the context is offline
- * for the close (the keepalive and the page's own server-action save both
- * fail), then back online for whatever opens next. page.route alone isn't
- * enough here: a save issued from pagehide can slip past interception while
- * the page is being torn down (seen ~1 in 6 runs).
+ * Make every fetch from this page fail once `window.__e2eNetDown` is set (see
+ * typeAndCloseOffline). Install before the page's first navigation, so the app
+ * only ever sees the wrapped fetch.
+ */
+async function failFetchesWhenNetDown(page: Page) {
+  await page.addInitScript(() => {
+    const orig = window.fetch;
+    window.fetch = function (this: unknown, ...args: Parameters<typeof fetch>) {
+      if ((window as any).__e2eNetDown) return Promise.reject(new TypeError("Failed to fetch"));
+      return orig.apply(this, args);
+    } as typeof fetch;
+  });
+}
+
+/**
+ * Type, then close with NO network save able to leave, then go back online for
+ * whatever opens next. The page must have failFetchesWhenNetDown installed.
+ *
+ * context.setOffline alone is not enough: a request the page starts late in
+ * its teardown (after visibilitychange→hidden; here the autosave flush) is not
+ * held by Chromium's offline emulation and reaches the server — 12 of 20 runs
+ * in e2e/diag-offline-close.spec.ts. page.route has the same gap. So the page's
+ * own fetch fails too, from the moment the network is cut.
  */
 async function typeAndCloseOffline(ctx: BrowserContext, page: Page, marker: string) {
   await editor(page).click();
   await page.keyboard.press("End");
   await page.keyboard.type(marker);
   await expect(editor(page)).toContainText(marker);
+  await page.evaluate(() => ((window as any).__e2eNetDown = true));
   await ctx.setOffline(true);
   const closed = page.waitForEvent("close");
   await page.close({ runBeforeUnload: true });
@@ -220,6 +240,7 @@ test.describe("closing a tab right after typing — guest", () => {
   });
 
   test("network lost at close, no other tab: the queue/cache bring it back on the next open", async ({ context, page }) => {
+    await failFetchesWhenNetDown(page);
     const { id, anon } = await newGuestNote(page);
     const marker = `e2e-leave-${Date.now()}`;
     await typeAndCloseOffline(context, page, marker);
@@ -390,6 +411,7 @@ test.describe("closing a tab right after typing — cloud", () => {
     page,
   }) => {
     const [acc] = seededAccounts();
+    await failFetchesWhenNetDown(page);
     const id = await newCloudNote(page, acc);
     made.push(id);
     const marker = `e2e-leave-cloud-${Date.now()}`;

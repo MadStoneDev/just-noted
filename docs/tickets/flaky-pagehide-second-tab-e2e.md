@@ -163,3 +163,32 @@ other tab, nothing else can send it.
 
 Not fixed here: possible keystroke loss when the editor view is recreated as
 typing starts — `docs/tickets/editor-recreated-while-typing.md`.
+
+## Follow-up (2026-11-27): "network lost at close" test flake — test-only
+
+`e2e/leave-save.spec.ts` "network lost at close, no other tab" (guest) and the
+cloud one failed their precondition "no network save got out" in 4–6 of 20
+runs: the server already had the text before the next open. **Not lost
+text** — it was saved *early*. Not the keepalive either: the route never
+logged a save, and the keepalive failed every time.
+
+Evidence (`e2e/diag-offline-close.spec.ts`, which logs every fetch and the
+close events in the page, 20 runs, 12 leaked; Valkey MONITOR timing in
+separate runs: leaked runs are written at the moment of close, passing runs
+~6s later on reopen):
+
+- Passing runs: the autosave server action is sent at `beforeunload` and fails
+  ("Failed to fetch") under `context.setOffline(true)`.
+- Leaked runs: the same save is sent later, after `visibilitychange→hidden`
+  (from the leave flush), and reaches the server although the context is
+  offline. Chromium's offline emulation does not hold a request the page starts
+  that late in its teardown. (`page.route` has the same gap, as noted in the
+  spec.) On a real dead network nothing would get out; on a live one, the text
+  being saved early is the right outcome.
+- Waiting for a probe request to fail before closing doesn't help (26/40
+  failed): the late request is the problem, not the emulation starting late.
+
+Fix (test only): `failFetchesWhenNetDown` wraps the page's `fetch` from its
+first load and, once the test cuts the network, rejects every call; the
+context still goes offline too. Result: 40/40 (guest + cloud × 20), and 40/40
+under 14 CPU hogs with 4 workers. No app change.
