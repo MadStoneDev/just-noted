@@ -3,6 +3,7 @@ import { ownerCanCollaborate } from "@/lib/subscription";
 import { noteIsTrashed } from "@/lib/note-trash";
 import { persistCollabState, type CollabStore } from "@/lib/collab-merge";
 import { snapshotBody } from "@/lib/note-snapshot";
+import { noteIsCollaborative, readCurrentCollabDoc } from "@/lib/collab-lifecycle";
 
 // Access + persistence helpers for the collaborative Yjs document (design
 // surface 05). Plain server functions (NOT "use server" actions) so they can be
@@ -42,7 +43,12 @@ export async function resolveCollabTarget(
     if (owns && (await noteIsTrashed(svc, target.noteId))) {
       return { noteId: target.noteId, canRead: false, canWrite: false };
     }
-    return { noteId: target.noteId, canRead: owns, canWrite: owns };
+    // The owner writes the doc only while the note is shared for editing: an
+    // editor's last save on its way out of collaboration (the note was just
+    // unshared) must not bring back the doc unsharing deleted
+    // (lib/collab-lifecycle.ts).
+    const canWrite = owns && (!needWrite || (await noteIsCollaborative(svc, target.noteId)));
+    return { noteId: target.noteId, canRead: owns, canWrite };
   }
 
   // Collaborator path — via a share shortcode. Auth + the share row don't depend
@@ -105,10 +111,12 @@ export type CollabLoad = { ok: true; state: string | null } | { ok: false; reaso
 export async function loadCollabState(target: CollabTarget): Promise<CollabLoad> {
   const { noteId, canRead } = await resolveCollabTarget(target, false);
   if (!noteId || !canRead) return { ok: false, reason: "forbidden" };
-  const svc = createServiceRoleClient();
-  const { data, error } = await svc.from("note_ydoc").select("state").eq("note_id", noteId).maybeSingle();
-  if (error) return { ok: false, reason: "error" };
-  return { ok: true, state: (data as any)?.state ?? null };
+  // A doc the note's content has moved past (saved without it, e.g. while the
+  // note wasn't shared) is discarded here, and reads as "no doc yet": the
+  // client seeds from the content (lib/collab-lifecycle.ts).
+  const r = await readCurrentCollabDoc(createServiceRoleClient(), noteId);
+  if (!r.ok) return { ok: false, reason: "error" };
+  return { ok: true, state: r.state };
 }
 
 /**

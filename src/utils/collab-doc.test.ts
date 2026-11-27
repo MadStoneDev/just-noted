@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as Y from "yjs";
 import { Schema } from "@milkdown/prose/model";
-import { collabDocIsBlank, collabDocText } from "./collab-doc";
+import { collabDocIsBlank, collabDocIsStale, collabDocMatchesContent, collabDocPlainText, collabDocText } from "./collab-doc";
 import { seedCollabDoc, seedClientId } from "./collab-seed";
 
 // Build a ProseMirror-shaped Yjs doc the way y-prosemirror does: a
@@ -106,5 +106,47 @@ describe("seedCollabDoc (deterministic first fill)", () => {
     const clients = [...Y.decodeStateVector(Y.encodeStateVector(d)).keys()];
     expect(clients).toEqual([seedClientId("note-1\u0000md")]);
     expect(clients).not.toContain(d.clientID);
+  });
+});
+
+describe("stale stored doc (content saved past it without it)", () => {
+  const doc = () => makeDoc((f) => { f.push([heading("Plan")]); f.push([para("Shared with B for collaboration specs.")]); });
+  const t0 = "2026-11-28T00:00:00.000Z";
+  const later = (ms: number) => new Date(Date.parse(t0) + ms).toISOString();
+
+  it("the doc's words match the note's Markdown, markup aside", () => {
+    expect(collabDocMatchesContent(collabDocText(doc()), "# Plan\n\nShared with **B** for collaboration specs.")).toBe(true);
+    expect(collabDocMatchesContent(collabDocText(doc()), "# Plan\n\nShared with B for collaboration specs. edit")).toBe(false);
+  });
+
+  it("link and image targets don't count as words", () => {
+    const d = makeDoc((f) => f.push([para("see docs here")]));
+    expect(collabDocMatchesContent(collabDocText(d), "see [docs](https://example.com/x) here![pic](a.png)")).toBe(true);
+  });
+
+  it("plain text keeps one block per paragraph", () => {
+    expect(collabDocPlainText(doc())).toBe("Plan\n\nShared with B for collaboration specs.");
+  });
+
+  it("stale: content newer than the doc by more than the grace, with different words", () => {
+    const base = { docText: collabDocText(doc()), docUpdatedAt: t0, content: "Plan Shared with B for collaboration specs. new" };
+    expect(collabDocIsStale({ ...base, noteUpdatedAt: later(60_000) })).toBe(true);
+  });
+
+  it("not stale within the grace (the doc and its projection land a moment apart)", () => {
+    const base = { docText: collabDocText(doc()), docUpdatedAt: t0, content: "different words entirely" };
+    expect(collabDocIsStale({ ...base, noteUpdatedAt: later(3_000) })).toBe(false);
+  });
+
+  it("not stale when only the title / pin moved the note's updated_at (same words)", () => {
+    const base = { docText: collabDocText(doc()), docUpdatedAt: t0, content: "# Plan\n\nShared with B for collaboration specs." };
+    expect(collabDocIsStale({ ...base, noteUpdatedAt: later(3_600_000) })).toBe(false);
+  });
+
+  it("not stale when the doc is the newer one, or a time is unknown", () => {
+    const base = { docText: collabDocText(doc()), content: "other" };
+    expect(collabDocIsStale({ ...base, docUpdatedAt: later(60_000), noteUpdatedAt: t0 })).toBe(false);
+    expect(collabDocIsStale({ ...base, docUpdatedAt: null, noteUpdatedAt: t0 })).toBe(false);
+    expect(collabDocIsStale({ ...base, docUpdatedAt: t0, noteUpdatedAt: undefined })).toBe(false);
   });
 });

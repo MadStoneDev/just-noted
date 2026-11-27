@@ -10,6 +10,8 @@ import { validateGoalType, validateNoteTitle } from "@/utils/validation";
 import { sameNoteContent } from "@/utils/notes-utils";
 import { wouldBlankNonEmpty } from "@/lib/collab-guard";
 import { snapshotBody, snapshotIfMajorShrink } from "@/lib/note-snapshot";
+import { afterOwnerContentSave, hasCollabDoc } from "@/lib/collab-lifecycle";
+import { saveCollabState } from "@/lib/collab-access";
 import type { SubscriptionTier } from "@/types/subscription";
 import { resolvePlanTier } from "@/lib/subscription";
 import {
@@ -122,6 +124,8 @@ type UpdateNoteResult = {
   current?: CombinedNote | null;
   /** Background write: the server note was kept and this copy was made. */
   conflicted?: boolean;
+  /** Background write on a collaborative note: merged into its Yjs doc. */
+  merged?: boolean;
   copyId?: string;
   error?: string;
 };
@@ -177,16 +181,7 @@ async function applyWithVersionBump(
 // colliding with the collaborators' saves. The caller's own write is still
 // author-scoped; this only reads whether the doc exists.
 async function noteHasYdoc(_supabase: any, noteId: string): Promise<boolean> {
-  try {
-    const { data } = await createServiceRoleClient()
-      .from("note_ydoc")
-      .select("note_id")
-      .eq("note_id", noteId)
-      .maybeSingle();
-    return !!data;
-  } catch {
-    return false;
-  }
+  return hasCollabDoc(createServiceRoleClient(), noteId);
 }
 
 // Background (unattended) CAS write — see utils/background-conflict.ts. The
@@ -268,6 +263,77 @@ async function backgroundCasWrite(
   return { success: false, error: "retry_exhausted" };
 }
 
+// Background write on a collaborative note, carrying the client's Yjs doc
+// state: the state is MERGED into the stored doc (a CRDT merge, see
+// lib/collab-merge.ts), so a collaborator's save in between is no conflict —
+// both edits are in the doc, and no "(conflicted copy)" is made. The note's
+// content follows the doc: if the server is still at the write's base the
+// text is applied (it is the doc's projection), otherwise the server's newer
+// content is kept and the next editor to open the note re-projects the merged
+// doc into it (milkdown-editor, bind). Returns null when the merge can't be
+// made (no doc, no access): the caller falls back to the CAS write.
+async function backgroundCollabWrite(
+  supabase: any,
+  userId: string,
+  noteId: string,
+  fields: { content: string; content_format: string; goal: number; goal_type: string },
+  base: BackgroundBase,
+  collabState: string,
+): Promise<UpdateNoteResult | null> {
+  if (!(await noteHasYdoc(supabase, noteId))) return null;
+  const merged = await saveCollabState({ noteId, state: collabState });
+  if (!merged.ok) return null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data: cur, error: readErr } = await supabase
+      .from("notes")
+      .select("content, version, deleted_at, updated_at")
+      .eq("id", noteId)
+      .eq("author", userId)
+      .maybeSingle();
+    if (readErr) return { success: false, error: String(readErr.message || readErr) };
+    if (!cur) return { success: false, error: "not_found" };
+    const curVersion = (cur as any).version ?? 1;
+    const decision = decideBackgroundWrite({
+      base,
+      serverVersion: curVersion,
+      serverContent: (cur as any).content,
+      serverDeleted: !!(cur as any).deleted_at,
+      serverUpdatedAt: (cur as any).updated_at,
+      content: fields.content,
+    });
+    if (decision !== "apply" || wouldBlankNonEmpty(fields.content, (cur as any).content)) {
+      // In the doc; the content is someone else's newer projection (or the
+      // same text already).
+      await afterOwnerContentSave(noteId, true);
+      return { success: true, version: curVersion, merged: true };
+    }
+    await snapshotIfMajorShrink(supabase, noteId, (cur as any).content, fields.content);
+    const { data, error } = await supabase
+      .from("notes")
+      .update({ ...fields, version: curVersion + 1, updated_at: new Date().toISOString() })
+      .eq("id", noteId)
+      .eq("author", userId)
+      .eq("version", curVersion)
+      .select("version")
+      .maybeSingle();
+    if (error) return { success: false, error: String(error.message || error) };
+    if (data) {
+      await afterOwnerContentSave(noteId, true);
+      return { success: true, version: (data as any).version, merged: true };
+    }
+    // raced — re-read
+  }
+  // The doc has the text; the content catches up on the next open.
+  await afterOwnerContentSave(noteId, true);
+  return { success: true, merged: true };
+}
+
+// A base64 Yjs state from the client (bounded: a note's doc, not a payload).
+const COLLAB_STATE_MAX = 4_000_000;
+function isCollabState(v: unknown): v is string {
+  return typeof v === "string" && v.length > 0 && v.length <= COLLAB_STATE_MAX && /^[A-Za-z0-9+/]+={0,2}$/.test(v);
+}
+
 export const updateNote = async (
   noteId: string,
   content: string,
@@ -285,6 +351,12 @@ export const updateNote = async (
      */
     conflictCopy?: ConflictCopySpec;
     queuedAt?: number;
+    /**
+     * Background write from an editor bound to the note's Yjs doc: the doc's
+     * full state (base64). Merged into the stored doc instead of the version
+     * check, so a collaborator's save in between makes no conflicted copy.
+     */
+    collabState?: string;
   },
 ): Promise<UpdateNoteResult> => {
   try {
@@ -296,19 +368,20 @@ export const updateNote = async (
       if (!isValidConflictCopy(opts.conflictCopy) || !isBackgroundBase(base)) {
         return { success: false, error: "Invalid data" };
       }
-      return await backgroundCasWrite(
-        supabase,
-        userId,
-        noteId,
-        {
-          content,
-          content_format: "markdown",
-          goal: wordCountGoal || 0,
-          goal_type: validateGoalType(wordCountGoalType),
-        },
-        base,
-        opts.conflictCopy,
-      );
+      const bgFields = {
+        content,
+        content_format: "markdown",
+        goal: wordCountGoal || 0,
+        goal_type: validateGoalType(wordCountGoalType),
+      };
+      if (isCollabState(opts.collabState)) {
+        const merged = await backgroundCollabWrite(supabase, userId, noteId, bgFields, base, opts.collabState);
+        if (merged) return merged;
+      }
+      const bg = await backgroundCasWrite(supabase, userId, noteId, bgFields, base, opts.conflictCopy);
+      // Applied as the note's text (not a copy): the Yjs doc, if any, follows.
+      if (bg.success && !bg.conflicted) await afterOwnerContentSave(noteId, false);
+      return bg;
     }
 
     const fields = {
@@ -362,7 +435,9 @@ export const updateNote = async (
     // has a collab doc. A client flag alone must never bypass conflict
     // protection on a private note (server-verified per audit condition #1).
     if (opts?.projection && (await noteHasYdoc(supabase, noteId))) {
-      return await applyWithVersionBump(supabase, noteId, userId, fields);
+      const r = await applyWithVersionBump(supabase, noteId, userId, fields);
+      if (r.success) await afterOwnerContentSave(noteId, true);
+      return r;
     }
 
     // CAS: the client sent the base version it edited from.
@@ -377,7 +452,12 @@ export const updateNote = async (
         .select("version")
         .maybeSingle();
       if (error) throw error;
-      if (data) return { success: true, version: (data as any).version };
+      if (data) {
+        // A plain save: on a note no longer shared for editing, its Yjs doc
+        // is now stale and goes (lib/collab-lifecycle.ts).
+        await afterOwnerContentSave(noteId, false);
+        return { success: true, version: (data as any).version };
+      }
       // Stale — hand back the current server note so the client resolves it.
       const { data: cur } = await supabase
         .from("notes")
@@ -392,7 +472,9 @@ export const updateNote = async (
     if (LEGACY_VERSIONLESS_WRITES || opts?.allowLegacy) {
       console.warn(`[versionless-write] note=${noteId}`); // counted via logs
       await snapshotCurrentContent(supabase, noteId, "legacy");
-      return await applyWithVersionBump(supabase, noteId, userId, fields);
+      const r = await applyWithVersionBump(supabase, noteId, userId, fields);
+      if (r.success) await afterOwnerContentSave(noteId, false);
+      return r;
     }
 
     return { success: false, error: "version_required" };

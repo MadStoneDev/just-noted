@@ -79,6 +79,13 @@ interface QueuedUpdateOp {
   /** Fixed id for that conflicted copy, so retries (and the tab-close keepalive
    * save of the same edit) make at most one. Assigned at enqueue. */
   copyId?: string;
+  /**
+   * The note's Yjs doc state (base64), when the edit was made in an editor
+   * bound to it (a collaborative note). The replay merges it into the stored
+   * doc instead of the version check: a collaborator's save in between makes
+   * no conflicted copy (supabaseActions backgroundCollabWrite).
+   */
+  collabState?: string;
 }
 
 interface QueuedUpdateTitleOp {
@@ -629,7 +636,11 @@ async function executeOp(payload: QueuedOperationPayload, queuedAt: number): Pro
           operation: "update", userId, noteId, content, goal, goalType, ...base, conflictCopy,
         });
       } else {
-        r = await updateSupabaseNote(noteId, content, goal, goalType, { ...base, conflictCopy });
+        r = await updateSupabaseNote(noteId, content, goal, goalType, {
+          ...base,
+          conflictCopy,
+          ...(payload.collabState ? { collabState: payload.collabState } : {}),
+        });
       }
       throwIfFailed(r, "Update failed");
       if (r.conflicted) {
@@ -1177,6 +1188,25 @@ export async function getPendingContentByNote(): Promise<Map<string, PendingNote
     }
   }
   return result;
+}
+
+/**
+ * The Yjs doc states queued with this note's unsynced edits (an editor bound
+ * to its collaborative doc wrote them; see QueuedUpdateOp.collabState), oldest
+ * first. An editor that opens the note before they replay merges them into
+ * the doc it binds to, so the edit shows (and syncs) at once.
+ */
+export async function getQueuedCollabStates(noteId: string): Promise<string[]> {
+  try {
+    const active = getActiveSupabaseUser();
+    return (await readOpsByNoteId(noteId))
+      .filter((o) => shouldSyncOp(o.payload, active))
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .map((o) => (o.payload.type === "update" ? o.payload.collabState : undefined))
+      .filter((s): s is string => typeof s === "string" && s.length > 0);
+  } catch {
+    return [];
+  }
 }
 
 export interface LandedSave {

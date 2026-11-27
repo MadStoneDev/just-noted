@@ -63,7 +63,7 @@ export interface NotesOperations {
     content: string,
     goal: number,
     goalType: "" | "words" | "characters",
-    opts?: { projection?: boolean; baseVersion?: number },
+    opts?: SaveContentOpts,
   ) => Promise<{ success: boolean; version?: number }>;
   saveNoteTitle: (noteId: string, title: string) => Promise<{ success: boolean }>;
   refreshSingleNote: (noteId: string) => Promise<CombinedNote | null>;
@@ -80,11 +80,34 @@ export interface NotesOperations {
     content: string,
     goal: number,
     goalType: "" | "words" | "characters",
-    opts: { baseVersion?: number; closing: boolean },
+    opts: { baseVersion?: number; closing: boolean; collabState?: string },
   ) => void;
+}
+
+export interface SaveContentOpts {
+  projection?: boolean;
+  baseVersion?: number;
+  /**
+   * The editor's Yjs doc state, read only if the save fails and is queued: the
+   * replay then merges it into the note's doc instead of version-checking
+   * (a collaborative note; see offline-queue QueuedUpdateOp.collabState).
+   */
+  collabState?: () => string | undefined;
 }
 import { HAS_INITIALISED_KEY } from "@/constants/app";
 import { formatDateTime } from "@/utils/format-date";
+
+function targetCollab(state: string | undefined): { collabState?: string } {
+  return state ? { collabState: state } : {};
+}
+
+function collabStateOf(opts: SaveContentOpts | undefined): { collabState?: string } {
+  try {
+    return targetCollab(opts?.collabState?.());
+  } catch {
+    return {};
+  }
+}
 
 export function useNotesOperations(
   userId: string | null,
@@ -942,7 +965,7 @@ export function useNotesOperations(
       content: string,
       goal: number,
       goalType: "" | "words" | "characters",
-      opts?: { projection?: boolean; baseVersion?: number },
+      opts?: SaveContentOpts,
     ) => {
       if (!userId) return { success: false };
       // Deleted here: nothing more is saved to it (an editor's last flush or
@@ -1063,7 +1086,7 @@ export function useNotesOperations(
               // sign-out counting unsynced notes) must find this entry there.
               await enqueue({
                 type: "update", noteId, source: targetNote.source, userId, content, goal, goalType,
-                baseVersion,
+                baseVersion, ...collabStateOf(opts),
               }).catch(() => {});
             }
             return r;
@@ -1093,7 +1116,7 @@ export function useNotesOperations(
         setSaveError(noteId, true);
         await enqueue({
           type: "update", noteId, source: targetNote.source, userId, content, goal, goalType,
-          baseVersion: attemptBase,
+          baseVersion: attemptBase, ...collabStateOf(opts),
         }).catch(() => {});
         return { success: false };
       } finally {
@@ -1229,9 +1252,12 @@ export function useNotesOperations(
       content: string,
       goal: number,
       goalType: "" | "words" | "characters",
-      opts: { baseVersion?: number; closing: boolean },
+      opts: { baseVersion?: number; closing: boolean; collabState?: string },
     ) => {
       if (!userId || isPendingDelete(noteId)) return;
+      // A collaborative note's doc state rides along on every write below:
+      // merged into the stored doc, not version-checked (cloud notes only).
+      const collab = targetCollab(opts.collabState);
       const targetNote = useNotesStore.getState().notes.find((note) => note.id === noteId);
       if (!targetNote) return;
 
@@ -1250,7 +1276,7 @@ export function useNotesOperations(
       // 2. The offline-queue entry.
       enqueueContentNow({
         type: "update", noteId, source: targetNote.source, userId, content, goal, goalType,
-        baseVersion, copyId,
+        baseVersion, copyId, ...(targetNote.source === "supabase" ? collab : {}),
       });
 
       if (!opts.closing) return; // a tab switch: the page lives, its normal save follows
@@ -1267,6 +1293,7 @@ export function useNotesOperations(
         goalType,
         baseVersion,
         copyId,
+        ...(targetNote.source === "supabase" ? collab : {}),
       });
       // 4. A keepalive save, which can finish after the tab is gone — guest
       // notes too (under the device id, which is what authorises a guest save).
@@ -1282,6 +1309,7 @@ export function useNotesOperations(
         baseVersion,
         copyId,
         copyStamp: conflictStamp(),
+        ...(targetNote.source === "supabase" ? collab : {}),
       });
     },
     [userId, isAuthenticated, optimisticUpdateNote],

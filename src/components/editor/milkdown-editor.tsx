@@ -318,6 +318,18 @@ export interface CollabEditorConfig {
   editableWhileUnavailable?: boolean;
   /** Local edits the doc superseded (it had moved on from `base`), for history. */
   onLocalSuperseded?: (markdown: string) => void;
+  /**
+   * Once bound: a reader of the doc's full state (base64; null while it can't
+   * be saved), for the host's background writes (tab-close save, offline
+   * queue), which merge it into the stored doc. Called with null on unbind.
+   */
+  onDocState?: (get: (() => string | null) | null) => void;
+  /**
+   * Doc states this device has that the server may not (edits made offline,
+   * or in a tab that closed, still queued): merged into the doc right after
+   * the load, before anything binds to it.
+   */
+  localStates?: () => Promise<string[]>;
 }
 
 // Stored note content → the Markdown the editor loads (legacy notes may hold HTML).
@@ -591,10 +603,35 @@ function MilkdownEditorInner({
     };
 
     const onOnline = () => {
+      // Bound: save now. Edits made offline never reached the server, and the
+      // merged state it answers with brings in what peers did meanwhile.
+      if (collabReadyRef.current) {
+        persistNow();
+        return;
+      }
       if (!retryTimer) return; // not waiting on a retry
       clearTimeout(retryTimer);
       retryTimer = null;
       void bind();
+    };
+
+    // Re-project the doc into the note's content (the host saves it), once
+    // things go quiet. The listener reports only local edits, so without this
+    // the content keeps whichever client saved last.
+    const scheduleReproject = () => {
+      if (!onChangeRef.current || readOnlyRef.current) return;
+      if (reprojectTimer) clearTimeout(reprojectTimer);
+      reprojectTimer = setTimeout(() => {
+        reprojectTimer = null;
+        try {
+          get()?.action((ctx) => {
+            const d = ctx.get(editorViewCtx).state.doc;
+            if (emittedDocRef.current?.eq(d)) return;
+            emittedDocRef.current = d;
+            onChangeRef.current?.(ctx.get(serializerCtx)(d));
+          });
+        } catch {}
+      }, 1500);
     };
 
     const waitFor = (cond: () => boolean, ms: number) =>
@@ -642,23 +679,10 @@ function MilkdownEditorInner({
             if (saveTimer) clearTimeout(saveTimer);
             saveTimer = setTimeout(persistNow, 1200);
           }
-          // A peer's edit: the listener reports only local edits, so re-project
-          // the doc once peers go quiet. Otherwise the note's content keeps
-          // whichever client saved last, possibly before it had everyone's text.
-          if (fromPeer && onChangeRef.current && !readOnlyRef.current) {
-            if (reprojectTimer) clearTimeout(reprojectTimer);
-            reprojectTimer = setTimeout(() => {
-              reprojectTimer = null;
-              try {
-                get()?.action((ctx) => {
-                  const d = ctx.get(editorViewCtx).state.doc;
-                  if (emittedDocRef.current?.eq(d)) return;
-                  emittedDocRef.current = d;
-                  onChangeRef.current?.(ctx.get(serializerCtx)(d));
-                });
-              } catch {}
-            }, 1500);
-          }
+          // A peer's edit: re-project the doc once peers go quiet. Otherwise
+          // the note's content keeps whichever client saved last, possibly
+          // before it had everyone's text.
+          if (fromPeer) scheduleReproject();
         };
         doc.on("update", persistHandler);
       }
@@ -675,6 +699,16 @@ function MilkdownEditorInner({
       }
       if (res.state) {
         try { Y.applyUpdate(doc!, b64ToBytes(res.state), "load"); } catch {}
+      }
+      // This device's own unsynced doc edits (queued): a CRDT merge, so they
+      // join whatever the server has, and are saved once bound.
+      if (collabConfig.localStates) {
+        let states: string[] = [];
+        try { states = await collabConfig.localStates(); } catch {}
+        if (cancelled) return;
+        for (const s of states) {
+          try { Y.applyUpdate(doc!, b64ToBytes(s), "local-queued"); } catch {}
+        }
       }
 
       // 2. No doc yet: seed from the text everyone has (the note's content).
@@ -705,6 +739,7 @@ function MilkdownEditorInner({
 
       // 3 + 4. Carry local edits over, then bind the editor to the doc. One
       // synchronous step, so no keystroke can land in between.
+      let docMovedOn = false;
       editor.action((ctx: any) => {
         const view = ctx.get(editorViewCtx);
         const parse = ctx.get(parserCtx);
@@ -718,6 +753,9 @@ function MilkdownEditorInner({
         const baseNode = baseMarkdown ? parse(baseMarkdown) : null;
         const baseMd = baseNode && typeof baseNode !== "string" ? md(baseNode) : "";
         const docMd = md(yXmlFragmentToProseMirrorRootNode(fragment, schema) as ProseNode);
+        // The doc holds text the note's content doesn't (a background write
+        // merged into it, a peer's edit whose projection never landed).
+        docMovedOn = docMd !== baseMd;
         if (localMd !== docMd && localMd !== baseMd) {
           if (docMd === baseMd) {
             doc!.transact(() => {
@@ -738,6 +776,16 @@ function MilkdownEditorInner({
       setLocked(false);
       if (pendingPersist) persistNow();
       collabConfig.onState?.("ready");
+      {
+        const d = doc!;
+        collabConfig.onDocState?.(() => {
+          if (cancelled || doc !== d || !collabReadyRef.current) return null;
+          if (collabDocIsBlank(d) && initialMarkdown) return null; // never a blank doc for a note with text
+          return bytesToB64(Y.encodeStateAsUpdate(d));
+        });
+      }
+      // Bring the note's content up to the doc it now shows.
+      if (docMovedOn) scheduleReproject();
 
       // Anchor API for the chat panel: capture the current selection as Yjs
       // relative positions (+ a quote fallback), and resolve/scroll/flash one.
@@ -810,6 +858,7 @@ function MilkdownEditorInner({
       if (saveTimer) clearTimeout(saveTimer);
       if (doc && persistHandler) doc.off("update", persistHandler);
       persistNow(); // flush final state on unmount (only if it was ever ready)
+      collabConfig.onDocState?.(null);
       try { service?.disconnect(); } catch {}
       provider?.destroy();
       doc?.destroy();

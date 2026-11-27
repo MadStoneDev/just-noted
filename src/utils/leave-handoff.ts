@@ -27,6 +27,8 @@ export interface LeaveHandoff {
   baseVersion?: number;
   /** Same copy id as the closing tab's queue entry and keepalive save. */
   copyId: string;
+  /** The closing editor's Yjs doc state, for a collaborative note (see the queue's QueuedUpdateOp). */
+  collabState?: string;
   /** TAB_ID of the closing tab. */
   from: string;
 }
@@ -81,6 +83,7 @@ export function isLeaveHandoff(v: unknown): v is LeaveHandoff {
     (h.baseVersion === undefined || Number.isInteger(h.baseVersion)) &&
     typeof h.copyId === "string" &&
     !!h.copyId &&
+    (h.collabState === undefined || typeof h.collabState === "string") &&
     typeof h.from === "string"
   );
 }

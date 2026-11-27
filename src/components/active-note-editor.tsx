@@ -63,6 +63,7 @@ import { noteChatAvailable } from "@/app/actions/chatActions";
 import {
   subscribeProblem,
   getPendingContentByNote,
+  getQueuedCollabStates,
   replayQueuedFor,
   queueClock,
   dropUpdatesQueuedSince,
@@ -474,6 +475,19 @@ export function NoteEditor({
   // onState reports: the sharing probe can hand over a new config for the same
   // room without the editor re-binding.
   const collabBoundRef = useRef(false);
+  // Reads the bound editor's Yjs doc state (base64), for background writes
+  // (tab-close save, offline queue): they merge it into the note's doc instead
+  // of version-checking. Set by the editor once bound (onDocState).
+  const collabDocStateRef = useRef<{ roomKey: string; get: () => string | null } | null>(null);
+  const currentCollabState = (): string | undefined => {
+    const c = collabDocStateRef.current;
+    if (!c || !collabBoundRef.current || c.roomKey !== prevNoteIdRef.current) return undefined;
+    try {
+      return c.get() ?? undefined;
+    } catch {
+      return undefined;
+    }
+  };
 
   // Read current collab state inside effects without making them re-run.
   const collabConfigRef = useRef(collabConfig);
@@ -558,6 +572,18 @@ export function NoteEditor({
           onState: (state) => {
             if (note.id !== prevNoteIdRef.current) return;
             collabBoundRef.current = state === "ready";
+          },
+          // Doc edits of ours still in the offline queue (or a closing tab's
+          // handoff): merged into the doc as it loads.
+          localStates: async () => {
+            const states = await getQueuedCollabStates(nid);
+            const h = peekHandoff(nid);
+            if (h?.collabState) states.push(h.collabState);
+            return states;
+          },
+          onDocState: (get) => {
+            if (get) collabDocStateRef.current = { roomKey: nid, get };
+            else if (collabDocStateRef.current?.roomKey === nid) collabDocStateRef.current = null;
           },
           onLocalSuperseded: (markdown) => {
             void saveVersion(nid, titleRef.current ?? "", markdown, "markdown", "safety");
@@ -810,7 +836,12 @@ export function NoteEditor({
             // through refs: this callback's deps don't include the collab state,
             // and a stale closure sent CAS saves that collided with collaborators'.
             // baseVersion pins the version we edited from (see baseVersionRef).
-            { projection: !!collabConfigRef.current && collabBoundRef.current, baseVersion: baseVersionRef.current },
+            {
+              projection: !!collabConfigRef.current && collabBoundRef.current,
+              baseVersion: baseVersionRef.current,
+              // Queued if it fails: the replay merges the doc, not a version check.
+              collabState: currentCollabState,
+            },
           );
           // A non-throwing failure (server rejected / queued offline) must
           // propagate so useAutoSave keeps the content dirty and retries.
@@ -954,6 +985,7 @@ export function NoteEditor({
       notesOperations.persistForLeave(note.id, value, goalTarget, goalType, {
         baseVersion: baseVersionRef.current,
         closing,
+        collabState: currentCollabState(),
       });
     };
     window.addEventListener("justnoted:leaving", onLeaving);

@@ -199,17 +199,53 @@ Raw lines: `collab-seed/after-fix/`.
 - **A second Yjs copy on the server**, from importing y-prosemirror server-side: the seed now lives in a client-only module.
   - A harmless `Yjs was already imported` line still prints once. The server-action layer (the merge) and the server-rendered editor each bundle their own Yjs and never exchange objects.
 
-### Follow-ups (not fixed)
+### Follow-ups
 
-- **Stale stored doc after unshare → edit → reshare.** The stored doc is never cleared on unshare, so it no longer matches the note's newer content. On the next open the doc wins, and the projection writes the old text back. The safety net snapshots the body only if most of the text goes.
-- **Background writes on a collab note are still version-checked:** leave-save on tab close, and queue replay of an offline save. If a collaborator saved meanwhile, the owner's last keystrokes become a conflicted copy, not a merge. Text isn't lost, but it's a copy.
+Fixed 2026-11-28 (the first two); the rest are still open.
+
+- **Stale stored doc after unshare → edit → reshare** (`lib/collab-lifecycle.ts`). Fixed:
+  - Unsharing deletes the doc. That covers removing the last editor, the link going off or down to view with no editors left, an editor downgraded to view, and Stop sharing. "Shared" here means someone other than the owner can edit.
+  - The owner's doc writes need the note to still be shared for editing. Otherwise the editor's last save on its way out of collaboration re-created the doc right after unsharing.
+  - A plain (non-projection) save on a note that isn't shared for editing deletes any doc left behind.
+  - Every save that goes through the doc marks it current (`touchCollabDoc`). That covers owner projections, collaborator saves and merged background writes.
+  - On load (`/api/collab`), a doc is discarded when the note's content was saved more than 10 s after the doc and holds different words (`collabDocIsStale`). The doc's text goes to Version history first (reason `safety`). The load then answers "no doc yet", and the client seeds from the content.
+    - The words check keeps a title or pin change, which also moves `updated_at`, from discarding a live doc.
+  - Tests:
+    - `e2e/collab-lifecycle.spec.ts`: unshare → edit → reshare keeps the edit; a doc saved past without it is discarded on load.
+    - `collab-lifecycle.test.ts` and `collab-doc.test.ts`.
+- **Background writes on a collab note** (leave-save on tab close, offline-queue replay). Fixed:
+  - An editor bound to the doc attaches the doc's full state to the queue entry, the tab-close keepalive and the closing tab's handoff.
+  - The server merges that state into the stored doc (the same CRDT merge as a live save) instead of the version check. If the server is still at the write's base, the content is applied. Otherwise the newer content is kept and no conflicted copy is made.
+  - When an editor binds and the doc holds text its content doesn't, it re-projects the doc into the content.
+  - An editor that opens the note while that queue entry is still pending merges the queued state into the doc as it loads. An open editor owns the note's uploads, so the queue won't replay the entry until the note is closed.
+  - A bound editor also saves the doc as soon as the browser is back online.
+  - Tests: `e2e/collab-lifecycle.spec.ts` (queue replay, tab close). On 20e7018 both make a conflicted copy, or lose the owner's text from the doc.
+- **Still open:**
+  - A collaborator's tab left open through unshare → edit → reshare still holds the old doc, and its next save re-inserts it. The editor would need to drop its doc when it loses access.
+  - An unbound owner editor's background write (the doc failed to load) has no doc state to merge, so it is still version-checked.
 - **Two people typing at exactly the same spot** interleave characters. That is the CRDT's normal behaviour.
 - `safety` versions show in Version history like the others. The list query caps at the plan's version count, so an old safety snapshot can scroll out of the list (it isn't deleted).
+
+### Leave-save "note over the keepalive cap, a second tab takes it over" flake (2026-11-28)
+
+`e2e/leave-save.spec.ts:440`, 20 runs per round, 2 workers. Each round ran against a production build of that commit, with a check that the server on :3050 was that commit's worktree.
+
+| Commit | Rounds | Failed |
+|---|---|---|
+| 20897f6 (before the fix) | 3 | 2 / 60 |
+| 20e7018 | 4 | 8 / 80 (6, 0, 2, 0) |
+
+**An old flake, not new.**
+- Every failure, on both commits, is the no-conflicts fixture finding one "(conflicted copy)" of the ~90 KB lorem text.
+- The rate swings between rounds of the same build (6/20, then 0/20 twice). That points to load, not the code.
+- Likely cause, not traced: the test types the marker and closes without waiting for the 90 KB note to be saved. A save that lands between the base version the closing tab recorded and the handoff replay would turn the replay into a copy.
+- If that holds, the fix belongs in the test (wait for the big text to land before typing the marker), not the app.
 
 ## Files
 
 - `e2e/diag-collab-seed-overwrite.spec.ts`: the reproduction (`E2E_DIAG=1`, skipped otherwise).
 - `e2e/collab-open-typing.spec.ts`: the regression specs (normal suite).
+- `e2e/collab-lifecycle.spec.ts`: unshare/reshare, stale doc on load, background writes (normal suite).
 - `e2e/diag-watch-seeded-note.cjs`: the full-run watcher.
 - `attribute.py`: matches watcher changes to running tests (`python3 attribute.py <dir with *-runN.json + .watch.jsonl>`).
 - `full-runs/`: per-run results, watcher logs, attribution.

@@ -27,6 +27,9 @@ export interface LeaveSavePayload {
    * this id — the same id the offline-queue entry for this edit carries. */
   copyId: string;
   copyStamp: string;
+  /** Cloud notes bound to a Yjs doc: the doc's full state (base64), merged
+   * into the stored doc on the server instead of the version check. */
+  collabState?: string;
 }
 
 /** Serialise the payload, or null when it is too large for a keepalive request. */

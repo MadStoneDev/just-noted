@@ -46,6 +46,7 @@ export async function serverNote(id: string) {
   return {
     content: ((n as any)?.content ?? "") as string,
     title: (n as any)?.title as string | undefined,
+    version: (n as any)?.version as number | undefined,
     doc: y ? ydocText((y as any).state) : null,
   };
 }

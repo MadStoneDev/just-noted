@@ -79,8 +79,8 @@ export async function POST(request: Request) {
   } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const { source = "supabase", userId, noteId, content, goal, goalType, baseVersion, copyId, copyStamp } = (body ??
-    {}) as Record<string, unknown>;
+  const { source = "supabase", userId, noteId, content, goal, goalType, baseVersion, copyId, copyStamp, collabState } =
+    (body ?? {}) as Record<string, unknown>;
   const conflictCopy = { id: copyId, stamp: copyStamp };
   if (
     (source !== "supabase" && source !== "redis") ||
@@ -91,7 +91,8 @@ export async function POST(request: Request) {
     (goalType !== undefined && typeof goalType !== "string") ||
     (baseVersion !== undefined && (typeof baseVersion !== "number" || !Number.isInteger(baseVersion))) ||
     !isValidConflictCopy(conflictCopy) ||
-    (source === "redis" && (typeof userId !== "string" || !isValidUUID(userId)))
+    (source === "redis" && (typeof userId !== "string" || !isValidUUID(userId))) ||
+    (collabState !== undefined && (typeof collabState !== "string" || source !== "supabase"))
   ) {
     return Response.json({ error: "Invalid data" }, { status: 400 });
   }
@@ -122,12 +123,20 @@ export async function POST(request: Request) {
       : await updateNote(noteId, content, (goal as number) ?? 0, (goalType as string) ?? "", {
           baseVersion,
           conflictCopy,
+          // A collaborative note's doc state: merged into the stored doc rather
+          // than version-checked (supabaseActions backgroundCollabWrite).
+          ...(typeof collabState === "string" ? { collabState } : {}),
         });
   if (process.env.E2E_TEST_HOOKS === "1") {
     console.log(`[e2e] leave-save ${source} ${noteId}: ${result.success ? "saved" : `failed ${result.error}`}`);
   }
   if (result.success) {
-    return Response.json({ success: true, version: result.version, conflicted: !!result.conflicted });
+    return Response.json({
+      success: true,
+      version: result.version,
+      conflicted: !!result.conflicted,
+      merged: !!(result as { merged?: boolean }).merged,
+    });
   }
   return Response.json({ success: false }, { status: result.error === "Invalid data" ? 400 : 500 });
 }

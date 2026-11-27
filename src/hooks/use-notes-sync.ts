@@ -838,6 +838,7 @@ export function useNotesSync() {
         goalType: h.goalType,
         baseVersion: h.baseVersion,
         copyId: h.copyId,
+        ...(h.collabState ? { collabState: h.collabState } : {}),
       })
         .then(() => {
           if (hasNoteHandoffListener(h.noteId)) return;

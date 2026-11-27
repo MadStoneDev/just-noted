@@ -1,5 +1,6 @@
 ﻿"use server";
 
+import { dropCollabDocIfNotCollaborative, touchCollabDoc } from "@/lib/collab-lifecycle";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { createClient, createServiceRoleClient } from "@/utils/supabase/server";
@@ -436,6 +437,8 @@ export async function sharingOperation(params: SharingOperationParams) {
               .from("shared_notes_readers")
               .update({ role: readerRole } as any)
               .eq("id", (existingReaders as any).id);
+            // Edit → view for the last editor: the note stops being collaborative.
+            if (storage === "supabase") await dropCollabDocIfNotCollaborative(noteId);
             return { success: true, shortcode, message: "Access updated" };
           }
 
@@ -459,6 +462,9 @@ export async function sharingOperation(params: SharingOperationParams) {
         // No revalidatePath here: the share sheet refetches its own state, and
         // refreshing "/" mid-session can remount the shell into the error
         // boundary (same failure the avatar save hit).
+        // A link turned off / down to view with no editors left: the note stops
+        // being collaborative, and its Yjs doc goes (lib/collab-lifecycle.ts).
+        if (storage === "supabase") await dropCollabDocIfNotCollaborative(noteId);
         return { success: true, shortcode };
       }
 
@@ -883,6 +889,8 @@ export async function sharingOperation(params: SharingOperationParams) {
         if (updateErr) {
           return { success: false, error: "Couldn't save your changes" };
         }
+        // Saved through the doc: it stays current (lib/collab-lifecycle.ts).
+        await touchCollabDoc(svc, noteId);
 
         void notifyNoteEdited(noteId, authenticatedUserId);
 
@@ -932,6 +940,8 @@ export async function sharingOperation(params: SharingOperationParams) {
         if (error) {
           return { success: false, error: "Failed to remove user access" };
         }
+        // The last editor removed: the note's Yjs doc goes (lib/collab-lifecycle.ts).
+        if (authenticatedUserId) await dropCollabDocIfNotCollaborative(noteId);
 
         revalidatePath("/");
         return { success: true };
@@ -951,6 +961,8 @@ export async function sharingOperation(params: SharingOperationParams) {
         if (error) {
           return { success: false, error: "Failed to stop sharing" };
         }
+        // Not shared any more: the note's Yjs doc goes (lib/collab-lifecycle.ts).
+        if (authenticatedUserId) await dropCollabDocIfNotCollaborative(noteId);
 
         revalidatePath("/");
         return { success: true };
